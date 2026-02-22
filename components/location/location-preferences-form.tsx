@@ -112,7 +112,23 @@ export function LocationPreferencesForm({
           <input className="mt-1 w-full rounded border p-2" value={form.locationLabel} onChange={(e) => setForm((prev) => ({ ...prev, locationLabel: e.target.value }))} />
         </label>
         <label className="text-sm">Radius (km)
-          <input className="mt-1 w-full rounded border p-2" type="number" min={1} max={200} value={form.radiusKm} onChange={(e) => setForm((prev) => ({ ...prev, radiusKm: e.target.value }))} />
+          <input
+            className="mt-1 w-full rounded border p-2"
+            type="number"
+            min={1}
+            max={200}
+            value={form.radiusKm}
+            onChange={(e) => {
+              const nextValue = e.target.value;
+              if (nextValue.trim() === "") {
+                setForm((prev) => ({ ...prev, radiusKm: "25" }));
+                return;
+              }
+              const parsed = Number(nextValue);
+              if (Number.isNaN(parsed)) return;
+              setForm((prev) => ({ ...prev, radiusKm: String(parsed) }));
+            }}
+          />
         </label>
       </div>
 
