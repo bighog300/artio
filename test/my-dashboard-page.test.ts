@@ -23,5 +23,5 @@ test("dashboard client renders venue rows and view-all link", () => {
   const source = readFileSync("components/my/my-dashboard-client.tsx", "utf8");
   assert.match(source, /entities\.venues\.map/);
   assert.match(source, /View all venues/);
-  assert.match(source, /\/my\/venues\/\$\{venue\.slug \|\| venue\.id\}/);
+  assert.match(source, /\/my\/venues\/\$\{venue\.id\}/);
 });

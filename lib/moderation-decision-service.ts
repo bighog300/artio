@@ -31,7 +31,7 @@ export async function decideSubmission(input: DecideSubmissionInput, dbClient: D
       where: { id: input.submissionId },
       include: {
         submitter: { select: { id: true, email: true } },
-        targetVenue: { select: { slug: true } },
+        targetVenue: { select: { id: true, slug: true } },
         targetEvent: { select: { id: true, slug: true } },
       },
     });
@@ -91,7 +91,7 @@ export async function decideSubmission(input: DecideSubmissionInput, dbClient: D
     const href = submission.type === "ARTIST"
       ? "/my/artist"
       : submission.type === "VENUE"
-        ? `/my/venues/${submission.targetVenue?.slug ?? submission.targetVenueId ?? ""}`
+        ? `/my/venues/${submission.targetVenue?.id ?? submission.targetVenueId ?? submission.targetVenue?.slug ?? ""}`
         : `/my/events/${submission.targetEvent?.slug ?? submission.targetEventId ?? ""}`;
 
     await tx.notification.create({

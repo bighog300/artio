@@ -99,7 +99,7 @@ export function MyDashboardClient() {
             <ul className="space-y-2">
               {data.entities.venues.map((venue) => (
                 <li key={venue.id}>
-                  <Link href={`/my/venues/${venue.slug || venue.id}`} className="flex items-center gap-3 rounded-md border p-2 transition-colors hover:bg-muted/50 sm:p-3">
+                  <Link href={`/my/venues/${venue.id}`} className="flex items-center gap-3 rounded-md border p-2 transition-colors hover:bg-muted/50 sm:p-3">
                     <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-muted sm:h-12 sm:w-12">
                       {venue.coverUrl ? <img src={venue.coverUrl} alt="" className="h-full w-full object-cover" /> : null}
                     </div>

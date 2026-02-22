@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
@@ -13,6 +13,7 @@ import VenuePublishPanel from "@/app/my/_components/VenuePublishPanel";
 import VenueArtistRequestsPanel from "@/app/my/_components/VenueArtistRequestsPanel";
 import { evaluateVenueReadiness } from "@/lib/publish-readiness";
 import { PublishReadinessChecklist } from "@/components/publishing/publish-readiness-checklist";
+import { resolveVenueIdFromRouteParam } from "./route-param";
 
 export default async function MyVenueEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,6 +28,13 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
       </main>
     );
   }
+
+  const routeVenue = await resolveVenueIdFromRouteParam(id, db);
+  if (!routeVenue) notFound();
+  if (routeVenue.redirected) {
+    redirect(`/my/venues/${routeVenue.venueId}`);
+  }
+  const venueId = routeVenue.venueId;
 
   const venueSelect = Prisma.validator<Prisma.VenueSelect>()({
     id: true,
@@ -74,7 +82,7 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
   });
 
   const membership = await db.venueMembership.findUnique({
-    where: { userId_venueId: { userId: user.id, venueId: id } },
+    where: { userId_venueId: { userId: user.id, venueId } },
     select: {
       role: true,
       venue: {
@@ -84,7 +92,7 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
   });
 
   const adminVenue = !membership && user.role === "ADMIN"
-    ? await db.venue.findUnique({ where: { id }, select: venueSelect })
+    ? await db.venue.findUnique({ where: { id: venueId }, select: venueSelect })
     : null;
 
   const venue = membership?.venue ?? adminVenue;
