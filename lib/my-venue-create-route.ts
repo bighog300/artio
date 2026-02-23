@@ -3,7 +3,17 @@ import { apiError } from "@/lib/api";
 import { VenueSlugExhaustedError, ensureUniqueVenueSlugWithDeps, slugifyVenueName } from "@/lib/venue-slug";
 import { myVenueCreateSchema, parseBody, zodDetails } from "@/lib/validators";
 
-type SessionUser = { id: string; email?: string | null };
+type SessionUser = {
+  id: string;
+  email?: string | null;
+  role?: "USER" | "EDITOR" | "ADMIN";
+};
+
+export class VenueLimitReachedError extends Error {
+  constructor(public readonly limit: number) {
+    super("venue_limit_reached");
+  }
+}
 
 type VenueRecord = {
   id: string;
@@ -16,6 +26,7 @@ type Deps = {
   requireAuth: () => Promise<SessionUser>;
   findExistingManagedVenue: (params: { userId: string; createKey: string }) => Promise<VenueRecord | null>;
   findVenueBySlug: (slug: string) => Promise<{ id: string } | null>;
+  assertCanCreateVenue: (user: SessionUser) => Promise<void>;
   createVenue: (data: {
     name: string;
     slug: string;
@@ -75,6 +86,8 @@ export async function handlePostMyVenue(req: NextRequest, deps: Deps) {
     }
 
     const slugBase = slugifyVenueName(parsedBody.data.name);
+    await deps.assertCanCreateVenue(user);
+
     const slug = await ensureUniqueVenueSlugWithDeps(
       { findBySlug: deps.findVenueBySlug },
       slugBase,
@@ -104,6 +117,12 @@ export async function handlePostMyVenue(req: NextRequest, deps: Deps) {
 
     return NextResponse.json({ venue, created: true }, { headers: NO_STORE_HEADERS });
   } catch (error) {
+    if (error instanceof VenueLimitReachedError) {
+      return NextResponse.json({ error: "venue_limit_reached", limit: error.limit }, { status: 400 });
+    }
+    if (error instanceof Error && error.message === "forbidden") {
+      return apiError(403, "forbidden", "Forbidden");
+    }
     if (error instanceof VenueSlugExhaustedError) return apiError(400, "invalid_request", error.message);
     return apiError(500, "internal_error", "Unexpected server error");
   }

@@ -24,6 +24,7 @@ test("persists canonical geolocation fields on venue create", async () => {
     requireAuth: async () => ({ id: "user-1", email: "owner@example.com" }),
     findExistingManagedVenue: async () => null,
     findVenueBySlug: async () => null,
+    assertCanCreateVenue: async () => undefined,
     createVenue: async (data) => {
       createPayload = data as unknown as Record<string, unknown>;
       return { id: "venue-1", slug: data.slug, name: data.name, isPublished: false };
@@ -59,6 +60,7 @@ test("maps legacy address and website fields on create", async () => {
     requireAuth: async () => ({ id: "user-1", email: "owner@example.com" }),
     findExistingManagedVenue: async () => null,
     findVenueBySlug: async () => null,
+    assertCanCreateVenue: async () => undefined,
     createVenue: async (data) => {
       createPayload = data as unknown as Record<string, unknown>;
       return { id: "venue-2", slug: data.slug, name: data.name, isPublished: false };

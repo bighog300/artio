@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
 import { setOnboardingFlagForSession } from "@/lib/onboarding";
-import { handlePostMyVenue } from "@/lib/my-venue-create-route";
+import { handlePostMyVenue, VenueLimitReachedError } from "@/lib/my-venue-create-route";
 import { logAdminAction } from "@/lib/admin-audit";
 import { geocodeBest } from "@/lib/geocode";
 
@@ -98,6 +98,14 @@ export async function POST(req: NextRequest) {
       return fallback ? { id: fallback.id, slug: fallback.slug, name: fallback.name, isPublished: fallback.isPublished } : null;
     },
     findVenueBySlug: async (slug) => db.venue.findUnique({ where: { slug }, select: { id: true } }),
+    assertCanCreateVenue: async (user) => {
+      if (user.role === "USER") throw new Error("forbidden");
+
+      const ownedVenueCount = await db.venueMembership.count({
+        where: { userId: user.id, role: "OWNER", venue: { is: {} } },
+      });
+      if (ownedVenueCount >= 3) throw new VenueLimitReachedError(3);
+    },
     createVenue: async (data) => {
       let effectiveLat = data.lat;
       let effectiveLng = data.lng;

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
-import { handlePostMyVenue } from "@/lib/my-venue-create-route";
+import { handlePostMyVenue, VenueLimitReachedError } from "@/lib/my-venue-create-route";
 
 test("creates venue, draft submission, owner membership and onboarding", async () => {
   const venues: Array<{ id: string; slug: string; name: string; isPublished: boolean }> = [];
@@ -19,6 +19,7 @@ test("creates venue, draft submission, owner membership and onboarding", async (
     requireAuth: async () => ({ id: "user-1", email: "owner@example.com" }),
     findExistingManagedVenue: async () => null,
     findVenueBySlug: async (slug) => venues.find((item) => item.slug === slug) ?? null,
+    assertCanCreateVenue: async () => undefined,
     createVenue: async (data) => {
       const venue = { id: "venue-1", slug: data.slug, name: data.name, isPublished: false };
       venues.push(venue);
@@ -50,6 +51,7 @@ test("is idempotent and returns existing managed venue", async () => {
     requireAuth: async () => ({ id: "user-1", email: "owner@example.com" }),
     findExistingManagedVenue: async () => ({ id: "venue-existing", slug: "existing-venue", name: "Existing Venue", isPublished: false }),
     findVenueBySlug: async () => null,
+    assertCanCreateVenue: async () => undefined,
     createVenue: async () => {
       createCalls += 1;
       return { id: "venue-new", slug: "existing-venue-2", name: "Existing Venue", isPublished: false };
@@ -90,6 +92,7 @@ test("validates required name and returns 400", async () => {
     requireAuth: async () => ({ id: "user-1" }),
     findExistingManagedVenue: async () => null,
     findVenueBySlug: async () => null,
+    assertCanCreateVenue: async () => undefined,
     createVenue: async () => ({ id: "venue-1", slug: "a", name: "A", isPublished: false }),
     ensureOwnerMembership: async () => undefined,
     upsertVenueDraftSubmission: async () => undefined,
@@ -112,6 +115,7 @@ test("handles slug collisions with numeric suffix", async () => {
     requireAuth: async () => ({ id: "user-2" }),
     findExistingManagedVenue: async () => null,
     findVenueBySlug: async (slug) => (existing.has(slug) ? { id: slug } : null),
+    assertCanCreateVenue: async () => undefined,
     createVenue: async (data) => ({ id: "venue-2", slug: data.slug, name: data.name, isPublished: false }),
     ensureOwnerMembership: async () => undefined,
     upsertVenueDraftSubmission: async () => undefined,
@@ -130,6 +134,7 @@ test("returns unauthorized when auth is missing", async () => {
     requireAuth: async () => { throw new Error("unauthorized"); },
     findExistingManagedVenue: async () => null,
     findVenueBySlug: async () => null,
+    assertCanCreateVenue: async () => undefined,
     createVenue: async () => ({ id: "venue-1", slug: "x", name: "X", isPublished: false }),
     ensureOwnerMembership: async () => undefined,
     upsertVenueDraftSubmission: async () => undefined,
@@ -138,4 +143,57 @@ test("returns unauthorized when auth is missing", async () => {
   });
 
   assert.equal(res.status, 401);
+});
+
+test("returns venue_limit_reached when owner already has 3 venues", async () => {
+  const req = new NextRequest("http://localhost/api/my/venues", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Limit Hall", city: "Lisbon" }),
+  });
+
+  const res = await handlePostMyVenue(req, {
+    requireAuth: async () => ({ id: "publisher-1", role: "EDITOR" }),
+    findExistingManagedVenue: async () => null,
+    findVenueBySlug: async () => null,
+    assertCanCreateVenue: async () => {
+      throw new VenueLimitReachedError(3);
+    },
+    createVenue: async () => ({ id: "venue-limit", slug: "limit-hall", name: "Limit Hall", isPublished: false }),
+    ensureOwnerMembership: async () => undefined,
+    upsertVenueDraftSubmission: async () => undefined,
+    setOnboardingFlag: async () => undefined,
+    logAudit: async () => undefined,
+  });
+
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.deepEqual(body, { error: "venue_limit_reached", limit: 3 });
+});
+
+test("allows creation when owner has 2 venues", async () => {
+  const req = new NextRequest("http://localhost/api/my/venues", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Open Hall", city: "Lisbon" }),
+  });
+
+  let created = false;
+  const res = await handlePostMyVenue(req, {
+    requireAuth: async () => ({ id: "publisher-2", role: "EDITOR" }),
+    findExistingManagedVenue: async () => null,
+    findVenueBySlug: async () => null,
+    assertCanCreateVenue: async () => undefined,
+    createVenue: async () => {
+      created = true;
+      return { id: "venue-open", slug: "open-hall", name: "Open Hall", isPublished: false };
+    },
+    ensureOwnerMembership: async () => undefined,
+    upsertVenueDraftSubmission: async () => undefined,
+    setOnboardingFlag: async () => undefined,
+    logAudit: async () => undefined,
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(created, true);
 });
