@@ -76,6 +76,10 @@ export function MyDashboardClient() {
     setPublisherApprovalDismissed(true);
   }, []);
 
+  const ownedCount = data?.stats?.venues?.totalManaged ?? 0;
+  const venueLimit = 3;
+  const atVenueLimit = ownedCount >= venueLimit;
+
   if (loading) return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{Array.from({ length: 4 }).map((_, idx) => <Skeleton key={idx} className="h-32 w-full" />)}</div>;
   if (!data) return null;
 
@@ -101,11 +105,12 @@ export function MyDashboardClient() {
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">You can now create venues, events, and artworks.</p>
             <div className="flex flex-wrap gap-2">
-              <Button asChild><Link href="/my/venues/new">Create venue</Link></Button>
+              {atVenueLimit ? <Button type="button" disabled>Create venue</Button> : <Button asChild><Link href="/my/venues/new">Create venue</Link></Button>}
               <Button asChild><Link href="/my/events/new">Create event</Link></Button>
               <Button asChild><Link href="/my/artwork/new">Create artwork</Link></Button>
               <Button type="button" variant="outline" onClick={dismissPublisherApprovalBanner}>Dismiss</Button>
             </div>
+            {atVenueLimit ? <p className="text-xs text-muted-foreground">You&apos;ve reached the 3 venue limit. Manage an existing venue to continue.</p> : null}
           </CardContent>
         </Card>
       ) : null}
@@ -119,7 +124,7 @@ export function MyDashboardClient() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle>My venues</CardTitle>
+          <CardTitle>My venues ({ownedCount}/{venueLimit})</CardTitle>
           <Link className="text-sm underline" href={data.links.venuesHref}>View all venues</Link>
         </CardHeader>
         <CardContent>
@@ -127,7 +132,12 @@ export function MyDashboardClient() {
             <div className="rounded-lg border border-dashed p-4 sm:p-5">
               <p className="font-medium">Create your first venue</p>
               <p className="mt-1 text-sm text-muted-foreground">Add your venue so you can publish events and manage your profile.</p>
-              <Button asChild className="mt-4"><Link href={data.links.venuesNewHref}>+ Create venue</Link></Button>
+              {atVenueLimit ? (
+                <Button type="button" className="mt-4" disabled>+ Create venue</Button>
+              ) : (
+                <Button asChild className="mt-4"><Link href={data.links.venuesNewHref}>+ Create venue</Link></Button>
+              )}
+              {atVenueLimit ? <p className="mt-2 text-xs text-muted-foreground">You&apos;ve reached the 3 venue limit. Manage an existing venue to continue.</p> : null}
             </div>
           ) : (
             <ul className="space-y-2">

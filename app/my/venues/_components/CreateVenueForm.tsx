@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -25,11 +26,13 @@ export function CreateVenueForm({ buttonLabel = "Create venue" }: Props) {
   const [form, setForm] = useState<CreateVenuePayload>({ name: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [venueLimitReached, setVenueLimitReached] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    setVenueLimitReached(false);
 
     const res = await fetch("/api/my/venues", {
       method: "POST",
@@ -40,6 +43,12 @@ export function CreateVenueForm({ buttonLabel = "Create venue" }: Props) {
     const body = await res.json().catch(() => ({}));
 
     if (!res.ok) {
+      if (res.status === 400 && body?.error === "venue_limit_reached") {
+        setVenueLimitReached(true);
+        setIsSubmitting(false);
+        return;
+      }
+
       setError(body?.error?.message ?? "Failed to create venue");
       setIsSubmitting(false);
       return;
@@ -104,6 +113,14 @@ export function CreateVenueForm({ buttonLabel = "Create venue" }: Props) {
         <span className="text-sm">Instagram URL (optional)</span>
         <input className="w-full rounded border p-2" type="url" value={form.instagramUrl ?? ""} onChange={(event) => setForm((prev) => ({ ...prev, instagramUrl: event.target.value || undefined }))} />
       </label>
+      {venueLimitReached ? (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <p>You can own up to 3 venues. Manage your existing venues instead.</p>
+          <Button asChild variant="link" className="mt-1 h-auto p-0 text-amber-900">
+            <Link href="/my/venues">Go to My venues</Link>
+          </Button>
+        </div>
+      ) : null}
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Creating..." : buttonLabel}</Button>
     </form>
