@@ -1,18 +1,52 @@
+import { Prisma } from "@prisma/client";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ensureDbUserForSession } from "@/lib/ensure-db-user-for-session";
 import { handleGetMyDashboard } from "@/lib/my-dashboard-route";
 
+async function findPublisherApprovalNotice(userId: string) {
+  try {
+    return await db.notification.findFirst({
+      where: {
+        userId,
+        dedupeKey: { startsWith: "publisher-access-approved:" },
+      },
+      select: { id: true },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (error) {
+    const missingDedupeKey = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022";
+    if (!missingDedupeKey) throw error;
+    return db.notification.findFirst({
+      where: {
+        userId,
+        title: "Publisher access approved",
+        href: "/my",
+      },
+      select: { id: true },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+}
+
 export const runtime = "nodejs";
 
 export async function GET() {
+  let authUser: { id: string } | null = null;
+  const requireAuth = async () => {
+    if (authUser) return authUser;
+    const session = await getSessionUser();
+    if (!session) throw new Error("unauthorized");
+    const dbUser = await ensureDbUserForSession(session);
+    authUser = { id: dbUser?.id ?? session.id };
+    return authUser;
+  };
+
+  const user = await requireAuth();
+  const publisherApprovalNotice = await findPublisherApprovalNotice(user.id);
+
   return handleGetMyDashboard({
-    requireAuth: async () => {
-      const session = await getSessionUser();
-      if (!session) throw new Error("unauthorized");
-      const dbUser = await ensureDbUserForSession(session);
-      return { id: dbUser?.id ?? session.id };
-    },
+    requireAuth,
     findOwnedArtistByUserId: async (userId) => db.artist.findUnique({
       where: { userId },
       select: {
@@ -104,5 +138,6 @@ export async function GET() {
       },
       select: { entityId: true, day: true, views: true },
     }),
+    getPublisherApprovalNotice: async () => publisherApprovalNotice,
   });
 }

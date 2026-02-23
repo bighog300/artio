@@ -77,6 +77,7 @@ type Deps = {
   listEventsByContext: (input: { artistId: string; managedVenueIds: string[] }) => Promise<EventRecord[]>;
   listArtworkViewDailyRows: (artworkIds: string[], start: Date) => Promise<ArtworkAnalyticsInputDailyRow[]>;
   listRecentAuditActivity?: (userId: string) => Promise<AuditRecord[]>;
+  getPublisherApprovalNotice?: (userId: string) => Promise<{ id: string } | null>;
 };
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
@@ -189,6 +190,9 @@ export async function handleGetMyDashboard(deps: Deps) {
       artworks.length > 0 ? deps.listArtworkViewDailyRows(artworks.map((artwork) => artwork.id), start90) : Promise.resolve([]),
       deps.listRecentAuditActivity ? deps.listRecentAuditActivity(user.id) : Promise.resolve([]),
     ]);
+    const publisherApprovalNotice = deps.getPublisherApprovalNotice
+      ? await deps.getPublisherApprovalNotice(user.id)
+      : null;
 
     const analytics = computeArtworkAnalytics(
       artworks.map((item) => ({ id: item.id, title: item.title, slug: item.slug, isPublished: item.isPublished })),
@@ -314,6 +318,14 @@ export async function handleGetMyDashboard(deps: Deps) {
         venuesNewHref: "/my/venues/new",
         venuesHref: "/my/venues",
       },
+      publisher: publisherApprovalNotice
+        ? {
+          approval: {
+            showBanner: true,
+            noticeId: publisherApprovalNotice.id,
+          },
+        }
+        : undefined,
     }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") {
