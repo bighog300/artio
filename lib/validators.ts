@@ -582,6 +582,7 @@ const myEventShape = {
   startAt: isoDatetimeSchema,
   endAt: isoDatetimeSchema.optional().nullable(),
   images: z.array(eventImageSchema).optional(),
+  featuredAssetId: z.string().uuid().optional().nullable(),
   note: z.string().trim().max(2000).optional().nullable(),
 };
 
@@ -599,6 +600,7 @@ export const myEventPatchSchema = z.object({
   startAt: isoDatetimeSchema.optional(),
   endAt: isoDatetimeSchema.optional().nullable(),
   images: z.array(eventImageSchema).optional(),
+  featuredAssetId: z.string().uuid().optional().nullable(),
   note: z.string().trim().max(2000).optional().nullable(),
 }).superRefine((data, ctx) => {
   if (data.startAt && data.endAt && new Date(data.endAt) < new Date(data.startAt)) {

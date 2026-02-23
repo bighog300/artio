@@ -357,6 +357,7 @@ model Event {
   isFree        Boolean?
   organizerName String?
   venueId       String?        @db.Uuid
+  featuredAssetId String?      @db.Uuid
   lat           Float?
   lng           Float?
   isPublished   Boolean        @default(false)
@@ -364,6 +365,7 @@ model Event {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   venue         Venue?         @relation(fields: [venueId], references: [id])
+  featuredAsset Asset?         @relation("EventFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
   images        EventImage[]
   eventTags     EventTag[]
   eventArtists  EventArtist[]
@@ -373,6 +375,7 @@ model Event {
   @@index([startAt])
   @@index([isPublished])
   @@index([venueId])
+  @@index([featuredAssetId])
   @@index([isPublished, startAt])
   @@index([isPublished, startAt, id])
   @@index([venueId, startAt])
@@ -657,6 +660,7 @@ model Asset {
   venueFeaturedFor   Venue[]        @relation("VenueFeaturedAsset")
   artistFeaturedFor  Artist[]       @relation("ArtistFeaturedAsset")
   artworkFeaturedFor Artwork[]      @relation("ArtworkFeaturedAsset")
+  eventFeaturedFor   Event[]        @relation("EventFeaturedAsset")
   artworkImages      ArtworkImage[]
 
   @@index([ownerUserId])

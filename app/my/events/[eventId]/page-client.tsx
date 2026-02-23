@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SubmissionStatusPanel } from "@/components/publishing/submission-status-panel";
 import { enqueueToast } from "@/lib/toast";
+import { FeaturedEventImagePanel } from "@/app/my/events/_components/FeaturedEventImagePanel";
 
 function toLocalDatetime(date: string) {
   const parsed = new Date(date);
@@ -12,7 +13,7 @@ function toLocalDatetime(date: string) {
   return new Date(parsed.getTime() - offset).toISOString().slice(0, 16);
 }
 
-export function EditEventForm({ event, readyToSubmit, submission }: { event: { id: string; title: string; startAt: Date; endAt: Date | null; slug: string | null; isPublished: boolean }; readyToSubmit: boolean; submission: { status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null; submittedAt: string | null; reviewedAt: string | null; rejectionReason: string | null } }) {
+export function EditEventForm({ event, readyToSubmit, submission }: { event: { id: string; title: string; startAt: Date; endAt: Date | null; slug: string | null; isPublished: boolean; featuredAssetId: string | null; featuredAsset: { url: string | null } | null }; readyToSubmit: boolean; submission: { status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null; submittedAt: string | null; reviewedAt: string | null; rejectionReason: string | null } }) {
   const router = useRouter();
   const [title, setTitle] = useState(event.title);
   const [startAt, setStartAt] = useState(toLocalDatetime(event.startAt.toISOString()));
@@ -49,6 +50,7 @@ export function EditEventForm({ event, readyToSubmit, submission }: { event: { i
         publicHref={(event.isPublished || submission.status === "APPROVED") && event.slug ? `/events/${event.slug}` : null}
         readiness={{ ready: readyToSubmit, blocking: [], warnings: [] }}
       />
+      <FeaturedEventImagePanel eventId={event.id} featuredAssetId={event.featuredAssetId} featuredImageUrl={event.featuredAsset?.url ?? null} />
       <form onSubmit={async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setSaving(true);
