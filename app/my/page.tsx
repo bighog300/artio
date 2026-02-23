@@ -4,7 +4,8 @@ import { redirectToLogin } from "@/lib/auth-redirect";
 import { MyDashboardResponseSchema } from "@/lib/my/dashboard-schema";
 
 async function getDashboard(venueId?: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/my/dashboard${venueId ? `?venueId=${venueId}` : ""}`, { cache: "no-store" });
+  const qs = venueId ? `?venueId=${encodeURIComponent(venueId)}` : "";
+  const res = await fetch(`/api/my/dashboard${qs}`, { cache: "no-store" });
   if (!res.ok) return null;
   return MyDashboardResponseSchema.parse(await res.json());
 }

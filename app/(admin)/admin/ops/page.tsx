@@ -7,9 +7,9 @@ async function fetchJson(path: string, token?: string) {
 }
 
 export default async function AdminOpsPage() {
-  const health = await fetchJson(`${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/health`);
+  const health = await fetchJson("/api/health");
   const ops = process.env.OPS_SECRET
-    ? await fetchJson(`${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/ops/metrics`, process.env.OPS_SECRET)
+    ? await fetchJson("/api/ops/metrics", process.env.OPS_SECRET)
     : null;
 
   const degraded = !health?.ok;

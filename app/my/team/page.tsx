@@ -4,8 +4,8 @@ import { redirectToLogin } from "@/lib/auth-redirect";
 import { MyTeamResponseSchema } from "@/lib/my/dashboard-schema";
 
 async function getTeamData(venueId?: string) {
-  const url = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/my/team${venueId ? `?venueId=${venueId}` : ""}`;
-  const res = await fetch(url, { cache: "no-store" });
+  const qs = venueId ? `?venueId=${encodeURIComponent(venueId)}` : "";
+  const res = await fetch(`/api/my/team${qs}`, { cache: "no-store" });
   if (!res.ok) return null;
   return MyTeamResponseSchema.parse(await res.json());
 }
