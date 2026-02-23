@@ -4,8 +4,8 @@ import { deriveVenueSubmitButtonUiState, submitVenueForReviewRequest } from "../
 
 test("deriveVenueSubmitButtonUiState disables CTA when not ready", () => {
   const state = deriveVenueSubmitButtonUiState({
-    isReadyToSubmit: false,
-    submissionStatus: "DRAFT",
+    isReady: false,
+    initialStatus: "DRAFT",
     isSubmitting: false,
     locallySubmitted: false,
   });
@@ -36,10 +36,34 @@ test("submitVenueForReviewRequest posts to venue submit endpoint", async () => {
 
 test("deriveVenueSubmitButtonUiState shows submitted state after success", () => {
   const state = deriveVenueSubmitButtonUiState({
-    isReadyToSubmit: true,
-    submissionStatus: "DRAFT",
+    isReady: true,
+    initialStatus: "DRAFT",
     isSubmitting: false,
     locallySubmitted: true,
+  });
+
+  assert.equal(state.label, "Submitted (pending)");
+  assert.equal(state.disabled, true);
+});
+
+test("deriveVenueSubmitButtonUiState treats null submission as not submitted", () => {
+  const state = deriveVenueSubmitButtonUiState({
+    isReady: false,
+    initialStatus: null,
+    isSubmitting: false,
+    locallySubmitted: false,
+  });
+
+  assert.equal(state.label, "Submit Venue for Review");
+  assert.equal(state.disabled, true);
+});
+
+test("deriveVenueSubmitButtonUiState keeps submitted CTA disabled for pending status", () => {
+  const state = deriveVenueSubmitButtonUiState({
+    isReady: true,
+    initialStatus: "PENDING",
+    isSubmitting: false,
+    locallySubmitted: false,
   });
 
   assert.equal(state.label, "Submitted (pending)");

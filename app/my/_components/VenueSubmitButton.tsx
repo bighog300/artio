@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
 import { enqueueToast } from "@/lib/toast";
 
-type SubmissionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null;
+type SubmissionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "PENDING" | null;
 
 type SubmitVenueForReviewParams = {
   venueId: string;
@@ -28,17 +28,18 @@ export async function submitVenueForReviewRequest({ venueId, fetchImpl = fetch }
 }
 
 export function deriveVenueSubmitButtonUiState({
-  isReadyToSubmit,
-  submissionStatus,
+  isReady,
+  initialStatus,
   isSubmitting,
   locallySubmitted,
 }: {
-  isReadyToSubmit: boolean;
-  submissionStatus: SubmissionStatus;
+  isReady: boolean;
+  initialStatus?: SubmissionStatus;
   isSubmitting: boolean;
   locallySubmitted: boolean;
 }) {
-  const isSubmittedPending = locallySubmitted || submissionStatus === "SUBMITTED";
+  const normalizedStatus = typeof initialStatus === "string" ? initialStatus.toUpperCase() : null;
+  const isSubmittedPending = locallySubmitted || normalizedStatus === "SUBMITTED" || normalizedStatus === "PENDING";
   if (isSubmittedPending) {
     return {
       label: "Submitted (pending)",
@@ -55,7 +56,7 @@ export function deriveVenueSubmitButtonUiState({
     };
   }
 
-  if (!isReadyToSubmit) {
+  if (!isReady) {
     return {
       label: "Submit Venue for Review",
       disabled: true,
@@ -72,22 +73,22 @@ export function deriveVenueSubmitButtonUiState({
 
 export default function VenueSubmitButton({
   venueId,
-  isReadyToSubmit,
-  missingFields,
-  submissionStatus,
+  isReady,
+  blocking = [],
+  initialStatus = null,
 }: {
   venueId: string;
-  isReadyToSubmit: boolean;
-  missingFields: string[];
-  submissionStatus: SubmissionStatus;
+  isReady: boolean;
+  blocking?: { id: string; label: string }[];
+  initialStatus?: SubmissionStatus;
 }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locallySubmitted, setLocallySubmitted] = useState(false);
 
   const uiState = deriveVenueSubmitButtonUiState({
-    isReadyToSubmit,
-    submissionStatus,
+    isReady,
+    initialStatus,
     isSubmitting,
     locallySubmitted,
   });
@@ -127,10 +128,10 @@ export default function VenueSubmitButton({
         {uiState.label}
       </Button>
       <p className="text-xs text-muted-foreground">{uiState.helperText}</p>
-      {!isReadyToSubmit && missingFields.length > 0 ? (
+      {!isReady && blocking.length > 0 ? (
         <ul className="list-disc pl-4 text-xs text-muted-foreground">
-          {missingFields.map((field) => (
-            <li key={field}>{field}</li>
+          {blocking.map((field) => (
+            <li key={field.id}>{field.label}</li>
           ))}
         </ul>
       ) : null}

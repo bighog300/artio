@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
 import { enqueueToast } from "@/lib/toast";
 import { SubmissionStatusPanel } from "@/components/publishing/submission-status-panel";
+import VenueSubmitButton from "@/app/my/_components/VenueSubmitButton";
 
 type PublishIssue = { field: string; message: string };
+type ReadinessItem = { id: string; label: string };
 
 type Props = {
   venueId: string;
@@ -18,6 +20,10 @@ type Props = {
   reviewedAt: string | null;
   decisionReason: string | null;
   initialIssues: PublishIssue[];
+  readiness: {
+    ready: boolean;
+    blocking: ReadinessItem[];
+  };
 };
 
 export default function VenuePublishPanel(props: Props) {
@@ -55,5 +61,24 @@ export default function VenuePublishPanel(props: Props) {
       ? { label: "View public page", href: `/venues/${props.venueSlug}` }
       : { label: "Submit for review", disabled: !props.isOwner || pending || issues.length > 0, onClick: onSubmit };
 
-  return <SubmissionStatusPanel entityType="venue" status={props.submissionStatus} submittedAtISO={props.submittedAt} reviewedAtISO={props.reviewedAt} rejectionReason={props.decisionReason} primaryAction={primaryAction} publicHref={props.isPublished || props.submissionStatus === "APPROVED" ? `/venues/${props.venueSlug}` : null} readiness={{ ready: issues.length === 0, blocking: issues.map((i) => ({ id: i.field, label: i.message })), warnings: [] }} />;
+  return (
+    <div className="space-y-3">
+      <SubmissionStatusPanel
+        entityType="venue"
+        status={props.submissionStatus}
+        submittedAtISO={props.submittedAt}
+        reviewedAtISO={props.reviewedAt}
+        rejectionReason={props.decisionReason}
+        primaryAction={primaryAction}
+        publicHref={props.isPublished || props.submissionStatus === "APPROVED" ? `/venues/${props.venueSlug}` : null}
+        readiness={{ ready: issues.length === 0, blocking: issues.map((i) => ({ id: i.field, label: i.message })), warnings: [] }}
+      />
+      <VenueSubmitButton
+        venueId={props.venueId}
+        isReady={props.readiness.ready}
+        blocking={props.readiness.blocking}
+        initialStatus={props.submissionStatus}
+      />
+    </div>
+  );
 }

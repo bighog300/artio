@@ -115,9 +115,9 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
           <div className="flex flex-col items-start gap-3 md:items-end">
             <VenueSubmitButton
               venueId={venueId}
-              isReadyToSubmit={readiness.ready}
-              missingFields={readiness.blocking.map((item) => item.label)}
-              submissionStatus={submission?.status ?? null}
+              isReady={readiness.ready}
+              blocking={readiness.blocking}
+              initialStatus={submission?.status ?? null}
             />
             <div className="flex flex-col items-start gap-1 md:items-end">
               <Button asChild>
@@ -141,6 +141,7 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
         reviewedAt={submission?.decidedAt?.toISOString() ?? null}
         decisionReason={submission?.decisionReason ?? null}
         initialIssues={readiness.blocking.map((item) => ({ field: item.id, message: item.label }))}
+        readiness={readiness}
       />
 
       <VenueSelfServeForm venue={venue} submissionStatus={submission?.status ?? null} />
