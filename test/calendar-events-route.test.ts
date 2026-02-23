@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest, NextResponse } from "next/server";
-import { handleCalendarEventsGet } from "../app/api/calendar-events/route.ts";
+import { handleCalendarEventsGet } from "@/lib/calendar/calendar-events";
 
 const sampleRows = [
   {
