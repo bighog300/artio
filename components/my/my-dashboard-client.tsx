@@ -11,6 +11,7 @@ type DashboardPayload = {
   needsOnboarding?: boolean;
   message?: string;
   nextHref?: string;
+  viewer?: { role: "USER" | "EDITOR" | "ADMIN" };
   stats: {
     artworks: { total: number; published: number; drafts: number; missingCover: number };
     events: { total: number; upcoming30: number; drafts: number; missingVenue: number; nextEvent?: { id: string; title: string; startAtISO: string; venueName?: string | null } };
@@ -20,6 +21,9 @@ type DashboardPayload = {
   };
   entities: {
     venues: Array<{ id: string; slug?: string | null; name: string; city?: string | null; country?: string | null; isPublished: boolean; coverUrl?: string | null; submissionStatus?: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null }>;
+  };
+  eventsPipeline?: {
+    items: Array<{ id: string; title: string; startAtISO: string | null; venueName: string | null; statusLabel: string | null }>;
   };
   actionInbox: Array<{ id: string; label: string; count: number; href: string; severity: "info" | "warn" }>;
   topArtworks30: Array<{ id: string; slug?: string | null; title: string; coverUrl?: string | null; views30: number }>;
@@ -46,6 +50,13 @@ function getVenueStatus(venue: DashboardPayload["entities"]["venues"][number]) {
   if (venue.submissionStatus === "REJECTED") return "Needs edits";
   if (venue.isPublished) return "Published";
   return "Draft";
+}
+
+function formatEventDate(startAtISO: string | null) {
+  if (!startAtISO) return null;
+  const date = new Date(startAtISO);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 export function MyDashboardClient() {
@@ -76,12 +87,13 @@ export function MyDashboardClient() {
     setPublisherApprovalDismissed(true);
   }, []);
 
-  const ownedCount = data?.stats?.venues?.totalManaged ?? 0;
-  const venueLimit = 3;
-  const atVenueLimit = ownedCount >= venueLimit;
-
   if (loading) return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{Array.from({ length: 4 }).map((_, idx) => <Skeleton key={idx} className="h-32 w-full" />)}</div>;
   if (!data) return null;
+
+  const ownedCount = data.stats.venues.totalManaged ?? 0;
+  const venueLimit = 3;
+  const atVenueLimit = ownedCount >= venueLimit;
+  const canManageEvents = data.viewer?.role !== "USER";
 
   if (data.needsOnboarding) {
     return (
@@ -159,6 +171,47 @@ export function MyDashboardClient() {
           )}
         </CardContent>
       </Card>
+
+      {canManageEvents ? (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-3">
+            <CardTitle>Events pipeline</CardTitle>
+            <Link className="text-sm underline" href={data.links.eventsHref}>View all events</Link>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {data.stats.events.nextEvent ? (
+              <p className="text-sm text-muted-foreground">
+                Next event:{" "}
+                <Link className="underline" href={`/my/events/${data.stats.events.nextEvent.id}`}>
+                  {data.stats.events.nextEvent.title}
+                </Link>
+              </p>
+            ) : null}
+            {(data.eventsPipeline?.items.length ?? 0) === 0 ? (
+              <div className="rounded-lg border border-dashed p-4">
+                <p className="text-sm text-muted-foreground">No events yet. Create your first event.</p>
+                <Button asChild className="mt-3"><Link href={data.links.addEventHref}>Create event</Link></Button>
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {data.eventsPipeline?.items.slice(0, 5).map((event) => (
+                  <li key={event.id} className="flex items-start justify-between gap-3 rounded-md border p-3">
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate font-medium">{event.title}</p>
+                      <p className="text-xs text-muted-foreground">{[formatEventDate(event.startAtISO), event.venueName].filter(Boolean).join(" · ") || "Date or venue not set"}</p>
+                      {event.statusLabel ? <Badge variant="secondary">{event.statusLabel}</Badge> : null}
+                    </div>
+                    <Link className="shrink-0 text-sm underline" href={`/my/events/${event.id}`}>Edit</Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div>
+              <Button asChild><Link href={data.links.addEventHref}>Create event</Link></Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader><CardTitle>To do</CardTitle></CardHeader>

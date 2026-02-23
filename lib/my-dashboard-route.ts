@@ -4,7 +4,7 @@ import { resolveImageUrl } from "@/lib/assets";
 import { computeArtworkAnalytics, type ArtworkAnalyticsInputDailyRow } from "@/lib/artwork-analytics";
 import { evaluateArtistReadiness, evaluateVenueReadiness, evaluateArtworkReadiness } from "@/lib/publish-readiness";
 
-type SessionUser = { id: string };
+type SessionUser = { id: string; role?: "USER" | "EDITOR" | "ADMIN" };
 
 type ArtistRecord = {
   id: string;
@@ -78,6 +78,13 @@ type Deps = {
   listArtworkViewDailyRows: (artworkIds: string[], start: Date) => Promise<ArtworkAnalyticsInputDailyRow[]>;
   listRecentAuditActivity?: (userId: string) => Promise<AuditRecord[]>;
   getPublisherApprovalNotice?: (userId: string) => Promise<{ id: string } | null>;
+  listEventsPipelineByUserId?: (userId: string) => Promise<Array<{
+    id: string;
+    title: string;
+    startAtISO: string | null;
+    venueName: string | null;
+    statusLabel: string | null;
+  }>>;
 };
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
@@ -190,9 +197,14 @@ export async function handleGetMyDashboard(deps: Deps) {
       artworks.length > 0 ? deps.listArtworkViewDailyRows(artworks.map((artwork) => artwork.id), start90) : Promise.resolve([]),
       deps.listRecentAuditActivity ? deps.listRecentAuditActivity(user.id) : Promise.resolve([]),
     ]);
-    const publisherApprovalNotice = deps.getPublisherApprovalNotice
-      ? await deps.getPublisherApprovalNotice(user.id)
-      : null;
+    const [publisherApprovalNotice, eventsPipelineItems] = await Promise.all([
+      deps.getPublisherApprovalNotice
+        ? deps.getPublisherApprovalNotice(user.id)
+        : Promise.resolve(null),
+      deps.listEventsPipelineByUserId
+        ? deps.listEventsPipelineByUserId(user.id)
+        : Promise.resolve(null),
+    ]);
 
     const analytics = computeArtworkAnalytics(
       artworks.map((item) => ({ id: item.id, title: item.title, slug: item.slug, isPublished: item.isPublished })),
@@ -262,6 +274,9 @@ export async function handleGetMyDashboard(deps: Deps) {
     });
 
     return NextResponse.json({
+      viewer: {
+        role: user.role ?? "USER",
+      },
       artist: {
         id: artist.id,
         name: artist.name,
@@ -308,6 +323,11 @@ export async function handleGetMyDashboard(deps: Deps) {
         venues: venueList,
       },
       recent: recent.length > 0 ? recent : synthesizeRecent(artworks, events),
+      eventsPipeline: eventsPipelineItems
+        ? {
+          items: eventsPipelineItems,
+        }
+        : undefined,
       links: {
         addArtworkHref: "/my/artwork/new",
         addEventHref: "/my/events/new",

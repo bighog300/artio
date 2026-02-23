@@ -7,7 +7,7 @@ const day = (daysAgo: number) => new Date(Date.UTC(now.getUTCFullYear(), now.get
 
 function baseDeps() {
   return {
-    requireAuth: async () => ({ id: "user-1" }),
+    requireAuth: async () => ({ id: "user-1", role: "EDITOR" as const }),
     findOwnedArtistByUserId: async () => ({
       id: "artist-1",
       name: "Artist",
@@ -24,6 +24,7 @@ function baseDeps() {
     listEventsByContext: async () => [],
     listArtworkViewDailyRows: async () => [],
     listRecentAuditActivity: async () => [],
+    listEventsPipelineByUserId: async () => [],
   };
 }
 
@@ -46,6 +47,26 @@ test("/api/my/dashboard returns onboarding payload when user has no artist", asy
   assert.equal(body.nextHref, "/my/artist");
 });
 
+
+
+test("/api/my/dashboard includes events pipeline when provided", async () => {
+  const deps = baseDeps();
+  deps.listEventsPipelineByUserId = async () => [{
+    id: "event-1",
+    title: "Pipeline Event",
+    startAtISO: day(-2).toISOString(),
+    venueName: "Main Hall",
+    statusLabel: "Submitted",
+  }];
+
+  const res = await handleGetMyDashboard(deps);
+  const body = await res.json();
+
+  assert.equal(body.viewer.role, "EDITOR");
+  assert.equal(body.eventsPipeline.items.length, 1);
+  assert.equal(body.eventsPipeline.items[0].id, "event-1");
+  assert.equal(body.eventsPipeline.items[0].statusLabel, "Submitted");
+});
 test("/api/my/dashboard computes stats, inbox counts, and top artworks ordering", async () => {
   const deps = baseDeps();
   deps.listManagedVenuesByUserId = async () => [{ id: "venue-1" }, { id: "venue-2" }, { id: "venue-3" }];

@@ -29,16 +29,80 @@ async function findPublisherApprovalNotice(userId: string) {
   }
 }
 
+
+
+async function listEventsPipelineByUserId(userId: string) {
+  const now = new Date();
+  const eventSelect = Prisma.validator<Prisma.EventSelect>()({
+    id: true,
+    title: true,
+    startAt: true,
+    isPublished: true,
+    updatedAt: true,
+    venue: { select: { name: true } },
+    submissions: {
+      where: { type: "EVENT" },
+      select: { status: true },
+      orderBy: { updatedAt: "desc" },
+      take: 1,
+    },
+  });
+
+  const where = {
+    venue: {
+      is: {
+        memberships: {
+          some: {
+            userId,
+            role: { in: ["OWNER", "EDITOR"] },
+          },
+        },
+      },
+    },
+  } satisfies Prisma.EventWhereInput;
+
+  const upcoming = await db.event.findMany({
+    where: { ...where, startAt: { gte: now } },
+    select: eventSelect,
+    orderBy: [{ startAt: "asc" }, { updatedAt: "desc" }],
+    take: 5,
+  });
+
+  const remaining = 5 - upcoming.length;
+  const fallback = remaining > 0
+    ? await db.event.findMany({
+      where: {
+        ...where,
+        id: { notIn: upcoming.map((event) => event.id) },
+      },
+      select: eventSelect,
+      orderBy: { updatedAt: "desc" },
+      take: remaining,
+    })
+    : [];
+
+  return [...upcoming, ...fallback].map((event) => {
+    const latestSubmission = event.submissions[0]?.status;
+    return {
+      id: event.id,
+      title: event.title,
+      startAtISO: event.startAt ? event.startAt.toISOString() : null,
+      venueName: event.venue?.name ?? null,
+      statusLabel: event.isPublished ? "Published" : latestSubmission === "SUBMITTED" ? "Submitted" : "Draft",
+    };
+  });
+}
+
 export const runtime = "nodejs";
 
 export async function GET() {
-  let authUser: { id: string } | null = null;
+  let authUser: { id: string; role: "USER" | "EDITOR" | "ADMIN" } | null = null;
   const requireAuth = async () => {
     if (authUser) return authUser;
     const session = await getSessionUser();
     if (!session) throw new Error("unauthorized");
     const dbUser = await ensureDbUserForSession(session);
-    authUser = { id: dbUser?.id ?? session.id };
+    authUser = { id: dbUser?.id ?? session.id, role: session.role };
     return authUser;
   };
 
@@ -139,5 +203,6 @@ export async function GET() {
       select: { entityId: true, day: true, views: true },
     }),
     getPublisherApprovalNotice: async () => publisherApprovalNotice,
+    listEventsPipelineByUserId,
   });
 }

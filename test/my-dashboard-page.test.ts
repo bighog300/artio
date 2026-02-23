@@ -25,3 +25,12 @@ test("dashboard client renders venue rows and view-all link", () => {
   assert.match(source, /View all venues/);
   assert.match(source, /\/my\/venues\/\$\{venue\.id\}/);
 });
+
+
+test("dashboard client includes events pipeline card content", () => {
+  const source = readFileSync("components/my/my-dashboard-client.tsx", "utf8");
+  assert.match(source, /Events pipeline/);
+  assert.match(source, /Create event/);
+  assert.match(source, /View all events/);
+  assert.match(source, /\/my\/events\/\$\{event\.id\}/);
+});
