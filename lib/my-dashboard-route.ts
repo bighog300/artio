@@ -85,6 +85,10 @@ type Deps = {
     venueName: string | null;
     statusLabel: string | null;
   }>>;
+  listVenuesQuickPickByUserId?: (userId: string) => Promise<Array<{
+    id: string;
+    name: string;
+  }>>;
 };
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
@@ -197,12 +201,15 @@ export async function handleGetMyDashboard(deps: Deps) {
       artworks.length > 0 ? deps.listArtworkViewDailyRows(artworks.map((artwork) => artwork.id), start90) : Promise.resolve([]),
       deps.listRecentAuditActivity ? deps.listRecentAuditActivity(user.id) : Promise.resolve([]),
     ]);
-    const [publisherApprovalNotice, eventsPipelineItems] = await Promise.all([
+    const [publisherApprovalNotice, eventsPipelineItems, venuesQuickPick] = await Promise.all([
       deps.getPublisherApprovalNotice
         ? deps.getPublisherApprovalNotice(user.id)
         : Promise.resolve(null),
       deps.listEventsPipelineByUserId
         ? deps.listEventsPipelineByUserId(user.id)
+        : Promise.resolve(null),
+      deps.listVenuesQuickPickByUserId
+        ? deps.listVenuesQuickPickByUserId(user.id)
         : Promise.resolve(null),
     ]);
 
@@ -327,6 +334,9 @@ export async function handleGetMyDashboard(deps: Deps) {
         ? {
           items: eventsPipelineItems,
         }
+        : undefined,
+      venuesQuickPick: venuesQuickPick && venuesQuickPick.length > 0
+        ? venuesQuickPick
         : undefined,
       links: {
         addArtworkHref: "/my/artwork/new",

@@ -25,6 +25,7 @@ type DashboardPayload = {
   eventsPipeline?: {
     items: Array<{ id: string; title: string; startAtISO: string | null; venueName: string | null; statusLabel: string | null }>;
   };
+  venuesQuickPick?: Array<{ id: string; name: string }>;
   actionInbox: Array<{ id: string; label: string; count: number; href: string; severity: "info" | "warn" }>;
   topArtworks30: Array<{ id: string; slug?: string | null; title: string; coverUrl?: string | null; views30: number }>;
   recent: Array<{ label: string; href: string; occurredAtISO: string }>;
@@ -206,8 +207,13 @@ export function MyDashboardClient() {
                 ))}
               </ul>
             )}
-            <div>
+            <div className="flex flex-wrap items-center gap-2">
               <Button asChild><Link href={data.links.addEventHref}>Create event</Link></Button>
+              {data.venuesQuickPick?.map((venue) => (
+                <Button key={venue.id} asChild variant="outline" size="sm">
+                  <Link href={`${data.links.addEventHref}?venueId=${encodeURIComponent(venue.id)}`}>Create for {venue.name}</Link>
+                </Button>
+              ))}
             </div>
           </CardContent>
         </Card>

@@ -93,6 +93,22 @@ async function listEventsPipelineByUserId(userId: string) {
   });
 }
 
+async function listVenuesQuickPickByUserId(userId: string) {
+  return db.venue.findMany({
+    where: {
+      memberships: {
+        some: {
+          userId,
+          role: { in: ["OWNER", "EDITOR"] },
+        },
+      },
+    },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+    take: 3,
+  });
+}
+
 export const runtime = "nodejs";
 
 export async function GET() {
@@ -204,5 +220,6 @@ export async function GET() {
     }),
     getPublisherApprovalNotice: async () => publisherApprovalNotice,
     listEventsPipelineByUserId,
+    listVenuesQuickPickByUserId,
   });
 }

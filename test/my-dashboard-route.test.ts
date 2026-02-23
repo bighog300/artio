@@ -25,6 +25,7 @@ function baseDeps() {
     listArtworkViewDailyRows: async () => [],
     listRecentAuditActivity: async () => [],
     listEventsPipelineByUserId: async () => [],
+    listVenuesQuickPickByUserId: async () => [],
   };
 }
 
@@ -66,6 +67,22 @@ test("/api/my/dashboard includes events pipeline when provided", async () => {
   assert.equal(body.eventsPipeline.items.length, 1);
   assert.equal(body.eventsPipeline.items[0].id, "event-1");
   assert.equal(body.eventsPipeline.items[0].statusLabel, "Submitted");
+});
+
+test("/api/my/dashboard includes venues quick-pick when provided", async () => {
+  const deps = baseDeps();
+  deps.listVenuesQuickPickByUserId = async () => [
+    { id: "venue-1", name: "Main Hall" },
+    { id: "venue-2", name: "Annex" },
+  ];
+
+  const res = await handleGetMyDashboard(deps);
+  const body = await res.json();
+
+  assert.deepEqual(body.venuesQuickPick, [
+    { id: "venue-1", name: "Main Hall" },
+    { id: "venue-2", name: "Annex" },
+  ]);
 });
 test("/api/my/dashboard computes stats, inbox counts, and top artworks ordering", async () => {
   const deps = baseDeps();
