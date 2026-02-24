@@ -1,5 +1,7 @@
 export type SearchParamsInput = Record<string, string | string[] | undefined>;
 
+export const PAGINATION_KEYS = ["cursor", "page", "offset"] as const;
+
 function appendParam(params: URLSearchParams, key: string, value: string | string[] | undefined) {
   if (typeof value === "string" && value.length > 0) {
     params.set(key, value);
@@ -34,9 +36,14 @@ function toHref(pathname: string, params: URLSearchParams): string {
   return query.length > 0 ? `${pathname}?${query}` : pathname;
 }
 
+export function deletePaginationParams(params: URLSearchParams): void {
+  for (const key of PAGINATION_KEYS) params.delete(key);
+}
+
 export function buildRemoveFilterHref(pathname: string, searchParams: SearchParamsInput, keys: string[]): string {
   const params = toSearchParams(searchParams);
   for (const key of keys) params.delete(key);
+  deletePaginationParams(params);
   return toHref(pathname, params);
 }
 
@@ -57,6 +64,8 @@ export function buildClearFiltersHref(
   for (const key of keysToClear) {
     if (!preserve.has(key)) next.delete(key);
   }
+
+  deletePaginationParams(next);
 
   return toHref(pathname, next);
 }

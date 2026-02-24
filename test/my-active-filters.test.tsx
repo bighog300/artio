@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ActiveFiltersBar } from "@/app/my/_components/ActiveFiltersBar";
 import { buildClearFiltersHref, buildRemoveFilterHref } from "@/app/my/_components/filter-href";
+import { makeDashboardTabHref } from "@/app/my/_components/dashboard-tab-href";
 import { resolveVenueFilterLabel } from "@/app/my/events/page";
 
 test("status=draft renders Status pill label", () => {
@@ -18,25 +19,39 @@ test("status=draft renders Status pill label", () => {
   assert.match(html, /Filters:/);
 });
 
-test("remove pill href drops only target filter params", () => {
+test("remove pill href drops target filter and pagination params", () => {
   const href = buildRemoveFilterHref(
     "/my/artwork",
-    { status: "draft", q: "sculpture", sort: "title", venueId: "venue_1" },
+    { status: "draft", q: "sculpture", sort: "title", venueId: "venue_1", cursor: "abc123", page: "4" },
     ["status"],
   );
 
   assert.equal(href, "/my/artwork?q=sculpture&sort=title&venueId=venue_1");
+  assert.doesNotMatch(href, /cursor=/);
+  assert.doesNotMatch(href, /page=/);
 });
 
-test("clear filters href removes filter params but preserves venue scope", () => {
+test("clear filters href removes filter and pagination params but preserves venue scope", () => {
   const href = buildClearFiltersHref(
     "/my/events",
-    { status: "draft", query: "opening", sort: "updated", dateFrom: "2026-02-01", dateTo: "2026-02-28", venueId: "venue_1" },
+    { status: "draft", query: "opening", sort: "updated", dateFrom: "2026-02-01", dateTo: "2026-02-28", venueId: "venue_1", page: "4", cursor: "cursor_1" },
     ["status", "q", "query", "sort", "dateFrom", "dateTo"],
     ["venueId"],
   );
 
   assert.equal(href, "/my/events?venueId=venue_1");
+  assert.doesNotMatch(href, /cursor=/);
+  assert.doesNotMatch(href, /page=/);
+});
+
+
+
+test("dashboard tab href does not carry pagination params", () => {
+  const href = makeDashboardTabHref("/my/events", "Draft", "venue_1");
+
+  assert.equal(href, "/my/events?status=Draft&venueId=venue_1");
+  assert.doesNotMatch(href, /cursor=/);
+  assert.doesNotMatch(href, /page=/);
 });
 
 test("bar does not render when no active filters", () => {
