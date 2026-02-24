@@ -3,6 +3,21 @@
 import { useEffect, useState } from "react";
 import { subscribeToasts, type ToastItem } from "@/lib/toast";
 
+const baseToastClasses = "rounded border bg-card px-3 py-2 text-card-foreground shadow";
+
+function toastVariantClasses(variant: ToastItem["variant"]) {
+  return variant === "error" ? "border-destructive/40" : "border-emerald-500/40";
+}
+
+export function ToastCard({ item }: { item: ToastItem }) {
+  return (
+    <div className={`${baseToastClasses} ${toastVariantClasses(item.variant)}`}>
+      <p className="text-sm font-semibold">{item.title}</p>
+      {item.message ? <p className="text-xs text-muted-foreground">{item.message}</p> : null}
+    </div>
+  );
+}
+
 export function ToastViewport() {
   const [items, setItems] = useState<ToastItem[]>([]);
 
@@ -19,10 +34,7 @@ export function ToastViewport() {
   return (
     <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-80 flex-col gap-2" role="status" aria-live="polite">
       {items.map((item) => (
-        <div key={item.id} className={`rounded border px-3 py-2 shadow ${item.variant === "error" ? "border-red-300 bg-red-50" : "border-emerald-300 bg-emerald-50"}`}>
-          <p className="text-sm font-semibold">{item.title}</p>
-          {item.message ? <p className="text-xs text-muted-foreground">{item.message}</p> : null}
-        </div>
+        <ToastCard key={item.id} item={item} />
       ))}
     </div>
   );
