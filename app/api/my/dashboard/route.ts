@@ -35,6 +35,14 @@ function mapSubmissionStatus(status: string | null | undefined, isPublished: boo
   return "Draft";
 }
 
+function withAttentionTimestamps(createdAt: Date, updatedAt?: Date) {
+  const createdAtISO = createdAt.toISOString();
+  return {
+    createdAtISO,
+    updatedAtISO: (updatedAt ?? createdAt).toISOString(),
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getSessionUser();
@@ -125,32 +133,32 @@ export async function GET(req: NextRequest) {
     for (const event of events) {
       const submissionStatus = event.submissions[0]?.status;
       if (submissionStatus === "REJECTED") {
-        attention.push({ id: `event-rejected-${event.id}`, kind: "rejected", entityType: "event", entityId: event.id, title: event.title, reason: "Submission was rejected and needs updates.", ctaLabel: "Fix & Resubmit", ctaHref: `/my/events/${event.id}`, venueId: event.venueId ?? undefined, updatedAtISO: event.updatedAt.toISOString() });
+        attention.push({ id: `event-rejected-${event.id}`, kind: "rejected", entityType: "event", entityId: event.id, title: event.title, reason: "Submission was rejected and needs updates.", ctaLabel: "Fix & Resubmit", ctaHref: `/my/events/${event.id}`, venueId: event.venueId ?? undefined, ...withAttentionTimestamps(event.updatedAt) });
       } else if (submissionStatus === "SUBMITTED") {
-        attention.push({ id: `event-submitted-${event.id}`, kind: "pending_review", entityType: "event", entityId: event.id, title: event.title, reason: "Submission is pending review.", ctaLabel: "View submission", ctaHref: `/my/events/${event.id}`, venueId: event.venueId ?? undefined, updatedAtISO: event.updatedAt.toISOString() });
+        attention.push({ id: `event-submitted-${event.id}`, kind: "pending_review", entityType: "event", entityId: event.id, title: event.title, reason: "Submission is pending review.", ctaLabel: "View submission", ctaHref: `/my/events/${event.id}`, venueId: event.venueId ?? undefined, ...withAttentionTimestamps(event.updatedAt) });
       } else if (!event.isPublished && !event.venueId) {
-        attention.push({ id: `event-draft-${event.id}`, kind: "incomplete_draft", entityType: "event", entityId: event.id, title: event.title, reason: "Missing required fields: venue.", ctaLabel: "Complete draft", ctaHref: `/my/events/${event.id}`, venueId: undefined, updatedAtISO: event.updatedAt.toISOString() });
+        attention.push({ id: `event-draft-${event.id}`, kind: "incomplete_draft", entityType: "event", entityId: event.id, title: event.title, reason: "Missing required fields: venue.", ctaLabel: "Complete draft", ctaHref: `/my/events/${event.id}`, venueId: undefined, ...withAttentionTimestamps(event.updatedAt) });
       }
     }
 
     for (const venue of memberships) {
       if (selectedVenueId && venue.venueId !== selectedVenueId) continue;
       if (venue.venue.submissions[0]?.status === "REJECTED") {
-        attention.push({ id: `venue-rejected-${venue.venueId}`, kind: "rejected", entityType: "venue", entityId: venue.venueId, title: venue.venue.name, reason: "Venue submission was rejected and needs updates.", ctaLabel: "Fix & Resubmit", ctaHref: `/my/venues/${venue.venueId}`, venueId: venue.venueId, updatedAtISO: venue.venue.updatedAt.toISOString() });
+        attention.push({ id: `venue-rejected-${venue.venueId}`, kind: "rejected", entityType: "venue", entityId: venue.venueId, title: venue.venue.name, reason: "Venue submission was rejected and needs updates.", ctaLabel: "Fix & Resubmit", ctaHref: `/my/venues/${venue.venueId}`, venueId: venue.venueId, ...withAttentionTimestamps(venue.venue.updatedAt) });
       }
     }
 
     for (const artwork of artworks) {
       if (!artwork.isPublished && artwork._count.images === 0) {
-        attention.push({ id: `artwork-draft-${artwork.id}`, kind: "incomplete_draft", entityType: "artwork", entityId: artwork.id, title: artwork.title, reason: "Missing required fields: artwork image.", ctaLabel: "Complete draft", ctaHref: `/my/artwork/${artwork.id}`, venueId: undefined, updatedAtISO: artwork.updatedAt.toISOString() });
+        attention.push({ id: `artwork-draft-${artwork.id}`, kind: "incomplete_draft", entityType: "artwork", entityId: artwork.id, title: artwork.title, reason: "Missing required fields: artwork image.", ctaLabel: "Complete draft", ctaHref: `/my/artwork/${artwork.id}`, venueId: undefined, ...withAttentionTimestamps(artwork.updatedAt) });
       }
     }
 
     for (const invite of pendingInvites) {
-      attention.push({ id: `invite-${invite.id}`, kind: "pending_invite", entityType: "team", entityId: invite.id, title: "Pending team invite", reason: "An invite is waiting for a response.", ctaLabel: "Manage team", ctaHref: `/my/team?venueId=${invite.venueId}`, venueId: invite.venueId, updatedAtISO: invite.createdAt.toISOString() });
+      attention.push({ id: `invite-${invite.id}`, kind: "pending_invite", entityType: "team", entityId: invite.id, title: "Pending team invite", reason: "An invite is waiting for a response.", ctaLabel: "Manage team", ctaHref: `/my/team?venueId=${invite.venueId}`, venueId: invite.venueId, ...withAttentionTimestamps(invite.createdAt) });
     }
 
-    attention.sort((a, b) => Date.parse(b.updatedAtISO) - Date.parse(a.updatedAtISO));
+    attention.sort((a, b) => Date.parse(b.updatedAtISO ?? b.createdAtISO ?? "") - Date.parse(a.updatedAtISO ?? a.createdAtISO ?? ""));
 
     const recentActivity = [
       ...memberships.slice(0, 3).map((m) => ({ id: `venue-${m.venueId}`, label: `Updated venue: ${m.venue.name}`, href: `/my/venues/${m.venueId}`, occurredAtISO: m.venue.updatedAt.toISOString() })),

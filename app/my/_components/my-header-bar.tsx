@@ -22,6 +22,7 @@ export function MyHeaderBar() {
   const [venues, setVenues] = useState<VenueOption[]>([]);
   const [hasArtistProfile, setHasArtistProfile] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   const onVenueChange = useCallback((value: string, mode: "push" | "replace" = "push") => {
     const params = new URLSearchParams(searchParams.toString());
@@ -44,17 +45,21 @@ export function MyHeaderBar() {
       try {
         const response = await fetch("/api/my/dashboard", { signal: controller.signal });
         if (!response.ok) {
+          setDashboardError(`Unable to load dashboard (status ${response.status}).`);
           return;
         }
         const payload = await response.json();
         const parsed = MyDashboardResponseSchema.safeParse(payload);
         if (!parsed.success) {
+          console.error("dashboard parse failed");
+          setDashboardError("Unable to load dashboard (invalid response).");
           return;
         }
+        setDashboardError(null);
         setVenues(parsed.data.context.venues);
         setHasArtistProfile(parsed.data.context.hasArtistProfile);
       } catch {
-        // no-op: keep header resilient even when dashboard context fetch fails
+        setDashboardError("Unable to load dashboard (invalid response).");
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -123,6 +128,7 @@ export function MyHeaderBar() {
           ) : null}
         </div>
       </div>
+      {dashboardError ? <p className="mt-2 text-sm text-destructive">{dashboardError}</p> : null}
     </header>
   );
 }

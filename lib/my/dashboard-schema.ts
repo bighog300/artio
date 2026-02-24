@@ -20,7 +20,10 @@ export const AttentionItemSchema = z.object({
   ctaLabel: z.string(),
   ctaHref: z.string().startsWith("/my"),
   venueId: z.string().optional(),
-  updatedAtISO: z.string().datetime(),
+  createdAtISO: z.string().datetime().optional(),
+  updatedAtISO: z.string().datetime().optional(),
+}).refine((value) => Boolean(value.createdAtISO ?? value.updatedAtISO), {
+  message: "Attention item requires at least one timestamp",
 });
 export type AttentionItem = z.infer<typeof AttentionItemSchema>;
 

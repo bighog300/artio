@@ -38,3 +38,56 @@ test("attention queue CTA hrefs are /my deep links", () => {
     assert.match(item.ctaHref, /^\/my(\/|\?|$)/);
   }
 });
+
+
+test("attention schema accepts createdAtISO without updatedAtISO", () => {
+  const parsed = MyDashboardResponseSchema.parse({
+    context: { selectedVenueId: null, hasArtistProfile: true, venues: [{ id: "v1", name: "Venue", role: "OWNER" }] },
+    counts: {
+      venues: { Draft: 0, Submitted: 0, Published: 0, Rejected: 0 },
+      events: { Draft: 0, Submitted: 0, Published: 0, Rejected: 0 },
+      artwork: { Draft: 0, Published: 0 },
+    },
+    attention: [{
+      id: "a-created",
+      kind: "pending_invite",
+      entityType: "team",
+      entityId: "invite-1",
+      title: "Invite",
+      reason: "Pending",
+      ctaLabel: "Manage",
+      ctaHref: "/my/team",
+      createdAtISO: new Date().toISOString(),
+    }],
+    recentActivity: [],
+    quickLists: { venues: [], upcomingEvents: [], recentArtwork: [] },
+  });
+
+  assert.equal(parsed.attention[0].id, "a-created");
+});
+
+test("attention schema accepts updatedAtISO without createdAtISO", () => {
+  const parsed = MyDashboardResponseSchema.parse({
+    context: { selectedVenueId: null, hasArtistProfile: true, venues: [{ id: "v1", name: "Venue", role: "OWNER" }] },
+    counts: {
+      venues: { Draft: 0, Submitted: 0, Published: 0, Rejected: 0 },
+      events: { Draft: 0, Submitted: 0, Published: 0, Rejected: 0 },
+      artwork: { Draft: 0, Published: 0 },
+    },
+    attention: [{
+      id: "a-updated",
+      kind: "rejected",
+      entityType: "event",
+      entityId: "event-1",
+      title: "Event",
+      reason: "Needs edits",
+      ctaLabel: "Fix",
+      ctaHref: "/my/events/event-1",
+      updatedAtISO: new Date().toISOString(),
+    }],
+    recentActivity: [],
+    quickLists: { venues: [], upcomingEvents: [], recentArtwork: [] },
+  });
+
+  assert.equal(parsed.attention[0].id, "a-updated");
+});

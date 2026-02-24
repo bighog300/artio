@@ -49,16 +49,18 @@ test("/my needs attention renders grouped headings and empty state", () => {
 
 test("/my needs attention sorts within groups and preserves CTA href", () => {
   const panel = readFileSync("app/my/_components/NeedsAttentionPanel.tsx", "utf8");
-  assert.match(panel, /Date\.parse\(b\.updatedAtISO\) - Date\.parse\(a\.updatedAtISO\)/);
+  assert.match(panel, /const bSortKey = b\.updatedAtISO \?\? b\.createdAtISO/);
+  assert.match(panel, /const aSortKey = a\.updatedAtISO \?\? a\.createdAtISO/);
   assert.match(panel, /href=\{item\.ctaHref\}/);
   assert.match(panel, /\{item\.ctaLabel\}/);
 });
 
-test("header includes + Artwork and conditional artist profile CTA", () => {
+test("header includes + Artwork, conditional artist profile CTA, and dashboard error copy", () => {
   const header = readFileSync("app/my/_components/my-header-bar.tsx", "utf8");
   assert.match(header, /\+ Artwork/);
   assert.match(header, /!hasArtistProfile/);
   assert.match(header, /Create Artist Profile/);
+  assert.match(header, /Unable to load dashboard \(invalid response\)\./);
 });
 
 test("/my layout includes shared shell components", () => {

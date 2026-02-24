@@ -56,7 +56,11 @@ function groupAttentionItems(items: AttentionItem[]) {
 
   return ATTENTION_GROUPS.map((group) => ({
     ...group,
-    items: (grouped.get(group.key) ?? []).sort((a, b) => Date.parse(b.updatedAtISO) - Date.parse(a.updatedAtISO)),
+    items: (grouped.get(group.key) ?? []).sort((a, b) => {
+      const bSortKey = b.updatedAtISO ?? b.createdAtISO;
+      const aSortKey = a.updatedAtISO ?? a.createdAtISO;
+      return Date.parse(bSortKey ?? "") - Date.parse(aSortKey ?? "");
+    }),
   })).filter((group) => group.items.length > 0);
 }
 
