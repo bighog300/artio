@@ -33,10 +33,25 @@ test("/my includes section empty states", () => {
   assert.match(source, /You haven&apos;t added artwork yet/);
 });
 
-test("/my needs attention empty state renders", () => {
-  const source = readFileSync("app/my/page.tsx", "utf8");
-  assert.match(source, /Nothing needs attention — you&apos;re all caught up\./);
-  assert.match(source, /data\.attention\.length === 0/);
+test("/my needs attention renders grouped headings and empty state", () => {
+  const page = readFileSync("app/my/page.tsx", "utf8");
+  const panel = readFileSync("app/my/_components/NeedsAttentionPanel.tsx", "utf8");
+
+  assert.match(page, /NeedsAttentionPanel attention=\{data\.attention\}/);
+  assert.match(panel, /title: "Rejected"/);
+  assert.match(panel, /title: "Pending review"/);
+  assert.match(panel, /title: "Incomplete drafts"/);
+  assert.match(panel, /title: "Team invites"/);
+  assert.match(panel, /title: "Other"/);
+  assert.match(panel, /Nothing needs attention — you&apos;re all caught up\./);
+  assert.match(panel, /item\.ctaHref/);
+});
+
+test("/my needs attention sorts within groups and preserves CTA href", () => {
+  const panel = readFileSync("app/my/_components/NeedsAttentionPanel.tsx", "utf8");
+  assert.match(panel, /Date\.parse\(b\.updatedAtISO\) - Date\.parse\(a\.updatedAtISO\)/);
+  assert.match(panel, /href=\{item\.ctaHref\}/);
+  assert.match(panel, /\{item\.ctaLabel\}/);
 });
 
 test("header includes + Artwork and conditional artist profile CTA", () => {

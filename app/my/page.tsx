@@ -6,6 +6,7 @@ import { MyDashboardResponseSchema } from "@/lib/my/dashboard-schema";
 import { getServerBaseUrl } from "@/lib/server/get-base-url";
 import CompletenessBar from "./_components/CompletenessBar";
 import StatusTileGroups from "./_components/StatusTileGroups";
+import NeedsAttentionPanel from "./_components/NeedsAttentionPanel";
 
 async function getDashboard(venueId?: string) {
   const qs = venueId ? `?venueId=${encodeURIComponent(venueId)}` : "";
@@ -25,22 +26,7 @@ export default async function MyDashboardPage({ searchParams }: { searchParams: 
 
   return (
     <main className="space-y-4">
-      <section className="rounded border p-3">
-        <h2 className="text-lg font-semibold">Needs attention</h2>
-        {data.attention.length === 0 ? (
-          <p className="mt-2 rounded border p-2 text-sm text-muted-foreground">Nothing needs attention — you&apos;re all caught up.</p>
-        ) : (
-          <ul className="mt-2 space-y-2">
-            {data.attention.map((item) => (
-              <li key={item.id} className="rounded border p-2 text-sm">
-                <p className="font-medium">{item.title}</p>
-                <p className="text-muted-foreground">{item.reason}</p>
-                <Link className="underline" href={item.ctaHref}>{item.ctaLabel}</Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <NeedsAttentionPanel attention={data.attention} />
 
       <StatusTileGroups counts={data.counts} venueId={venueId} />
 

@@ -6,7 +6,7 @@ export type PublisherEntityType = z.infer<typeof PublisherEntityTypeSchema>;
 export const PublisherStatusSchema = z.enum(["Draft", "Submitted", "Published", "Rejected"]);
 export type PublisherStatus = z.infer<typeof PublisherStatusSchema>;
 
-export const AttentionKindSchema = z.enum(["rejected", "pending_review", "incomplete_draft", "pending_invite"]);
+export const AttentionKindSchema = z.enum(["rejected", "pending_review", "incomplete_draft", "revision_required", "pending_invite"]);
 export type AttentionKind = z.infer<typeof AttentionKindSchema>;
 
 export const AttentionItemSchema = z.object({
@@ -16,6 +16,7 @@ export const AttentionItemSchema = z.object({
   entityId: z.string(),
   title: z.string(),
   reason: z.string(),
+  status: z.string().optional(),
   ctaLabel: z.string(),
   ctaHref: z.string().startsWith("/my"),
   venueId: z.string().optional(),
