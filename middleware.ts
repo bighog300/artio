@@ -4,6 +4,7 @@ import { getBetaConfig, isEmailAllowed } from "@/lib/beta/access";
 import { REQUEST_ID_HEADER } from "@/lib/request-id";
 import { isAdminEmail } from "@/lib/admin-email";
 import { hasSessionCookieFromHeader, isAuthDebugEnabled, logAuthDebug } from "@/lib/auth-debug";
+import { getCanonicalHost, shouldEnforceCanonicalHost } from "@/lib/canonical-host";
 
 const PUBLIC_BETA_PATHS = new Set(["/beta", "/login"]);
 
@@ -17,6 +18,28 @@ export async function middleware(req: NextRequest) {
   }
 
   const pathname = req.nextUrl.pathname;
+  const canonicalHost = getCanonicalHost();
+  const reqHost = req.nextUrl.host;
+
+  if (
+    canonicalHost &&
+    !pathname.startsWith("/api") &&
+    shouldEnforceCanonicalHost(reqHost) &&
+    reqHost !== canonicalHost
+  ) {
+    const forwardedProto = req.headers.get("x-forwarded-proto");
+    const reqProto = req.nextUrl.protocol?.replace(":", "");
+    const proto = forwardedProto || reqProto || "https";
+    const redirectUrl = new URL(`${req.nextUrl.pathname}${req.nextUrl.search}`, `${proto}://${canonicalHost}`);
+
+    return NextResponse.redirect(redirectUrl, {
+      status: 308,
+      headers: {
+        [REQUEST_ID_HEADER]: requestId,
+      },
+    });
+  }
+
   const betaConfig = getBetaConfig();
 
   if (pathname === "/for-you" || pathname.startsWith("/for-you/")) {
