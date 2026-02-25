@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from "next/cache";
 import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
@@ -5,7 +6,11 @@ import { ForYouClient } from "@/components/recommendations/for-you-client";
 import { PageHeader } from "@/components/ui/page-header";
 import { GetStartedBanner } from "@/components/onboarding/get-started-banner";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function ForYouPage() {
+  noStore();
   const user = await getSessionUser();
   if (!user) redirectToLogin("/for-you");
 

@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { LogoutButton } from "@/app/account/logout-button";
@@ -7,7 +8,11 @@ import { LocationSettings } from "@/app/account/location-settings";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { GetStartedEntryPoint } from "@/components/onboarding/get-started-entry-point";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AccountPage() {
+  noStore();
   const user = await getSessionUser();
   if (!user) redirectToLogin("/account");
 
