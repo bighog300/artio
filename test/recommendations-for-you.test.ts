@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { scoreForYouEvents, getForYouRecommendations } from "../lib/recommendations-for-you.ts";
 import { handleForYouGet } from "../lib/api-recommendations-for-you.ts";
+import { AuthError } from "../lib/auth.ts";
 
 test("API rejects unauthenticated requests with 401 JSON (no redirect)", async () => {
   const req = {
@@ -9,12 +10,40 @@ test("API rejects unauthenticated requests with 401 JSON (no redirect)", async (
     headers: new Headers({ cookie: "next-auth.session-token=fake" }),
   } as never;
   const res = await handleForYouGet(req, {
-    requireAuthFn: async () => { throw new Error("unauthorized"); },
+    requireAuthFn: async () => { throw new AuthError(); },
     getForYouRecommendationsFn: async () => ({ windowDays: 7, items: [], candidateCount: 0 }),
   });
   assert.equal(res.status, 401);
   assert.equal(res.headers.get("location"), null);
   assert.match(res.headers.get("content-type") ?? "", /application\/json/);
+});
+
+test("API returns 401 only for AuthError from auth guard", async () => {
+  const req = {
+    nextUrl: new URL("http://localhost/api/recommendations/for-you"),
+    headers: new Headers({ cookie: "next-auth.session-token=fake" }),
+  } as never;
+
+  const res = await handleForYouGet(req, {
+    requireAuthFn: async () => { throw new AuthError(); },
+    getForYouRecommendationsFn: async () => ({ windowDays: 7, items: [], candidateCount: 0 }),
+  });
+
+  assert.equal(res.status, 401);
+});
+
+test("API returns 500 for non-auth errors from auth guard", async () => {
+  const req = {
+    nextUrl: new URL("http://localhost/api/recommendations/for-you"),
+    headers: new Headers({ cookie: "next-auth.session-token=fake" }),
+  } as never;
+
+  const res = await handleForYouGet(req, {
+    requireAuthFn: async () => { throw new Error("boom"); },
+    getForYouRecommendationsFn: async () => ({ windowDays: 7, items: [], candidateCount: 0 }),
+  });
+
+  assert.equal(res.status, 500);
 });
 
 test("scoring produces capped reasons and diversity dampening", () => {
