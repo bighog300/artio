@@ -26,12 +26,35 @@ export function isAuthError(err: unknown): err is AuthError {
 
 const googleClientId = process.env.AUTH_GOOGLE_ID;
 const googleClientSecret = process.env.AUTH_GOOGLE_SECRET;
-const authSecret = process.env.AUTH_SECRET;
 const isProdLikeEnv = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 
-if (isProdLikeEnv && !authSecret) {
-  throw new Error("AUTH_SECRET is required in production/preview (set AUTH_SECRET to a secure random value, e.g. `openssl rand -base64 32`).");
+let hasWarnedAboutMissingAuthSecret = false;
+let hasWarnedAboutSecretMismatch = false;
+
+export function getAuthSecret(): string {
+  const nextAuthSecret = process.env.NEXTAUTH_SECRET;
+  const authSecret = process.env.AUTH_SECRET;
+
+  if (isProdLikeEnv && !nextAuthSecret && !authSecret) {
+    throw new Error("NEXTAUTH_SECRET (or AUTH_SECRET) is required in production/preview (set a secure random value, e.g. `openssl rand -base64 32`).");
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    if (!nextAuthSecret && !authSecret && !hasWarnedAboutMissingAuthSecret) {
+      hasWarnedAboutMissingAuthSecret = true;
+      console.warn("[auth] NEXTAUTH_SECRET/AUTH_SECRET is not set. Session decryption can fail across environments without a shared secret.");
+    }
+
+    if (nextAuthSecret && authSecret && nextAuthSecret !== authSecret && !hasWarnedAboutSecretMismatch) {
+      hasWarnedAboutSecretMismatch = true;
+      console.warn("[auth] NEXTAUTH_SECRET and AUTH_SECRET differ. Using NEXTAUTH_SECRET; align both values to avoid session decryption issues.");
+    }
+  }
+
+  return nextAuthSecret ?? authSecret ?? "";
 }
+
+const authSecret = getAuthSecret();
 
 const hasAuthConfig = Boolean(authSecret && googleClientId && googleClientSecret);
 
@@ -40,16 +63,10 @@ const authFailureWindowMs = 60_000;
 const authFailureState = { windowStart: 0, count: 0 };
 let hasWarnedAboutEdgeRuntime = false;
 
-let hasWarnedAboutMissingNextAuthSecret = false;
 let hasWarnedAboutHostMismatch = false;
 
 function warnAuthEnvRisks(host: string) {
   if (process.env.NODE_ENV === "production") return;
-
-  if (!process.env.NEXTAUTH_SECRET && !hasWarnedAboutMissingNextAuthSecret) {
-    hasWarnedAboutMissingNextAuthSecret = true;
-    console.warn("[auth] NEXTAUTH_SECRET is not set. This project uses AUTH_SECRET; set NEXTAUTH_SECRET as well to avoid env mismatch in some deployments.");
-  }
 
   const configuredUrl = process.env.NEXTAUTH_URL;
   if (!configuredUrl || hasWarnedAboutHostMismatch || !host || host === "unknown") return;
