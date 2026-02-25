@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EventCard } from "@/components/events/event-card";
 import { ItemActionsMenu } from "@/components/personalization/item-actions-menu";
 import { WhyThis } from "@/components/personalization/why-this";
@@ -48,34 +48,55 @@ type ForYouSessionStatus = "authenticated" | "unauthenticated" | "loading";
 
 export async function fetchForYouRecommendations({
   status,
+  hasUser,
+  signal,
   fetchImpl = fetch,
 }: {
   status: ForYouSessionStatus;
+  hasUser: boolean;
+  signal?: AbortSignal;
   fetchImpl?: typeof fetch;
 }): Promise<{ kind: "skipped" | "unauthorized" | "error" } | { kind: "success"; data: ForYouResponse }> {
-  if (status !== "authenticated") return { kind: "skipped" };
+  if (status !== "authenticated" || !hasUser) return { kind: "skipped" };
 
-  const response = await fetchImpl("/api/recommendations/for-you?days=7&limit=20", { cache: "no-store" });
+  const response = await fetchImpl("/api/recommendations/for-you?days=7&limit=20", { cache: "no-store", signal });
   if (response.status === 401) return { kind: "unauthorized" };
   if (!response.ok) return { kind: "error" };
   const data = (await response.json()) as ForYouResponse;
   return { kind: "success", data };
 }
 
+export function shouldAttemptForYouFetch({
+  attempted,
+  lockedOut,
+  status,
+  hasUser,
+}: {
+  attempted: boolean;
+  lockedOut: boolean;
+  status: ForYouSessionStatus;
+  hasUser: boolean;
+}): boolean {
+  return !lockedOut && !attempted && status === "authenticated" && hasUser;
+}
+
 export function ForYouClient() {
   const session = useSession();
   const status = session?.status ?? "unauthenticated";
+  const hasUser = Boolean(session?.data?.user);
   const [data, setData] = useState<ForYouResponse>({ windowDays: 7, items: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAuthFallback, setShowAuthFallback] = useState(false);
+  const [lockedOut, setLockedOut] = useState(false);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [signals, setSignals] = useState<OnboardingSignals>(emptySignals);
+  const attemptedRef = useRef(false);
 
-
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
-    const result = await fetchForYouRecommendations({ status });
+    const result = await fetchForYouRecommendations({ status, hasUser, signal });
+    if (signal?.aborted) return;
     if (result.kind === "skipped") {
       setShowAuthFallback(true);
       setError(null);
@@ -84,6 +105,7 @@ export function ForYouClient() {
     }
     if (result.kind === "unauthorized") {
       setShowAuthFallback(true);
+      setLockedOut(true);
       setError(null);
       setIsLoading(false);
       return;
@@ -100,13 +122,42 @@ export function ForYouClient() {
       setError(null);
       setIsLoading(false);
     }
-  }, [status]);
+  }, [hasUser, status]);
 
   useEffect(() => {
-    if (status === "loading") return;
-    void load();
-    void getOnboardingSignals().then((next) => setSignals(next));
-  }, [load, status]);
+    if (status === "loading") {
+      setIsLoading(true);
+      return;
+    }
+
+    if (status === "unauthenticated" || !hasUser || lockedOut) {
+      setShowAuthFallback(true);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!shouldAttemptForYouFetch({ attempted: attemptedRef.current, lockedOut, status, hasUser })) return;
+
+    attemptedRef.current = true;
+    const controller = new AbortController();
+    void load(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
+  }, [hasUser, load, lockedOut, status]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getOnboardingSignals().then((next) => {
+      if (!cancelled) setSignals(next);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const rankedItems = useMemo(() => {
     const visible = data.items.filter((item) => !hiddenIds.includes(item.event.id));
@@ -136,9 +187,8 @@ export function ForYouClient() {
       },
     );
 
-return ranked;
+    return ranked;
   }, [data.items, hiddenIds, signals]);
-
 
   useEffect(() => {
     if (!rankedItems.length) return;
