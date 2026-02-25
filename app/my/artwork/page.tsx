@@ -5,8 +5,9 @@ import { redirectToLogin } from "@/lib/auth-redirect";
 import { Button } from "@/components/ui/button";
 import { ActiveFiltersBar, type FilterPill } from "@/app/my/_components/ActiveFiltersBar";
 import { buildClearFiltersHref, buildRemoveFilterHref, getFirstSearchValue, toTitleCase, truncateFilterValue } from "@/app/my/_components/filter-href";
+import { MyArchiveActionButton } from "@/app/my/_components/MyArchiveActionButton";
 
-type ArtworkSearchParams = Promise<{ q?: string; query?: string; status?: string; sort?: string; venueId?: string }>;
+type ArtworkSearchParams = Promise<{ q?: string; query?: string; status?: string; sort?: string; venueId?: string; showArchived?: string }>;
 
 export default async function MyArtworkPage({ searchParams }: { searchParams: ArtworkSearchParams }) {
   const user = await getSessionUser();
@@ -14,6 +15,7 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
   const params = await searchParams;
   const query = getFirstSearchValue(params, ["q", "query"]) ?? "";
   const status = params.status;
+  const showArchived = params.showArchived === "1" || status?.toLowerCase() === "archived";
   const sort = params.sort ?? "updated";
 
   const artist = await db.artist.findUnique({ where: { userId: user.id }, select: { id: true } });
@@ -22,9 +24,10 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
       artistId: artist.id,
       title: query ? { contains: query, mode: "insensitive" } : undefined,
       isPublished: status?.toLowerCase() === "published" ? true : status?.toLowerCase() === "draft" ? false : undefined,
+      deletedAt: showArchived ? { not: null } : null,
     },
     orderBy: sort === "title" ? { title: "asc" } : { updatedAt: "desc" },
-    select: { id: true, title: true, slug: true, isPublished: true, updatedAt: true },
+    select: { id: true, title: true, slug: true, isPublished: true, updatedAt: true, deletedAt: true },
   }) : [];
 
   const pills: FilterPill[] = [];
@@ -49,13 +52,13 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
     <main className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <form className="flex gap-2"><input name="q" defaultValue={query} className="h-9 rounded border px-2 text-sm" placeholder="Search artwork" /><Button size="sm">Search</Button></form>
-        {(["Draft", "Published"] as const).map((chip) => <Link key={chip} className="rounded border px-2 py-1 text-xs" href={`/my/artwork?status=${chip}`}>{chip}</Link>)}
+        {(["Draft", "Published", "Archived"] as const).map((chip) => <Link key={chip} className="rounded border px-2 py-1 text-xs" href={`/my/artwork?status=${chip}${chip === "Archived" ? "&showArchived=1" : ""}`}>{chip}</Link>)}
         <Link className="rounded border px-2 py-1 text-xs" href="/my/artwork?sort=title">Sort: Title</Link>
         <Button asChild size="sm"><Link href="/my/artwork/new">Add artwork</Link></Button>
       </div>
-      <ActiveFiltersBar pills={pills} clearAllHref={buildClearFiltersHref("/my/artwork", params, ["status", "q", "query", "sort"], ["venueId"])} />
+      <ActiveFiltersBar pills={pills} clearAllHref={buildClearFiltersHref("/my/artwork", params, ["status", "q", "query", "sort", "showArchived"], ["venueId"])} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((item) => <article key={item.id} className="rounded border p-3"><h3 className="font-medium">{item.title}</h3><p className="text-xs text-muted-foreground">{item.isPublished ? "Published" : "Draft"}</p><div className="mt-2 space-x-2 text-sm"><Link className="underline" href={`/my/artwork/${item.id}`}>Edit</Link><Link className="underline" href={`/api/my/artwork/${item.id}/publish`}>{item.isPublished ? "Unpublish" : "Publish"}</Link><Link className="underline" href={`/artwork/${item.slug ?? item.id}`}>View Public</Link></div></article>)}
+        {items.map((item) => <article key={item.id} className="rounded border p-3"><h3 className="font-medium">{item.title}</h3><p className="text-xs text-muted-foreground">{item.deletedAt ? "Archived" : item.isPublished ? "Published" : "Draft"}</p><div className="mt-2 space-x-2 text-sm"><Link className="underline" href={`/my/artwork/${item.id}`}>Edit</Link><Link className="underline" href={`/api/my/artwork/${item.id}/publish`}>{item.isPublished ? "Unpublish" : "Publish"}</Link><Link className="underline" href={`/artwork/${item.slug ?? item.id}`}>View Public</Link><MyArchiveActionButton entityLabel="artwork" endpointBase={`/api/my/artwork/${item.id}`} archived={!!item.deletedAt} /></div></article>)}
       </div>
     </main>
   );
