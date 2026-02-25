@@ -59,6 +59,13 @@ const artistPatchSchema = z.object({
   isPublished: z.boolean().optional(),
 }).strict();
 
+const artworkPatchSchema = z.object({
+  title: z.string().trim().min(1).optional(),
+  slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable().optional(),
+  description: z.string().trim().max(5000).nullable().optional(),
+  isPublished: z.boolean().optional(),
+}).strict();
+
 const importPreviewBodySchema = z.object({
   mapping: z.record(z.string(), z.string()).default({}),
   options: z.object({
@@ -125,6 +132,7 @@ function getRequestDetails(req: NextRequest) {
 function getEntitySchema(entity: EntityName) {
   if (entity === "venues") return venuePatchSchema;
   if (entity === "events") return eventPatchSchema;
+  if (entity === "artwork") return artworkPatchSchema;
   return artistPatchSchema;
 }
 
@@ -251,6 +259,36 @@ export async function handleAdminEntityList(req: NextRequest, entity: EntityName
       return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE });
     }
 
+    if (entity === "artwork") {
+      const where = {
+        ...deletedFilter,
+        ...(query
+          ? {
+            OR: [
+              { title: { contains: query, mode: "insensitive" as const } },
+              { slug: { contains: query, mode: "insensitive" as const } },
+              { artist: { name: { contains: query, mode: "insensitive" as const } } },
+            ],
+          }
+          : {}),
+      };
+      const [total, items] = await Promise.all([
+        deps.appDb.artwork.count({ where }),
+        deps.appDb.artwork.findMany({
+          where,
+          orderBy: { updatedAt: "desc" },
+          skip,
+          take: PAGE_SIZE,
+          select: {
+            ...Object.fromEntries(defaultFields.artwork.map((k) => [k, true])),
+            updatedAt: true,
+            artist: { select: { name: true } },
+          } as never,
+        }),
+      ]);
+      return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE });
+    }
+
     const where = { ...deletedFilter, ...(query ? { OR: [{ name: { contains: query, mode: "insensitive" as const } }, { slug: { contains: query, mode: "insensitive" as const } }] } : {}) };
     const [total, items] = await Promise.all([
       deps.appDb.artist.count({ where }),
@@ -292,6 +330,14 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
         const patch = { ...payload, ...(payload.startAt ? { startAt: new Date(payload.startAt) } : {}), ...(payload.endAt !== undefined ? { endAt: payload.endAt ? new Date(payload.endAt) : null } : {}) };
         const row = await tx.event.update({ where: { id: entityId }, data: patch });
         await tx.adminAuditLog.create({ data: { actorEmail: actor.email, action: "ADMIN_ENTITY_UPDATED", targetType: "event", targetId: entityId, metadata: { entityType: "event", entityId, before, after: payload, actorId: actor.id, actorEmail: actor.email }, ip, userAgent } });
+        return row;
+      }
+      if (entity === "artwork") {
+        const before = await tx.artwork.findUnique({ where: { id: entityId } });
+        if (!before) throw new Error("not_found");
+        const patch = parsedBody.data as z.infer<typeof artworkPatchSchema>;
+        const row = await tx.artwork.update({ where: { id: entityId }, data: patch });
+        await tx.adminAuditLog.create({ data: { actorEmail: actor.email, action: "ADMIN_ENTITY_UPDATED", targetType: "artwork", targetId: entityId, metadata: { entityType: "artwork", entityId, before, after: patch, actorId: actor.id, actorEmail: actor.email }, ip, userAgent } });
         return row;
       }
       const before = await tx.artist.findUnique({ where: { id: entityId } });

@@ -52,15 +52,15 @@ export function getArtworkPublicHref(artwork: { id: string; slug?: string | null
 }
 
 export function publishedArtworksByArtistWhere(artistId: string) {
-  return { artistId, isPublished: true };
+  return { artistId, isPublished: true, deletedAt: null };
 }
 
 export function publishedArtworksByVenueWhere(venueId: string) {
-  return { isPublished: true, venues: { some: { venueId } } };
+  return { isPublished: true, deletedAt: null, venues: { some: { venueId } } };
 }
 
 export function publishedArtworksByEventWhere(eventId: string) {
-  return { isPublished: true, events: { some: { eventId } } };
+  return { isPublished: true, deletedAt: null, events: { some: { eventId } } };
 }
 
 
@@ -133,7 +133,7 @@ export async function listPublishedArtworksByEvent(eventId: string, limit = 6): 
 
 type ArtistFeaturedDeps = {
   findMany: (args: {
-    where: { artistId: string; artwork: { isPublished: true } };
+    where: { artistId: string; artwork: { isPublished: true; deletedAt: null } };
     orderBy: Array<{ sortOrder: "asc" } | { createdAt: "asc" }>;
     take: number;
     select: { artwork: { select: typeof selectRelatedArtwork } };
@@ -146,7 +146,7 @@ function artistFeaturedDeps(): ArtistFeaturedDeps {
 
 export async function listFeaturedArtworksByArtist(artistId: string, limit = 6, deps: ArtistFeaturedDeps = artistFeaturedDeps()): Promise<PublishedArtworkListItem[]> {
   const items = await deps.findMany({
-    where: { artistId, artwork: { isPublished: true } },
+    where: { artistId, artwork: { isPublished: true, deletedAt: null } },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     take: limit,
     select: { artwork: { select: selectRelatedArtwork } },
@@ -165,6 +165,7 @@ export async function listPublishedArtworkIdsByViews30(input: ArtworkViews30Quer
         SELECT a."id", a."updatedAt"
         FROM "Artwork" a
         WHERE a."isPublished" = true
+          AND a."deletedAt" IS NULL
           ${input.artistId ? Prisma.sql`AND a."artistId" = ${input.artistId}::uuid` : Prisma.empty}
           ${input.yearFrom != null ? Prisma.sql`AND a."year" >= ${input.yearFrom}` : Prisma.empty}
           ${input.yearTo != null ? Prisma.sql`AND a."year" <= ${input.yearTo}` : Prisma.empty}
@@ -193,6 +194,7 @@ export async function listPublishedArtworkIdsByViews30(input: ArtworkViews30Quer
       SELECT COUNT(*) as total
       FROM "Artwork" a
       WHERE a."isPublished" = true
+        AND a."deletedAt" IS NULL
         ${input.artistId ? Prisma.sql`AND a."artistId" = ${input.artistId}::uuid` : Prisma.empty}
         ${input.yearFrom != null ? Prisma.sql`AND a."year" >= ${input.yearFrom}` : Prisma.empty}
         ${input.yearTo != null ? Prisma.sql`AND a."year" <= ${input.yearTo}` : Prisma.empty}
@@ -226,7 +228,7 @@ export async function getTrendingArtworks30({ limit = 10 }: { limit?: number } =
   if (!ids.length) return [];
 
   const found = await db.artwork.findMany({
-    where: { id: { in: ids }, isPublished: true },
+    where: { id: { in: ids }, isPublished: true, deletedAt: null },
     select: {
       id: true,
       slug: true,

@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ key
 
   const key = parsedParams.data.key;
   const artwork = await db.artwork.findFirst({
-    where: isArtworkIdKey(key) ? { id: key } : { slug: key },
+    where: isArtworkIdKey(key) ? { id: key, deletedAt: null } : { slug: key, deletedAt: null },
     select: {
       id: true,
       slug: true,

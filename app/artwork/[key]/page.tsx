@@ -11,7 +11,7 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
   const isIdLookup = isArtworkIdKey(key);
 
   const artwork = await db.artwork.findFirst({
-    where: isIdLookup ? { id: key } : { slug: key },
+    where: isIdLookup ? { id: key, deletedAt: null } : { slug: key, deletedAt: null },
     include: { artist: true, featuredAsset: true, images: { include: { asset: true }, orderBy: { sortOrder: "asc" } }, venues: { include: { venue: true } }, events: { include: { event: true } } },
   });
 

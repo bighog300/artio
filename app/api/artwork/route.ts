@@ -26,6 +26,7 @@ function buildWhere(input: ReturnType<typeof artworkListQuerySchema.parse>): Pri
   const { query, artistId, venueId, eventId, mediums, yearFrom, yearTo, priceMin, priceMax, currency, hasPrice, hasImages } = input;
   return {
     isPublished: true,
+    deletedAt: null,
     ...(artistId ? { artistId } : {}),
     ...(mediums.length ? { medium: { in: mediums, mode: "insensitive" } } : {}),
     ...(yearFrom != null || yearTo != null ? { year: { gte: yearFrom ?? undefined, lte: yearTo ?? undefined } } : {}),

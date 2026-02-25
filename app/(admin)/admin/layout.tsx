@@ -8,6 +8,7 @@ const ADMIN_LINKS = [
   { href: "/admin/events", label: "Events" },
   { href: "/admin/venues", label: "Venues" },
   { href: "/admin/artists", label: "Artists" },
+  { href: "/admin/artwork", label: "Artwork" },
   { href: "/admin/moderation", label: "Moderation" },
   { href: "/admin/submissions", label: "Submissions" },
   { href: "/admin/perf", label: "Performance" },
