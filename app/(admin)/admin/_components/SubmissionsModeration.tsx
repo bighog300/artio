@@ -24,6 +24,7 @@ type SubmissionItem = {
 
 export function getSubmissionModerationErrorMessage(status: number) {
   if (status === 401 || status === 403) return "Not authorized.";
+  if (status === 400) return "Invalid request.";
   if (status === 409) return "Conflict: this submission was already handled.";
   return "Something went wrong.";
 }
@@ -32,7 +33,8 @@ export type BulkResult = { status: "ok" | "error"; message?: string };
 
 type SubmissionAction = "approve" | "reject";
 
-function getRequestForAction(item: SubmissionItem, action: SubmissionAction, reason: string | null) {
+export function buildModerationRequest(item: SubmissionItem, action: SubmissionAction, reason: string | null) {
+  const trimmedReason = reason?.trim() || "";
   const venueFlow = item.type === "VENUE" || item.type === "ARTIST";
   const endpoint = venueFlow
     ? action === "approve"
@@ -40,19 +42,25 @@ function getRequestForAction(item: SubmissionItem, action: SubmissionAction, rea
       : `/api/admin/submissions/${item.id}/request-changes`
     : `/api/admin/submissions/${item.id}/decision`;
 
+  if (!venueFlow && action === "reject" && !trimmedReason) {
+    return null;
+  }
+
   const payload = venueFlow
     ? action === "approve"
       ? {}
-      : { message: reason || "Please address the requested profile changes and resubmit." }
-    : { action, decisionReason: reason || null };
+      : { message: trimmedReason || "Please address the requested profile changes and resubmit." }
+    : action === "approve"
+      ? { decision: "APPROVED" as const }
+      : { decision: "REJECTED" as const, rejectionReason: trimmedReason };
 
   return { endpoint, payload };
 }
 
 async function readErrorMessage(res: Response) {
   try {
-    const body = (await res.json()) as { error?: string; message?: string };
-    return body.error || body.message;
+    const body = (await res.json()) as { error?: string; message?: string; details?: string; reason?: string };
+    return body.message || body.details || body.reason || body.error;
   } catch {
     return undefined;
   }
@@ -63,7 +71,12 @@ export async function submitModerationAction(
   action: SubmissionAction,
   reason: string | null,
 ): Promise<BulkResult> {
-  const { endpoint, payload } = getRequestForAction(item, action, reason);
+  const request = buildModerationRequest(item, action, reason);
+  if (!request) {
+    return { status: "error", message: "Please provide a rejection reason." };
+  }
+
+  const { endpoint, payload } = request;
   try {
     const res = await fetch(endpoint, {
       method: "POST",
