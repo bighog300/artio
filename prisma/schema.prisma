@@ -674,9 +674,20 @@ model Asset {
   artworkFeaturedFor Artwork[]      @relation("ArtworkFeaturedAsset")
   eventFeaturedFor   Event[]        @relation("EventFeaturedAsset")
   artworkImages      ArtworkImage[]
+  siteSettingsLogo   SiteSettings[]
 
   @@index([ownerUserId])
   @@index([createdAt])
+}
+
+model SiteSettings {
+  id          String   @id
+  logoAssetId String?  @db.Uuid
+  logoAsset   Asset?   @relation(fields: [logoAssetId], references: [id], onDelete: SetNull)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([logoAssetId])
 }
 
 model Artwork {

@@ -13,6 +13,7 @@ type ShellUser = {
 type AppShellNavProps = {
   user: ShellUser | null;
   isAdmin: boolean;
+  logoUrl: string | null;
 };
 
 type NavLink = { label: string; href: string };
@@ -61,7 +62,7 @@ function NavTextLink({ href, label, onClick }: { href: string; label: string; on
   );
 }
 
-export function AppShellNav({ user, isAdmin }: AppShellNavProps) {
+export function AppShellNav({ user, isAdmin, logoUrl }: AppShellNavProps) {
   const pathname = usePathname() ?? "/";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [unread, setUnread] = useState(0);
@@ -109,7 +110,7 @@ export function AppShellNav({ user, isAdmin }: AppShellNavProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 md:px-6">
-        <Link href="/" className="text-lg font-semibold tracking-tight">ArtPulse</Link>
+        <Link href="/" className="text-lg font-semibold tracking-tight">{logoUrl ? <img src={logoUrl} alt="ArtPulse" className="h-8 w-auto" /> : "ArtPulse"}</Link>
 
         <nav className="hidden flex-1 items-center justify-center gap-1 md:flex" aria-label="Primary">
           {PRIMARY_LINKS.map((item) => <NavTextLink key={item.href} href={item.href} label={item.label} />)}

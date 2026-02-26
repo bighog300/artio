@@ -7,6 +7,7 @@ import { CommandPalette } from '@/components/command-palette/command-palette';
 import { AppShell } from '@/components/shell/app-shell';
 import { isAdminEmail } from '@/lib/admin';
 import { Providers } from './providers';
+import { getPublicBranding } from '@/lib/site-settings/get-public-branding';
 
 
 // Root layout reads NextAuth session on every request; keep Node runtime to avoid
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const user = await getSessionUser();
   const isAdmin = isAdminEmail(user?.email);
+  const branding = await getPublicBranding();
 
   return (
     <html lang="en">
@@ -34,7 +36,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           >
             Skip to content
           </a>
-          <AppShell user={user} isAdmin={isAdmin}>{children}</AppShell>
+          <AppShell user={user} isAdmin={isAdmin} logoUrl={branding.logoUrl}>{children}</AppShell>
           <ToastViewport />
           <MobileBottomNav isAuthenticated={Boolean(user)} />
           <CommandPalette isAuthenticated={Boolean(user)} isAdmin={isAdmin} />
