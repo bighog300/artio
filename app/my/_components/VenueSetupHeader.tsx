@@ -4,15 +4,15 @@ type SubmissionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null;
 
 function getStatusMeta(status: SubmissionStatus, isPublished: boolean) {
   if (isPublished || status === "APPROVED") {
-    return { label: "Published", subtext: "Visible on ArtPulse.", variant: "default" as const };
+    return { label: "Published", subtext: "Published — visible on ArtPulse.", variant: "default" as const };
   }
   if (status === "SUBMITTED") {
-    return { label: "Submitted", subtext: "Under review. You may be limited in what you can edit.", variant: "secondary" as const };
+    return { label: "Submitted", subtext: "Submitted — in the Admin review queue.", variant: "secondary" as const };
   }
   if (status === "REJECTED") {
-    return { label: "Changes requested", subtext: "Fix items below and resubmit.", variant: "destructive" as const };
+    return { label: "Changes requested", subtext: "Changes requested — fix issues and resubmit.", variant: "destructive" as const };
   }
-  return { label: "Draft", subtext: "Not visible publicly yet.", variant: "outline" as const };
+  return { label: "Draft", subtext: "Draft — not yet submitted for admin approval.", variant: "outline" as const };
 }
 
 export default function VenueSetupHeader({

@@ -33,11 +33,13 @@ export function deriveVenueSubmitButtonUiState({
   initialStatus,
   isSubmitting,
   locallySubmitted,
+  ctaLabel = "Submit Venue for Review",
 }: {
   isReady: boolean;
   initialStatus?: SubmissionStatus;
   isSubmitting: boolean;
   locallySubmitted: boolean;
+  ctaLabel?: string;
 }) {
   const normalizedStatus = typeof initialStatus === "string" ? initialStatus.toUpperCase() : null;
   const isSubmittedPending = locallySubmitted || normalizedStatus === "SUBMITTED" || normalizedStatus === "PENDING";
@@ -59,14 +61,14 @@ export function deriveVenueSubmitButtonUiState({
 
   if (!isReady) {
     return {
-      label: "Submit Venue for Review",
+      label: ctaLabel,
       disabled: true,
       helperText: "Complete required fields to submit.",
     };
   }
 
   return {
-    label: "Submit Venue for Review",
+    label: ctaLabel,
     disabled: false,
     helperText: "Ready to submit for approval.",
   };
@@ -77,11 +79,13 @@ export default function VenueSubmitButton({
   isReady,
   blocking = [],
   initialStatus = null,
+  ctaLabel,
 }: {
   venueId: string;
   isReady: boolean;
   blocking?: { id: string; label: string }[];
   initialStatus?: SubmissionStatus;
+  ctaLabel?: string;
 }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -92,6 +96,7 @@ export default function VenueSubmitButton({
     initialStatus,
     isSubmitting,
     locallySubmitted,
+    ctaLabel,
   });
 
   async function onSubmit() {

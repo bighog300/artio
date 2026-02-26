@@ -10,7 +10,15 @@ type Checks = {
   images: boolean;
   contact: boolean;
   publishReady: boolean;
+  missingRequired: string[];
 };
+
+function blockingItemFromMissing(label: string) {
+  if (label.includes("basic info")) return { id: "name_description", label };
+  if (label.includes("location")) return { id: "location", label };
+  if (label.includes("image")) return { id: "images", label };
+  return { id: label, label };
+}
 
 export default function VenuePublishPanel({
   venue,
@@ -46,18 +54,29 @@ export default function VenuePublishPanel({
             <Link className="underline" href={`/venues/${venue.slug}`}>View public page</Link>
           </div>
         ) : showAwaitingReview ? (
-          <p className="text-sm font-medium text-muted-foreground">Awaiting review</p>
+          <p className="text-sm font-medium text-muted-foreground">Awaiting review (Admin queue)</p>
         ) : (
-          <VenueSubmitButton
-            venueId={venue.id}
-            isReady={checks.publishReady && isOwner}
-            blocking={[
-              !checks.basicInfo ? { id: "name_description", label: "Add basic info" } : null,
-              !checks.location ? { id: "location", label: "Add location coordinates" } : null,
-              !checks.images ? { id: "images", label: "Add at least one image" } : null,
-            ].filter((item): item is { id: string; label: string } => Boolean(item))}
-            initialStatus={submissionStatus}
-          />
+          <div className="space-y-2">
+            {checks.publishReady ? (
+              <p className="text-sm font-medium text-emerald-700">Ready to submit for admin approval</p>
+            ) : (
+              <div className="space-y-1">
+                <p className="text-sm font-medium">What&apos;s missing</p>
+                <ul className="list-disc pl-5 text-sm text-muted-foreground">
+                  {checks.missingRequired.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <VenueSubmitButton
+              venueId={venue.id}
+              isReady={checks.publishReady && isOwner}
+              ctaLabel="Submit for review"
+              blocking={checks.missingRequired.map(blockingItemFromMissing)}
+              initialStatus={submissionStatus}
+            />
+          </div>
         )}
       </CardContent>
     </Card>

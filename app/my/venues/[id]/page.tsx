@@ -18,10 +18,18 @@ import { VenueLocationMissingBanner } from "@/app/my/_components/VenueLocationMi
 import VenueSetupHeader from "@/app/my/_components/VenueSetupHeader";
 import VenueCompletionProgress from "@/app/my/_components/VenueCompletionProgress";
 import VenueSetupSection from "@/app/my/_components/VenueSetupSection";
+import VenueCreatedDraftBanner from "@/app/my/_components/VenueCreatedDraftBanner";
 import { getVenueCompletionChecks } from "@/lib/venues/venue-completion";
 
-export default async function MyVenueEditPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MyVenueEditPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }> ;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
+  const query = (await searchParams) ?? {};
   const user = await getSessionUser();
   if (!user) redirectToLogin("/my/venues");
 
@@ -126,6 +134,8 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
 
       <VenueSetupHeader venue={{ name: venue.name, isPublished: venue.isPublished }} submissionStatus={submission?.status ?? null} />
 
+      {query.created === "1" ? <VenueCreatedDraftBanner venueId={venue.id} missingRequired={checks.missingRequired} /> : null}
+
       <VenueCompletionProgress checks={checks} />
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -134,27 +144,31 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
             <VenueSelfServeForm venue={venue} submissionStatus={submission?.status ?? null} />
           </VenueSetupSection>
 
-          <VenueSetupSection title="Location" description="Used for maps and nearby discovery." complete={checks.location}>
-            <div className="space-y-3">
+          <div id={`location-section-${venue.id}`}>
+            <VenueSetupSection title="Location" description="Used for maps and nearby discovery." complete={checks.location}>
+              <div className="space-y-3">
               {venue.lat == null || venue.lng == null ? <VenueLocationMissingBanner venueId={venue.id} /> : null}
               <p className="text-sm text-muted-foreground">
                 {venue.lat != null && venue.lng != null
                   ? `Coordinates set: ${venue.lat}, ${venue.lng}`
                   : "Set latitude and longitude in Basic information, then retry geocoding if needed."}
               </p>
-            </div>
-          </VenueSetupSection>
+              </div>
+            </VenueSetupSection>
+          </div>
 
-          <VenueSetupSection title="Images" description="At least one image is required before submit." complete={checks.images}>
-            <div className="space-y-3">
+          <div id={`images-section-${venue.id}`}>
+            <VenueSetupSection title="Images" description="At least one image is required before submit." complete={checks.images}>
+              <div className="space-y-3">
               <p className="text-sm text-muted-foreground">{venue.images.length} image{venue.images.length === 1 ? "" : "s"} uploaded.</p>
               <VenueGalleryManager
                 venueId={venue.id}
                 initialImages={venue.images}
                 initialCover={{ featuredImageUrl: resolveImageUrl(venue.featuredAsset?.url, venue.featuredImageUrl) }}
               />
-            </div>
-          </VenueSetupSection>
+              </div>
+            </VenueSetupSection>
+          </div>
 
           <VenueSetupSection title="Contact & details" description="Optional but recommended for trust and discovery." complete={checks.contact}>
             <p className="text-sm text-muted-foreground">Add website or Instagram in the form above.</p>

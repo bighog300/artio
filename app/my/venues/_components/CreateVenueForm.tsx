@@ -55,7 +55,7 @@ export function CreateVenueForm({ buttonLabel = "Create venue", showTopSubmit = 
     }
 
     router.refresh();
-    router.push(`/my/venues/${body.venue.id}`);
+    router.push(`/my/venues/${body.venue.id}?created=1`);
   }
 
   const submitButtonLabel = isSubmitting ? "Creating..." : buttonLabel;

@@ -17,6 +17,10 @@ test("location-missing and image-missing checks disable publish readiness", () =
   assert.equal(checks.location, false);
   assert.equal(checks.images, false);
   assert.equal(checks.publishReady, false);
+  assert.deepEqual(checks.missingRequired, [
+    "Confirm location (lat/lng)",
+    "Add at least 1 image",
+  ]);
 });
 
 test("venue setup page renders location missing banner in Location section", () => {
@@ -29,6 +33,9 @@ test("venue setup page renders location missing banner in Location section", () 
 test("publish panel shows images requirement and submit button readiness wiring", () => {
   const panel = readFileSync("app/my/_components/VenuePublishPanel.tsx", "utf8");
 
-  assert.match(panel, /Add at least one image/);
+  assert.match(panel, /What\&apos;s missing/);
+  assert.match(panel, /checks\.missingRequired\.map/);
+  assert.match(panel, /Ready to submit for admin approval/);
+  assert.match(panel, /Awaiting review \(Admin queue\)/);
   assert.match(panel, /isReady=\{checks\.publishReady && isOwner\}/);
 });
