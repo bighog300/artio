@@ -192,7 +192,19 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
 
   const savedSearchMatches = new Map<string, string[]>();
   for (const search of searches) {
-    const items = await runSavedSearchEvents({ eventDb: db as never, type: search.type as SavedSearchType, paramsJson: search.paramsJson, limit: 50 });
+    let items: Array<{ id: string; startAt: Date }> = [];
+    try {
+      items = await runSavedSearchEvents({ eventDb: db as never, type: search.type as SavedSearchType, paramsJson: search.paramsJson, limit: 50 });
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.warn("recommendations.for_you.saved_search_skipped", {
+        userId: args.userId,
+        searchId: search.id,
+        searchType: search.type,
+        error: err.message,
+      });
+      continue;
+    }
     const filtered = items.filter((item) => item.startAt >= now && item.startAt <= to).slice(0, 50);
     for (const item of filtered) {
       const matches = savedSearchMatches.get(item.id) ?? [];

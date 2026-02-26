@@ -206,6 +206,48 @@ test("recommendations exclude explicitly disliked events for 30 days", async () 
   assert.equal(result.items.some((item) => item.event.id === "event-visible"), true);
 });
 
+test("recommendations continue when a saved search cannot be parsed", async () => {
+  const db = {
+    user: { findUnique: async () => ({ locationLat: null, locationLng: null, locationRadiusKm: 25, locationLabel: null }) },
+    follow: { findMany: async () => [{ targetType: "VENUE", targetId: "v-1" }] },
+    savedSearch: {
+      findMany: async () => [
+        {
+          id: "bad-search",
+          name: "Broken nearby",
+          type: "NEARBY",
+          paramsJson: { lat: "oops", lng: 0, radiusKm: 25 },
+        },
+      ],
+    },
+    engagementEvent: { findMany: async () => [] },
+    event: {
+      findMany: async (args: any) => {
+        if (args.select?.id && !args.select?.title) {
+          return [{ id: "event-visible" }];
+        }
+        const ids = new Set(args.where.id.in as string[]);
+        const all = [
+          { id: "event-visible", title: "Visible", slug: "visible", startAt: new Date("2026-03-04T10:00:00.000Z"), venueId: "v-1" },
+        ];
+        return all.filter((e) => ids.has(e.id)).map((e) => ({
+          ...e,
+          lat: null,
+          lng: null,
+          venue: { name: "Venue", slug: "venue", city: null, lat: null, lng: null },
+          images: [],
+          eventArtists: [],
+          eventTags: [],
+        }));
+      },
+    },
+  } as never;
+
+  const result = await getForYouRecommendations(db, { userId: "u-broken-search", days: 30, limit: 10 });
+  assert.equal(result.items.length > 0, true);
+  assert.equal(result.items[0]?.event.id, "event-visible");
+});
+
 test("liked similarity adds score boost and reason", () => {
   const now = new Date("2026-02-01T10:00:00.000Z");
   const baseEvent = {
