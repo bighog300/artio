@@ -55,6 +55,8 @@ Minimum required:
 - `ADMIN_IMAGE_ALT_REQUIRED` (optional; defaults to `false`, when `true` admin image alt text is required before setting an image as featured/primary)
 
 Optional:
+- `AI_INGEST_ENABLED` (set to `1` to enable server-side AI ingest extraction; defaults to disabled)
+- `OPENAI_API_KEY` (required only when `AI_INGEST_ENABLED=1`)
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (enables `/nearby` map view)
 - `BLOB_READ_WRITE_TOKEN` (required for Blob image uploads)
 - `RATE_LIMIT_VENUE_IMAGES_WRITE_PER_MINUTE` (defaults to `60`)
@@ -119,3 +121,9 @@ Recommended scripts:
   - `db.vacuum-lite`
 - Job runs are persisted in the `JobRun` table and all admin reads/triggers are recorded in `AdminAuditLog`.
 - No additional environment variables are required; existing `CRON_SECRET` automation remains server-side only and is never exposed to the browser.
+
+
+## 8. AI ingest extraction
+
+- `AI_INGEST_ENABLED=0` keeps ingestion extraction disabled by default.
+- Set `AI_INGEST_ENABLED=1` and `OPENAI_API_KEY` to allow ingest extraction jobs to call OpenAI.

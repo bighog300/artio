@@ -90,6 +90,19 @@ enum EventType {
   OTHER
 }
 
+enum IngestStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum IngestExtractedEventStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum FavoriteTargetType {
   EVENT
   VENUE
@@ -294,6 +307,8 @@ model Venue {
   featuredAsset      Asset?                   @relation("VenueFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
   artistAssociations ArtistVenueAssociation[]
   artworkVenues      ArtworkVenue[]
+  ingestRuns         IngestRun[]
+  ingestExtractedEvents IngestExtractedEvent[]
 
   @@index([isPublished])
   @@index([featuredAssetId])
@@ -375,7 +390,10 @@ model Event {
   deletedAt     DateTime?
   deletedByAdminId String?     @db.Uuid
   deletedReason String?
+  isAiExtracted  Boolean        @default(false)
+  ingestSourceRunId String?     @db.Uuid
   venue         Venue?         @relation(fields: [venueId], references: [id])
+  ingestSourceRun IngestRun?    @relation("EventIngestSourceRun", fields: [ingestSourceRunId], references: [id], onDelete: SetNull)
   featuredAsset Asset?         @relation("EventFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
   images        EventImage[]
   eventTags     EventTag[]
@@ -392,6 +410,54 @@ model Event {
   @@index([venueId, startAt])
   @@index([publishedAt])
   @@index([deletedAt])
+  @@index([ingestSourceRunId])
+}
+
+model IngestRun {
+  id               String                @id @default(uuid()) @db.Uuid
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  status           IngestStatus
+  venueId          String                @db.Uuid
+  sourceUrl        String
+  fetchFinalUrl    String?
+  fetchStatus      Int?
+  fetchContentType String?
+  fetchBytes       Int?
+  errorCode        String?
+  errorMessage     String?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  venue            Venue                 @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  extractedEvents  IngestExtractedEvent[]
+  events           Event[]               @relation("EventIngestSourceRun")
+
+  @@index([venueId, createdAt])
+}
+
+model IngestExtractedEvent {
+  id              String                     @id @default(uuid()) @db.Uuid
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  runId           String                     @db.Uuid
+  venueId         String                     @db.Uuid
+  status          IngestExtractedEventStatus @default(PENDING)
+  fingerprint     String
+  sourceUrl       String
+  title           String
+  startAt         DateTime?
+  endAt           DateTime?
+  timezone        String?
+  locationText    String?
+  description     String?
+  rawJson         Json
+  model           String?
+  rejectionReason String?
+  run             IngestRun                  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  venue           Venue                      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, fingerprint])
+  @@index([runId])
 }
 
 model VenueMembership {
