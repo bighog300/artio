@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiError } from "@/lib/api";
 import { adminModerationRejectSchema, zodDetails, parseBody } from "@/lib/validators";
+import { ModerationDecisionError } from "@/lib/moderation-decision-service";
 
 type EntityType = "ARTIST" | "VENUE" | "EVENT";
 
@@ -66,7 +67,15 @@ export async function handleAdminModerationApprove(entityType: EntityType, param
   const resolved = await resolvePending(entityType, params, deps);
   if ("error" in resolved) return resolved.error;
 
-  await deps.approveSubmission(entityType, resolved.submissionId, resolved.admin);
+  try {
+    await deps.approveSubmission(entityType, resolved.submissionId, resolved.admin);
+  } catch (error) {
+    if (error instanceof ModerationDecisionError) {
+      return apiError(error.status, error.code, error.message);
+    }
+    return apiError(500, "internal_error", "Unexpected server error");
+  }
+
   return NextResponse.json({ ok: true });
 }
 
@@ -77,7 +86,15 @@ export async function handleAdminModerationReject(req: NextRequest, entityType: 
   const resolved = await resolvePending(entityType, params, deps);
   if ("error" in resolved) return resolved.error;
 
-  await deps.rejectSubmission(entityType, resolved.submissionId, resolved.admin, parsed.data.rejectionReason);
+  try {
+    await deps.rejectSubmission(entityType, resolved.submissionId, resolved.admin, parsed.data.rejectionReason);
+  } catch (error) {
+    if (error instanceof ModerationDecisionError) {
+      return apiError(error.status, error.code, error.message);
+    }
+    return apiError(500, "internal_error", "Unexpected server error");
+  }
+
   return NextResponse.json({ ok: true });
 }
 

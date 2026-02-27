@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
 import { handleAdminModerationApprove, handleAdminModerationReject } from "../lib/admin-moderation-route";
+import { ModerationDecisionError } from "../lib/moderation-decision-service";
 
 const params = { submissionId: "11111111-1111-4111-8111-111111111111" };
 
@@ -47,6 +48,40 @@ test("already decided returns 409", async () => {
   });
 
   assert.equal(res.status, 409);
+});
+
+test("approve maps moderation decision errors to api responses", async () => {
+  const res = await handleAdminModerationApprove("EVENT", params, {
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
+    approveSubmission: async () => {
+      throw new ModerationDecisionError(403, "forbidden", "Moderators cannot decide their own submissions");
+    },
+  });
+
+  assert.equal(res.status, 403);
+  const body = await res.json();
+  assert.equal(body.error?.code, "forbidden");
+});
+
+test("reject maps moderation decision errors to api responses", async () => {
+  const rejectReq = new NextRequest("http://localhost", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ rejectionReason: "Need updates before publishing." }),
+  });
+
+  const res = await handleAdminModerationReject(rejectReq, "EVENT", params, {
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
+    rejectSubmission: async () => {
+      throw new ModerationDecisionError(403, "forbidden", "Moderators cannot decide their own submissions");
+    },
+  });
+
+  assert.equal(res.status, 403);
+  const body = await res.json();
+  assert.equal(body.error?.code, "forbidden");
 });
 
 test("approve/reject invoke audit-capable deps", async () => {
