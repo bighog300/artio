@@ -10,6 +10,7 @@ import { getAuthDebugRequestMeta, logAuthDebug } from "@/lib/auth-debug";
 import { ForbiddenError } from "@/lib/http-errors";
 
 export type SessionUser = { id: string; email: string; name: string | null; role: "USER" | "EDITOR" | "ADMIN" };
+export type EditorSessionUser = SessionUser & { role: "EDITOR" | "ADMIN" };
 
 export class AuthError extends Error {
   code = "UNAUTHORIZED" as const;
@@ -247,10 +248,10 @@ export function hasGlobalVenueAccess(role: SessionUser["role"]) {
   return role === "EDITOR" || role === "ADMIN";
 }
 
-export async function requireEditor() {
+export async function requireEditor(): Promise<EditorSessionUser> {
   const user = await requireAuth();
   if (user.role !== "EDITOR" && user.role !== "ADMIN") throw new ForbiddenError();
-  return user;
+  return { ...user, role: user.role };
 }
 
 export async function requireAdmin() {
