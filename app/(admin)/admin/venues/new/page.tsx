@@ -10,7 +10,7 @@ export default function AdminNewVenue() {
       redirectPath="/admin/venues"
       uploadTargetType="venue"
       uploadTargetId="new"
-      initial={{ name: "", slug: "", description: "", addressLine1: "", addressLine2: "", city: "", region: "", postcode: "", country: "", lat: "", lng: "", websiteUrl: "", instagramUrl: "", contactEmail: "", featuredImageUrl: "", featuredAssetId: "", isPublished: false }}
+      initial={{ name: "", slug: "", description: "", addressLine1: "", addressLine2: "", city: "", region: "", postcode: "", country: "", lat: "", lng: "", timezone: "", websiteUrl: "", instagramUrl: "", contactEmail: "", featuredImageUrl: "", featuredAssetId: "", isPublished: false }}
       fields={[
         { name: "name", label: "Name" },
         { name: "slug", label: "Slug" },
@@ -23,6 +23,7 @@ export default function AdminNewVenue() {
         { name: "country", label: "Country" },
         { name: "lat", label: "Latitude" },
         { name: "lng", label: "Longitude" },
+        { name: "timezone", label: "Timezone (IANA)" },
         { name: "websiteUrl", label: "Website URL" },
         { name: "instagramUrl", label: "Instagram URL" },
         { name: "contactEmail", label: "Contact Email" },

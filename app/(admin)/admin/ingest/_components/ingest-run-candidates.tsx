@@ -30,7 +30,7 @@ function inLane(candidate: Candidate, lane: Lane): boolean {
   return candidate.confidenceBand === "MEDIUM";
 }
 
-export default function IngestRunCandidates({ candidates }: { candidates: Candidate[] }) {
+export default function IngestRunCandidates({ candidates, venueId }: { candidates: Candidate[]; venueId: string }) {
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [lane, setLane] = useState<Lane>("HIGH");
@@ -125,6 +125,7 @@ export default function IngestRunCandidates({ candidates }: { candidates: Candid
                     <td className="px-3 py-2">
                       <IngestCandidateActions
                         candidateId={candidate.id}
+                        venueId={venueId}
                         status={candidate.status}
                         createdEventId={candidate.createdEventId}
                         rejectionReason={candidate.rejectionReason}

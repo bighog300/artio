@@ -288,6 +288,7 @@ model Venue {
   postcode           String?
   lat                Float?
   lng                Float?
+  timezone           String?
   websiteUrl         String?
   instagramUrl       String?
   contactEmail       String?
@@ -314,6 +315,7 @@ model Venue {
   @@index([isPublished])
   @@index([featuredAssetId])
   @@index([deletedAt])
+  @@index([timezone])
 }
 
 model Artist {

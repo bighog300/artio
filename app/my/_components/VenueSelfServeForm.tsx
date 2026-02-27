@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ImageUploader from "@/app/my/_components/ImageUploader";
+import { Button } from "@/components/ui/button";
 
 type VenueRecord = {
   id: string;
@@ -21,6 +22,7 @@ type VenueRecord = {
   featuredAsset?: { url: string } | null;
   lat: number | null;
   lng: number | null;
+  timezone: string | null;
   isPublished: boolean;
 };
 
@@ -81,6 +83,34 @@ export default function VenueSelfServeForm({ venue, submissionStatus }: { venue:
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="block"><span className="text-sm">Latitude</span><input className="border rounded p-2 w-full" type="number" step="any" value={String(form.lat ?? "")} onChange={(e) => setForm((p) => ({ ...p, lat: e.target.value === "" ? null : Number(e.target.value) }))} /></label>
         <label className="block"><span className="text-sm">Longitude</span><input className="border rounded p-2 w-full" type="number" step="any" value={String(form.lng ?? "")} onChange={(e) => setForm((p) => ({ ...p, lng: e.target.value === "" ? null : Number(e.target.value) }))} /></label>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="block"><span className="text-sm">Timezone (IANA)</span><input className="border rounded p-2 w-full" placeholder="Europe/London" value={String(form.timezone ?? "")} onChange={(e) => setForm((p) => ({ ...p, timezone: e.target.value }))} /></label>
+        <div className="flex items-end">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={form.lat == null || form.lng == null}
+            onClick={async () => {
+              setError(null);
+              const res = await fetch(`/api/my/venues/${venue.id}`, {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ autoDetectTimezone: true, lat: form.lat, lng: form.lng }),
+              });
+              if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                setError(body?.error?.message || "Failed to infer timezone");
+                return;
+              }
+              const body = await res.json();
+              setForm((p) => ({ ...p, timezone: body.timezone ?? "" }));
+              router.refresh();
+            }}
+          >
+            Auto-detect timezone
+          </Button>
+        </div>
       </div>
       <label className="block"><span className="text-sm">Website</span><input className="border rounded p-2 w-full" value={String(form.websiteUrl ?? "")} onChange={(e) => setForm((p) => ({ ...p, websiteUrl: e.target.value }))} /></label>
       <label className="block"><span className="text-sm">Instagram</span><input className="border rounded p-2 w-full" value={String(form.instagramUrl ?? "")} onChange={(e) => setForm((p) => ({ ...p, instagramUrl: e.target.value }))} /></label>

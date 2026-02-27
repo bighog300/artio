@@ -34,6 +34,7 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
           { name: "country", label: "Country" },
           { name: "lat", label: "Latitude" },
           { name: "lng", label: "Longitude" },
+          { name: "timezone", label: "Timezone (IANA)" },
           { name: "websiteUrl", label: "Website URL" },
           { name: "instagramUrl", label: "Instagram URL" },
           { name: "contactEmail", label: "Contact Email" },

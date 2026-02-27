@@ -46,7 +46,7 @@ test("approve creates draft event + submission and updates candidate", async () 
   let eventCounter = 0;
   const tx = {
     ingestExtractedEvent: {
-      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId } }),
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId }, venue: { id: candidate.venueId, timezone: null, lat: null, lng: null } }),
       update: async ({ data }: { data: Partial<Candidate> }) => {
         Object.assign(candidate, data);
         return { id: candidate.id, createdEventId: candidate.createdEventId, runId: candidate.runId, venueId: candidate.venueId };
@@ -109,7 +109,7 @@ test("approve is idempotent and does not duplicate event/submission", async () =
   let eventCreates = 0;
   const tx = {
     ingestExtractedEvent: {
-      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId } }),
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId }, venue: { id: candidate.venueId, timezone: null, lat: null, lng: null } }),
       update: async ({ data }: { data: Partial<Candidate> }) => {
         Object.assign(candidate, data);
         return { id: candidate.id, createdEventId: candidate.createdEventId, runId: candidate.runId, venueId: candidate.venueId };
@@ -255,7 +255,7 @@ test("approve returns precise missing scheduling fields", async () => {
 
   const tx = {
     ingestExtractedEvent: {
-      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId } }),
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId }, venue: { id: candidate.venueId, timezone: null, lat: null, lng: null } }),
       update: async () => ({ id: candidate.id, createdEventId: null, runId: candidate.runId, venueId: candidate.venueId }),
     },
     event: {
@@ -300,7 +300,7 @@ test("approve missing timezone only reports timezone", async () => {
 
   const tx = {
     ingestExtractedEvent: {
-      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId } }),
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId }, venue: { id: candidate.venueId, timezone: null, lat: null, lng: null } }),
       update: async () => ({ id: candidate.id, createdEventId: null, runId: candidate.runId, venueId: candidate.venueId }),
     },
     event: {
@@ -313,6 +313,161 @@ test("approve missing timezone only reports timezone", async () => {
   };
 
   const req = new NextRequest("http://localhost/api/admin/ingest/extracted-events/11111111-1111-4111-8111-111111111115/approve", { method: "POST" });
+  const res = await handleAdminIngestApprove(req, { id: candidate.id }, {
+    requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
+    appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,
+    logAction: async () => undefined,
+  });
+
+  assert.equal(res.status, 409);
+  const body = await res.json();
+  assert.deepEqual(body.error.details?.missingFields, ["timezone"]);
+});
+
+test("approve resolves timezone from venue.timezone", async () => {
+  const created: Array<{ timezone: string }> = [];
+  const candidate: Candidate = {
+    id: "11111111-1111-4111-8111-111111111116",
+    runId: "22222222-2222-4222-8222-222222222222",
+    venueId: "33333333-3333-4333-8333-333333333333",
+    status: "PENDING",
+    title: "AI Event",
+    startAt: new Date("2026-01-01T18:00:00Z"),
+    endAt: null,
+    timezone: null,
+    locationText: null,
+    description: null,
+    sourceUrl: "https://venue.example/events",
+    createdEventId: null,
+    rejectionReason: null,
+  };
+
+  const tx = {
+    ingestExtractedEvent: {
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId }, venue: { id: candidate.venueId, timezone: "America/New_York", lat: null, lng: null } }),
+      update: async ({ data }: { data: Partial<Candidate> }) => {
+        Object.assign(candidate, data);
+        return { id: candidate.id, createdEventId: candidate.createdEventId, runId: candidate.runId, venueId: candidate.venueId };
+      },
+    },
+    venue: {
+      update: async () => ({ id: candidate.venueId, timezone: "America/New_York" }),
+    },
+    event: {
+      findUnique: async () => null,
+      create: async ({ data }: { data: { timezone: string } }) => {
+        created.push({ timezone: data.timezone });
+        return { id: "event-1" };
+      },
+    },
+    submission: {
+      create: async () => ({ id: "submission-1" }),
+    },
+  };
+
+  const req = new NextRequest("http://localhost/api/admin/ingest/extracted-events/11111111-1111-4111-8111-111111111116/approve", { method: "POST" });
+  const res = await handleAdminIngestApprove(req, { id: candidate.id }, {
+    requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
+    appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,
+    logAction: async () => undefined,
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(created[0]?.timezone, "America/New_York");
+});
+
+test("approve resolves timezone from venue lat/lng when candidate and venue timezone are missing", async () => {
+  const created: Array<{ timezone: string }> = [];
+  let persistedTimezone: string | null = null;
+  const candidate: Candidate = {
+    id: "11111111-1111-4111-8111-111111111117",
+    runId: "22222222-2222-4222-8222-222222222222",
+    venueId: "33333333-3333-4333-8333-333333333333",
+    status: "PENDING",
+    title: "AI Event",
+    startAt: new Date("2026-01-01T18:00:00Z"),
+    endAt: null,
+    timezone: null,
+    locationText: null,
+    description: null,
+    sourceUrl: "https://venue.example/events",
+    createdEventId: null,
+    rejectionReason: null,
+  };
+
+  const tx = {
+    ingestExtractedEvent: {
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId }, venue: { id: candidate.venueId, timezone: null, lat: 40.7128, lng: -74.006 } }),
+      update: async ({ data }: { data: Partial<Candidate> }) => {
+        Object.assign(candidate, data);
+        return { id: candidate.id, createdEventId: candidate.createdEventId, runId: candidate.runId, venueId: candidate.venueId };
+      },
+    },
+    venue: {
+      update: async ({ data }: { data: { timezone: string } }) => {
+        persistedTimezone = data.timezone;
+        return { id: candidate.venueId, timezone: data.timezone };
+      },
+    },
+    event: {
+      findUnique: async () => null,
+      create: async ({ data }: { data: { timezone: string } }) => {
+        created.push({ timezone: data.timezone });
+        return { id: "event-1" };
+      },
+    },
+    submission: {
+      create: async () => ({ id: "submission-1" }),
+    },
+  };
+
+  const req = new NextRequest("http://localhost/api/admin/ingest/extracted-events/11111111-1111-4111-8111-111111111117/approve", { method: "POST" });
+  const res = await handleAdminIngestApprove(req, { id: candidate.id }, {
+    requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
+    appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,
+    logAction: async () => undefined,
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(created[0]?.timezone, "America/New_York");
+  assert.equal(persistedTimezone, "America/New_York");
+});
+
+test("approve returns 409 when timezone cannot be resolved", async () => {
+  const candidate: Candidate = {
+    id: "11111111-1111-4111-8111-111111111118",
+    runId: "22222222-2222-4222-8222-222222222222",
+    venueId: "33333333-3333-4333-8333-333333333333",
+    status: "PENDING",
+    title: "AI Event",
+    startAt: new Date("2026-01-01T18:00:00Z"),
+    endAt: null,
+    timezone: null,
+    locationText: null,
+    description: null,
+    sourceUrl: "https://venue.example/events",
+    createdEventId: null,
+    rejectionReason: null,
+  };
+
+  const tx = {
+    ingestExtractedEvent: {
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId }, venue: { id: candidate.venueId, timezone: null, lat: null, lng: null } }),
+      update: async () => ({ id: candidate.id, createdEventId: null, runId: candidate.runId, venueId: candidate.venueId }),
+    },
+    venue: {
+      update: async () => ({ id: candidate.venueId, timezone: null }),
+    },
+    event: {
+      findUnique: async () => null,
+      create: async () => ({ id: "event-1" }),
+    },
+    submission: {
+      create: async () => ({ id: "submission-1" }),
+    },
+  };
+
+  const req = new NextRequest("http://localhost/api/admin/ingest/extracted-events/11111111-1111-4111-8111-111111111118/approve", { method: "POST" });
   const res = await handleAdminIngestApprove(req, { id: candidate.id }, {
     requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,

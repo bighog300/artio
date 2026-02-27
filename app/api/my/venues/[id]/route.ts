@@ -8,6 +8,7 @@ import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications
 import { setOnboardingFlagForSession } from "@/lib/onboarding";
 import { MapboxForwardGeocodeError } from "@/lib/geocode/mapbox-forward";
 import { geocodeForVenueUpdate } from "@/lib/venues/venue-geocode-flow";
+import { inferTimezoneFromLatLng, isValidIanaTimezone } from "@/lib/timezone";
 
 export const runtime = "nodejs";
 
@@ -41,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
     if (!existing) return apiError(404, "not_found", "Venue not found");
 
-    const { submitForApproval, note, featuredAssetId, ...safeFields } = parsedBody.data;
+    const { submitForApproval, note, featuredAssetId, autoDetectTimezone, ...safeFields } = parsedBody.data;
 
     if (featuredAssetId) {
       const asset = await db.asset.findUnique({ where: { id: featuredAssetId }, select: { ownerUserId: true } });
@@ -49,6 +50,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const updateData: Record<string, unknown> = { ...safeFields, featuredAssetId: featuredAssetId ?? null };
+
+    if (typeof safeFields.timezone === "string" && safeFields.timezone.trim() && !isValidIanaTimezone(safeFields.timezone)) {
+      return apiError(400, "invalid_request", "Timezone must be a valid IANA timezone");
+    }
+
+    if (autoDetectTimezone) {
+      const lat = safeFields.lat ?? existing.lat;
+      const lng = safeFields.lng ?? existing.lng;
+      if (lat == null || lng == null) return apiError(409, "invalid_state", "Latitude and longitude are required to infer timezone");
+      updateData.timezone = inferTimezoneFromLatLng(lat, lng);
+    }
 
     try {
       const result = await geocodeForVenueUpdate({ existing, patch: safeFields });

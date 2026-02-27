@@ -9,22 +9,22 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 
 type CandidateStatus = "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE";
 
+function extractMissingFields(details?: unknown): string[] {
+  if (!details || typeof details !== "object" || !Array.isArray((details as { missingFields?: unknown }).missingFields)) return [];
+  return ((details as { missingFields: unknown[] }).missingFields).filter((field): field is string => typeof field === "string");
+}
+
 function getActionError(status: number, details?: unknown) {
   if (status === 401 || status === 403) return "Not authorized.";
   if (status === 404) return "Candidate not found.";
   if (status === 409) {
-    const missingFields = details && typeof details === "object" && "missingFields" in details && Array.isArray((details as { missingFields?: unknown }).missingFields)
-      ? (details as { missingFields: unknown[] }).missingFields
-      : [];
-
-    const labels = missingFields
-      .filter((field): field is string => typeof field === "string")
-      .map((field) => {
-        if (field === "startAt") return "start date";
-        if (field === "timezone") return "timezone";
-        if (field === "endAt") return "end time";
-        return field;
-      });
+    const missingFields = extractMissingFields(details);
+    const labels = missingFields.map((field) => {
+      if (field === "startAt") return "start date";
+      if (field === "timezone") return "timezone";
+      if (field === "endAt") return "end time";
+      return field;
+    });
 
     return labels.length > 0
       ? `This candidate is missing required scheduling fields: ${labels.join(", ")}.`
@@ -35,11 +35,13 @@ function getActionError(status: number, details?: unknown) {
 
 export default function IngestCandidateActions({
   candidateId,
+  venueId,
   status,
   createdEventId,
   rejectionReason,
 }: {
   candidateId: string;
+  venueId: string;
   status: CandidateStatus;
   createdEventId: string | null;
   rejectionReason: string | null;
@@ -49,15 +51,19 @@ export default function IngestCandidateActions({
   const [rejectReason, setRejectReason] = useState("");
   const [loadingAction, setLoadingAction] = useState<"approve" | "reject" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [missingTimezone, setMissingTimezone] = useState(false);
 
   async function approve() {
     if (loadingAction || status !== "PENDING") return;
     setError(null);
+    setMissingTimezone(false);
     setLoadingAction("approve");
     try {
       const res = await fetch(`/api/admin/ingest/extracted-events/${candidateId}/approve`, { method: "POST" });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: { details?: unknown } } | null;
+        const missingFields = extractMissingFields(body?.error?.details);
+        setMissingTimezone(missingFields.includes("timezone"));
         setError(getActionError(res.status, body?.error?.details));
         return;
       }
@@ -77,6 +83,7 @@ export default function IngestCandidateActions({
     }
 
     setError(null);
+    setMissingTimezone(false);
     setLoadingAction("reject");
     try {
       const res = await fetch(`/api/admin/ingest/extracted-events/${candidateId}/reject`, {
@@ -101,7 +108,18 @@ export default function IngestCandidateActions({
 
   return (
     <div className="space-y-2">
-      {error ? <InlineBanner>{error}</InlineBanner> : null}
+      {error ? (
+        <InlineBanner>
+          <div className="space-y-1">
+            <div>{error}</div>
+            {missingTimezone ? (
+              <div>
+                Timezone missing. Set venue timezone to approve. <Link href={`/admin/venues/${venueId}`} className="underline">Edit venue</Link>.
+              </div>
+            ) : null}
+          </div>
+        </InlineBanner>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" onClick={approve} disabled={status !== "PENDING" || loadingAction !== null}>
           {loadingAction === "approve" ? "Approving…" : "Approve"}

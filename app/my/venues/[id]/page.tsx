@@ -80,6 +80,7 @@ export default async function MyVenueEditPage({
     postcode: true,
     lat: true,
     lng: true,
+    timezone: true,
     websiteUrl: true,
     instagramUrl: true,
     artistAssociations: {

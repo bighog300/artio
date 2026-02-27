@@ -8,6 +8,7 @@ import { slugifyEventTitle, ensureUniqueEventSlugWithDeps } from "@/lib/event-sl
 import { runVenueIngestExtraction } from "@/lib/ingest/extraction-pipeline";
 import { getRequestId } from "@/lib/request-id";
 import { parseBody, zodDetails } from "@/lib/validators";
+import { inferTimezoneFromLatLng } from "@/lib/timezone";
 
 type AdminActor = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN" };
 
@@ -347,7 +348,10 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
     const approved = await resolved.appDb.$transaction(async (tx) => {
       const candidate = await tx.ingestExtractedEvent.findUnique({
         where: { id: parsedParams.data.id },
-        include: { run: { select: { id: true, venueId: true } } },
+        include: {
+          run: { select: { id: true, venueId: true } },
+          venue: { select: { id: true, timezone: true, lat: true, lng: true } },
+        },
       });
       if (!candidate) return { error: apiError(404, "not_found", "Extracted event not found", undefined, requestId) };
 
@@ -360,9 +364,15 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         return { candidate: updated, createdEventId: updated.createdEventId as string };
       }
 
+      let resolvedTimezone = candidate.timezone ?? candidate.venue.timezone;
+      if (!resolvedTimezone && candidate.venue.lat != null && candidate.venue.lng != null) {
+        resolvedTimezone = inferTimezoneFromLatLng(candidate.venue.lat, candidate.venue.lng);
+        await tx.venue.update({ where: { id: candidate.venue.id }, data: { timezone: resolvedTimezone } });
+      }
+
       const missingSchedulingFields = [
         ...(!candidate.startAt ? ["startAt"] : []),
-        ...(!candidate.timezone ? ["timezone"] : []),
+        ...(!resolvedTimezone ? ["timezone"] : []),
       ];
       if (missingSchedulingFields.length > 0) {
         return {
@@ -377,7 +387,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
       }
 
       const requiredStartAt = candidate.startAt as Date;
-      const requiredTimezone = candidate.timezone as string;
+      const requiredTimezone = resolvedTimezone as string;
 
       const baseSlug = slugifyEventTitle(candidate.title);
       const slug = await ensureUniqueEventSlugWithDeps(
