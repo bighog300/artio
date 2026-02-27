@@ -49,7 +49,10 @@ export default async function AdminIngestPage() {
         description="Run venue extraction and moderate extracted event candidates."
       />
 
-      <IngestTriggerClient venues={venues} />
+      <div className="flex items-center justify-between">
+        <IngestTriggerClient venues={venues} />
+        <Link href="/admin/ingest/health" className="text-sm underline">View Ingest Health</Link>
+      </div>
 
       <section className="rounded-lg border bg-background p-4">
         <div className="mb-3">

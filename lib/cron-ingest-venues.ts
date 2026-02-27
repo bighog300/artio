@@ -12,7 +12,12 @@ const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 25;
 const DEFAULT_MIN_HOURS_SINCE_LAST_RUN = 24;
 const MAX_SCAN_VENUES = 125;
-const MAX_DURATION_MS = 45_000;
+
+const STOP_REASON_TOTAL_CAP = "CRON_TOTAL_CAP_REACHED";
+const STOP_REASON_TIME_BUDGET = "TIME_BUDGET_EXCEEDED";
+const STOP_REASON_CIRCUIT_OPEN = "circuit_breaker_open";
+
+const alertDedup = new Map<string, number>();
 
 const querySchema = z.object({
   dryRun: z.enum(["1", "true"]).optional(),
@@ -35,6 +40,12 @@ type IngestVenueDb = {
       orderBy: { createdAt: "desc" };
       select: { createdAt: true };
     }) => Promise<{ createdAt: Date } | null>;
+    findMany: (args: {
+      where: { createdAt: { gte: Date; lte?: Date } };
+      select: { status?: true; errorCode?: true; createdAt?: true };
+      orderBy?: { createdAt: "desc" };
+      take?: number;
+    }) => Promise<Array<{ status?: "RUNNING" | "SUCCEEDED" | "FAILED" | "PENDING"; errorCode?: string | null; createdAt?: Date }>>;
   };
   $queryRaw?: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
 };
@@ -51,6 +62,25 @@ function withNoStore(response: Response) {
   return new Response(response.body, { status: response.status, headers });
 }
 
+function envInt(name: string, fallback: number) {
+  const parsed = Number.parseInt(process.env[name] ?? "", 10);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return fallback;
+}
+
+function envFloat(name: string, fallback: number) {
+  const parsed = Number.parseFloat(process.env[name] ?? "");
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return fallback;
+}
+
+function shouldSendDedupedAlert(key: string, nowMs: number, windowMs = 24 * 60 * 60 * 1000) {
+  const lastSent = alertDedup.get(key) ?? 0;
+  if (nowMs - lastSent < windowMs) return false;
+  alertDedup.set(key, nowMs);
+  return true;
+}
+
 export async function runCronIngestVenues(
   headerSecret: string | null,
   rawQuery: Record<string, string>,
@@ -64,7 +94,8 @@ export async function runCronIngestVenues(
   const authFailureResponse = validateCronRequest(headerSecret, { route: ROUTE, ...meta });
   if (authFailureResponse) return withNoStore(authFailureResponse);
 
-  const startedAtMs = (deps.now ?? Date.now)();
+  const now = deps.now ?? Date.now;
+  const startedAtMs = now();
   const startedAtIso = new Date(startedAtMs).toISOString();
   const cronRunId = createCronRunId();
 
@@ -81,6 +112,14 @@ export async function runCronIngestVenues(
     }, 400);
   }
 
+  const maxVenuesFromEnv = Math.min(MAX_LIMIT, envInt("AI_INGEST_CRON_MAX_VENUES", DEFAULT_LIMIT));
+  const enforcedLimit = Math.min(parsed.data.limit, maxVenuesFromEnv);
+  const maxTotalCreated = envInt("AI_INGEST_CRON_MAX_TOTAL_CREATED_CANDIDATES", 100);
+  const timeBudgetMs = envInt("AI_INGEST_CRON_TIME_BUDGET_MS", 120_000);
+  const cbWindowHours = envInt("AI_INGEST_CRON_CIRCUIT_BREAKER_WINDOW_HOURS", 6);
+  const cbMinRuns = envInt("AI_INGEST_CRON_CIRCUIT_BREAKER_MIN_RUNS", 5);
+  const cbFailRate = envFloat("AI_INGEST_CRON_CIRCUIT_BREAKER_FAIL_RATE", 0.6);
+
   const dryRun = parsed.data.dryRun === "true";
   const lock = await tryAcquireCronLock(cronDb, "cron:ingest:venues");
   if (!lock.acquired) {
@@ -89,8 +128,8 @@ export async function runCronIngestVenues(
       cronName: CRON_NAME,
       cronRunId,
       startedAt: startedAtIso,
-      finishedAt: new Date((deps.now ?? Date.now)()).toISOString(),
-      durationMs: (deps.now ?? Date.now)() - startedAtMs,
+      finishedAt: new Date(now()).toISOString(),
+      durationMs: now() - startedAtMs,
       processedCount: 0,
       errorCount: 0,
       dryRun,
@@ -111,14 +150,55 @@ export async function runCronIngestVenues(
           cronName: CRON_NAME,
           cronRunId,
           startedAt: startedAtIso,
-          finishedAt: new Date((deps.now ?? Date.now)()).toISOString(),
-          durationMs: (deps.now ?? Date.now)() - startedAtMs,
+          finishedAt: new Date(now()).toISOString(),
+          durationMs: now() - startedAtMs,
           processedCount: 0,
           errorCount: 0,
           dryRun,
           lock: lock.supported ? "acquired" as const : "unsupported" as const,
           skipped: true,
           reason: "ingest_disabled",
+        };
+        logCronSummary(summary);
+        await markCronSuccess(CRON_NAME, summary.finishedAt, cronRunId);
+        return noStoreJson(summary);
+      }
+
+      const cbWindowStart = new Date(now() - cbWindowHours * 60 * 60 * 1000);
+      const recentRuns = await cronDb.ingestRun.findMany({
+        where: { createdAt: { gte: cbWindowStart } },
+        select: { status: true, errorCode: true },
+      });
+      const succeededRuns = recentRuns.filter((run) => run.status === "SUCCEEDED").length;
+      const failedRuns = recentRuns.filter((run) => run.status === "FAILED").length;
+      const runCount = succeededRuns + failedRuns;
+      const failRate = runCount > 0 ? failedRuns / runCount : 0;
+      const circuitOpen = runCount >= cbMinRuns && failRate >= cbFailRate;
+
+      if (circuitOpen) {
+        if (shouldSendDedupedAlert(`circuit:${CRON_NAME}`, now())) {
+          await sendAlert({
+            severity: "warn",
+            title: "AI ingest circuit breaker open",
+            body: `cron=${CRON_NAME} runCount=${runCount} failRate=${failRate.toFixed(2)} windowHours=${cbWindowHours}`,
+            tags: { cronName: CRON_NAME, runCount, failRate: Number(failRate.toFixed(4)), windowHours: cbWindowHours },
+          });
+        }
+
+        const summary = {
+          ok: true,
+          cronName: CRON_NAME,
+          cronRunId,
+          startedAt: startedAtIso,
+          finishedAt: new Date(now()).toISOString(),
+          durationMs: now() - startedAtMs,
+          processedCount: 0,
+          errorCount: 0,
+          dryRun,
+          lock: lock.supported ? "acquired" as const : "unsupported" as const,
+          skipped: true,
+          reason: STOP_REASON_CIRCUIT_OPEN,
+          circuitBreaker: { open: true, failRate, runCount, windowHours: cbWindowHours },
         };
         logCronSummary(summary);
         await markCronSuccess(CRON_NAME, summary.finishedAt, cronRunId);
@@ -132,11 +212,11 @@ export async function runCronIngestVenues(
           deletedAt: null,
         },
         orderBy: { updatedAt: "asc" },
-        take: Math.min(MAX_SCAN_VENUES, Math.max(parsed.data.limit * 5, parsed.data.limit)),
+        take: Math.min(MAX_SCAN_VENUES, Math.max(enforcedLimit * 5, enforcedLimit)),
         select: { id: true, websiteUrl: true },
       });
 
-      const minLastRunAt = new Date((deps.now ?? Date.now)() - parsed.data.minHoursSinceLastRun * 60 * 60 * 1000);
+      const minLastRunAt = new Date(now() - parsed.data.minHoursSinceLastRun * 60 * 60 * 1000);
       const venueState = await Promise.all(sourceVenues.map(async (venue) => {
         const latestRun = await cronDb.ingestRun.findFirst({
           where: { venueId: venue.id, status: { in: ["RUNNING", "SUCCEEDED"] } },
@@ -158,21 +238,25 @@ export async function runCronIngestVenues(
           if (!b.lastRunAt) return 1;
           return a.lastRunAt.getTime() - b.lastRunAt.getTime();
         })
-        .slice(0, parsed.data.limit);
+        .slice(0, enforcedLimit);
 
       let succeeded = 0;
       let failed = 0;
       let createdCandidates = 0;
       let dedupedCandidates = 0;
-      let timedOut = false;
+      let stopReason: string | null = null;
       const venueResults: Array<Record<string, unknown>> = [];
       const runExtraction = deps.runExtraction ?? runVenueIngestExtraction;
 
       for (const item of eligibleVenues) {
-        if ((deps.now ?? Date.now)() - startedAtMs >= MAX_DURATION_MS) {
-          timedOut = true;
-          venueResults.push({ venueId: item.venue.id, status: "skipped_timeout" });
-          continue;
+        if (!dryRun && createdCandidates >= maxTotalCreated) {
+          stopReason = STOP_REASON_TOTAL_CAP;
+          break;
+        }
+
+        if (!dryRun && now() - startedAtMs >= timeBudgetMs) {
+          stopReason = STOP_REASON_TIME_BUDGET;
+          break;
         }
 
         if (dryRun) {
@@ -193,13 +277,23 @@ export async function runCronIngestVenues(
         }
       }
 
+      const badModelOutputCount = recentRuns.filter((run) => run.errorCode === "BAD_MODEL_OUTPUT").length;
+      if (!dryRun && badModelOutputCount >= 3 && shouldSendDedupedAlert(`bad_model_output:${CRON_NAME}`, now())) {
+        await sendAlert({
+          severity: "warn",
+          title: "AI ingest repeated BAD_MODEL_OUTPUT failures",
+          body: `cron=${CRON_NAME} badModelOutputCount=${badModelOutputCount} windowHours=${cbWindowHours}`,
+          tags: { cronName: CRON_NAME, badModelOutputCount, windowHours: cbWindowHours },
+        });
+      }
+
       const summary = {
         ok: failed === 0,
         cronName: CRON_NAME,
         cronRunId,
         startedAt: startedAtIso,
-        finishedAt: new Date((deps.now ?? Date.now)()).toISOString(),
-        durationMs: (deps.now ?? Date.now)() - startedAtMs,
+        finishedAt: new Date(now()).toISOString(),
+        durationMs: now() - startedAtMs,
         processedCount: dryRun ? 0 : succeeded + failed,
         errorCount: failed,
         dryRun,
@@ -212,13 +306,23 @@ export async function runCronIngestVenues(
         failed,
         createdCandidates,
         dedupedCandidates,
-        timedOut,
-        limit: parsed.data.limit,
+        stopReason,
+        limit: enforcedLimit,
         minHoursSinceLastRun: parsed.data.minHoursSinceLastRun,
         venues: venueResults,
+        circuitBreaker: { open: false, failRate, runCount, windowHours: cbWindowHours },
       };
 
       logCronSummary(summary);
+      if (!dryRun && (stopReason === STOP_REASON_TOTAL_CAP || stopReason === STOP_REASON_TIME_BUDGET)) {
+        await sendAlert({
+          severity: "info",
+          title: "AI ingest cron guardrail reached",
+          body: `cron=${CRON_NAME} stopReason=${stopReason} createdCandidates=${createdCandidates} durationMs=${summary.durationMs}`,
+          tags: { cronName: CRON_NAME, stopReason, createdCandidates, durationMs: summary.durationMs },
+        });
+      }
+
       if (summary.errorCount > 0) {
         await markCronFailure(CRON_NAME, `failed=${summary.errorCount}`, summary.finishedAt, cronRunId);
         await sendAlert({
@@ -240,8 +344,8 @@ export async function runCronIngestVenues(
       cronName: CRON_NAME,
       cronRunId,
       startedAt: startedAtIso,
-      finishedAt: new Date((deps.now ?? Date.now)()).toISOString(),
-      durationMs: (deps.now ?? Date.now)() - startedAtMs,
+      finishedAt: new Date(now()).toISOString(),
+      durationMs: now() - startedAtMs,
       processedCount: 0,
       errorCount: 1,
       dryRun,

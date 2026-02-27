@@ -57,6 +57,13 @@ Minimum required:
 Optional:
 - `AI_INGEST_ENABLED` (set to `1` to enable server-side AI ingest extraction; defaults to disabled)
 - `OPENAI_API_KEY` (required only when `AI_INGEST_ENABLED=1`)
+- `AI_INGEST_MAX_CANDIDATES_PER_VENUE_RUN` (default `25`, per-run cap after normalization)
+- `AI_INGEST_CRON_MAX_VENUES` (default `10`, hard cap enforced at max `25`)
+- `AI_INGEST_CRON_MAX_TOTAL_CREATED_CANDIDATES` (default `100`, total candidates cap per cron invocation)
+- `AI_INGEST_CRON_TIME_BUDGET_MS` (default `120000`, soft runtime budget for cron)
+- `AI_INGEST_CRON_CIRCUIT_BREAKER_WINDOW_HOURS` (default `6`)
+- `AI_INGEST_CRON_CIRCUIT_BREAKER_MIN_RUNS` (default `5`)
+- `AI_INGEST_CRON_CIRCUIT_BREAKER_FAIL_RATE` (default `0.6`)
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (enables `/nearby` map view)
 - `BLOB_READ_WRITE_TOKEN` (required for Blob image uploads)
 - `RATE_LIMIT_VENUE_IMAGES_WRITE_PER_MINUTE` (defaults to `60`)
@@ -127,3 +134,12 @@ Recommended scripts:
 
 - `AI_INGEST_ENABLED=0` keeps ingestion extraction disabled by default.
 - Set `AI_INGEST_ENABLED=1` and `OPENAI_API_KEY` to allow ingest extraction jobs to call OpenAI.
+- Candidate persistence is capped per venue run by `AI_INGEST_MAX_CANDIDATES_PER_VENUE_RUN`.
+- Cron volume/runtime guardrails are controlled via:
+  - `AI_INGEST_CRON_MAX_VENUES`
+  - `AI_INGEST_CRON_MAX_TOTAL_CREATED_CANDIDATES`
+  - `AI_INGEST_CRON_TIME_BUDGET_MS`
+- Circuit breaker controls:
+  - `AI_INGEST_CRON_CIRCUIT_BREAKER_WINDOW_HOURS`
+  - `AI_INGEST_CRON_CIRCUIT_BREAKER_MIN_RUNS`
+  - `AI_INGEST_CRON_CIRCUIT_BREAKER_FAIL_RATE`

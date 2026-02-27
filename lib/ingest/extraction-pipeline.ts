@@ -7,6 +7,10 @@ import { extractEventsWithOpenAI } from "@/lib/ingest/openai-extract";
 import { parseExtractedEventsFromModel } from "@/lib/ingest/schemas";
 
 const MAX_ERROR_MESSAGE_LENGTH = 500;
+const MAX_ERROR_DETAIL_LENGTH = 1000;
+const DEFAULT_MAX_CANDIDATES_PER_RUN = 25;
+
+const CANDIDATE_CAP_STOP_REASON = "CANDIDATE_CAP_REACHED";
 
 type RunIngestParams = {
   venueId: string;
@@ -28,8 +32,8 @@ type IngestStore = {
   };
 };
 
-function truncateMessage(input: string): string {
-  return input.length > MAX_ERROR_MESSAGE_LENGTH ? `${input.slice(0, MAX_ERROR_MESSAGE_LENGTH)}…` : input;
+function truncateMessage(input: string, maxLength: number): string {
+  return input.length > maxLength ? `${input.slice(0, maxLength)}…` : input;
 }
 
 function normalizeText(input: string | null | undefined): string {
@@ -52,14 +56,30 @@ function fingerprintForCandidate(params: { venueId: string; title: string; start
   return createHash("sha256").update(signature).digest("hex");
 }
 
-async function markRunFailed(store: IngestStore, runId: string, errorCode: string, errorMessage: string) {
+function getMaxCandidatesPerVenueRun() {
+  const parsed = Number.parseInt(process.env.AI_INGEST_MAX_CANDIDATES_PER_VENUE_RUN ?? "", 10);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return DEFAULT_MAX_CANDIDATES_PER_RUN;
+}
+
+async function markRunFailed(
+  store: IngestStore,
+  runId: string,
+  startedAtMs: number,
+  errorCode: string,
+  errorMessage: string,
+  errorDetail?: unknown,
+) {
+  const finishedAt = new Date();
   await store.ingestRun.update({
     where: { id: runId },
     data: {
       status: "FAILED",
-      finishedAt: new Date(),
+      finishedAt,
+      durationMs: finishedAt.getTime() - startedAtMs,
       errorCode,
-      errorMessage: truncateMessage(errorMessage),
+      errorMessage: truncateMessage(errorMessage, MAX_ERROR_MESSAGE_LENGTH),
+      errorDetail: errorDetail ? truncateMessage(String(errorDetail), MAX_ERROR_DETAIL_LENGTH) : undefined,
     },
   });
 }
@@ -70,18 +90,21 @@ export async function runVenueIngestExtraction(
     store?: IngestStore;
     fetchHtml?: Fetcher;
     extractWithOpenAI?: Extractor;
+    now?: () => number;
   } = {},
 ): Promise<{ runId: string; createdCount: number; dedupedCount: number }> {
   const store = deps.store ?? db;
   const fetchHtml = deps.fetchHtml ?? fetchHtmlWithGuards;
   const extractWithOpenAI = deps.extractWithOpenAI ?? extractEventsWithOpenAI;
+  const now = deps.now ?? Date.now;
+  const startedAtMs = now();
 
   const run = await store.ingestRun.create({
     data: {
       venueId: params.venueId,
       sourceUrl: params.sourceUrl,
       status: "RUNNING",
-      startedAt: new Date(),
+      startedAt: new Date(startedAtMs),
     },
   });
 
@@ -99,22 +122,26 @@ export async function runVenueIngestExtraction(
     });
 
     if (process.env.AI_INGEST_ENABLED !== "1") {
-      await markRunFailed(store, run.id, "INGEST_DISABLED", "AI ingest is disabled");
+      await markRunFailed(store, run.id, startedAtMs, "INGEST_DISABLED", "AI ingest is disabled");
       return { runId: run.id, createdCount: 0, dedupedCount: 0 };
     }
 
     if (!process.env.OPENAI_API_KEY) {
-      await markRunFailed(store, run.id, "MISSING_OPENAI_KEY", "OPENAI_API_KEY is not configured");
+      await markRunFailed(store, run.id, startedAtMs, "MISSING_OPENAI_KEY", "OPENAI_API_KEY is not configured");
       return { runId: run.id, createdCount: 0, dedupedCount: 0 };
     }
 
     const extracted = await extractWithOpenAI({ html: fetched.html, sourceUrl: fetched.finalUrl, model: params.model });
     const normalized = parseExtractedEventsFromModel(extracted.events);
+    const totalCandidatesReturned = normalized.length;
+    const maxCandidates = getMaxCandidatesPerVenueRun();
+    const cappedCandidates = normalized.slice(0, maxCandidates);
+    const stopReason = totalCandidatesReturned > maxCandidates ? CANDIDATE_CAP_STOP_REASON : null;
 
     let createdCount = 0;
     let dedupedCount = 0;
 
-    for (const event of normalized) {
+    for (const event of cappedCandidates) {
       const fingerprint = fingerprintForCandidate({
         venueId: params.venueId,
         title: event.title,
@@ -167,23 +194,33 @@ export async function runVenueIngestExtraction(
       createdCount += 1;
     }
 
+    const finishedAt = new Date(now());
     await store.ingestRun.update({
       where: { id: run.id },
       data: {
         status: "SUCCEEDED",
-        finishedAt: new Date(),
+        finishedAt,
+        durationMs: finishedAt.getTime() - startedAtMs,
+        createdCandidates: createdCount,
+        dedupedCandidates: dedupedCount,
+        totalCandidatesReturned,
+        model: extracted.model,
+        usagePromptTokens: extracted.usage?.promptTokens,
+        usageCompletionTokens: extracted.usage?.completionTokens,
+        usageTotalTokens: extracted.usage?.totalTokens,
+        stopReason,
       },
     });
 
     return { runId: run.id, createdCount, dedupedCount };
   } catch (error) {
     if (error instanceof IngestError) {
-      await markRunFailed(store, run.id, error.code, error.message);
+      await markRunFailed(store, run.id, startedAtMs, error.code, error.message, error.meta ? JSON.stringify(error.meta) : undefined);
       throw error;
     }
 
     const message = error instanceof Error ? error.message : "Unexpected ingest failure";
-    await markRunFailed(store, run.id, "FETCH_FAILED", message);
+    await markRunFailed(store, run.id, startedAtMs, "FETCH_FAILED", message);
     throw error;
   }
 }

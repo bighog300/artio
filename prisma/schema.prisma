@@ -427,13 +427,27 @@ model IngestRun {
   fetchBytes       Int?
   errorCode        String?
   errorMessage     String?
+  errorDetail      String?
   startedAt        DateTime?
   finishedAt       DateTime?
+  durationMs       Int?
+  createdCandidates Int                 @default(0)
+  dedupedCandidates Int                 @default(0)
+  totalCandidatesReturned Int           @default(0)
+  model            String?
+  usagePromptTokens Int?
+  usageCompletionTokens Int?
+  usageTotalTokens Int?
+  costUsdMicros    Int?
+  stopReason       String?
   venue            Venue                 @relation(fields: [venueId], references: [id], onDelete: Cascade)
   extractedEvents  IngestExtractedEvent[]
   events           Event[]               @relation("EventIngestSourceRun")
 
   @@index([venueId, createdAt])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([errorCode, createdAt])
 }
 
 model IngestExtractedEvent {

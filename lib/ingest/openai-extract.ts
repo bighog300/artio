@@ -10,11 +10,17 @@ export type ExtractedEvent = {
   sourceUrl?: string | null;
 };
 
+export type ExtractUsage = {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+};
+
 export async function extractEventsWithOpenAI(params: {
   html: string;
   sourceUrl: string;
   model?: string;
-}): Promise<{ model: string; events: ExtractedEvent[]; raw: unknown }> {
+}): Promise<{ model: string; events: ExtractedEvent[]; raw: unknown; usage?: ExtractUsage }> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new IngestError("FETCH_FAILED", "OPENAI_API_KEY is required for extraction");
@@ -54,7 +60,10 @@ export async function extractEventsWithOpenAI(params: {
     });
   }
 
-  const raw = (await response.json()) as { output_text?: string };
+  const raw = (await response.json()) as {
+    output_text?: string;
+    usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
+  };
   const outputText = raw.output_text;
   if (!outputText) {
     throw new IngestError("BAD_MODEL_OUTPUT", "OpenAI response did not include output_text");
@@ -75,5 +84,13 @@ export async function extractEventsWithOpenAI(params: {
     throw new IngestError("BAD_MODEL_OUTPUT", "OpenAI output must be an event array");
   }
 
-  return { model, events, raw: parsed };
+  const usage = raw.usage
+    ? {
+      promptTokens: raw.usage.input_tokens,
+      completionTokens: raw.usage.output_tokens,
+      totalTokens: raw.usage.total_tokens,
+    }
+    : undefined;
+
+  return { model, events, raw: parsed, usage };
 }

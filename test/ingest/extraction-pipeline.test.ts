@@ -10,12 +10,21 @@ type RunRecord = {
   sourceUrl: string;
   startedAt: Date | null;
   finishedAt?: Date | null;
+  durationMs?: number | null;
   errorCode?: string | null;
   errorMessage?: string | null;
   fetchFinalUrl?: string | null;
   fetchStatus?: number | null;
   fetchContentType?: string | null;
   fetchBytes?: number | null;
+  createdCandidates?: number;
+  dedupedCandidates?: number;
+  totalCandidatesReturned?: number;
+  model?: string | null;
+  usagePromptTokens?: number | null;
+  usageCompletionTokens?: number | null;
+  usageTotalTokens?: number | null;
+  stopReason?: string | null;
 };
 
 function createStore() {
@@ -33,6 +42,9 @@ function createStore() {
           venueId: data.venueId,
           sourceUrl: data.sourceUrl,
           startedAt: data.startedAt,
+          createdCandidates: 0,
+          dedupedCandidates: 0,
+          totalCandidatesReturned: 0,
         };
         runs.push(run);
         return run;
@@ -63,10 +75,12 @@ function createStore() {
 
 const previousEnabled = process.env.AI_INGEST_ENABLED;
 const previousApiKey = process.env.OPENAI_API_KEY;
+const previousCandidateCap = process.env.AI_INGEST_MAX_CANDIDATES_PER_VENUE_RUN;
 
 test.after(() => {
   process.env.AI_INGEST_ENABLED = previousEnabled;
   process.env.OPENAI_API_KEY = previousApiKey;
+  process.env.AI_INGEST_MAX_CANDIDATES_PER_VENUE_RUN = previousCandidateCap;
 });
 
 test("dedupe skips existing fingerprint", async () => {
@@ -96,6 +110,9 @@ test("dedupe skips existing fingerprint", async () => {
 
   assert.equal(result.createdCount, 0);
   assert.equal(result.dedupedCount, 1);
+  assert.equal(store.runs[1]?.createdCandidates, 0);
+  assert.equal(store.runs[1]?.dedupedCandidates, 1);
+  assert.equal(store.runs[1]?.totalCandidatesReturned, 1);
 });
 
 test("invalid model output marks run as failed", async () => {
@@ -122,6 +139,7 @@ test("invalid model output marks run as failed", async () => {
 
   assert.equal(store.runs[0]?.status, "FAILED");
   assert.equal(store.runs[0]?.errorCode, "BAD_MODEL_OUTPUT");
+  assert.equal(typeof store.runs[0]?.durationMs, "number");
 });
 
 test("successful run marks succeeded and creates rows", async () => {
@@ -133,9 +151,17 @@ test("successful run marks succeeded and creates rows", async () => {
     { venueId: "venue-1", sourceUrl: "https://example.com" },
     {
       store,
+      now: (() => {
+        let current = 1_000;
+        return () => {
+          current += 10;
+          return current;
+        };
+      })(),
       fetchHtml: async () => ({ finalUrl: "https://example.com/events", status: 200, contentType: "text/html", bytes: 200, html: "<html></html>" }),
       extractWithOpenAI: async () => ({
         model: "test-model",
+        usage: { promptTokens: 11, completionTokens: 22, totalTokens: 33 },
         events: [{ title: "Fresh Event", startAt: "2025-03-01T19:00:00.000Z", locationText: "Gallery A", description: "Details" }],
         raw: {},
       }),
@@ -146,4 +172,41 @@ test("successful run marks succeeded and creates rows", async () => {
   assert.equal(result.dedupedCount, 0);
   assert.equal(store.runs[0]?.status, "SUCCEEDED");
   assert.equal(store.extracted.length, 1);
+  assert.equal(store.runs[0]?.model, "test-model");
+  assert.equal(store.runs[0]?.usagePromptTokens, 11);
+  assert.equal(store.runs[0]?.usageCompletionTokens, 22);
+  assert.equal(store.runs[0]?.usageTotalTokens, 33);
+  assert.equal(store.runs[0]?.totalCandidatesReturned, 1);
+  assert.equal(store.runs[0]?.createdCandidates, 1);
+  assert.equal(store.runs[0]?.dedupedCandidates, 0);
+  assert.equal(typeof store.runs[0]?.durationMs, "number");
+});
+
+test("candidate cap truncates persisted rows and sets stop reason", async () => {
+  process.env.AI_INGEST_ENABLED = "1";
+  process.env.OPENAI_API_KEY = "test-key";
+  process.env.AI_INGEST_MAX_CANDIDATES_PER_VENUE_RUN = "2";
+
+  const store = createStore();
+  const result = await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://example.com" },
+    {
+      store,
+      fetchHtml: async () => ({ finalUrl: "https://example.com/events", status: 200, contentType: "text/html", bytes: 200, html: "<html></html>" }),
+      extractWithOpenAI: async () => ({
+        model: "test-model",
+        events: [
+          { title: "Event 1", startAt: "2025-03-01T19:00:00.000Z", locationText: "A" },
+          { title: "Event 2", startAt: "2025-03-02T19:00:00.000Z", locationText: "B" },
+          { title: "Event 3", startAt: "2025-03-03T19:00:00.000Z", locationText: "C" },
+        ],
+        raw: {},
+      }),
+    },
+  );
+
+  assert.equal(result.createdCount, 2);
+  assert.equal(store.extracted.length, 2);
+  assert.equal(store.runs[0]?.totalCandidatesReturned, 3);
+  assert.equal(store.runs[0]?.stopReason, "CANDIDATE_CAP_REACHED");
 });

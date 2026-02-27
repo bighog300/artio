@@ -58,6 +58,8 @@ curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/ing
 - Gate: `AI_INGEST_ENABLED` must be `1`; otherwise cron returns `ok=true` with `skipped=true` and `reason=ingest_disabled`.
 - Locking: advisory lock key `cron:ingest:venues` prevents concurrent execution.
 - Defaults: `limit=10` (max 25), `minHoursSinceLastRun=24`.
+- Guardrails: per-cron volume and runtime caps (`AI_INGEST_CRON_MAX_TOTAL_CREATED_CANDIDATES`, `AI_INGEST_CRON_TIME_BUDGET_MS`) and per-venue candidate cap (`AI_INGEST_MAX_CANDIDATES_PER_VENUE_RUN`).
+- Circuit breaker: if recent failure rate in configured window exceeds threshold, run is skipped with `reason=circuit_breaker_open`.
 
 Manual dry-run:
 ```bash
@@ -109,3 +111,21 @@ Common failures:
 
 - Preview Neon branches use a deterministic per-PR name (`pr-<number>`), so reruns reuse the same branch instead of creating duplicates.
 - When a pull request is closed, GitHub Actions automatically runs cleanup to delete that preview branch.
+
+
+## Guardrails & Circuit Breaker
+- Per-venue candidate cap: `AI_INGEST_MAX_CANDIDATES_PER_VENUE_RUN` (default `25`) truncates persistence and marks run `stopReason=CANDIDATE_CAP_REACHED`.
+- Cron venue cap: `AI_INGEST_CRON_MAX_VENUES` bounds venue selection regardless of query `limit` (absolute max `25`).
+- Cron created-candidate cap: `AI_INGEST_CRON_MAX_TOTAL_CREATED_CANDIDATES` stops early with `stopReason=CRON_TOTAL_CAP_REACHED`.
+- Cron time budget: `AI_INGEST_CRON_TIME_BUDGET_MS` stops early with `stopReason=TIME_BUDGET_EXCEEDED`.
+- Circuit breaker:
+  - Window: `AI_INGEST_CRON_CIRCUIT_BREAKER_WINDOW_HOURS`
+  - Minimum runs: `AI_INGEST_CRON_CIRCUIT_BREAKER_MIN_RUNS`
+  - Failure threshold: `AI_INGEST_CRON_CIRCUIT_BREAKER_FAIL_RATE`
+  - Opens when failure rate exceeds threshold and minimum run count is met.
+- Alerts are intentionally suppressed for `dryRun`, `ingest_disabled`, and `lock_not_acquired`.
+
+Safe overrides:
+- Increase one cap at a time and monitor `/admin/ingest/health` for failure/error spikes.
+- Prefer raising `AI_INGEST_CRON_MAX_TOTAL_CREATED_CANDIDATES` before increasing `AI_INGEST_CRON_MAX_VENUES`.
+- Keep circuit breaker enabled in production; only relax thresholds temporarily with an incident note.
