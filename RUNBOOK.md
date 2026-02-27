@@ -55,6 +55,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/ing
 - Route: `GET|POST /api/cron/ingest/venues`
 - Purpose: scheduled AI extraction runs per venue website.
 - Safety: route only creates `IngestRun` + extracted candidates. It never auto-approves candidates and never creates published events.
+- Approval-time images: when `AI_INGEST_IMAGE_ENABLED=1`, approval attempts an SSRF-guarded source image import to Vercel Blob and attaches it to the created draft event. Approval never auto-publishes and still succeeds when image import fails.
 - Gate: `AI_INGEST_ENABLED` must be `1`; otherwise cron returns `ok=true` with `skipped=true` and `reason=ingest_disabled`.
 - Locking: advisory lock key `cron:ingest:venues` prevents concurrent execution.
 - Defaults: `limit=10` (max 25), `minHoursSinceLastRun=24`.
@@ -147,3 +148,10 @@ Safe overrides:
 - Heuristics reward complete scheduling/location/description/source signals and penalize generic/nav-like titles plus missing core fields.
 - Duplicate handling: in-run duplicates inherit the primary confidence where available; otherwise duplicates are recomputed with a duplicate penalty.
 - Admin run detail includes triage lanes (High, Needs review, Low, All) and defaults to High-confidence primaries sorted by confidence descending.
+
+
+## Ingest image import configuration
+- `AI_INGEST_IMAGE_ENABLED` (default `1`): gates approval-time image import.
+- `AI_INGEST_IMAGE_MAX_BYTES` (default `5000000`): max downloaded image size before rejection.
+- `BLOB_READ_WRITE_TOKEN`: required for server-side `@vercel/blob` uploads (set automatically by Vercel when Blob is attached).
+- Import runs at **approval time** (not extraction) to avoid storing low-quality junk candidates.

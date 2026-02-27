@@ -6,6 +6,7 @@ import { logAdminAction } from "@/lib/admin-audit";
 import { db } from "@/lib/db";
 import { slugifyEventTitle, ensureUniqueEventSlugWithDeps } from "@/lib/event-slug";
 import { runVenueIngestExtraction } from "@/lib/ingest/extraction-pipeline";
+import { importApprovedEventImage } from "@/lib/ingest/import-approved-event-image";
 import { getRequestId } from "@/lib/request-id";
 import { parseBody, zodDetails } from "@/lib/validators";
 import { inferTimezoneFromLatLng } from "@/lib/timezone";
@@ -17,6 +18,7 @@ type AdminIngestDeps = {
   appDb: typeof db;
   runExtraction: typeof runVenueIngestExtraction;
   logAction: typeof logAdminAction;
+  importEventImage: typeof importApprovedEventImage;
 };
 
 const defaultDeps: AdminIngestDeps = {
@@ -26,7 +28,15 @@ const defaultDeps: AdminIngestDeps = {
   appDb: db,
   runExtraction: runVenueIngestExtraction,
   logAction: logAdminAction,
+  importEventImage: importApprovedEventImage,
 };
+
+const MAX_WARNING_DETAIL = 1_000;
+
+function appendWarningDetail(existing: string | null | undefined, warning: string): string {
+  const combined = existing && existing.trim().length > 0 ? `${existing}\n${warning}` : warning;
+  return combined.length > MAX_WARNING_DETAIL ? `${combined.slice(0, MAX_WARNING_DETAIL - 1)}…` : combined;
+}
 
 const runParamsSchema = z.object({ venueId: z.string().uuid() });
 const runBodySchema = z.object({
@@ -349,8 +359,8 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
       const candidate = await tx.ingestExtractedEvent.findUnique({
         where: { id: parsedParams.data.id },
         include: {
-          run: { select: { id: true, venueId: true } },
-          venue: { select: { id: true, timezone: true, lat: true, lng: true } },
+          run: { select: { id: true, venueId: true, sourceUrl: true, errorDetail: true } },
+          venue: { select: { id: true, timezone: true, lat: true, lng: true, websiteUrl: true } },
         },
       });
       if (!candidate) return { error: apiError(404, "not_found", "Extracted event not found", undefined, requestId) };
@@ -361,7 +371,18 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
           data: { status: "APPROVED", rejectionReason: null },
           select: { id: true, createdEventId: true, runId: true, venueId: true },
         });
-        return { candidate: updated, createdEventId: updated.createdEventId as string };
+        return {
+          candidate: updated,
+          createdEventId: updated.createdEventId as string,
+          imageContext: {
+            runId: candidate.runId,
+            venueId: candidate.venueId,
+            sourceUrl: candidate.sourceUrl,
+            venueWebsiteUrl: candidate.venue.websiteUrl,
+            title: candidate.title,
+            runErrorDetail: candidate.run.errorDetail,
+          },
+        };
       }
 
       let resolvedTimezone = candidate.timezone ?? candidate.venue.timezone;
@@ -442,10 +463,45 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         select: { id: true, createdEventId: true, runId: true, venueId: true },
       });
 
-      return { candidate: updated, createdEventId: createdEvent.id };
+      return {
+        candidate: updated,
+        createdEventId: createdEvent.id,
+        imageContext: {
+          runId: candidate.runId,
+          venueId: candidate.venueId,
+          sourceUrl: candidate.sourceUrl,
+          venueWebsiteUrl: candidate.venue.websiteUrl,
+          title: candidate.title,
+          runErrorDetail: candidate.run.errorDetail,
+        },
+      };
     });
 
     if ("error" in approved) return approved.error;
+
+    let imageWarning: string | null = null;
+    const imageImport = await resolved.importEventImage({
+      appDb: resolved.appDb,
+      candidateId: approved.candidate.id,
+      runId: approved.imageContext.runId,
+      eventId: approved.createdEventId,
+      venueId: approved.imageContext.venueId,
+      title: approved.imageContext.title,
+      sourceUrl: approved.imageContext.sourceUrl,
+      venueWebsiteUrl: approved.imageContext.venueWebsiteUrl,
+      requestId,
+    });
+    imageWarning = imageImport.warning;
+
+    if (imageWarning) {
+      await resolved.appDb.ingestRun.update({
+        where: { id: approved.imageContext.runId },
+        data: {
+          errorDetail: appendWarningDetail(approved.imageContext.runErrorDetail, imageWarning),
+        },
+        select: { id: true },
+      });
+    }
 
     await resolved.logAction({
       actorEmail: actor.email,
@@ -456,6 +512,8 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         runId: approved.candidate.runId,
         venueId: approved.candidate.venueId,
         createdEventId: approved.createdEventId,
+        imageAttached: imageImport.attached,
+        imageWarning,
       } satisfies Prisma.InputJsonValue,
       req,
     });

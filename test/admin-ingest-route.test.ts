@@ -74,6 +74,7 @@ test("approve creates draft event + submission and updates candidate", async () 
     requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,
     logAction: async () => undefined,
+    importEventImage: async () => ({ attached: false, warning: null, imageUrl: null }),
   });
 
   assert.equal(res.status, 200);
@@ -135,6 +136,7 @@ test("approve is idempotent and does not duplicate event/submission", async () =
     requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,
     logAction: async () => undefined,
+    importEventImage: async () => ({ attached: false, warning: null, imageUrl: null }),
   });
 
   assert.equal(res.status, 200);
@@ -171,6 +173,7 @@ test("reject marks candidate rejected and stores reason", async () => {
       },
     } as never,
     logAction: async () => undefined,
+    importEventImage: async () => ({ attached: false, warning: null, imageUrl: null }),
   });
 
   assert.equal(res.status, 200);
@@ -190,6 +193,7 @@ test("run endpoint requires source url when venue has no website", async () => {
     appDb: { venue: { findUnique: async () => ({ id: "11111111-1111-4111-8111-111111111111", websiteUrl: null, name: "Venue" }) } } as never,
     runExtraction: async () => ({ runId: "run-1", createdCount: 0, dedupedCount: 0 }),
     logAction: async () => undefined,
+    importEventImage: async () => ({ attached: false, warning: null, imageUrl: null }),
   });
 
   assert.equal(res.status, 400);
@@ -272,6 +276,7 @@ test("approve returns precise missing scheduling fields", async () => {
     requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,
     logAction: async () => undefined,
+    importEventImage: async () => ({ attached: false, warning: null, imageUrl: null }),
   });
 
   assert.equal(res.status, 409);
@@ -317,6 +322,7 @@ test("approve missing timezone only reports timezone", async () => {
     requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,
     logAction: async () => undefined,
+    importEventImage: async () => ({ attached: false, warning: null, imageUrl: null }),
   });
 
   assert.equal(res.status, 409);
@@ -370,6 +376,7 @@ test("approve resolves timezone from venue.timezone", async () => {
     requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,
     logAction: async () => undefined,
+    importEventImage: async () => ({ attached: false, warning: null, imageUrl: null }),
   });
 
   assert.equal(res.status, 200);
@@ -426,6 +433,7 @@ test("approve resolves timezone from venue lat/lng when candidate and venue time
     requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,
     logAction: async () => undefined,
+    importEventImage: async () => ({ attached: false, warning: null, imageUrl: null }),
   });
 
   assert.equal(res.status, 200);
@@ -472,9 +480,117 @@ test("approve returns 409 when timezone cannot be resolved", async () => {
     requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,
     logAction: async () => undefined,
+    importEventImage: async () => ({ attached: false, warning: null, imageUrl: null }),
   });
 
   assert.equal(res.status, 409);
   const body = await res.json();
   assert.deepEqual(body.error.details?.missingFields, ["timezone"]);
+});
+
+test("approve imports image when enabled", async () => {
+  const candidate: Candidate = {
+    id: "11111111-1111-4111-8111-111111111118",
+    runId: "22222222-2222-4222-8222-222222222222",
+    venueId: "33333333-3333-4333-8333-333333333333",
+    status: "PENDING",
+    title: "AI Event",
+    startAt: new Date("2026-01-01T18:00:00Z"),
+    endAt: null,
+    timezone: "UTC",
+    locationText: "Main Hall",
+    description: "Test description",
+    sourceUrl: "https://venue.example/events",
+    createdEventId: null,
+    rejectionReason: null,
+  };
+
+  let imageImportCalled = false;
+  const tx = {
+    ingestExtractedEvent: {
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId, sourceUrl: candidate.sourceUrl, errorDetail: null }, venue: { id: candidate.venueId, timezone: "UTC", lat: null, lng: null, websiteUrl: "https://venue.example" } }),
+      update: async ({ data }: { data: Partial<Candidate> }) => {
+        Object.assign(candidate, data);
+        return { id: candidate.id, createdEventId: candidate.createdEventId, runId: candidate.runId, venueId: candidate.venueId };
+      },
+    },
+    event: {
+      findUnique: async () => null,
+      create: async () => ({ id: "event-10" }),
+    },
+    submission: {
+      create: async () => ({ id: "submission-10" }),
+    },
+    venue: { update: async () => ({ id: candidate.venueId, timezone: "UTC" }) },
+  };
+
+  const req = new NextRequest("http://localhost/api/admin/ingest/extracted-events/11111111-1111-4111-8111-111111111118/approve", { method: "POST" });
+  const res = await handleAdminIngestApprove(req, { id: candidate.id }, {
+    requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
+    appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx), ingestRun: { update: async () => ({ id: candidate.runId }) } } as never,
+    logAction: async () => undefined,
+    importEventImage: async () => {
+      imageImportCalled = true;
+      return { attached: true, warning: null, imageUrl: "https://blob.example/image.jpg" };
+    },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(imageImportCalled, true);
+});
+
+test("approve still succeeds when image import fails and warning is persisted", async () => {
+  const candidate: Candidate = {
+    id: "11111111-1111-4111-8111-111111111119",
+    runId: "22222222-2222-4222-8222-222222222223",
+    venueId: "33333333-3333-4333-8333-333333333333",
+    status: "PENDING",
+    title: "AI Event",
+    startAt: new Date("2026-01-01T18:00:00Z"),
+    endAt: null,
+    timezone: "UTC",
+    locationText: "Main Hall",
+    description: "Test description",
+    sourceUrl: "https://venue.example/events",
+    createdEventId: null,
+    rejectionReason: null,
+  };
+
+  let persistedErrorDetail: string | null = null;
+  const tx = {
+    ingestExtractedEvent: {
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId, sourceUrl: candidate.sourceUrl, errorDetail: "existing" }, venue: { id: candidate.venueId, timezone: "UTC", lat: null, lng: null, websiteUrl: "https://venue.example" } }),
+      update: async ({ data }: { data: Partial<Candidate> }) => {
+        Object.assign(candidate, data);
+        return { id: candidate.id, createdEventId: candidate.createdEventId, runId: candidate.runId, venueId: candidate.venueId };
+      },
+    },
+    event: {
+      findUnique: async () => null,
+      create: async () => ({ id: "event-11" }),
+    },
+    submission: {
+      create: async () => ({ id: "submission-11" }),
+    },
+    venue: { update: async () => ({ id: candidate.venueId, timezone: "UTC" }) },
+  };
+
+  const req = new NextRequest("http://localhost/api/admin/ingest/extracted-events/11111111-1111-4111-8111-111111111119/approve", { method: "POST" });
+  const res = await handleAdminIngestApprove(req, { id: candidate.id }, {
+    requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
+    appDb: {
+      $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx),
+      ingestRun: {
+        update: async ({ data }: { data: { errorDetail: string } }) => {
+          persistedErrorDetail = data.errorDetail;
+          return { id: candidate.runId };
+        },
+      },
+    } as never,
+    logAction: async () => undefined,
+    importEventImage: async () => ({ attached: false, warning: "image-import failed: timeout", imageUrl: null }),
+  });
+
+  assert.equal(res.status, 200);
+  assert.match(String(persistedErrorDetail), /image-import failed/);
 });
