@@ -12,6 +12,7 @@ const MAX_ERROR_MESSAGE_LENGTH = 500;
 const MAX_ERROR_DETAIL_LENGTH = 1000;
 const DEFAULT_MAX_CANDIDATES_PER_RUN = 25;
 const DEFAULT_DUPLICATE_LOOKBACK_DAYS = 30;
+const DEFAULT_DURATION_MINUTES = 120;
 
 const CANDIDATE_CAP_STOP_REASON = "CANDIDATE_CAP_REACHED";
 
@@ -33,6 +34,9 @@ type IngestStore = {
     findUnique: typeof db.ingestExtractedEvent.findUnique;
     findMany: typeof db.ingestExtractedEvent.findMany;
     create: typeof db.ingestExtractedEvent.create;
+  };
+  venue: {
+    findUnique: typeof db.venue.findUnique;
   };
 };
 
@@ -64,6 +68,52 @@ function getDuplicateLookbackDays() {
   const parsed = Number.parseInt(process.env.AI_INGEST_DUPLICATE_LOOKBACK_DAYS ?? "", 10);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
   return DEFAULT_DUPLICATE_LOOKBACK_DAYS;
+}
+
+function getDefaultDurationMinutes() {
+  const parsed = Number.parseInt(process.env.AI_INGEST_DEFAULT_DURATION_MINUTES ?? "", 10);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return DEFAULT_DURATION_MINUTES;
+}
+
+function isUkSourceUrl(input: string | null | undefined): boolean {
+  if (!input) return false;
+  try {
+    const hostname = new URL(input).hostname.toLowerCase();
+    return hostname.endsWith(".uk");
+  } catch {
+    return false;
+  }
+}
+
+function isUkCountry(input: string | null | undefined): boolean {
+  if (!input) return false;
+  const normalized = input.trim().toLowerCase();
+  return normalized === "uk" || normalized === "gb" || normalized === "united kingdom";
+}
+
+function normalizeSchedulingFields(
+  event: NormalizedExtractedEvent,
+  context: { fallbackSourceUrl: string; venueCountry: string | null },
+): NormalizedExtractedEvent {
+  const startAt = event.startAt;
+  if (!startAt) return event;
+
+  const normalized: NormalizedExtractedEvent = { ...event };
+  const durationMs = getDefaultDurationMinutes() * 60 * 1000;
+
+  if (!normalized.endAt || normalized.endAt < startAt) {
+    normalized.endAt = new Date(startAt.getTime() + durationMs);
+  }
+
+  if (!normalized.timezone) {
+    const sourceToCheck = normalized.sourceUrl ?? context.fallbackSourceUrl;
+    if (isUkSourceUrl(sourceToCheck) || isUkCountry(context.venueCountry)) {
+      normalized.timezone = "Europe/London";
+    }
+  }
+
+  return normalized;
 }
 
 async function markRunFailed(
@@ -143,7 +193,14 @@ export async function runVenueIngestExtraction(
     }
 
     const extracted = await extractWithOpenAI({ html: fetched.html, sourceUrl: fetched.finalUrl, model: params.model });
-    const normalized = parseExtractedEventsFromModel(extracted.events);
+    const venue = await store.venue.findUnique({
+      where: { id: params.venueId },
+      select: { country: true },
+    });
+    const normalized = parseExtractedEventsFromModel(extracted.events).map((event) => normalizeSchedulingFields(event, {
+      fallbackSourceUrl: fetched.finalUrl,
+      venueCountry: venue?.country ?? null,
+    }));
     const totalCandidatesReturned = normalized.length;
     const maxCandidates = getMaxCandidatesPerVenueRun();
     const cappedCandidates = normalized.slice(0, maxCandidates);

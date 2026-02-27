@@ -17,6 +17,9 @@ test("admin ingest run detail includes candidate moderation actions", () => {
   assert.match(actionsSource, /Approve/);
   assert.match(actionsSource, /Reject/);
   assert.match(actionsSource, /router\.refresh\(\)/);
+  assert.match(actionsSource, /field === "startAt"\) return "start date"/);
+  assert.match(actionsSource, /field === "timezone"\) return "timezone"/);
+  assert.match(actionsSource, /field === "endAt"\) return "end time"/);
   const candidatesSource = readFileSync("app/(admin)/admin/ingest/_components/ingest-run-candidates.tsx", "utf8");
   assert.match(candidatesSource, /Show duplicates/);
   assert.match(candidatesSource, /Triage:/);

@@ -234,3 +234,92 @@ test("run detail includes error diagnostics fields", async () => {
   assert.equal(body.run.errorDetail, '{"debug":{"output_item_count":1}}');
   assert.equal(body.run.model, "gpt-4o-mini");
 });
+
+
+test("approve returns precise missing scheduling fields", async () => {
+  const candidate: Candidate = {
+    id: "11111111-1111-4111-8111-111111111114",
+    runId: "22222222-2222-4222-8222-222222222222",
+    venueId: "33333333-3333-4333-8333-333333333333",
+    status: "PENDING",
+    title: "AI Event",
+    startAt: null,
+    endAt: null,
+    timezone: null,
+    locationText: "Main Hall",
+    description: "Test description",
+    sourceUrl: "https://venue.example/events",
+    createdEventId: null,
+    rejectionReason: null,
+  };
+
+  const tx = {
+    ingestExtractedEvent: {
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId } }),
+      update: async () => ({ id: candidate.id, createdEventId: null, runId: candidate.runId, venueId: candidate.venueId }),
+    },
+    event: {
+      findUnique: async () => null,
+      create: async () => ({ id: "event-1" }),
+    },
+    submission: {
+      create: async () => ({ id: "submission-1" }),
+    },
+  };
+
+  const req = new NextRequest("http://localhost/api/admin/ingest/extracted-events/11111111-1111-4111-8111-111111111114/approve", { method: "POST" });
+  const res = await handleAdminIngestApprove(req, { id: candidate.id }, {
+    requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
+    appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,
+    logAction: async () => undefined,
+  });
+
+  assert.equal(res.status, 409);
+  const body = await res.json();
+  assert.equal(body.error.message, "Extracted event is missing required scheduling fields");
+  assert.deepEqual(body.error.details?.missingFields, ["startAt", "timezone"]);
+});
+
+
+test("approve missing timezone only reports timezone", async () => {
+  const candidate: Candidate = {
+    id: "11111111-1111-4111-8111-111111111115",
+    runId: "22222222-2222-4222-8222-222222222222",
+    venueId: "33333333-3333-4333-8333-333333333333",
+    status: "PENDING",
+    title: "AI Event",
+    startAt: new Date("2026-01-01T18:00:00Z"),
+    endAt: new Date("2026-01-01T20:00:00Z"),
+    timezone: null,
+    locationText: "Main Hall",
+    description: "Test description",
+    sourceUrl: "https://venue.example/events",
+    createdEventId: null,
+    rejectionReason: null,
+  };
+
+  const tx = {
+    ingestExtractedEvent: {
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId } }),
+      update: async () => ({ id: candidate.id, createdEventId: null, runId: candidate.runId, venueId: candidate.venueId }),
+    },
+    event: {
+      findUnique: async () => null,
+      create: async () => ({ id: "event-1" }),
+    },
+    submission: {
+      create: async () => ({ id: "submission-1" }),
+    },
+  };
+
+  const req = new NextRequest("http://localhost/api/admin/ingest/extracted-events/11111111-1111-4111-8111-111111111115/approve", { method: "POST" });
+  const res = await handleAdminIngestApprove(req, { id: candidate.id }, {
+    requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
+    appDb: { $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx) } as never,
+    logAction: async () => undefined,
+  });
+
+  assert.equal(res.status, 409);
+  const body = await res.json();
+  assert.deepEqual(body.error.details?.missingFields, ["timezone"]);
+});

@@ -360,9 +360,24 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         return { candidate: updated, createdEventId: updated.createdEventId as string };
       }
 
-      if (!candidate.startAt || !candidate.timezone) {
-        return { error: apiError(409, "invalid_state", "Extracted event is missing required scheduling fields (startAt/timezone)", undefined, requestId) };
+      const missingSchedulingFields = [
+        ...(!candidate.startAt ? ["startAt"] : []),
+        ...(!candidate.timezone ? ["timezone"] : []),
+      ];
+      if (missingSchedulingFields.length > 0) {
+        return {
+          error: apiError(
+            409,
+            "invalid_state",
+            "Extracted event is missing required scheduling fields",
+            { missingFields: missingSchedulingFields },
+            requestId,
+          ),
+        };
       }
+
+      const requiredStartAt = candidate.startAt as Date;
+      const requiredTimezone = candidate.timezone as string;
 
       const baseSlug = slugifyEventTitle(candidate.title);
       const slug = await ensureUniqueEventSlugWithDeps(
@@ -376,9 +391,9 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
           title: candidate.title,
           slug,
           description: candidate.description,
-          startAt: candidate.startAt,
+          startAt: requiredStartAt,
           endAt: candidate.endAt,
-          timezone: candidate.timezone,
+          timezone: requiredTimezone,
           isPublished: false,
           isAiExtracted: true,
           ingestSourceRunId: candidate.runId,

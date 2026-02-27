@@ -58,6 +58,9 @@ function createStore() {
         return run;
       },
     },
+    venue: {
+      findUnique: async () => ({ country: "United Kingdom" }),
+    },
     ingestExtractedEvent: {
       findUnique: async ({ where }: { where: { venueId_fingerprint: { venueId: string; fingerprint: string } } }) => {
         return (
@@ -88,12 +91,14 @@ const previousEnabled = process.env.AI_INGEST_ENABLED;
 const previousApiKey = process.env.OPENAI_API_KEY;
 const previousCandidateCap = process.env.AI_INGEST_MAX_CANDIDATES_PER_VENUE_RUN;
 const previousThreshold = process.env.AI_INGEST_DUPLICATE_SIMILARITY_THRESHOLD;
+const previousDefaultDuration = process.env.AI_INGEST_DEFAULT_DURATION_MINUTES;
 
 test.after(() => {
   process.env.AI_INGEST_ENABLED = previousEnabled;
   process.env.OPENAI_API_KEY = previousApiKey;
   process.env.AI_INGEST_MAX_CANDIDATES_PER_VENUE_RUN = previousCandidateCap;
   process.env.AI_INGEST_DUPLICATE_SIMILARITY_THRESHOLD = previousThreshold;
+  process.env.AI_INGEST_DEFAULT_DURATION_MINUTES = previousDefaultDuration;
 });
 
 test("dedupe skips existing fingerprint", async () => {
@@ -219,4 +224,76 @@ test("invalid model output marks run as failed", async () => {
   );
 
   assert.equal(store.runs[0]?.status, "FAILED");
+});
+
+
+test("infers endAt when startAt exists and endAt is missing", async () => {
+  process.env.AI_INGEST_ENABLED = "1";
+  process.env.OPENAI_API_KEY = "test-key";
+  process.env.AI_INGEST_DEFAULT_DURATION_MINUTES = "120";
+
+  const store = createStore();
+  await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://example.com/events" },
+    {
+      store,
+      fetchHtml: async () => ({ finalUrl: "https://example.com/events", status: 200, contentType: "text/html", bytes: 100, html: "<html></html>" }),
+      extractWithOpenAI: async () => ({
+        model: "test-model",
+        events: [{ title: "Timed Event", startAt: "2026-07-01T19:00:00.000Z", endAt: null, timezone: "UTC", locationText: "Main Hall" }],
+        raw: [],
+      }),
+    },
+  );
+
+  const created = store.extracted.find((row) => row.title === "Timed Event");
+  assert.ok(created);
+  assert.equal((created?.startAt as Date).toISOString(), "2026-07-01T19:00:00.000Z");
+  assert.equal((created?.endAt as Date).toISOString(), "2026-07-01T21:00:00.000Z");
+});
+
+test("keeps candidate missing startAt non-approvable", async () => {
+  process.env.AI_INGEST_ENABLED = "1";
+  process.env.OPENAI_API_KEY = "test-key";
+
+  const store = createStore();
+  await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://example.com/events" },
+    {
+      store,
+      fetchHtml: async () => ({ finalUrl: "https://example.com/events", status: 200, contentType: "text/html", bytes: 100, html: "<html></html>" }),
+      extractWithOpenAI: async () => ({
+        model: "test-model",
+        events: [{ title: "No Start", startAt: null, endAt: null, timezone: null, locationText: "Main Hall" }],
+        raw: [],
+      }),
+    },
+  );
+
+  const created = store.extracted.find((row) => row.title === "No Start");
+  assert.equal(created?.startAt, null);
+  assert.equal(created?.endAt, null);
+});
+
+
+test("infers Europe/London timezone for UK sources when missing", async () => {
+  process.env.AI_INGEST_ENABLED = "1";
+  process.env.OPENAI_API_KEY = "test-key";
+
+  const store = createStore();
+  await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://venue.example.uk/events" },
+    {
+      store,
+      fetchHtml: async () => ({ finalUrl: "https://venue.example.uk/events", status: 200, contentType: "text/html", bytes: 100, html: "<html></html>" }),
+      extractWithOpenAI: async () => ({
+        model: "test-model",
+        events: [{ title: "UK Event", startAt: "2026-07-01T19:00:00.000Z", endAt: null, timezone: null, locationText: "Main Hall" }],
+        raw: [],
+      }),
+    },
+  );
+
+  const created = store.extracted.find((row) => row.title === "UK Event");
+  assert.equal(created?.timezone, "Europe/London");
 });

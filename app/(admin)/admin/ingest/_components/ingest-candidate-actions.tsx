@@ -9,10 +9,27 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 
 type CandidateStatus = "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE";
 
-function getActionError(status: number) {
+function getActionError(status: number, details?: unknown) {
   if (status === 401 || status === 403) return "Not authorized.";
   if (status === 404) return "Candidate not found.";
-  if (status === 409) return "This candidate is missing required scheduling fields.";
+  if (status === 409) {
+    const missingFields = details && typeof details === "object" && "missingFields" in details && Array.isArray((details as { missingFields?: unknown }).missingFields)
+      ? (details as { missingFields: unknown[] }).missingFields
+      : [];
+
+    const labels = missingFields
+      .filter((field): field is string => typeof field === "string")
+      .map((field) => {
+        if (field === "startAt") return "start date";
+        if (field === "timezone") return "timezone";
+        if (field === "endAt") return "end time";
+        return field;
+      });
+
+    return labels.length > 0
+      ? `This candidate is missing required scheduling fields: ${labels.join(", ")}.`
+      : "This candidate is missing required scheduling fields.";
+  }
   return "Action failed. Please try again.";
 }
 
@@ -40,7 +57,8 @@ export default function IngestCandidateActions({
     try {
       const res = await fetch(`/api/admin/ingest/extracted-events/${candidateId}/approve`, { method: "POST" });
       if (!res.ok) {
-        setError(getActionError(res.status));
+        const body = (await res.json().catch(() => null)) as { error?: { details?: unknown } } | null;
+        setError(getActionError(res.status, body?.error?.details));
         return;
       }
       router.refresh();
@@ -67,7 +85,8 @@ export default function IngestCandidateActions({
         body: JSON.stringify({ rejectionReason: rejectReason.trim() }),
       });
       if (!res.ok) {
-        setError(getActionError(res.status));
+        const body = (await res.json().catch(() => null)) as { error?: { details?: unknown } } | null;
+        setError(getActionError(res.status, body?.error?.details));
         return;
       }
       setOpenRejectModal(false);
