@@ -175,6 +175,11 @@ model User {
   name                 String?
   imageUrl             String?
   role                 Role                  @default(USER)
+  isTrustedPublisher   Boolean               @default(false)
+  trustedPublisherSince DateTime?
+  trustedPublisherById String?               @db.Uuid
+  trustedPublisherBy   User?                  @relation("TrustedPublisherGrantedBy", fields: [trustedPublisherById], references: [id])
+  grantedTrustedPublisherUsers User[]         @relation("TrustedPublisherGrantedBy")
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   favorites            Favorite[]

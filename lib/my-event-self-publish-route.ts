@@ -4,7 +4,7 @@ import { canSelfPublish } from "@/lib/auth";
 import type { AdminAuditInput } from "@/lib/admin-audit";
 import { evaluateEventReadiness } from "@/lib/publish-readiness";
 
-type SessionUser = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN" };
+type SessionUser = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN"; isTrustedPublisher?: boolean | null };
 
 type EventRecord = {
   id: string;

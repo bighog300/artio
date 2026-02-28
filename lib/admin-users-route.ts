@@ -16,6 +16,10 @@ const roleUpdateParamsSchema = z.object({
   id: z.string().uuid(),
 });
 
+const trustedPublisherUpdateBodySchema = z.object({
+  enabled: z.boolean(),
+});
+
 type AdminActor = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN" };
 
 type AdminUsersDeps = {
@@ -58,6 +62,10 @@ export async function handleAdminUsersSearch(req: NextRequest, deps: AdminUsersD
         email: true,
         name: true,
         role: true,
+        isTrustedPublisher: true,
+        trustedPublisherSince: true,
+        trustedPublisherById: true,
+        trustedPublisherBy: { select: { id: true, email: true, name: true } },
         createdAt: true,
       },
     });
@@ -152,6 +160,101 @@ export async function handleAdminUserRoleUpdate(req: NextRequest, params: { id: 
     }
     if (error instanceof Error && error.message === "cannot_demote_last_admin") {
       return apiError(409, "cannot_demote_last_admin", "Cannot demote the last admin");
+    }
+    return apiError(500, "internal_error", "Unexpected server error");
+  }
+}
+
+
+export async function handleAdminTrustedPublisherUpdate(req: NextRequest, params: { id: string }, deps: AdminUsersDeps) {
+  try {
+    const actor = await deps.requireAdminUser();
+
+    const parsedParams = roleUpdateParamsSchema.safeParse(params);
+    if (!parsedParams.success) {
+      return apiError(400, "invalid_user_id", "Invalid user id");
+    }
+
+    const parsedBody = trustedPublisherUpdateBodySchema.safeParse(await req.json());
+    if (!parsedBody.success) {
+      return apiError(400, "invalid_body", "Invalid trusted publisher payload");
+    }
+
+    const targetUser = await deps.appDb.user.findUnique({
+      where: { id: parsedParams.data.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isTrustedPublisher: true,
+        trustedPublisherSince: true,
+        trustedPublisherById: true,
+        trustedPublisherBy: { select: { id: true, email: true, name: true } },
+      },
+    });
+
+    if (!targetUser) {
+      return apiError(404, "not_found", "User not found");
+    }
+
+    const { enabled } = parsedBody.data;
+    if (targetUser.isTrustedPublisher === enabled) {
+      return NextResponse.json({ success: true, user: targetUser });
+    }
+
+    const { ip, userAgent } = getRequestDetails(req);
+
+    const updatedUser = await deps.appDb.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: targetUser.id },
+        data: enabled
+          ? { isTrustedPublisher: true, trustedPublisherSince: new Date(), trustedPublisherById: actor.id }
+          : { isTrustedPublisher: false },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          isTrustedPublisher: true,
+          trustedPublisherSince: true,
+          trustedPublisherById: true,
+          trustedPublisherBy: { select: { id: true, email: true, name: true } },
+        },
+      });
+
+      const metadata = {
+        actorUserId: actor.id,
+        actorEmail: actor.email,
+        targetUserId: user.id,
+        beforeEnabled: targetUser.isTrustedPublisher,
+        afterEnabled: user.isTrustedPublisher,
+        trustedPublisherSince: user.trustedPublisherSince?.toISOString() ?? null,
+        trustedPublisherById: user.trustedPublisherById,
+        ip,
+        userAgent,
+      } satisfies Prisma.InputJsonValue;
+
+      await tx.adminAuditLog.create({
+        data: {
+          actorEmail: actor.email,
+          action: enabled ? "USER_TRUSTED_PUBLISHER_GRANTED" : "USER_TRUSTED_PUBLISHER_REVOKED",
+          targetType: "user",
+          targetId: user.id,
+          metadata,
+          ip,
+          userAgent,
+        },
+      });
+
+      return user;
+    });
+
+    return NextResponse.json({ success: true, user: updatedUser });
+  } catch (error) {
+    if (error instanceof Error && error.message === "unauthorized") {
+      return apiError(401, "unauthorized", "Authentication required");
+    }
+    if (error instanceof Error && error.message === "forbidden") {
+      return apiError(403, "forbidden", "Admin role required");
     }
     return apiError(500, "internal_error", "Unexpected server error");
   }

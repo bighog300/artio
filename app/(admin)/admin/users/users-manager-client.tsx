@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { enqueueToast } from "@/lib/toast";
 
 type Role = "USER" | "EDITOR" | "ADMIN";
 
@@ -9,6 +10,10 @@ type AdminUser = {
   email: string;
   name: string | null;
   role: Role;
+  isTrustedPublisher: boolean;
+  trustedPublisherSince: string | null;
+  trustedPublisherById: string | null;
+  trustedPublisherBy: { id: string; email: string; name: string | null } | null;
   createdAt: string;
 };
 
@@ -96,6 +101,40 @@ export function UsersManagerClient() {
     } catch (err) {
       setUsers(previousUsers);
       setError(err instanceof Error ? err.message : "Failed to update role");
+    } finally {
+      setSavingUserId(null);
+    }
+  }
+
+  async function updateTrustedPublisher(userId: string, enabled: boolean) {
+    setSavingUserId(userId);
+    setError(null);
+
+    const previousUsers = users;
+    const nowIso = new Date().toISOString();
+    setUsers((current) => current.map((item) => {
+      if (item.id !== userId) return item;
+      if (enabled) {
+        return { ...item, isTrustedPublisher: true, trustedPublisherSince: item.trustedPublisherSince ?? nowIso };
+      }
+      return { ...item, isTrustedPublisher: false };
+    }));
+
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/trusted-publisher`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? "Failed to update trusted publisher capability");
+      setUsers((current) => current.map((item) => (item.id === userId ? { ...item, ...body.user } : item)));
+      enqueueToast({ title: enabled ? "Trusted Publisher enabled" : "Trusted Publisher revoked" });
+    } catch (err) {
+      setUsers(previousUsers);
+      const message = err instanceof Error ? err.message : "Failed to update trusted publisher capability";
+      setError(message);
+      enqueueToast({ title: message, variant: "error" });
     } finally {
       setSavingUserId(null);
     }
@@ -220,13 +259,14 @@ export function UsersManagerClient() {
               <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2">Name</th>
               <th className="px-3 py-2">Role</th>
+              <th className="px-3 py-2">Trusted Publisher</th>
               <th className="px-3 py-2">Created</th>
             </tr>
           </thead>
           <tbody>
             {users.length === 0 ? (
               <tr>
-                <td className="px-3 py-3 text-muted-foreground" colSpan={4}>{busy ? "Loading users..." : "No users found."}</td>
+                <td className="px-3 py-3 text-muted-foreground" colSpan={5}>{busy ? "Loading users..." : "No users found."}</td>
               </tr>
             ) : users.map((user) => (
               <tr key={user.id} className="border-t">
@@ -243,6 +283,21 @@ export function UsersManagerClient() {
                     <option value="EDITOR">EDITOR</option>
                     <option value="ADMIN">ADMIN</option>
                   </select>
+                </td>
+                <td className="px-3 py-2">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium">Trusted Publisher: {user.isTrustedPublisher ? "Enabled" : "Disabled"}</p>
+                    <p className="text-xs text-muted-foreground">Granted since: {user.trustedPublisherSince ? new Date(user.trustedPublisherSince).toISOString() : "—"}</p>
+                    <p className="text-xs text-muted-foreground">Granted by: {user.trustedPublisherBy?.email ?? "—"}</p>
+                    <button
+                      type="button"
+                      className="rounded border px-2 py-1 text-xs"
+                      disabled={savingUserId === user.id}
+                      onClick={() => void updateTrustedPublisher(user.id, !user.isTrustedPublisher)}
+                    >
+                      {user.isTrustedPublisher ? "Revoke Trusted Publisher" : "Enable Trusted Publisher"}
+                    </button>
+                  </div>
                 </td>
                 <td className="px-3 py-2">{new Date(user.createdAt).toISOString()}</td>
               </tr>

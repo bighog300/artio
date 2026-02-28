@@ -9,7 +9,7 @@ import { getBetaConfig, isEmailAllowed, normalizeEmail } from "@/lib/beta/access
 import { getAuthDebugRequestMeta, logAuthDebug } from "@/lib/auth-debug";
 import { ForbiddenError } from "@/lib/http-errors";
 
-export type SessionUser = { id: string; email: string; name: string | null; role: "USER" | "EDITOR" | "ADMIN" };
+export type SessionUser = { id: string; email: string; name: string | null; role: "USER" | "EDITOR" | "ADMIN"; isTrustedPublisher?: boolean | null };
 export type EditorSessionUser = SessionUser & { role: "EDITOR" | "ADMIN" };
 
 export class AuthError extends Error {
@@ -165,6 +165,7 @@ export const authOptions: NextAuthOptions = {
         token.sub = dbUser.id;
         token.role = getEffectiveRole(normalizedEmail, dbUser.role as SessionUser["role"]);
         token.name = dbUser.name ?? token.name;
+        token.isTrustedPublisher = dbUser.isTrustedPublisher;
       } else {
         token.role = getEffectiveRole(normalizedEmail, "USER");
       }
@@ -176,6 +177,7 @@ export const authOptions: NextAuthOptions = {
       session.user.email = token.email;
       session.user.name = token.name ?? null;
       session.user.role = (token.role as SessionUser["role"]) || "USER";
+      session.user.isTrustedPublisher = token.isTrustedPublisher === true;
       return session;
     },
   },
@@ -199,6 +201,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
         email: session.user.email,
         name: session.user.name ?? null,
         role: session.user.role || "USER",
+        isTrustedPublisher: session.user.isTrustedPublisher === true,
       };
 
   const requestMeta = await getAuthDebugRequestMeta();
@@ -248,8 +251,10 @@ export function hasGlobalVenueAccess(role: SessionUser["role"]) {
   return role === "EDITOR" || role === "ADMIN";
 }
 
-export function canSelfPublish(user: { role: string } | null | undefined): boolean {
-  return user?.role === "ADMIN";
+export function canSelfPublish(user: { role?: string | null; isTrustedPublisher?: boolean | null } | null | undefined): boolean {
+  if (!user) return false;
+  if (user.role === "ADMIN") return true;
+  return user.isTrustedPublisher === true;
 }
 
 export async function requireEditor(): Promise<EditorSessionUser> {

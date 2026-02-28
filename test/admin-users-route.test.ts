@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
-import { handleAdminUsersSearch, handleAdminUserRoleUpdate } from "../lib/admin-users-route.ts";
+import { handleAdminUsersSearch, handleAdminUserRoleUpdate, handleAdminTrustedPublisherUpdate } from "../lib/admin-users-route.ts";
 
 type Role = "USER" | "EDITOR" | "ADMIN";
 
@@ -11,6 +11,9 @@ type MockUser = {
   name: string | null;
   role: Role;
   createdAt?: Date;
+  isTrustedPublisher?: boolean;
+  trustedPublisherSince?: Date | null;
+  trustedPublisherById?: string | null;
 };
 
 function buildDeps(users: MockUser[]) {
@@ -19,11 +22,20 @@ function buildDeps(users: MockUser[]) {
   const tx = {
     user: {
       count: async ({ where }: { where: { role: Role } }) => users.filter((user) => user.role === where.role).length,
-      update: async ({ where, data }: { where: { id: string }; data: { role: Role } }) => {
+      update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
         const idx = users.findIndex((user) => user.id === where.id);
         if (idx < 0) throw new Error("not_found");
-        users[idx] = { ...users[idx], role: data.role };
-        return { id: users[idx].id, email: users[idx].email, name: users[idx].name, role: users[idx].role };
+        users[idx] = { ...users[idx], ...(data as never) };
+        return {
+          id: users[idx].id,
+          email: users[idx].email,
+          name: users[idx].name,
+          role: users[idx].role,
+          isTrustedPublisher: users[idx].isTrustedPublisher ?? false,
+          trustedPublisherSince: users[idx].trustedPublisherSince ?? null,
+          trustedPublisherById: users[idx].trustedPublisherById ?? null,
+          trustedPublisherBy: null,
+        };
       },
     },
     adminAuditLog: {
@@ -43,12 +55,12 @@ function buildDeps(users: MockUser[]) {
             if (!query) return true;
             return user.email.toLowerCase().includes(lowered) || (user.name ?? "").toLowerCase().includes(lowered);
           })
-          .map((user) => ({ id: user.id, email: user.email, name: user.name, role: user.role, createdAt: user.createdAt ?? new Date() }));
+          .map((user) => ({ id: user.id, email: user.email, name: user.name, role: user.role, isTrustedPublisher: user.isTrustedPublisher ?? false, trustedPublisherSince: user.trustedPublisherSince ?? null, trustedPublisherById: user.trustedPublisherById ?? null, trustedPublisherBy: null, createdAt: user.createdAt ?? new Date() }));
       },
       findUnique: async ({ where }: { where: { id: string } }) => {
         const user = users.find((item) => item.id === where.id);
         if (!user) return null;
-        return { id: user.id, email: user.email, name: user.name, role: user.role };
+        return { id: user.id, email: user.email, name: user.name, role: user.role, isTrustedPublisher: user.isTrustedPublisher ?? false, trustedPublisherSince: user.trustedPublisherSince ?? null, trustedPublisherById: user.trustedPublisherById ?? null, trustedPublisherBy: null };
       },
     },
     adminAuditLog: {
@@ -155,4 +167,53 @@ test("PATCH /api/admin/users/[id]/role writes an audit log entry on success", as
   assert.equal(res.status, 200);
   assert.equal(auditEntries.length, 1);
   assert.equal(auditEntries[0].action, "USER_ROLE_CHANGED");
+});
+
+
+test("PATCH /api/admin/users/[id]/trusted-publisher grants capability and writes audit", async () => {
+  const { appDb, auditEntries } = buildDeps([
+    { id: "11111111-1111-4111-8111-111111111111", email: "admin@example.com", name: "Admin", role: "ADMIN" },
+    { id: "22222222-2222-4222-8222-222222222222", email: "user@example.com", name: "User", role: "EDITOR", isTrustedPublisher: false },
+  ]);
+
+  const req = new NextRequest("http://localhost/api/admin/users/22222222-2222-4222-8222-222222222222/trusted-publisher", {
+    method: "PATCH",
+    body: JSON.stringify({ enabled: true }),
+    headers: { "content-type": "application/json", "user-agent": "node-test" },
+  });
+
+  const res = await handleAdminTrustedPublisherUpdate(req, { id: "22222222-2222-4222-8222-222222222222" }, {
+    requireAdminUser: async () => ({ id: "11111111-1111-4111-8111-111111111111", email: "admin@example.com", role: "ADMIN" }),
+    appDb: appDb as never,
+  });
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.user.isTrustedPublisher, true);
+  assert.equal(auditEntries.at(-1)?.action, "USER_TRUSTED_PUBLISHER_GRANTED");
+});
+
+test("PATCH /api/admin/users/[id]/trusted-publisher revoke keeps grant timestamp", async () => {
+  const grantedAt = new Date("2026-01-01T00:00:00.000Z");
+  const { appDb, auditEntries } = buildDeps([
+    { id: "11111111-1111-4111-8111-111111111111", email: "admin@example.com", name: "Admin", role: "ADMIN" },
+    { id: "22222222-2222-4222-8222-222222222222", email: "user@example.com", name: "User", role: "EDITOR", isTrustedPublisher: true, trustedPublisherSince: grantedAt, trustedPublisherById: "11111111-1111-4111-8111-111111111111" },
+  ]);
+
+  const req = new NextRequest("http://localhost/api/admin/users/22222222-2222-4222-8222-222222222222/trusted-publisher", {
+    method: "PATCH",
+    body: JSON.stringify({ enabled: false }),
+    headers: { "content-type": "application/json" },
+  });
+
+  const res = await handleAdminTrustedPublisherUpdate(req, { id: "22222222-2222-4222-8222-222222222222" }, {
+    requireAdminUser: async () => ({ id: "11111111-1111-4111-8111-111111111111", email: "admin@example.com", role: "ADMIN" }),
+    appDb: appDb as never,
+  });
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.user.isTrustedPublisher, false);
+  assert.equal(body.user.trustedPublisherSince, grantedAt.toISOString());
+  assert.equal(auditEntries.at(-1)?.action, "USER_TRUSTED_PUBLISHER_REVOKED");
 });

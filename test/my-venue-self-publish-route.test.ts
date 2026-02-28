@@ -102,3 +102,57 @@ test("direct publish blocked if venue is archived", async () => {
   assert.equal(res.status, 409);
   assert.equal(state.isPublished, false);
 });
+
+
+test("Trusted Publisher can publish own venue directly", async () => {
+  let state = buildVenue({ isPublished: false });
+  const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/publish`, { method: "POST" });
+
+  const res = await handleVenueSelfPublish(req, { venueId, isPublished: true }, {
+    requireVenueRole: async () => ({ id: "editor-1", email: "trusted@example.com", name: "Trusted", role: "EDITOR", isTrustedPublisher: true }),
+    findVenueForPublish: async () => state,
+    updateVenuePublishState: async (_, isPublished) => {
+      state = { ...state, isPublished };
+      return state;
+    },
+    logAdminAction: async () => undefined,
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(state.isPublished, true);
+});
+
+test("Trusted Publisher cannot publish someone else's venue", async () => {
+  const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/publish`, { method: "POST" });
+
+  const res = await handleVenueSelfPublish(req, { venueId, isPublished: true }, {
+    requireVenueRole: async () => {
+      throw new Error("forbidden");
+    },
+    findVenueForPublish: async () => buildVenue(),
+    updateVenuePublishState: async () => buildVenue({ isPublished: true }),
+    logAdminAction: async () => undefined,
+  });
+
+  assert.equal(res.status, 403);
+  const body = await res.json();
+  assert.equal(body.error.message, "Venue editor role required");
+});
+
+test("Revoked trusted publisher cannot publish and published state is unchanged", async () => {
+  let state = buildVenue({ isPublished: true });
+  const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/publish`, { method: "POST" });
+
+  const res = await handleVenueSelfPublish(req, { venueId, isPublished: true }, {
+    requireVenueRole: async () => ({ id: "editor-1", email: "editor@example.com", name: "Editor", role: "EDITOR", isTrustedPublisher: false }),
+    findVenueForPublish: async () => state,
+    updateVenuePublishState: async (_, isPublished) => {
+      state = { ...state, isPublished };
+      return state;
+    },
+    logAdminAction: async () => undefined,
+  });
+
+  assert.equal(res.status, 403);
+  assert.equal(state.isPublished, true);
+});
