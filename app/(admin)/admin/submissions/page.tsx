@@ -23,8 +23,8 @@ export default async function AdminSubmissionsPage({ searchParams }: { searchPar
     include: {
       submitter: { select: { email: true, name: true } },
       venue: { select: { id: true, name: true } },
-      targetEvent: { select: { id: true, title: true, slug: true } },
-      targetVenue: { select: { id: true, name: true, slug: true } },
+      targetEvent: { select: { id: true, title: true, slug: true, startAt: true, eventType: true, description: true, venue: { select: { name: true } }, images: { select: { id: true, url: true, alt: true }, take: 4, orderBy: { sortOrder: "asc" } } } },
+      targetVenue: { select: { id: true, name: true, slug: true, city: true, country: true, claimStatus: true, aiGenerated: true, description: true, images: { select: { id: true, url: true, alt: true }, take: 4, orderBy: { sortOrder: "asc" } } } },
       targetArtist: { select: { id: true, name: true, slug: true } },
     },
   });
@@ -60,7 +60,11 @@ export default async function AdminSubmissionsPage({ searchParams }: { searchPar
           decidedAt: item.decidedAt?.toISOString() ?? null,
           submitter: item.submitter,
           venue: item.venue,
-          targetEvent: item.targetEvent,
+          createdAt: item.createdAt.toISOString(),
+          targetEvent: item.targetEvent ? {
+            ...item.targetEvent,
+            startAt: item.targetEvent.startAt.toISOString(),
+          } : null,
           targetVenue: item.targetVenue,
           targetArtist: item.targetArtist,
         }))}

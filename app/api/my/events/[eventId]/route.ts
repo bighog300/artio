@@ -37,6 +37,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
                 : { disconnect: true },
             }
           : {}),
+        ...(data.eventType !== undefined ? { eventType: data.eventType } : {}),
         ...(data.images
           ? {
               images: {

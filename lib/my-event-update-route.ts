@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { canEditSubmission } from "@/lib/ownership";
 import { eventIdParamSchema, myEventPatchSchema, parseBody, zodDetails } from "@/lib/validators";
+import type { EventTypeOption } from "@/lib/event-types";
 
 type SessionUser = { id: string };
 
@@ -22,6 +23,7 @@ type UpdateEventInput = {
   endAt?: Date | null;
   venueId?: string | null;
   featuredAssetId?: string | null;
+  eventType?: EventTypeOption | null;
   images?: Array<{ assetId?: string | null; url?: string | null; alt?: string | null; sortOrder: number }>;
 };
 
@@ -75,6 +77,7 @@ export async function handlePatchMyEvent(req: NextRequest, params: Promise<{ eve
       ...(Object.prototype.hasOwnProperty.call(parsed.data, "endAt") ? { endAt: parsed.data.endAt ? new Date(parsed.data.endAt) : null } : {}),
       ...(Object.prototype.hasOwnProperty.call(parsed.data, "venueId") ? { venueId: parsed.data.venueId ?? null } : {}),
       ...(Object.prototype.hasOwnProperty.call(parsed.data, "featuredAssetId") ? { featuredAssetId: parsed.data.featuredAssetId ?? null } : {}),
+      ...(Object.prototype.hasOwnProperty.call(parsed.data, "eventType") ? { eventType: parsed.data.eventType ?? null } : {}),
       ...(images ? { images } : {}),
     };
 

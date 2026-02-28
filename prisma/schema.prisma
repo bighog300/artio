@@ -97,10 +97,12 @@ enum NotificationInboxStatus {
 
 enum EventType {
   EXHIBITION
-  OPENING
-  TALK
-  WORKSHOP
   FAIR
+  OPENING
+  WORKSHOP
+  TALK
+  SCREENING
+  RESIDENCY
   OTHER
 }
 

@@ -34,3 +34,11 @@ test("row-level results and no hard reload", () => {
   assert.match(source, /✅ Updated/);
   assert.doesNotMatch(source, /window\.location\.reload\(/);
 });
+
+
+test("bulk approve requires confirmation dialog", () => {
+  assert.match(source, /const \[bulkApproveDialogOpen, setBulkApproveDialogOpen\] = useState\(false\)/);
+  assert.match(source, /<Dialog open=\{bulkApproveDialogOpen\} onOpenChange=\{setBulkApproveDialogOpen\}>/);
+  assert.match(source, /Approve selected submissions\?/);
+  assert.match(source, /Confirm approve/);
+});

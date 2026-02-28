@@ -52,11 +52,12 @@ export default async function MyDashboardPage({ searchParams }: { searchParams: 
       {shouldShowOnboarding ? (
         <section className="rounded border p-3">
           <h2 className="text-lg font-semibold">Get set up</h2>
-          <ul className="mt-2 list-inside list-disc text-sm text-muted-foreground">
-            <li>Create a venue profile</li>
-            <li>Add your first event</li>
+          <ol className="mt-2 list-inside list-decimal text-sm text-muted-foreground">
+            <li>Create your venue</li>
+            <li>Add images and location details</li>
+            <li>Create your first event</li>
             <li>Submit for review</li>
-          </ul>
+          </ol>
           <div className="mt-3">
             <Link className="inline-flex rounded border px-3 py-1.5 text-sm font-medium" href="/my/venues/new">Create venue</Link>
           </div>

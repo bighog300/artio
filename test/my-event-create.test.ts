@@ -172,3 +172,30 @@ test("onboarding wrapper is called safely", async () => {
   assert.equal(res.status, 200);
   assert.equal(onboardingCalls, 1);
 });
+
+
+test("create event persists eventType", async () => {
+  let createdEventType = "";
+  const req = new NextRequest("http://localhost/api/my/events", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ title: "Typed", startAt: "2026-01-01T10:00:00.000Z", eventType: "WORKSHOP" }),
+  });
+
+  const res = await handlePostMyEvent(req, {
+    requireAuth: async () => ({ id: "user-1" }),
+    listManagedVenues: async () => [],
+    findExistingDraftByCreateKey: async () => null,
+    findEventBySlug: async () => null,
+    createEvent: async (input) => {
+      createdEventType = input.eventType;
+      return { id: "event-1", slug: "typed", title: input.title, startAt: input.startAt, endAt: input.endAt, venueId: input.venueId, isPublished: false };
+    },
+    upsertEventDraftSubmission: async () => undefined,
+    setOnboardingFlag: async () => undefined,
+    logAudit: async () => undefined,
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(createdEventType, "WORKSHOP");
+});

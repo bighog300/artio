@@ -120,3 +120,36 @@ test("PATCH my event persists venueId", async () => {
   assert.equal(updatedSubmissionVenueId, venueId);
   assert.equal(body.venueId, venueId);
 });
+
+
+test("PATCH my event updates eventType", async () => {
+  let updatedEventType: string | null | undefined;
+
+  const req = new NextRequest(`http://localhost/api/my/events/${eventId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ eventType: "TALK" }),
+  });
+
+  const res = await handlePatchMyEvent(req, Promise.resolve({ eventId }), {
+    requireAuth: async () => ({ id: "user-1" }),
+    findSubmission: async () => ({
+      id: "submission-1",
+      submitterUserId: "user-1",
+      status: "DRAFT",
+      venue: { memberships: [{ id: "membership-1" }] },
+      targetEvent: { isPublished: false },
+    }),
+    countOwnedAssets: async () => 0,
+    hasVenueMembership: async () => true,
+    updateEvent: async (_, data) => {
+      updatedEventType = data.eventType;
+      return { id: eventId, eventType: data.eventType ?? null };
+    },
+    updateSubmissionVenue: async () => undefined,
+    updateSubmissionNote: async () => undefined,
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(updatedEventType, "TALK");
+});

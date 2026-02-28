@@ -26,8 +26,9 @@ test("/my venues quick list renders completeness bar and onboarding callout gati
   assert.match(bar, /Missing:/);
   assert.match(page, /const shouldShowOnboarding = data\.quickLists\.venues\.length === 0 && data\.quickLists\.upcomingEvents\.length === 0/);
   assert.match(page, /Get set up/);
-  assert.match(page, /Create a venue profile/);
-  assert.match(page, /Add your first event/);
+  assert.match(page, /Create your venue/);
+  assert.match(page, /Add images and location details/);
+  assert.match(page, /Create your first event/);
   assert.match(page, /Submit for review/);
 });
 

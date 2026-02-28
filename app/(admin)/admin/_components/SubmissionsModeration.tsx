@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { enqueueToast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { getEventTypeLabel } from "@/lib/event-types";
 
 type SubmissionItem = {
   id: string;
@@ -14,11 +16,12 @@ type SubmissionItem = {
   note: string | null;
   decisionReason: string | null;
   submittedAt: string | null;
+  createdAt: string;
   decidedAt: string | null;
   submitter: { email: string; name: string | null };
   venue: { id: string; name: string } | null;
-  targetEvent: { id: string; title: string; slug: string } | null;
-  targetVenue: { id: string; name: string; slug: string } | null;
+  targetEvent: { id: string; title: string; slug: string; description?: string | null; startAt?: string; eventType?: string | null; venue?: { name: string } | null; images?: Array<{ id: string; url: string; alt: string | null }> } | null;
+  targetVenue: { id: string; name: string; slug: string; description?: string | null; city?: string | null; country?: string | null; claimStatus?: string; aiGenerated?: boolean; images?: Array<{ id: string; url: string; alt: string | null }> } | null;
   targetArtist: { id: string; name: string; slug: string } | null;
 };
 
@@ -129,6 +132,7 @@ export async function runBulkWithConcurrency(ids: string[], worker: (id: string)
 
 export default function SubmissionsModeration({ items }: { items: SubmissionItem[] }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [reasonById, setReasonById] = useState<Record<string, string>>({});
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"approve" | "reject" | null>(null);
@@ -137,11 +141,15 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
   const [bulkAction, setBulkAction] = useState<SubmissionAction | null>(null);
   const [bulkResults, setBulkResults] = useState<Record<string, BulkResult>>({});
   const [bulkRejectDialogOpen, setBulkRejectDialogOpen] = useState(false);
+  const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState("");
+  const [approvedVenueContext, setApprovedVenueContext] = useState<{ id: string; slug: string } | null>(null);
 
   const actionableItems = useMemo(() => items.filter((item) => item.status === "SUBMITTED"), [items]);
   const actionableById = useMemo(() => new Map(actionableItems.map((item) => [item.id, item])), [actionableItems]);
   const selectableIds = actionableItems.map((item) => item.id);
+  const selectedSubmissionId = searchParams.get("submissionId");
+  const selectedSubmission = items.find((item) => item.id === selectedSubmissionId) ?? null;
 
   function toggleOne(id: string) {
     if (isBulkRunning) return;
@@ -163,6 +171,13 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
     setSelectedIds(new Set());
   }
 
+  function setPreview(submissionId: string | null) {
+    const next = new URLSearchParams(searchParams.toString());
+    if (submissionId) next.set("submissionId", submissionId);
+    else next.delete("submissionId");
+    router.replace(`/admin/submissions?${next.toString()}`);
+  }
+
   async function decide(item: SubmissionItem, action: SubmissionAction) {
     setLoadingId(item.id);
     setPendingAction(action);
@@ -174,11 +189,20 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
         return;
       }
 
-      enqueueToast({
-        title: action === "approve" ? "Approved" : item.type === "EVENT" ? "Rejected" : "Changes requested",
-        message: action === "approve" ? "Submission approved successfully." : "Moderation decision saved.",
-        variant: "success",
-      });
+      if (action === "approve" && item.type === "VENUE") {
+        if (item.targetVenue) setApprovedVenueContext({ id: item.targetVenue.id, slug: item.targetVenue.slug });
+        enqueueToast({
+          title: "Venue approved",
+          message: "View it live, open the owner dashboard, or create an event next.",
+          variant: "success",
+        });
+      } else {
+        enqueueToast({
+          title: action === "approve" ? "Approved" : item.type === "EVENT" ? "Rejected" : "Changes requested",
+          message: action === "approve" ? "Submission approved successfully." : "Moderation decision saved.",
+          variant: "success",
+        });
+      }
       router.refresh();
     } finally {
       setLoadingId(null);
@@ -225,11 +249,21 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
 
   return (
     <div className="space-y-3">
+      {approvedVenueContext ? (
+        <div className="rounded border border-emerald-300 bg-emerald-50 p-3 text-sm">
+          <p className="font-medium text-emerald-900">Venue approved</p>
+          <div className="mt-1 space-x-3">
+            <Link className="underline" href={`/venues/${approvedVenueContext.slug}`}>View venue public page</Link>
+            <Link className="underline" href={`/my?venueId=${approvedVenueContext.id}`}>View venue owner dashboard</Link>
+            <Link className="underline" href={`/my/events/new?venueId=${approvedVenueContext.id}`}>Create an event for this venue</Link>
+          </div>
+        </div>
+      ) : null}
       {selectedIds.size > 0 ? (
         <div className="sticky top-0 z-10 rounded border bg-background p-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium">{selectedIds.size} selected</span>
-            <Button size="sm" disabled={isBulkRunning} onClick={() => runBulk("approve")}>
+            <Button size="sm" disabled={isBulkRunning} onClick={() => setBulkApproveDialogOpen(true)}>
               {isBulkRunning && bulkAction === "approve" ? "Approving…" : "Approve selected"}
             </Button>
             <Button size="sm" variant="outline" disabled={isBulkRunning} onClick={() => setBulkRejectDialogOpen(true)}>
@@ -241,6 +275,21 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
           </div>
         </div>
       ) : null}
+
+      <Dialog open={bulkApproveDialogOpen} onOpenChange={setBulkApproveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve selected submissions?</DialogTitle>
+            <DialogDescription>
+              You are about to approve {selectedIds.size} submission(s). Approved entities can become visible publicly.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" disabled={isBulkRunning} onClick={() => setBulkApproveDialogOpen(false)}>Cancel</Button>
+            <Button disabled={isBulkRunning} onClick={async () => { setBulkApproveDialogOpen(false); await runBulk("approve"); }}>Confirm approve</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={bulkRejectDialogOpen} onOpenChange={setBulkRejectDialogOpen}>
         <DialogContent>
@@ -275,76 +324,115 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
         </DialogContent>
       </Dialog>
 
-      <ul className="space-y-3">
-        <li className="flex items-center gap-2 rounded border p-3 text-sm">
-          <input
-            type="checkbox"
-            aria-label="Select all submissions on this page"
-            checked={allSelected}
-            disabled={isBulkRunning || selectableIds.length === 0}
-            onChange={(e) => (e.target.checked ? selectAllOnPage(selectableIds) : clearSelection())}
-          />
-          Select all on this page
-        </li>
-        {items.map((item) => {
-          const isLoading = loadingId === item.id;
-          const isSelected = selectedIds.has(item.id);
-          const rowResult = bulkResults[item.id];
-          const disableRowActions = isBulkRunning || isLoading;
-          return (
-            <li key={item.id} className="border rounded p-3 space-y-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  disabled={isBulkRunning || item.status !== "SUBMITTED"}
-                  onChange={() => toggleOne(item.id)}
-                />
-                Select row
-              </label>
-              <div className="font-medium">{item.type} — {item.targetEvent?.title ?? item.targetVenue?.name ?? item.targetArtist?.name ?? "Unknown target"}</div>
-              <div className="text-sm">Status: {item.status}</div>
-              <div className="text-sm">Submitter: {item.submitter.email}</div>
-              {item.venue ? <div className="text-sm">Venue: {item.venue.name}</div> : null}
-              {item.submittedAt ? <div className="text-sm">Submitted: {new Date(item.submittedAt).toLocaleString()}</div> : null}
-              {item.decidedAt ? <div className="text-sm">Decided: {new Date(item.decidedAt).toLocaleString()}</div> : null}
-              {item.note ? <div className="text-sm">Note: {item.note}</div> : null}
-              {item.status === "REJECTED" && item.decisionReason ? <div className="text-sm text-red-700">Reason: {item.decisionReason}</div> : null}
-
-              <div className="text-sm space-x-3">
-                {item.targetEvent ? <Link className="underline" href={`/events/${item.targetEvent.slug}`}>View target</Link> : null}
-                {item.targetVenue ? <Link className="underline" href={`/venues/${item.targetVenue.slug}`}>View target</Link> : null}
-                {item.targetArtist ? <Link className="underline" href={`/artists/${item.targetArtist.slug}`}>View target</Link> : null}
-                {item.targetEvent ? <Link className="underline" href={`/admin/events/${item.targetEvent.id}`}>Edit target</Link> : null}
-                {item.targetVenue ? <Link className="underline" href={`/admin/venues/${item.targetVenue.id}`}>Edit target</Link> : null}
-                {item.targetArtist ? <Link className="underline" href={`/admin/artists/${item.targetArtist.id}`}>Edit target</Link> : null}
-              </div>
-
-              {rowResult ? (
-                <div className={`text-sm ${rowResult.status === "ok" ? "text-green-700" : "text-red-700"}`}>
-                  {rowResult.status === "ok" ? "✅ Updated" : `❌ Failed: ${rowResult.message || "Request failed"}`}
-                </div>
-              ) : null}
-
-              {item.status === "SUBMITTED" ? (
-                <>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <ul className="space-y-3">
+          <li className="flex items-center gap-2 rounded border p-3 text-sm">
+            <input
+              type="checkbox"
+              aria-label="Select all submissions on this page"
+              checked={allSelected}
+              disabled={isBulkRunning || selectableIds.length === 0}
+              onChange={(e) => (e.target.checked ? selectAllOnPage(selectableIds) : clearSelection())}
+            />
+            Select all on this page
+          </li>
+          {items.map((item) => {
+            const isLoading = loadingId === item.id;
+            const isSelected = selectedIds.has(item.id);
+            const rowResult = bulkResults[item.id];
+            const disableRowActions = isBulkRunning || isLoading;
+            const targetName = item.targetEvent?.title ?? item.targetVenue?.name ?? item.targetArtist?.name ?? "Unknown target";
+            return (
+              <li key={item.id} className="border rounded p-3 space-y-2 cursor-pointer" onClick={() => setPreview(item.id)}>
+                <label className="flex items-center gap-2 text-sm" onClick={(e) => e.stopPropagation()}>
                   <input
-                    className="border rounded p-1 w-full"
-                    placeholder={item.type === "EVENT" ? "Rejection reason" : "Requested changes"}
-                    value={reasonById[item.id] || ""}
-                    disabled={disableRowActions}
-                    onChange={(e) => setReasonById((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                    type="checkbox"
+                    checked={isSelected}
+                    disabled={isBulkRunning || item.status !== "SUBMITTED"}
+                    onChange={() => toggleOne(item.id)}
                   />
-                  <div className="space-x-2">
-                    <button className="rounded border px-2 py-1 disabled:opacity-50" disabled={disableRowActions} onClick={() => decide(item, "approve")}>{isLoading && pendingAction === "approve" ? "Approving…" : "Approve"}</button>
-                    <button className="rounded border px-2 py-1 disabled:opacity-50" disabled={disableRowActions} onClick={() => decide(item, "reject")}>{isLoading && pendingAction === "reject" ? item.type === "EVENT" ? "Rejecting…" : "Requesting…" : item.type === "EVENT" ? "Reject" : "Request changes"}</button>
+                  Select row
+                </label>
+                <div className="font-medium">{item.type} — {targetName}</div>
+                <div className="text-sm">Status: {item.status}</div>
+                <div className="text-sm">Submitter: {item.submitter.name ?? item.submitter.email}</div>
+                <div className="text-sm">Created: {new Date(item.createdAt).toLocaleString()}</div>
+                {item.submittedAt ? <div className="text-sm">Submitted: {new Date(item.submittedAt).toLocaleString()}</div> : null}
+                {item.targetVenue ? <div className="text-sm">Venue preview: {item.targetVenue.city ?? "—"}, {item.targetVenue.country ?? "—"} · claim {item.targetVenue.claimStatus ?? "—"} · {item.targetVenue.aiGenerated ? "AI" : "Manual"} · {item.targetVenue.images?.length ?? 0} images</div> : null}
+                {item.targetEvent ? <div className="text-sm">Event preview: {item.targetEvent.startAt ? new Date(item.targetEvent.startAt).toLocaleString() : "—"} · {item.targetEvent.venue?.name ?? "No venue"} · {getEventTypeLabel(item.targetEvent.eventType)}</div> : null}
+                {item.venue ? <div className="text-sm">Submission venue: {item.venue.name}</div> : null}
+                {item.decidedAt ? <div className="text-sm">Decided: {new Date(item.decidedAt).toLocaleString()}</div> : null}
+                {item.note ? <div className="text-sm">Note: {item.note}</div> : null}
+                {item.status === "REJECTED" && item.decisionReason ? <div className="text-sm text-red-700">Reason: {item.decisionReason}</div> : null}
+
+                <div className="text-sm space-x-3" onClick={(e) => e.stopPropagation()}>
+                  {item.targetEvent ? <Link className="underline" href={`/events/${item.targetEvent.slug}`}>View target</Link> : null}
+                  {item.targetVenue ? <Link className="underline" href={`/venues/${item.targetVenue.slug}`}>View target</Link> : null}
+                  {item.targetArtist ? <Link className="underline" href={`/artists/${item.targetArtist.slug}`}>View target</Link> : null}
+                  {item.targetEvent ? <Link className="underline" href={`/admin/events/${item.targetEvent.id}`}>Edit target</Link> : null}
+                  {item.targetVenue ? <Link className="underline" href={`/admin/venues/${item.targetVenue.id}`}>Edit target</Link> : null}
+                  {item.targetArtist ? <Link className="underline" href={`/admin/artists/${item.targetArtist.id}`}>Edit target</Link> : null}
+                </div>
+
+                {rowResult ? (
+                  <div className={`text-sm ${rowResult.status === "ok" ? "text-green-700" : "text-red-700"}`}>
+                    {rowResult.status === "ok" ? "✅ Updated" : `❌ Failed: ${rowResult.message || "Request failed"}`}
                   </div>
-                </>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+                ) : null}
+
+                {item.status === "SUBMITTED" ? (
+                  <>
+                    <input
+                      className="border rounded p-1 w-full"
+                      placeholder={item.type === "EVENT" ? "Rejection reason" : "Requested changes"}
+                      value={reasonById[item.id] || ""}
+                      disabled={disableRowActions}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setReasonById((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                    />
+                    <div className="space-x-2" onClick={(e) => e.stopPropagation()}>
+                      <button className="rounded border px-2 py-1 disabled:opacity-50" disabled={disableRowActions} onClick={() => decide(item, "approve")}>{isLoading && pendingAction === "approve" ? "Approving…" : "Approve"}</button>
+                      <button className="rounded border px-2 py-1 disabled:opacity-50" disabled={disableRowActions} onClick={() => decide(item, "reject")}>{isLoading && pendingAction === "reject" ? item.type === "EVENT" ? "Rejecting…" : "Requesting…" : item.type === "EVENT" ? "Reject" : "Request changes"}</button>
+                    </div>
+                  </>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+
+        <aside className="rounded border p-3">
+          {selectedSubmission ? (
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Submission preview</h3>
+                <button className="underline" onClick={() => setPreview(null)}>Close</button>
+              </div>
+              <p className="font-medium">{selectedSubmission.targetEvent?.title ?? selectedSubmission.targetVenue?.name ?? selectedSubmission.targetArtist?.name ?? "Unknown"}</p>
+              <p className="text-muted-foreground">{selectedSubmission.type} · {selectedSubmission.status}</p>
+              <p>{selectedSubmission.targetEvent?.description ?? selectedSubmission.targetVenue?.description ?? "No description"}</p>
+              {selectedSubmission.targetVenue ? <p>{selectedSubmission.targetVenue.city ?? ""} {selectedSubmission.targetVenue.country ?? ""}</p> : null}
+              {selectedSubmission.targetEvent?.startAt ? <p>{new Date(selectedSubmission.targetEvent.startAt).toLocaleString()}</p> : null}
+              <div className="grid grid-cols-3 gap-2">
+                {(selectedSubmission.targetEvent?.images ?? selectedSubmission.targetVenue?.images ?? []).map((image) => (
+                  <Image key={image.id} src={image.url} alt={image.alt ?? "preview"} width={128} height={64} className="h-16 w-full rounded object-cover" />
+                ))}
+              </div>
+              <div className="space-y-1">
+                {selectedSubmission.targetEvent ? <Link className="underline block" href={`/admin/events/${selectedSubmission.targetEvent.id}`}>Open event admin page</Link> : null}
+                {selectedSubmission.targetVenue ? (
+                  <>
+                    <Link className="underline block" href={`/admin/venues/${selectedSubmission.targetVenue.id}`}>Open venue admin page</Link>
+                    <Link className="underline block" href={`/venues/${selectedSubmission.targetVenue.slug}`}>View venue public page</Link>
+                    <Link className="underline block" href={`/my?venueId=${selectedSubmission.targetVenue.id}`}>View venue owner dashboard</Link>
+                    <Link className="underline block" href={`/my/events/new?venueId=${selectedSubmission.targetVenue.id}`}>Create event for this venue</Link>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ) : <p className="text-sm text-muted-foreground">Select a submission row to preview details.</p>}
+        </aside>
+      </div>
     </div>
   );
 }

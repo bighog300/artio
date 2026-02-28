@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { CreateEventSchema, parseBody, zodDetails } from "@/lib/validators";
 import { ensureUniqueEventSlugWithDeps, slugifyEventTitle } from "@/lib/event-slug";
+import type { EventTypeOption } from "@/lib/event-types";
 
 type SessionUser = { id: string; email?: string | null };
 
@@ -30,6 +31,7 @@ type Deps = {
     venueId: string | null;
     ticketUrl: string | null;
     timezone: string;
+    eventType: EventTypeOption;
   }) => Promise<EventRecord>;
   upsertEventDraftSubmission: (eventId: string, userId: string, venueId: string | null) => Promise<void>;
   setOnboardingFlag: (user: SessionUser) => Promise<void>;
@@ -115,6 +117,7 @@ export async function handlePostMyEvent(req: NextRequest, deps: Deps) {
       venueId: resolvedVenueId,
       ticketUrl: parsedBody.data.ticketUrl ?? null,
       timezone,
+      eventType: parsedBody.data.eventType ?? "OTHER",
     });
 
     await deps.upsertEventDraftSubmission(event.id, user.id, resolvedVenueId);

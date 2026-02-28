@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
         venueId: input.venueId,
         ticketUrl: input.ticketUrl,
         timezone: input.timezone,
+        eventType: input.eventType,
         isPublished: false,
           deletedAt: null,
         publishedAt: null,

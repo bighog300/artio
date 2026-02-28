@@ -5,6 +5,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { enqueueToast } from "@/lib/toast";
+import { EVENT_TYPE_OPTIONS, type EventTypeOption, getEventTypeLabel } from "@/lib/event-types";
 
 type VenueOption = { id: string; name: string };
 
@@ -31,6 +32,7 @@ export function CreateEventForm({ venues, buttonLabel = "Create event", defaultS
   const [endAt, setEndAt] = useState(isoToLocalDatetimeValue(defaultEndAt));
   const [venueId, setVenueId] = useState(defaultVenueId ?? (venues.length === 1 ? venues[0]!.id : ""));
   const [ticketUrl, setTicketUrl] = useState("");
+  const [eventType, setEventType] = useState<EventTypeOption>("OTHER");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,6 +54,7 @@ export function CreateEventForm({ venues, buttonLabel = "Create event", defaultS
       venueId: venueId || undefined,
       ticketUrl: ticketUrl || undefined,
       timezone: "UTC",
+      eventType,
     };
 
     const res = await fetch("/api/my/events", {
@@ -107,6 +110,12 @@ export function CreateEventForm({ venues, buttonLabel = "Create event", defaultS
           You have no managed venues yet. <Link className="underline" href="/my/venues/new">Create a venue first</Link>. You can still create this draft now and attach a venue later.
         </p>
       )}
+      <label className="block">
+        <span className="text-sm">Event type</span>
+        <select className="w-full rounded border p-2" value={eventType} onChange={(event) => setEventType(event.target.value as EventTypeOption)}>
+          {EVENT_TYPE_OPTIONS.map((value) => <option key={value} value={value}>{getEventTypeLabel(value)}</option>)}
+        </select>
+      </label>
       <label className="block">
         <span className="text-sm">Ticket URL (optional)</span>
         <input className="w-full rounded border p-2" type="url" value={ticketUrl} onChange={(event) => setTicketUrl(event.target.value)} />

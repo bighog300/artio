@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EVENT_TYPE_OPTIONS } from "@/lib/event-types";
 import { normalizeAssociationRole } from "@/lib/association-roles";
 
 export const slugSchema = z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Must be lowercase and hyphenated");
@@ -630,6 +631,7 @@ export const myEventPatchSchema = z.object({
   venueId: z.string().uuid().optional().nullable(),
   images: z.array(eventImageSchema).optional(),
   featuredAssetId: z.string().uuid().optional().nullable(),
+  eventType: z.enum(EVENT_TYPE_OPTIONS).optional().nullable(),
   note: z.string().trim().max(2000).optional().nullable(),
 }).superRefine((data, ctx) => {
   if (data.startAt && data.endAt && new Date(data.endAt) < new Date(data.startAt)) {
@@ -644,6 +646,7 @@ export const CreateEventSchema = z.object({
   venueId: z.string().uuid().optional(),
   ticketUrl: httpUrlSchema.optional(),
   timezone: z.string().trim().min(1).max(80).optional(),
+  eventType: z.enum(EVENT_TYPE_OPTIONS).optional(),
 }).superRefine((data, ctx) => {
   if (data.endAt && new Date(data.endAt) < new Date(data.startAt)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endAt"], message: "endAt must be >= startAt" });

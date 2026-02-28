@@ -8,7 +8,7 @@ import EventSetupHeader from "@/app/my/_components/EventSetupHeader";
 import EventCompletionProgress from "@/app/my/_components/EventCompletionProgress";
 import EventSetupSection from "@/app/my/_components/EventSetupSection";
 import EventPublishPanel from "@/app/my/_components/EventPublishPanel";
-import { EventBasicsForm, EventImagesForm, EventLinksForm, EventScheduleForm } from "@/app/my/events/[eventId]/page-client";
+import { EventEditorForm } from "@/app/my/events/[eventId]/page-client";
 import { getEventCompletionChecks } from "@/lib/events/event-completion";
 
 export default async function MyEventEditPage({ params }: { params: Promise<{ eventId: string }> }) {
@@ -35,6 +35,7 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
       ticketUrl: true,
       isPublished: true,
       featuredAssetId: true,
+      eventType: true,
       featuredAsset: { select: { url: true } },
       venue: { select: { id: true, name: true, city: true, postcode: true, lat: true, lng: true } },
       submissions: { where: { type: "EVENT", OR: [{ kind: "PUBLISH" }, { kind: null }] }, orderBy: { createdAt: "desc" }, take: 1, select: { status: true } },
@@ -60,15 +61,21 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="order-2 space-y-4 lg:order-1 lg:col-span-2">
-          <EventSetupSection title="Basic information" description="Title and venue selection are required." complete={checks.basics}>
-            <EventBasicsForm
-              event={{ id: event.id, title: event.title, venueId: event.venueId }}
+          <EventSetupSection title="Event details" description="Edit all event fields, then save once." complete={checks.basics && checks.schedule}>
+            <EventEditorForm
+              event={{
+                id: event.id,
+                title: event.title,
+                venueId: event.venueId,
+                startAt: event.startAt.toISOString(),
+                endAt: event.endAt?.toISOString() ?? null,
+                ticketUrl: event.ticketUrl,
+                eventType: event.eventType,
+                featuredAssetId: event.featuredAssetId,
+                featuredAsset: event.featuredAsset,
+              }}
               venues={managedVenues}
             />
-          </EventSetupSection>
-
-          <EventSetupSection title="Schedule" description="Start time is required. End time must be after start." complete={checks.schedule}>
-            <EventScheduleForm event={{ id: event.id, startAt: event.startAt, endAt: event.endAt }} />
           </EventSetupSection>
 
           <EventSetupSection title="Location" description="Used for nearby and map discovery." complete={checks.location || !checks.locationRequired}>
@@ -81,14 +88,6 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
               ) : null}
               {event.venue?.lat != null && event.venue.lng != null ? <p className="text-muted-foreground">Coordinates: {event.venue.lat}, {event.venue.lng}</p> : null}
             </div>
-          </EventSetupSection>
-
-          <EventSetupSection title="Images" description="Add a featured image (recommended)." complete={checks.images || !checks.imagesRequired}>
-            <EventImagesForm event={{ id: event.id, featuredAssetId: event.featuredAssetId, featuredAsset: event.featuredAsset }} />
-          </EventSetupSection>
-
-          <EventSetupSection title="Links (optional)" description="Add ticketing or reference links." complete={Boolean(event.ticketUrl)}>
-            <EventLinksForm event={{ id: event.id, ticketUrl: event.ticketUrl }} />
           </EventSetupSection>
 
           <div className="rounded-md border bg-muted/20 p-4 text-sm">
