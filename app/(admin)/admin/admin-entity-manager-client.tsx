@@ -1,10 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import AdminInlineRowActions, { buildEditableDraft, getNextEditingId } from "./_components/AdminInlineRowActions";
 
 type EntityName = "venues" | "events" | "artists";
+type ModerationStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "PUBLISHED" | "REJECTED" | "ARCHIVED";
+
+const moderationTabs: Array<{ value: ModerationStatus; label: string }> = [
+  { value: "DRAFT", label: "Draft" },
+  { value: "IN_REVIEW", label: "In Review" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "PUBLISHED", label: "Published" },
+  { value: "REJECTED", label: "Rejected" },
+  { value: "ARCHIVED", label: "Archived" },
+];
+
+const defaultStatusCounts: Record<ModerationStatus, number> = {
+  DRAFT: 0,
+  IN_REVIEW: 0,
+  APPROVED: 0,
+  PUBLISHED: 0,
+  REJECTED: 0,
+  ARCHIVED: 0,
+};
 
 type RowResult = { rowIndex: number; status: string; errors?: string[]; targetId?: string; patch?: Record<string, unknown> };
 type PresetListItem = { id: string; name: string; entityType: EntityName; updatedAt: string };
@@ -16,10 +36,17 @@ type EditableField = {
 };
 
 export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy }: { entity: EntityName; fields: string[]; title: string; defaultMatchBy: "id" | "slug" | "name" }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const rawStatus = searchParams.get("status");
+  const selectedStatus = moderationTabs.some((tab) => tab.value === rawStatus) ? (rawStatus as ModerationStatus) : "IN_REVIEW";
+
   const [items, setItems] = useState<Array<Record<string, unknown>>>([]);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [statusCounts, setStatusCounts] = useState<Record<ModerationStatus, number>>(defaultStatusCounts);
   const [busy, setBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +74,7 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
     setError(null);
     try {
       const params = new URLSearchParams({ page: String(nextPage) });
+      params.set("status", selectedStatus);
       if (showArchived) params.set("showArchived", "1");
       if (nextQuery.trim()) params.set("query", nextQuery.trim());
       const res = await fetch(`/api/admin/${entity}?${params.toString()}`);
@@ -54,12 +82,13 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
       if (!res.ok) throw new Error(body?.error?.message ?? "Failed to load");
       setItems(body.items ?? []);
       setTotal(body.total ?? 0);
+      setStatusCounts({ ...defaultStatusCounts, ...(body.statusCounts ?? {}) });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
       setBusy(false);
     }
-  }, [entity, page, query, showArchived]);
+  }, [entity, page, query, selectedStatus, showArchived]);
 
   const loadPresets = useCallback(async () => {
     try {
@@ -74,9 +103,16 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
   }, [entity]);
 
   useEffect(() => {
+    if (!searchParams.get("status")) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("status", "IN_REVIEW");
+      router.replace(`${pathname}?${params.toString()}`);
+      return;
+    }
+
     const timer = setTimeout(() => void loadData(query, page), 250);
     return () => clearTimeout(timer);
-  }, [loadData, page, query]);
+  }, [loadData, page, pathname, query, router, searchParams]);
 
   useEffect(() => {
     if (!importOpen) return;
@@ -84,6 +120,14 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
     void loadPresets();
   }, [importOpen, loadPresets]);
 
+
+  function updateSelectedStatus(nextStatus: ModerationStatus) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("status", nextStatus);
+    params.set("page", "1");
+    router.replace(`${pathname}?${params.toString()}`);
+    setPage(1);
+  }
   function startEdit(item: Record<string, unknown>) {
     const id = String(item.id ?? "");
     setEditingId((current) => getNextEditingId(current, id));
@@ -228,6 +272,20 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{title}</h1>
         <p className="text-sm text-muted-foreground">Total: {total}</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {moderationTabs.map((tab) => (
+          <Button
+            key={tab.value}
+            type="button"
+            variant={selectedStatus === tab.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => updateSelectedStatus(tab.value)}
+          >
+            {tab.label} <span className="ml-1 rounded bg-background/70 px-1.5 py-0.5 text-xs">{statusCounts[tab.value] ?? 0}</span>
+          </Button>
+        ))}
       </div>
 
       <div className="flex flex-wrap gap-2">

@@ -21,7 +21,20 @@ const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   showArchived: z.enum(["0", "1"]).optional(),
   onlyArchived: z.enum(["0", "1"]).optional(),
+  status: z.enum(["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "ARCHIVED"]).optional(),
 });
+
+const moderationStatuses = ["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "ARCHIVED"] as const;
+
+function buildStatusCounts(rows: Array<{ status: string; _count: { _all: number } }>) {
+  const counts = Object.fromEntries(moderationStatuses.map((status) => [status, 0])) as Record<(typeof moderationStatuses)[number], number>;
+
+  for (const row of rows) {
+    if (row.status in counts) counts[row.status as keyof typeof counts] = row._count._all;
+  }
+
+  return counts;
+}
 
 const entityIdSchema = z.object({ id: z.string().uuid() });
 
@@ -239,28 +252,31 @@ export async function handleAdminEntityList(req: NextRequest, entity: EntityName
       page: req.nextUrl.searchParams.get("page") ?? "1",
       showArchived: req.nextUrl.searchParams.get("showArchived") ?? undefined,
       onlyArchived: req.nextUrl.searchParams.get("onlyArchived") ?? undefined,
+      status: req.nextUrl.searchParams.get("status") ?? undefined,
     });
     if (!parsed.success) return apiError(400, "invalid_query", "Invalid query parameters");
-    const { page, query = "", showArchived, onlyArchived } = parsed.data;
+    const { page, query = "", showArchived, onlyArchived, status } = parsed.data;
     const deletedFilter = onlyArchived === "1" ? { deletedAt: { not: null as Date | null } } : (showArchived === "1" ? {} : { deletedAt: null });
     const skip = (page - 1) * PAGE_SIZE;
 
     if (entity === "venues") {
-      const where = { ...deletedFilter, ...(query ? { OR: [{ name: { contains: query, mode: "insensitive" as const } }, { city: { contains: query, mode: "insensitive" as const } }, { slug: { contains: query, mode: "insensitive" as const } }] } : {}) };
-      const [total, items] = await Promise.all([
+      const where = { ...deletedFilter, ...(status ? { status } : {}), ...(query ? { OR: [{ name: { contains: query, mode: "insensitive" as const } }, { city: { contains: query, mode: "insensitive" as const } }, { slug: { contains: query, mode: "insensitive" as const } }] } : {}) };
+      const [total, items, grouped] = await Promise.all([
         deps.appDb.venue.count({ where }),
         deps.appDb.venue.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take: PAGE_SIZE, select: Object.fromEntries(defaultFields.venues.map((k) => [k, true])) as never }),
+        deps.appDb.venue.groupBy({ by: ["status"], where: deletedFilter, _count: { _all: true } }),
       ]);
-      return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE });
+      return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE, statusCounts: buildStatusCounts(grouped) });
     }
 
     if (entity === "events") {
-      const where = { ...deletedFilter, ...(query ? { OR: [{ title: { contains: query, mode: "insensitive" as const } }, { slug: { contains: query, mode: "insensitive" as const } }] } : {}) };
-      const [total, items] = await Promise.all([
+      const where = { ...deletedFilter, ...(status ? { status } : {}), ...(query ? { OR: [{ title: { contains: query, mode: "insensitive" as const } }, { slug: { contains: query, mode: "insensitive" as const } }] } : {}) };
+      const [total, items, grouped] = await Promise.all([
         deps.appDb.event.count({ where }),
         deps.appDb.event.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take: PAGE_SIZE, select: Object.fromEntries(defaultFields.events.map((k) => [k, true])) as never }),
+        deps.appDb.event.groupBy({ by: ["status"], where: deletedFilter, _count: { _all: true } }),
       ]);
-      return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE });
+      return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE, statusCounts: buildStatusCounts(grouped) });
     }
 
     if (entity === "artwork") {

@@ -13,7 +13,7 @@ import {
 
 function buildVenueDeps() {
   const venues = [
-    { id: "11111111-1111-4111-8111-111111111111", name: "Venue A", slug: "venue-a", city: "NY", postcode: "10001", country: "US", isPublished: false, websiteUrl: null, addressLine1: null, addressLine2: null, description: null, featuredAssetId: null, deletedAt: null, deletedByAdminId: null, deletedReason: null },
+    { id: "11111111-1111-4111-8111-111111111111", name: "Venue A", slug: "venue-a", city: "NY", postcode: "10001", country: "US", status: "IN_REVIEW", isPublished: false, websiteUrl: null, addressLine1: null, addressLine2: null, description: null, featuredAssetId: null, deletedAt: null, deletedByAdminId: null, deletedReason: null },
   ];
   const auditEntries: Array<Record<string, unknown>> = [];
 
@@ -31,8 +31,22 @@ function buildVenueDeps() {
         venues.push(created as never);
         return created;
       },
-      findMany: async ({ where }: { where?: { deletedAt?: null | { not: null } } } = {}) => venues.filter((v) => (where?.deletedAt === null ? v.deletedAt == null : (where?.deletedAt && "not" in where.deletedAt ? v.deletedAt != null : true))),
-      count: async ({ where }: { where?: { deletedAt?: null | { not: null } } } = {}) => venues.filter((v) => (where?.deletedAt === null ? v.deletedAt == null : (where?.deletedAt && "not" in where.deletedAt ? v.deletedAt != null : true))).length,
+      findMany: async ({ where }: { where?: { deletedAt?: null | { not: null }; status?: string } } = {}) => venues.filter((v) => {
+        const deletedMatches = where?.deletedAt === null ? v.deletedAt == null : (where?.deletedAt && "not" in where.deletedAt ? v.deletedAt != null : true);
+        const statusMatches = where?.status ? v.status === where.status : true;
+        return deletedMatches && statusMatches;
+      }),
+      count: async ({ where }: { where?: { deletedAt?: null | { not: null }; status?: string } } = {}) => venues.filter((v) => {
+        const deletedMatches = where?.deletedAt === null ? v.deletedAt == null : (where?.deletedAt && "not" in where.deletedAt ? v.deletedAt != null : true);
+        const statusMatches = where?.status ? v.status === where.status : true;
+        return deletedMatches && statusMatches;
+      }).length,
+      groupBy: async ({ where }: { where?: { deletedAt?: null | { not: null } } } = {}) => {
+        const filtered = venues.filter((v) => (where?.deletedAt === null ? v.deletedAt == null : (where?.deletedAt && "not" in where.deletedAt ? v.deletedAt != null : true)));
+        const grouped = new Map<string, number>();
+        for (const venue of filtered) grouped.set(venue.status, (grouped.get(venue.status) ?? 0) + 1);
+        return Array.from(grouped.entries()).map(([status, count]) => ({ status, _count: { _all: count } }));
+      },
     },
     adminAuditLog: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
@@ -43,7 +57,7 @@ function buildVenueDeps() {
 
   const appDb = {
     venue: tx.venue,
-    event: { count: async () => 0, findMany: async () => [], findUnique: async () => null, update: async () => null, create: async () => null },
+    event: { count: async () => 0, findMany: async () => [], findUnique: async () => null, update: async () => null, create: async () => null, groupBy: async () => [] },
     artist: { count: async () => 0, findMany: async () => [], findUnique: async () => null, update: async () => null, create: async () => null },
     adminAuditLog: tx.adminAuditLog,
     $transaction: async <T>(fn: (inner: typeof tx) => Promise<T>) => fn(tx),
