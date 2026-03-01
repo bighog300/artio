@@ -9,6 +9,14 @@ type PrismaResult = {
   output: string;
 };
 
+type StatusSummary = {
+  failedMigrations: string[];
+  pendingMigrations: string[];
+  failedDetected: boolean;
+  pendingDetected: boolean;
+  upToDate: boolean;
+};
+
 function sleep(ms: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -54,14 +62,22 @@ function runPrisma(
 }
 
 function parseFailedMigrations(statusOutput: string): string[] {
+  return parseMigrationList(statusOutput, /Following migration have failed:/i);
+}
+
+function parsePendingMigrations(statusOutput: string): string[] {
+  return parseMigrationList(statusOutput, /Following migrations have not yet been applied:/i);
+}
+
+function parseMigrationList(statusOutput: string, headerPattern: RegExp): string[] {
   const lines = statusOutput.split(/\r?\n/);
-  const failedMigrations = new Set<string>();
+  const migrations = new Set<string>();
   let collecting = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
 
-    if (!collecting && /Following migration have failed:/i.test(trimmed)) {
+    if (!collecting && headerPattern.test(trimmed)) {
       collecting = true;
       continue;
     }
@@ -76,7 +92,7 @@ function parseFailedMigrations(statusOutput: string): string[] {
 
     const migrationMatch = trimmed.match(/\b\d{14}_[a-z0-9_]+\b/i);
     if (migrationMatch) {
-      failedMigrations.add(migrationMatch[0]);
+      migrations.add(migrationMatch[0]);
       continue;
     }
 
@@ -85,11 +101,20 @@ function parseFailedMigrations(statusOutput: string): string[] {
     }
   }
 
-  return Array.from(failedMigrations);
+  return Array.from(migrations);
 }
 
-function hasFailureSignature(statusOutput: string): boolean {
-  return /Following migration have failed:|P3009|failed migration|previously failed/i.test(statusOutput);
+function parseStatusSummary(statusOutput: string): StatusSummary {
+  const failedMigrations = parseFailedMigrations(statusOutput);
+  const pendingMigrations = parsePendingMigrations(statusOutput);
+
+  return {
+    failedMigrations,
+    pendingMigrations,
+    failedDetected: /Following migration have failed:/i.test(statusOutput),
+    pendingDetected: /Following migrations have not yet been applied:/i.test(statusOutput),
+    upToDate: /Database is up to date/i.test(statusOutput),
+  };
 }
 
 async function runDeployWithRetry() {
@@ -129,29 +154,27 @@ async function main() {
     step: "Checking migration status",
   });
 
-  const failedMigrations = parseFailedMigrations(statusResult.output);
-  const migrationFailureDetected = hasFailureSignature(statusResult.output);
+  const status = parseStatusSummary(statusResult.output);
 
   console.log(
-    `[prisma-safe-deploy] [status] exit_code=${statusResult.status} failure_detected=${migrationFailureDetected} failed_migrations=${failedMigrations.length > 0 ? failedMigrations.join(",") : "none"}`,
+    `[prisma-safe-deploy] [status] pending=${status.pendingMigrations.length} failed=${status.failedMigrations.length} upToDate=${status.upToDate}`,
   );
 
-  if (!migrationFailureDetected && statusResult.status !== 0) {
-    throw new Error(
-      `[prisma-safe-deploy] prisma migrate status failed without a known migration failure signature. ` +
-        `Exit code: ${statusResult.status}. Refusing to continue deploy.`,
-    );
+  const recognizedStateCount = Number(status.failedDetected) + Number(status.pendingDetected) + Number(status.upToDate);
+
+  if (recognizedStateCount === 0) {
+    throw new Error("[prisma-safe-deploy] [status] Unknown prisma migrate status output. Refusing to continue.");
   }
 
-  if (migrationFailureDetected) {
-    const unknownFailedMigrations = failedMigrations.filter(
+  if (status.failedDetected) {
+    const unknownFailedMigrations = status.failedMigrations.filter(
       (migrationName) => migrationName !== TARGET_FAILED_MIGRATION,
     );
 
-    if (unknownFailedMigrations.length > 0 || failedMigrations.length === 0) {
+    if (unknownFailedMigrations.length > 0 || status.failedMigrations.length === 0) {
       throw new Error(
         `[prisma-safe-deploy] Found unsupported failed migration(s): [${
-          failedMigrations.join(", ") || "unknown"
+          status.failedMigrations.join(", ") || "unknown"
         }]. Only '${TARGET_FAILED_MIGRATION}' can be auto-resolved.`,
       );
     }
@@ -167,11 +190,21 @@ async function main() {
     console.log(
       `[prisma-safe-deploy] [resolve] resolved_migrations=${TARGET_FAILED_MIGRATION} status=completed`,
     );
-  } else {
-    console.log("[prisma-safe-deploy] [resolve] No failed migration detected. Resolve skipped.");
-  }
 
-  await runDeployWithRetry();
+    console.log("[prisma-safe-deploy] [action] running migrate deploy");
+    await runDeployWithRetry();
+    console.log("[prisma-safe-deploy] [result] migrations applied successfully");
+  } else if (status.pendingDetected) {
+    console.log("[prisma-safe-deploy] [resolve] No failed migration detected. Resolve skipped.");
+    console.log("[prisma-safe-deploy] [action] running migrate deploy");
+    await runDeployWithRetry();
+    console.log("[prisma-safe-deploy] [result] migrations applied successfully");
+  } else if (status.upToDate) {
+    console.log("[prisma-safe-deploy] [action] database already up to date; skipping migrate deploy");
+    console.log("[prisma-safe-deploy] [result] no migrations needed");
+    console.log("[prisma-safe-deploy] [final] ✅ Safe deploy completed successfully.");
+    return;
+  }
 
   runPrisma(["migrate", "status"], {
     step: "Verifying migration status after deploy",
