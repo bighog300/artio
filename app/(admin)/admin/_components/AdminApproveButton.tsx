@@ -40,7 +40,7 @@ export default function AdminApproveButton({ entityType, submissionId, entityId,
         return;
       }
       enqueueToast({ title: `${entityType === "venue" ? "Venue" : "Event"} approved`, variant: "success" });
-      router.refresh();
+      router.push(entityType === "venue" ? "/admin/venues" : "/admin/events");
     } finally {
       setLoading(false);
     }
