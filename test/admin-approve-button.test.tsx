@@ -11,6 +11,6 @@ test("AdminApproveButton calls shared admin submission approve endpoint", () => 
 test("admin entity pages render moderation banner with reusable approve button", () => {
   const venuePage = readFileSync("app/(admin)/admin/venues/[id]/page.tsx", "utf8");
   const eventPage = readFileSync("app/(admin)/admin/events/[id]/page.tsx", "utf8");
-  assert.match(venuePage, /<AdminApproveButton entityType="venue"/);
-  assert.match(eventPage, /<AdminApproveButton entityType="event"/);
+  assert.match(venuePage, /<AdminApproveButton[\s\S]*?entityType="venue"/);
+  assert.match(eventPage, /<AdminApproveButton[\s\S]*?entityType="event"/);
 });

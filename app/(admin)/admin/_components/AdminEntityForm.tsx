@@ -44,7 +44,7 @@ export default function AdminEntityForm({
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       if (res.status === 409 && body?.error?.code === "publish_blocked") {
-        const blockers = Array.isArray(body?.error?.details?.blockers) ? body.error.details.blockers : [];
+        const blockers: unknown[] = Array.isArray(body?.error?.details?.blockers) ? body.error.details.blockers : [];
         const nextFieldErrors = blockers.reduce<Record<string, string>>((acc, blocker) => {
           if (typeof blocker?.id === "string" && typeof blocker?.message === "string") {
             acc[blocker.id] = blocker.message;
