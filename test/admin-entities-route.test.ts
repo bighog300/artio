@@ -157,3 +157,27 @@ test("export returns csv headers", async () => {
   const text = await res.text();
   assert.match(text.split("\n")[0], /^id,name,slug/);
 });
+
+test("admin list includes computed publish blockers", async () => {
+  const { appDb } = buildVenueDeps();
+  const req = new NextRequest("http://localhost/api/admin/venues");
+  const res = await handleAdminEntityList(req, "venues", { requireAdminUser: adminUser, appDb: appDb as never });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Array.isArray(body.items[0].publishBlockers));
+  assert.equal(body.items[0].publishBlockers.length > 0, true);
+});
+
+test("venue patch rejects invalid moderation transition", async () => {
+  const { appDb } = buildVenueDeps();
+  const req = new NextRequest("http://localhost/api/admin/venues/11111111-1111-4111-8111-111111111111", {
+    method: "PATCH",
+    body: JSON.stringify({ status: "PUBLISHED" }),
+    headers: { "content-type": "application/json" },
+  });
+
+  const res = await handleAdminEntityPatch(req, "venues", { id: "11111111-1111-4111-8111-111111111111" }, { requireAdminUser: adminUser, appDb: appDb as never });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.code, "invalid_transition");
+});

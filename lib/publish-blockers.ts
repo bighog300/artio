@@ -1,4 +1,5 @@
 export type PublishBlocker = { id: string; message: string };
+export type PublishReadiness = { ready: boolean; blockers: string[] };
 
 type VenueEntity = {
   country: string | null;
@@ -34,4 +35,15 @@ export function computeEventPublishBlockers(event: EventEntity): PublishBlocker[
   const venuePublished = event.venue?.status === "PUBLISHED" || event.venue?.isPublished === true;
   if (!venuePublished) blockers.push({ id: "venue", message: "Event venue must be published." });
   return blockers;
+}
+
+export function computeReadiness(entity: VenueEntity | EventEntity): PublishReadiness {
+  const blockers = "startAt" in entity
+    ? computeEventPublishBlockers(entity).map((blocker) => blocker.message)
+    : computeVenuePublishBlockers(entity).map((blocker) => blocker.message);
+
+  return {
+    ready: blockers.length === 0,
+    blockers,
+  };
 }

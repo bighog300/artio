@@ -388,6 +388,8 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
                       deleteUrl={`/api/admin/${entity}/${id}`}
                       isArchived={Boolean(item.deletedAt)}
                       isEditing={isEditing}
+                      status={typeof item.status === "string" ? item.status : undefined}
+                      publishBlockers={Array.isArray(item.publishBlockers) ? item.publishBlockers.filter((entry): entry is string => typeof entry === "string") : []}
                       onStartEdit={() => startEdit(item)}
                       onCancelEdit={() => setEditingId(null)}
                       onSaveSuccess={() => setEditingId(null)}

@@ -3,7 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
-import { computeEventPublishBlockers, computeVenuePublishBlockers } from "@/lib/publish-blockers";
+import { computeEventPublishBlockers, computeReadiness, computeVenuePublishBlockers } from "@/lib/publish-blockers";
+import { validateModerationTransition } from "@/lib/moderation-decision-service";
 
 type AdminActor = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN" };
 
@@ -96,7 +97,7 @@ const importPreviewBodySchema = z.object({
 
 const defaultFields = {
   venues: ["id", "name", "slug", "addressLine1", "addressLine2", "city", "postcode", "country", "timezone", "websiteUrl", "isPublished", "status", "description", "featuredAssetId", "deletedAt"] as const,
-  events: ["id", "title", "startAt", "endAt", "venueId", "ticketUrl", "isPublished", "status", "deletedAt"] as const,
+  events: ["id", "title", "startAt", "endAt", "timezone", "venueId", "ticketUrl", "isPublished", "status", "deletedAt"] as const,
   artists: ["id", "name", "websiteUrl", "bio", "featuredAssetId", "isPublished", "deletedAt"] as const,
   artwork: ["id", "title", "slug", "artistId", "isPublished", "deletedAt"] as const,
 };
@@ -261,21 +262,42 @@ export async function handleAdminEntityList(req: NextRequest, entity: EntityName
 
     if (entity === "venues") {
       const where = { ...deletedFilter, ...(status ? { status } : {}), ...(query ? { OR: [{ name: { contains: query, mode: "insensitive" as const } }, { city: { contains: query, mode: "insensitive" as const } }, { slug: { contains: query, mode: "insensitive" as const } }] } : {}) };
-      const [total, items, grouped] = await Promise.all([
+      const [total, rows, grouped] = await Promise.all([
         deps.appDb.venue.count({ where }),
         deps.appDb.venue.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take: PAGE_SIZE, select: Object.fromEntries(defaultFields.venues.map((k) => [k, true])) as never }),
         deps.appDb.venue.groupBy({ by: ["status"], where: deletedFilter, _count: { _all: true } }),
       ]);
+      const items = rows.map((venue) => ({
+        ...venue,
+        publishBlockers: computeReadiness(venue as { country: string | null; lat?: number | null; lng?: number | null; name?: string | null; city?: string | null }).blockers,
+      }));
       return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE, statusCounts: buildStatusCounts(grouped) });
     }
 
     if (entity === "events") {
       const where = { ...deletedFilter, ...(status ? { status } : {}), ...(query ? { OR: [{ title: { contains: query, mode: "insensitive" as const } }, { slug: { contains: query, mode: "insensitive" as const } }] } : {}) };
-      const [total, items, grouped] = await Promise.all([
+      const [total, rows, grouped] = await Promise.all([
         deps.appDb.event.count({ where }),
-        deps.appDb.event.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take: PAGE_SIZE, select: Object.fromEntries(defaultFields.events.map((k) => [k, true])) as never }),
+        deps.appDb.event.findMany({
+          where,
+          orderBy: { updatedAt: "desc" },
+          skip,
+          take: PAGE_SIZE,
+          select: {
+            ...Object.fromEntries(defaultFields.events.map((k) => [k, true])),
+            venue: { select: { status: true, isPublished: true } },
+          } as never,
+        }),
         deps.appDb.event.groupBy({ by: ["status"], where: deletedFilter, _count: { _all: true } }),
       ]);
+      const items = rows.map((event) => ({
+        ...event,
+        publishBlockers: computeReadiness({
+          startAt: (event as { startAt: Date | null }).startAt,
+          timezone: (event as { timezone: string | null }).timezone,
+          venue: (event as { venue: { status?: string | null; isPublished?: boolean | null } | null }).venue,
+        }).blockers,
+      }));
       return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE, statusCounts: buildStatusCounts(grouped) });
     }
 
@@ -339,6 +361,7 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
         const before = await tx.venue.findUnique({ where: { id: entityId } });
         if (!before) throw new Error("not_found");
         const payload = parsedBody.data as z.infer<typeof venuePatchSchema>;
+        if (payload.status) validateModerationTransition(before.status, payload.status);
         const patch: Prisma.VenueUpdateInput = { ...payload };
         const wantsPublish = payload.status === "PUBLISHED" || payload.isPublished === true;
         if (wantsPublish) {
@@ -361,6 +384,7 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
         const before = await tx.event.findUnique({ where: { id: entityId } });
         if (!before) throw new Error("not_found");
         const payload = parsedBody.data as z.infer<typeof eventPatchSchema>;
+        if (payload.status) validateModerationTransition(before.status, payload.status);
         const patch: Prisma.EventUpdateInput = { ...payload, ...(payload.startAt ? { startAt: new Date(payload.startAt) } : {}), ...(payload.endAt !== undefined ? { endAt: payload.endAt ? new Date(payload.endAt) : null } : {}) };
         const venue = before.venueId ? await tx.venue.findUnique({ where: { id: before.venueId }, select: { status: true, isPublished: true } }) : null;
         const wantsPublish = payload.status === "PUBLISHED" || payload.isPublished === true;
@@ -406,6 +430,9 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
     if (error instanceof Error && error.message.startsWith("publish_blocked:")) {
       const blockers = JSON.parse(error.message.slice("publish_blocked:".length));
       return apiError(409, "publish_blocked", "Publishing is blocked", { blockers });
+    }
+    if (error instanceof Error && "status" in error && "code" in error && (error as { code?: string }).code === "invalid_transition") {
+      return apiError(400, "invalid_transition", error.message);
     }
     return apiError(401, "unauthorized", "Authentication required");
   }

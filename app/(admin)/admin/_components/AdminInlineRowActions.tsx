@@ -24,6 +24,8 @@ export type AdminInlineRowActionsProps<T extends Record<string, unknown>> = {
   deleteUrl: string;
   isArchived: boolean;
   isEditing: boolean;
+  status?: string;
+  publishBlockers?: string[];
   onStartEdit: (id: string) => void;
   onCancelEdit: () => void;
   onSaveSuccess?: () => void;
@@ -54,7 +56,6 @@ export function getNextEditingId(currentEditingId: string | null, nextId: string
   return nextId;
 }
 
-
 export async function requestInlinePatch(patchUrl: string, payload: Record<string, unknown>, fetchImpl: typeof fetch = fetch) {
   return fetchImpl(patchUrl, {
     method: "PATCH",
@@ -77,8 +78,15 @@ function actionErrorMessage(status: number, fallback: string) {
   return fallback;
 }
 
+function getReadinessLabel(status?: string, blockers: string[] = []) {
+  if (status !== "APPROVED") return { icon: "❌", label: "Blocked" };
+  if (blockers.length > 0) return { icon: "⚠", label: `Missing ${blockers.length} fields` };
+  return { icon: "✅", label: "Ready" };
+}
+
 export default function AdminInlineRowActions<T extends Record<string, unknown>>({
   entityLabel,
+  entityType,
   id,
   initial,
   editable,
@@ -88,6 +96,8 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
   deleteUrl,
   isArchived,
   isEditing,
+  status,
+  publishBlockers = [],
   onStartEdit,
   onCancelEdit,
   onSaveSuccess,
@@ -98,12 +108,16 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
   const [isSaving, setIsSaving] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const mutateDone = useMemo(() => onAfterMutate ?? (() => router.refresh()), [onAfterMutate, router]);
-  const controlsDisabled = isSaving || isArchiving || isDeleting;
+  const controlsDisabled = isSaving || isArchiving || isDeleting || isPublishing;
+  const supportsModeratedPublish = entityType === "events" || entityType === "venues";
+  const canPublish = status === "APPROVED" && publishBlockers.length === 0;
+  const readiness = getReadinessLabel(status, publishBlockers);
 
   async function save() {
     setRowError(null);
@@ -127,6 +141,25 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
       mutateDone();
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function publish() {
+    if (!supportsModeratedPublish || !canPublish) return;
+    setRowError(null);
+    setIsPublishing(true);
+    try {
+      const res = await requestInlinePatch(patchUrl, { status: "PUBLISHED", isPublished: true });
+      if (!res.ok) {
+        const message = actionErrorMessage(res.status, "Publish failed");
+        setRowError(message);
+        enqueueToast({ title: message, variant: "error" });
+        return;
+      }
+      enqueueToast({ title: `${entityLabel} published` });
+      mutateDone();
+    } finally {
+      setIsPublishing(false);
     }
   }
 
@@ -178,6 +211,15 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
+        {supportsModeratedPublish ? (
+          <span
+            className="rounded border px-2 py-1 text-xs"
+            title={publishBlockers.length > 0 ? publishBlockers.join("\n") : "No publish blockers"}
+          >
+            {readiness.icon} {readiness.label}
+          </span>
+        ) : null}
+
         {isEditing ? (
           <>
             <Button type="button" size="sm" onClick={() => void save()} disabled={controlsDisabled}>
@@ -192,6 +234,12 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
             Edit
           </Button>
         )}
+
+        {supportsModeratedPublish ? (
+          <Button type="button" size="sm" onClick={() => void publish()} disabled={controlsDisabled || !canPublish}>
+            {isPublishing ? "Publishing…" : "Publish"}
+          </Button>
+        ) : null}
 
         <Button type="button" size="sm" variant={isArchived ? "secondary" : "destructive"} onClick={() => void toggleArchive()} disabled={controlsDisabled}>
           {isArchiving ? "Working…" : isArchived ? "Restore" : "Archive"}

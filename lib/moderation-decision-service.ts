@@ -25,6 +25,22 @@ export class ModerationDecisionError extends Error {
   }
 }
 
+
+export const allowedTransitions: Record<string, string[]> = {
+  DRAFT: ["IN_REVIEW"],
+  IN_REVIEW: ["APPROVED", "REJECTED"],
+  APPROVED: ["PUBLISHED", "REJECTED"],
+  PUBLISHED: ["APPROVED", "ARCHIVED"],
+  REJECTED: ["IN_REVIEW"],
+  ARCHIVED: ["APPROVED"],
+};
+
+export function validateModerationTransition(current: string, next: string) {
+  const allowed = allowedTransitions[current] ?? [];
+  if (!allowed.includes(next)) {
+    throw new ModerationDecisionError(400, "invalid_transition", `Invalid transition from ${current} to ${next}`);
+  }
+}
 export async function decideSubmission(input: DecideSubmissionInput, dbClient: DbClient = db) {
   return dbClient.$transaction(async (tx) => {
     const submission = await tx.submission.findUnique({
