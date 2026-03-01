@@ -47,7 +47,13 @@ export default async function AdminEditEvent({ params }: { params: Promise<{ id:
         <p className="text-sm text-emerald-900">Moderation action</p>
         <p className="text-sm text-emerald-800">Approve this event from here when it is ready.</p>
         <div className="mt-3">
-          <AdminApproveButton entityType="event" submissionId={pendingSubmission?.id ?? null} disabled={!pendingSubmission} />
+          <AdminApproveButton
+            entityType="event"
+            entityId={event.id}
+            submissionId={pendingSubmission?.id ?? null}
+            directStatusEndpoint={`/api/admin/events/${event.id}`}
+            disabled={event.status === "PUBLISHED"}
+          />
         </div>
       </section>
       <section className="rounded-lg border border-destructive/30 bg-card p-4">
