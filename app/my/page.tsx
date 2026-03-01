@@ -1,151 +1,130 @@
 import Link from "next/link";
-import Image from "next/image";
-import { canSelfPublish, getSessionUser } from "@/lib/auth";
+import type { ContentStatus } from "@prisma/client";
+import { db } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
-import { ensureDbUserForSession } from "@/lib/ensure-db-user-for-session";
-import { getMyDashboard } from "@/lib/my/dashboard/get-my-dashboard";
-import CompletenessBar from "./_components/CompletenessBar";
-import StatusTileGroups from "./_components/StatusTileGroups";
-import NeedsAttentionPanel from "./_components/NeedsAttentionPanel";
+import { StatusBadge } from "@/components/publishing/StatusBadge";
+import { getPrimaryAction } from "@/lib/publishing/getPrimaryAction";
 
-function venuePrimaryAction(
-  venue: {
+type MyItem = {
   id: string;
-  status: "Draft" | "Submitted" | "Published" | "Rejected";
-  completeness?: { percent: number } | null;
-},
-canPublishDirectly: boolean) {
-  const percent = venue.completeness?.percent ?? 0;
+  type: "Event" | "Venue" | "Artist";
+  title: string;
+  status: ContentStatus;
+  updatedAt: Date;
+  editHref: string;
+  liveHref?: string;
+};
 
-  if (venue.status === "Submitted") {
-    return { label: "Pending review", href: null, className: "cursor-not-allowed rounded border px-2 py-1 text-muted-foreground" };
-  }
-
-  if (venue.status === "Published") {
-    return { label: "+ New event", href: `/my/events/new?venueId=${venue.id}`, className: "rounded border px-2 py-1 underline" };
-  }
-
-  if (venue.status === "Rejected") {
-    return { label: "Fix & resubmit", href: `/my/venues/${venue.id}`, className: "rounded border border-destructive/40 px-2 py-1 text-destructive underline" };
-  }
-
-  if (percent >= 80) {
-    return { label: canPublishDirectly ? "Open moderation controls" : "Submit for review", href: `/my/venues/${venue.id}`, className: "rounded border px-2 py-1 underline" };
-  }
-
-  return { label: "Complete profile", href: `/my/venues/${venue.id}`, className: "rounded border px-2 py-1 underline" };
-}
-
-export default async function MyDashboardPage({ searchParams }: { searchParams: Promise<{ venueId?: string }> }) {
-  const user = await getSessionUser();
-  if (!user) redirectToLogin("/my");
-  const dbUser = await ensureDbUserForSession(user);
-
-  const { venueId } = await searchParams;
-  const data = await getMyDashboard({ userId: dbUser?.id ?? user.id, venueId });
-  const shouldShowOnboarding = data.quickLists.venues.length === 0 && data.quickLists.upcomingEvents.length === 0;
-  const canPublishDirectly = canSelfPublish(user);
+function ItemCard({ item }: { item: MyItem }) {
+  const action = getPrimaryAction(item.status, {
+    edit: item.editHref,
+    status: item.editHref,
+    live: item.liveHref,
+  });
 
   return (
-    <main className="space-y-4">
-      <NeedsAttentionPanel attention={data.attention} />
-
-      <StatusTileGroups counts={data.counts} venueId={venueId} />
-
-      {shouldShowOnboarding ? (
-        <section className="rounded border p-3">
-          <h2 className="text-lg font-semibold">Get set up</h2>
-          <ol className="mt-2 list-inside list-decimal text-sm text-muted-foreground">
-            <li>Create your venue</li>
-            <li>Add images and location details</li>
-            <li>Create your first event</li>
-            <li>{canPublishDirectly ? "Open moderation controls" : "Submit for review"}</li>
-          </ol>
-          <div className="mt-3">
-            <Link className="inline-flex rounded border px-3 py-1.5 text-sm font-medium" href="/my/venues/new">Create venue</Link>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="rounded border p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Venues</h2>
-          <Link className="text-sm underline" href={venueId ? `/my/venues?venueId=${venueId}` : "/my/venues"}>View all</Link>
+    <article className="rounded-lg border p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs text-muted-foreground">{item.type}</p>
+          <h3 className="font-medium">{item.title}</h3>
+          <p className="text-xs text-muted-foreground">Updated {item.updatedAt.toLocaleDateString()}</p>
         </div>
-        <div className="space-y-2 text-sm">
-          {data.quickLists.venues.length === 0 ? <p className="rounded border p-2 text-muted-foreground">You haven&apos;t created any venues yet. <Link className="underline" href="/my/venues/new">Create Venue</Link></p> : data.quickLists.venues.map((venue) => {
-            const action = venuePrimaryAction(venue, canPublishDirectly);
+        <StatusBadge status={item.status} />
+      </div>
+      <div className="mt-3">
+        {action.href && !action.disabled ? <Link className="underline" href={action.href}>{action.label}</Link> : <span className="text-muted-foreground">{action.label}</span>}
+      </div>
+    </article>
+  );
+}
 
-            return (
-              <article className="rounded border p-2" key={venue.id}>
-                <p className="font-medium">{venue.name}</p>
-                <p className="text-muted-foreground">{venue.status} · {new Date(venue.updatedAtISO).toLocaleDateString()}</p>
-                {venue.completeness ? <CompletenessBar percent={venue.completeness.percent} missing={venue.completeness.missing} /> : null}
-                <div className="mt-2 space-y-1">
-                  <div>
-                    {action.href ? (
-                      <Link className={action.className} href={action.href}>{action.label}</Link>
-                    ) : (
-                      <span className={action.className} aria-disabled>{action.label}</span>
-                    )}
-                  </div>
-                  <div className="space-x-2">
-                    <Link className="underline" href={`/my/venues/${venue.id}`}>Edit venue</Link>
-                    <Link className="underline" href={`/my/events?venueId=${venue.id}`}>View events</Link>
-                    {venue.status === "Published" ? <Link className="underline" href={`/venues/${venue.id}`}>View Public</Link> : null}
-                  </div>
-                </div>
-              </article>
-            );
-          })}
+export default async function MyDashboardPage() {
+  const user = await getSessionUser();
+  if (!user) redirectToLogin("/my");
+
+  const [events, venueMemberships, artist] = await Promise.all([
+    db.event.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { submissions: { some: { submitterUserId: user.id, type: "EVENT", OR: [{ kind: "PUBLISH" }, { kind: null }] } } },
+          { venue: { memberships: { some: { userId: user.id, role: { in: ["OWNER", "EDITOR"] } } } } },
+        ],
+      },
+      select: { id: true, title: true, status: true, updatedAt: true, slug: true },
+      orderBy: { updatedAt: "desc" },
+      take: 100,
+    }),
+    db.venueMembership.findMany({
+      where: { userId: user.id, role: { in: ["OWNER", "EDITOR"] }, venue: { deletedAt: null } },
+      select: { venue: { select: { id: true, name: true, slug: true, status: true, updatedAt: true } } },
+    }),
+    db.artist.findUnique({ where: { userId: user.id }, select: { id: true, name: true, slug: true, status: true, updatedAt: true } }),
+  ]);
+
+  const items: MyItem[] = [
+    ...events.map((event) => ({
+      id: event.id,
+      type: "Event" as const,
+      title: event.title,
+      status: event.status,
+      updatedAt: event.updatedAt,
+      editHref: `/my/events/${event.id}`,
+      liveHref: event.slug ? `/events/${event.slug}` : undefined,
+    })),
+    ...venueMemberships.map((membership) => ({
+      id: membership.venue.id,
+      type: "Venue" as const,
+      title: membership.venue.name,
+      status: membership.venue.status,
+      updatedAt: membership.venue.updatedAt,
+      editHref: `/my/venues/${membership.venue.id}`,
+      liveHref: membership.venue.slug ? `/venues/${membership.venue.slug}` : undefined,
+    })),
+    ...(artist
+      ? [{
+          id: artist.id,
+          type: "Artist" as const,
+          title: artist.name,
+          status: artist.status,
+          updatedAt: artist.updatedAt,
+          editHref: "/my/artist",
+          liveHref: artist.slug ? `/artists/${artist.slug}` : undefined,
+        }]
+      : []),
+  ];
+
+  const needsAttention = items.filter((item) => item.status === "DRAFT" || item.status === "CHANGES_REQUESTED");
+  const inReview = items.filter((item) => item.status === "IN_REVIEW");
+  const published = items.filter((item) => item.status === "PUBLISHED").sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+
+  return (
+    <main className="space-y-6 p-6">
+      <header className="rounded-lg border p-4">
+        <h1 className="text-2xl font-semibold">My content</h1>
+        <p className="text-sm text-muted-foreground">Create quickly, then complete details when you are ready to submit for review.</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link href="/my/events/new" className="rounded border px-3 py-1.5 text-sm font-medium">New Event</Link>
+          <Link href="/my/venues/new" className="rounded border px-3 py-1.5 text-sm font-medium">New Venue</Link>
+          <Link href="/my/artist" className="rounded border px-3 py-1.5 text-sm font-medium">New Artist</Link>
         </div>
+      </header>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Needs Attention</h2>
+        {needsAttention.length === 0 ? <p className="rounded border p-4 text-sm text-muted-foreground">No drafts need action right now.</p> : <div className="grid gap-3 md:grid-cols-2">{needsAttention.map((item) => <ItemCard key={`${item.type}-${item.id}`} item={item} />)}</div>}
       </section>
 
-      <section className="rounded border p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Upcoming events</h2>
-          <Link className="text-sm underline" href={venueId ? `/my/events?venueId=${venueId}` : "/my/events"}>View all</Link>
-        </div>
-        <div className="space-y-2 text-sm">
-          {data.quickLists.upcomingEvents.length === 0 ? <p className="rounded border p-2 text-muted-foreground">You don&apos;t have any upcoming events yet. <Link className="underline" href="/my/events/new">Create Event</Link></p> : data.quickLists.upcomingEvents.map((event) => (
-            <article className="rounded border p-2" key={event.id}>
-              <p className="font-medium">{event.title}</p>
-              <p className="text-muted-foreground">{new Date(event.startAtISO).toLocaleDateString()} · {event.venueName ?? "No venue"}</p>
-              <div className="mt-1 space-x-2">
-                <Link className="underline" href={`/my/events/${event.id}`}>Edit</Link>
-                {event.status === "Published" ? <Link className="underline" href={`/events/${event.id}`}>View Public</Link> : null}
-              </div>
-            </article>
-          ))}
-        </div>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">In Review</h2>
+        {inReview.length === 0 ? <p className="rounded border p-4 text-sm text-muted-foreground">Nothing is currently in review.</p> : <div className="grid gap-3 md:grid-cols-2">{inReview.map((item) => <ItemCard key={`${item.type}-${item.id}`} item={item} />)}</div>}
       </section>
 
-      <section className="rounded border p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Recent artwork</h2>
-          <Link className="text-sm underline" href={venueId ? `/my/artwork?venueId=${venueId}` : "/my/artwork"}>View all</Link>
-        </div>
-        <div className="space-y-2 text-sm">
-          {data.quickLists.recentArtwork.length === 0 ? <p className="rounded border p-2 text-muted-foreground">You haven&apos;t added artwork yet. <Link className="underline" href="/my/artwork/new">Add Artwork</Link></p> : data.quickLists.recentArtwork.map((artwork) => (
-            <article className="flex items-center gap-3 rounded border p-2" key={artwork.id}>
-              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded border bg-muted">
-                {artwork.imageUrl ? <Image src={artwork.imageUrl} alt={artwork.title} fill sizes="40px" className="object-cover" /> : null}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{artwork.title}</p>
-                <p className="text-muted-foreground">{artwork.status}</p>
-              </div>
-              <Link className="underline" href={`/my/artwork/${artwork.id}`}>Edit</Link>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded border p-3">
-        <h2 className="text-lg font-semibold">Recent activity</h2>
-        <ul className="mt-2 space-y-1 text-sm">
-          {data.recentActivity.map((item) => <li key={item.id}><Link className="underline" href={item.href}>{item.label}</Link></li>)}
-        </ul>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Published</h2>
+        {published.length === 0 ? <p className="rounded border p-4 text-sm text-muted-foreground">Publish something to see it here.</p> : <div className="grid gap-3 md:grid-cols-2">{published.map((item) => <ItemCard key={`${item.type}-${item.id}`} item={item} />)}</div>}
       </section>
     </main>
   );

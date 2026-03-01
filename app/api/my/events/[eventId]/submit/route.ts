@@ -27,7 +27,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ eventId: 
           { venue: { memberships: { some: { userId: user.id, role: { in: ["OWNER", "EDITOR"] } } } } },
         ],
       },
-      select: { id: true, title: true, startAt: true, endAt: true, venueId: true, ticketUrl: true, isPublished: true },
+      select: { id: true, title: true, description: true, startAt: true, endAt: true, venueId: true, ticketUrl: true, isPublished: true, status: true, featuredAssetId: true },
     });
     if (!event) return apiError(403, "forbidden", "Submission owner required");
 
@@ -35,10 +35,12 @@ export async function POST(_: Request, { params }: { params: Promise<{ eventId: 
     if (!readiness.ready) return NextResponse.json({ error: "NOT_READY", message: "Complete required fields before submitting.", blocking: readiness.blocking, warnings: readiness.warnings }, { status: 400 });
 
     const latest = await db.submission.findFirst({ where: { targetEventId: event.id, type: "EVENT", OR: [{ kind: "PUBLISH" }, { kind: null }] }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { status: true } });
-    if (latest?.status === "SUBMITTED") return NextResponse.json({ error: "ALREADY_SUBMITTED", message: "Submission is already pending review." }, { status: 409 });
-    if (latest?.status === "APPROVED" && event.isPublished) return NextResponse.json({ error: "ALREADY_APPROVED", message: "Event is already approved and published." }, { status: 409 });
+    if (event.status === "IN_REVIEW") return NextResponse.json({ error: "ALREADY_SUBMITTED", message: "Submission is already pending review." }, { status: 409 });
+    if (event.status === "PUBLISHED") return NextResponse.json({ error: "ALREADY_APPROVED", message: "Event is already approved and published." }, { status: 409 });
 
     const created = await db.submission.create({ data: { type: "EVENT", kind: "PUBLISH", status: "SUBMITTED", submitterUserId: user.id, venueId: event.venueId, targetEventId: event.id, submittedAt: new Date(), decisionReason: null, decidedAt: null, decidedByUserId: null } });
+
+    await db.event.update({ where: { id: event.id }, data: { status: "IN_REVIEW", submittedAt: new Date() } });
 
     await enqueueNotification({ type: "SUBMISSION_SUBMITTED", toEmail: user.email, dedupeKey: submissionSubmittedDedupeKey(created.id), payload: { submissionId: created.id, status: created.status, submittedAt: created.submittedAt?.toISOString() ?? null }, inApp: buildInAppFromTemplate(user.id, "SUBMISSION_SUBMITTED", { type: "SUBMISSION_SUBMITTED", submissionId: created.id, submissionType: "EVENT" }) });
     await setOnboardingFlagForSession(user, "hasSubmittedEvent", true, { path: "/api/my/events/[eventId]/submit" });

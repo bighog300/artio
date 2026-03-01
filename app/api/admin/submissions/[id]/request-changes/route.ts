@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }),
     publishVenue: async () => undefined,
     setVenueDraft: async (venueId) => {
-      await db.venue.update({ where: { id: venueId }, data: { isPublished: false, status: "REJECTED" } });
+      await db.venue.update({ where: { id: venueId }, data: { isPublished: false, status: "CHANGES_REQUESTED" } });
     },
     publishArtist: async () => undefined,
     setArtistDraft: async (artistId) => {
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     },
     publishEvent: async () => undefined,
     setEventDraft: async (eventId) => {
-      await db.event.update({ where: { id: eventId }, data: { isPublished: false, status: "REJECTED", publishedAt: null } });
+      await db.event.update({ where: { id: eventId }, data: { isPublished: false, status: "CHANGES_REQUESTED", publishedAt: null } });
     },
     markApproved: async () => undefined,
     findEventUpdatedAt: async () => null,

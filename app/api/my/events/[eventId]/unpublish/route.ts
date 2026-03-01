@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
       return Boolean(membership);
     },
     findEventForPublish: (eventId) => db.event.findUnique({ where: { id: eventId }, select: { id: true, title: true, startAt: true, endAt: true, timezone: true, venueId: true, ticketUrl: true, isPublished: true, deletedAt: true, status: true, venue: { select: { status: true, isPublished: true } } } }),
-    updateEventPublishState: (eventId, isPublished) => db.event.update({ where: { id: eventId }, data: { isPublished, status: "APPROVED", publishedAt: isPublished ? new Date() : null }, select: { id: true, title: true, startAt: true, endAt: true, timezone: true, venueId: true, ticketUrl: true, isPublished: true, deletedAt: true, status: true } }),
+    updateEventPublishState: (eventId, isPublished) => db.event.update({ where: { id: eventId }, data: { isPublished, status: "DRAFT", publishedAt: isPublished ? new Date() : null }, select: { id: true, title: true, startAt: true, endAt: true, timezone: true, venueId: true, ticketUrl: true, isPublished: true, deletedAt: true, status: true } }),
     logAdminAction,
   });
 }

@@ -23,6 +23,7 @@ type EventEditorProps = {
     startAt: string;
     endAt: string | null;
     ticketUrl: string | null;
+    description: string | null;
     eventType: EventTypeOption | null;
     featuredAssetId: string | null;
     featuredAsset: { url: string | null } | null;
@@ -37,6 +38,7 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
   const [startAt, setStartAt] = useState(toLocalDatetime(event.startAt));
   const [endAt, setEndAt] = useState(event.endAt ? toLocalDatetime(event.endAt) : "");
   const [ticketUrl, setTicketUrl] = useState(event.ticketUrl ?? "");
+  const [description, setDescription] = useState(event.description ?? "");
   const [eventType, setEventType] = useState<EventTypeOption>(event.eventType ?? "OTHER");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +57,7 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
         startAt: new Date(startAt).toISOString(),
         endAt: endAt ? new Date(endAt).toISOString() : null,
         ticketUrl: ticketUrl || null,
+        description: description || null,
         eventType,
       }),
     });
@@ -96,6 +99,7 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
       </section>
 
       <section className="space-y-3 rounded border p-4">
+        <label className="block" id="description"><span className="text-sm">Description</span><textarea className="w-full rounded border p-2" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
         <label className="block" id="ticketUrl"><span className="text-sm">Ticket URL</span><input className="w-full rounded border p-2" type="url" value={ticketUrl} onChange={(e) => setTicketUrl(e.target.value)} /></label>
       </section>
 

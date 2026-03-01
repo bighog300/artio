@@ -53,6 +53,14 @@ enum SubmissionStatus {
   REJECTED
 }
 
+enum ContentStatus {
+  DRAFT
+  IN_REVIEW
+  CHANGES_REQUESTED
+  PUBLISHED
+  ARCHIVED
+}
+
 enum SubmissionKind {
   PUBLISH
   REVISION
@@ -319,8 +327,12 @@ model Venue {
   openingHours       Json?
   featuredImageUrl   String?
   featuredAssetId    String?                  @db.Uuid
+  /// @deprecated Use `status` (ContentStatus) as canonical publish lifecycle state.
   isPublished        Boolean                  @default(false)
-  status             String                   @default("DRAFT")
+  status             ContentStatus            @default(DRAFT)
+  submittedAt        DateTime?
+  reviewedAt         DateTime?
+  reviewNotes        String?
   aiGenerated        Boolean                  @default(false)
   aiGeneratedAt      DateTime?
   claimStatus        VenueClaimStatus         @default(UNCLAIMED)
@@ -392,7 +404,12 @@ model Artist {
   avatarImageUrl    String?
   featuredImageUrl  String?
   featuredAssetId   String?                  @db.Uuid
+  /// @deprecated Use `status` (ContentStatus) as canonical publish lifecycle state.
   isPublished       Boolean                  @default(false)
+  status            ContentStatus            @default(DRAFT)
+  submittedAt       DateTime?
+  reviewedAt        DateTime?
+  reviewNotes       String?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
   deletedAt         DateTime?
@@ -449,8 +466,12 @@ model Event {
   featuredAssetId String?      @db.Uuid
   lat           Float?
   lng           Float?
+  /// @deprecated Use `status` (ContentStatus) as canonical publish lifecycle state.
   isPublished   Boolean        @default(false)
-  status        String         @default("DRAFT")
+  status        ContentStatus  @default(DRAFT)
+  submittedAt   DateTime?
+  reviewedAt    DateTime?
+  reviewNotes   String?
   publishedAt   DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt

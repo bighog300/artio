@@ -7,7 +7,7 @@ import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
 import { enqueueToast } from "@/lib/toast";
 import { submitEventForReviewRequest } from "@/app/my/_components/MyEventSubmitButton";
 
-type SubmissionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null;
+type SubmissionStatus = "DRAFT" | "IN_REVIEW" | "CHANGES_REQUESTED" | "PUBLISHED" | "ARCHIVED" | null;
 
 function deriveEventSubmitButtonUiState({
   isReady,
@@ -28,7 +28,7 @@ function deriveEventSubmitButtonUiState({
   submittingHelperText?: string;
   readyHelperText?: string;
 }) {
-  if (locallySubmitted || initialStatus === "SUBMITTED") return { label: "Submitted (pending)", disabled: true, helperText: pendingHelperText };
+  if (locallySubmitted || initialStatus === "IN_REVIEW") return { label: "Submitted (pending)", disabled: true, helperText: pendingHelperText };
   if (isSubmitting) return { label: "Submitting…", disabled: true, helperText: submittingHelperText };
   if (!isReady) return { label: ctaLabel, disabled: true, helperText: "Complete required fields to submit." };
   return { label: ctaLabel, disabled: false, helperText: readyHelperText };

@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       where: { id: venueId },
       select: { id: true, slug: true, name: true, description: true, featuredAssetId: true, city: true, country: true, lat: true, lng: true, websiteUrl: true, deletedAt: true, isPublished: true, status: true },
     }),
-    updateVenuePublishState: (venueId, isPublished) => db.venue.update({ where: { id: venueId }, data: { isPublished, status: "APPROVED" }, select: { id: true, slug: true, name: true, description: true, featuredAssetId: true, city: true, country: true, lat: true, lng: true, websiteUrl: true, deletedAt: true, isPublished: true, status: true } }),
+    updateVenuePublishState: (venueId, isPublished) => db.venue.update({ where: { id: venueId }, data: { isPublished, status: "DRAFT" }, select: { id: true, slug: true, name: true, description: true, featuredAssetId: true, city: true, country: true, lat: true, lng: true, websiteUrl: true, deletedAt: true, isPublished: true, status: true } }),
     logAdminAction,
   });
 }

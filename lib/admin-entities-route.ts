@@ -28,10 +28,10 @@ const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   showArchived: z.enum(["0", "1"]).optional(),
   onlyArchived: z.enum(["0", "1"]).optional(),
-  status: z.enum(["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "ARCHIVED"]).optional(),
+  status: z.enum(["DRAFT", "IN_REVIEW", "PUBLISHED", "PUBLISHED", "CHANGES_REQUESTED", "ARCHIVED"]).optional(),
 });
 
-const moderationStatuses = ["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "ARCHIVED"] as const;
+const moderationStatuses = ["DRAFT", "IN_REVIEW", "PUBLISHED", "PUBLISHED", "CHANGES_REQUESTED", "ARCHIVED"] as const;
 
 function buildStatusCounts(rows: Array<{ status: string; _count: { _all: number } }>) {
   const counts = Object.fromEntries(moderationStatuses.map((status) => [status, 0])) as Record<(typeof moderationStatuses)[number], number>;
@@ -58,7 +58,7 @@ const venuePatchSchema = z.object({
   timezone: z.string().trim().max(80).nullable().optional(),
   websiteUrl: z.string().trim().url().nullable().optional(),
   isPublished: z.boolean().optional(),
-  status: z.enum(["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "ARCHIVED"]).optional(),
+  status: z.enum(["DRAFT", "IN_REVIEW", "PUBLISHED", "PUBLISHED", "CHANGES_REQUESTED", "ARCHIVED"]).optional(),
   description: z.string().trim().max(5000).nullable().optional(),
   featuredAssetId: z.string().uuid().nullable().optional(),
 }).strict();
@@ -70,7 +70,7 @@ const eventPatchSchema = z.object({
   venueId: z.string().uuid().nullable().optional(),
   ticketUrl: z.string().trim().url().nullable().optional(),
   isPublished: z.boolean().optional(),
-  status: z.enum(["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "ARCHIVED"]).optional(),
+  status: z.enum(["DRAFT", "IN_REVIEW", "PUBLISHED", "PUBLISHED", "CHANGES_REQUESTED", "ARCHIVED"]).optional(),
 }).strict().superRefine((data, ctx) => {
   if (data.startAt && data.endAt && new Date(data.endAt) < new Date(data.startAt)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endAt"], message: "endAt must be >= startAt" });
@@ -385,11 +385,11 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
           if (blockers.length > 0) throw new PublishBlockedError(blockers);
           patch.status = "PUBLISHED";
           patch.isPublished = true;
-        } else if (payload.status === "REJECTED") {
-          patch.status = "REJECTED";
+        } else if (payload.status === "CHANGES_REQUESTED") {
+          patch.status = "CHANGES_REQUESTED";
           patch.isPublished = false;
         } else if (payload.isPublished === false) {
-          patch.status = payload.status ?? "APPROVED";
+          patch.status = payload.status ?? "PUBLISHED";
           patch.isPublished = false;
         }
         const row = await tx.venue.update({ where: { id: entityId }, data: patch });
@@ -414,12 +414,12 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
           patch.status = "PUBLISHED";
           patch.isPublished = true;
           patch.publishedAt = new Date();
-        } else if (payload.status === "REJECTED") {
-          patch.status = "REJECTED";
+        } else if (payload.status === "CHANGES_REQUESTED") {
+          patch.status = "CHANGES_REQUESTED";
           patch.isPublished = false;
           patch.publishedAt = null;
         } else if (payload.isPublished === false) {
-          patch.status = payload.status ?? "APPROVED";
+          patch.status = payload.status ?? "PUBLISHED";
           patch.isPublished = false;
           patch.publishedAt = null;
         }

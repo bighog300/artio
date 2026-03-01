@@ -5,11 +5,11 @@ import { canSelfPublish, getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { PageHeader } from "@/components/ui/page-header";
 import EventSetupHeader from "@/app/my/_components/EventSetupHeader";
-import EventCompletionProgress from "@/app/my/_components/EventCompletionProgress";
 import EventSetupSection from "@/app/my/_components/EventSetupSection";
 import EventPublishPanel from "@/app/my/_components/EventPublishPanel";
 import { EventEditorForm } from "@/app/my/events/[eventId]/page-client";
-import { getEventCompletionChecks } from "@/lib/events/event-completion";
+import { getEventReadiness } from "@/lib/events/getEventReadiness";
+import { ReadinessChecklist } from "@/components/publishing/ReadinessChecklist";
 
 export default async function MyEventEditPage({ params }: { params: Promise<{ eventId: string }> }) {
   const user = await getSessionUser();
@@ -33,18 +33,21 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
       endAt: true,
       venueId: true,
       ticketUrl: true,
+      description: true,
       isPublished: true,
+      status: true,
+      submittedAt: true,
+      reviewedAt: true,
+      reviewNotes: true,
       featuredAssetId: true,
       eventType: true,
       featuredAsset: { select: { url: true } },
       venue: { select: { id: true, name: true, city: true, postcode: true, lat: true, lng: true } },
-      submissions: { where: { type: "EVENT", OR: [{ kind: "PUBLISH" }, { kind: null }] }, orderBy: { createdAt: "desc" }, take: 1, select: { status: true } },
     },
   });
 
   if (!event) notFound();
-  const submissionStatus = event.submissions[0]?.status ?? null;
-  const checks = getEventCompletionChecks({ event, venueForEvent: event.venue });
+  const readiness = getEventReadiness(event);
   const canPublishDirectly = canSelfPublish(user);
 
   const managedVenueMemberships = await db.venueMembership.findMany({
@@ -57,12 +60,11 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
     <main className="space-y-6 p-6">
       <PageHeader title="Event Setup" subtitle={canPublishDirectly ? "Complete your event details. As an admin, you can publish via moderation controls." : "Complete your event details and submit for review."} />
 
-      <EventSetupHeader event={{ title: event.title, isPublished: event.isPublished }} submissionStatus={submissionStatus} />
-      <EventCompletionProgress checks={checks} />
+      <EventSetupHeader event={{ title: event.title, isPublished: event.isPublished }} submissionStatus={null} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="order-2 space-y-4 lg:order-1 lg:col-span-2">
-          <EventSetupSection title="Event details" description="Edit all event fields, then save once." complete={checks.basics && checks.schedule}>
+          <EventSetupSection title="Event details" description="Edit all event fields, then save once." complete={readiness.items.every((item) => item.complete)}>
             <EventEditorForm
               event={{
                 id: event.id,
@@ -71,6 +73,7 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
                 startAt: event.startAt.toISOString(),
                 endAt: event.endAt?.toISOString() ?? null,
                 ticketUrl: event.ticketUrl,
+                description: event.description,
                 eventType: event.eventType,
                 featuredAssetId: event.featuredAssetId,
                 featuredAsset: event.featuredAsset,
@@ -79,7 +82,7 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
             />
           </EventSetupSection>
 
-          <EventSetupSection title="Location" description="Used for nearby and map discovery." complete={checks.location || !checks.locationRequired}>
+          <EventSetupSection title="Location" description="Used for nearby and map discovery." complete={Boolean(event.venueId)}>
             <div className="space-y-2 text-sm">
               <p>{event.venue ? `${event.venue.name} · ${event.venue.city ?? ""} ${event.venue.postcode ?? ""}` : "Choose a venue to derive location."}</p>
               {event.venue && (event.venue.lat == null || event.venue.lng == null) ? (
@@ -99,7 +102,10 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
         </section>
 
         <aside className="order-1 lg:order-2 lg:col-span-1">
-          <EventPublishPanel event={{ id: event.id, slug: event.slug, isPublished: event.isPublished }} checks={checks} submissionStatus={submissionStatus} canPublishDirectly={canPublishDirectly} />
+          <div className="space-y-4">
+            <ReadinessChecklist items={readiness.items} />
+            <EventPublishPanel event={{ id: event.id, slug: event.slug, status: event.status }} checks={{ readyToSubmit: readiness.isReady, missing: readiness.items.filter((item) => !item.complete).map((item) => item.label) }} canPublishDirectly={canPublishDirectly} />
+          </div>
         </aside>
       </div>
     </main>
