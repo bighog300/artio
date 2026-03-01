@@ -8,6 +8,7 @@ on:
 jobs:
   staging-db:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     permissions:
       contents: read
     env:
@@ -39,10 +40,8 @@ jobs:
           pnpm -v
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: pnpm install --frozen-lockfile
-
-      - name: Print Prisma version
-        run: pnpm prisma --version
 
       - name: Ensure staging Neon branch exists
         run: node scripts/neon/create-branch.mjs --branch-name "$STAGING_BRANCH_NAME" --parent-branch "$STAGING_PARENT_BRANCH"
@@ -86,37 +85,59 @@ jobs:
           echo "Failed to fetch Neon connection URLs (database_url/direct_url) after ${max_attempts} attempts."
           exit 1
 
-      - name: Validate DB URL hosts
+      - name: Normalize staging DB URLs (sslmode=require)
+        id: normalize-urls
         env:
-          DATABASE_URL: ${{ steps.neon-urls.outputs.database_url }}
-          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+          RAW_DATABASE_URL: ${{ steps.neon-urls.outputs.database_url }}
+          RAW_DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+        run: |
+          node -e "const db = new URL(process.env.RAW_DATABASE_URL); db.searchParams.set('sslmode','require'); const direct = new URL(process.env.RAW_DIRECT_URL); direct.searchParams.set('sslmode','require'); console.log('database_url=' + db.toString()); console.log('direct_url=' + direct.toString());" >> "$GITHUB_OUTPUT"
+
+      - name: Print Prisma version
+        run: pnpm prisma --version
+
+      - name: Validate staging DB URL hosts
+        env:
+          DATABASE_URL: ${{ steps.normalize-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.normalize-urls.outputs.direct_url }}
         run: |
           node -e "console.log('DATABASE_URL host:', new URL(process.env.DATABASE_URL).hostname)"
           node -e "console.log('DIRECT_URL host:', new URL(process.env.DIRECT_URL).hostname)"
-          node -e "process.exit(new URL(process.env.DIRECT_URL).hostname.includes('-pooler') ? 1 : 0)"
-
+          node -e "const u = new URL(process.env.DIRECT_URL); process.exit(u.hostname.includes('-pooler') ? 1 : 0)"
+          node -e "const db = new URL(process.env.DATABASE_URL); const d = new URL(process.env.DIRECT_URL); process.exit((db.searchParams.get('sslmode') === 'require' && d.searchParams.get('sslmode') === 'require') ? 0 : 1)"
 
       - name: Generate Prisma Client
+        timeout-minutes: 5
         run: pnpm prisma:generate
 
       - name: Deploy migrations to staging DB
+        timeout-minutes: 12
         env:
-          DATABASE_URL: ${{ steps.neon-urls.outputs.database_url }}
-          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+          DATABASE_URL: ${{ steps.normalize-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.normalize-urls.outputs.direct_url }}
         run: pnpm prisma:safe-deploy
 
       - name: Check migration status after deploy
+        timeout-minutes: 5
         env:
-          DATABASE_URL: ${{ steps.neon-urls.outputs.database_url }}
-          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+          DATABASE_URL: ${{ steps.normalize-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.normalize-urls.outputs.direct_url }}
         run: pnpm prisma migrate status
 
+      - name: Build app
+        timeout-minutes: 12
+        env:
+          DATABASE_URL: ${{ steps.normalize-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.normalize-urls.outputs.direct_url }}
+          NEXTAUTH_URL: http://127.0.0.1:3000
+          CRON_SECRET: ci-staging-cron-secret
+        run: pnpm build
 
       - name: Seed staging DB (optional)
         if: ${{ vars.STAGING_SEED_ENABLED == 'true' }}
         env:
-          DATABASE_URL: ${{ steps.neon-urls.outputs.database_url }}
-          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+          DATABASE_URL: ${{ steps.normalize-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.normalize-urls.outputs.direct_url }}
           SEED_ENABLED: "true"
           APP_ENV: staging
         run: pnpm db:seed

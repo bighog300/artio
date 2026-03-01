@@ -8,6 +8,7 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16
@@ -53,7 +54,24 @@ jobs:
           pnpm -v
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        timeout-minutes: 5
+        run: pnpm prisma:generate
+
+      - name: Run safe Prisma deploy
+        timeout-minutes: 10
+        run: pnpm prisma:safe-deploy
+
+      - name: Verify migration status
+        timeout-minutes: 5
+        run: pnpm prisma migrate status
+
+      - name: Build app
+        timeout-minutes: 10
+        run: pnpm build
 
       - name: Print Prisma version
         run: pnpm prisma --version
@@ -64,17 +82,12 @@ jobs:
           node -e "console.log('DIRECT_URL host:', new URL(process.env.DIRECT_URL).hostname)"
           node -e "process.exit(new URL(process.env.DIRECT_URL).hostname.includes('-pooler') ? 1 : 0)"
 
+      - name: Assert CI DB is non-production
+        run: |
+          node -e "const host = new URL(process.env.DATABASE_URL).hostname; if (host !== '127.0.0.1' && host !== 'localhost') process.exit(1); console.log('CI database host validated:', host);"
+
       - name: Check migration FK ordering
         run: pnpm prisma:check-migration-order
-
-      - name: Generate Prisma Client
-        run: pnpm prisma:generate
-
-      - name: Verify migrate deploy on clean Postgres
-        run: pnpm prisma:safe-deploy
-
-      - name: Check migration status after deploy
-        run: pnpm prisma migrate status
 
       - name: Lint
         run: pnpm lint
@@ -87,6 +100,3 @@ jobs:
 
       - name: Check production env contract
         run: pnpm check-env
-
-      - name: Build
-        run: pnpm build
