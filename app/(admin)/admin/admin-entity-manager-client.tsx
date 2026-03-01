@@ -391,6 +391,9 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
                       isEditing={isEditing}
                       status={typeof item.status === "string" ? item.status : undefined}
                       publishBlockers={Array.isArray(item.publishBlockers) ? item.publishBlockers.filter((entry): entry is string => typeof entry === "string") : []}
+                      detailHref={entity === "venues" || entity === "events"
+                        ? `/admin/${entity === "venues" ? "venues" : "events"}/${String(item.id)}`
+                        : undefined}
                       onStartEdit={() => startEdit(item)}
                       onCancelEdit={() => setEditingId(null)}
                       onSaveSuccess={() => setEditingId(null)}
@@ -429,9 +432,14 @@ function editableFieldsForEntity(entity: EntityName): EditableField[] {
   if (entity === "venues") {
     return [
       { key: "name", label: "Name", type: "text" },
+      { key: "addressLine1", label: "Address", type: "text" },
       { key: "city", label: "City", type: "text" },
+      { key: "postcode", label: "Postcode", type: "text" },
       { key: "country", label: "Country", type: "text" },
-          ] as const;
+      { key: "lat", label: "Latitude", type: "text" },
+      { key: "lng", label: "Longitude", type: "text" },
+      { key: "websiteUrl", label: "Website URL", type: "text" },
+    ] as const;
   }
   return [
     { key: "name", label: "Name", type: "text" },

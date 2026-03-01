@@ -30,6 +30,7 @@ export type AdminInlineRowActionsProps<T extends Record<string, unknown>> = {
   onCancelEdit: () => void;
   onSaveSuccess?: () => void;
   onAfterMutate?: () => void;
+  detailHref?: string;
 };
 
 export function buildEditableDraft<T extends Record<string, unknown>>(
@@ -114,6 +115,7 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
   onCancelEdit,
   onSaveSuccess,
   onAfterMutate,
+  detailHref,
 }: AdminInlineRowActionsProps<T>) {
   const router = useRouter();
   const [draft, setDraft] = useState<Record<string, unknown>>(() => buildEditableDraft(initial, editable));
@@ -294,9 +296,16 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
             </Button>
           </>
         ) : (
-          <Button type="button" size="sm" variant="outline" onClick={() => onStartEdit(id)} disabled={controlsDisabled}>
-            Edit
-          </Button>
+          <>
+            <Button type="button" size="sm" variant="outline" onClick={() => onStartEdit(id)} disabled={controlsDisabled}>
+              Edit
+            </Button>
+            {detailHref ? (
+              <a href={detailHref} className="inline-flex items-center rounded border px-2 py-1 text-xs font-medium hover:bg-muted">
+                Edit full ↗
+              </a>
+            ) : null}
+          </>
         )}
 
         {supportsModeratedPublish && canPublish ? (

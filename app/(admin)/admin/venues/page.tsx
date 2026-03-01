@@ -12,7 +12,7 @@ export default async function AdminVenues() {
       <AdminEntityManagerClient
         entity="venues"
         title="Manage Venues"
-        fields={["name", "slug", "addressLine1", "addressLine2", "city", "postcode", "country", "websiteUrl", "isPublished", "description", "featuredAssetId"]}
+        fields={["name", "slug", "addressLine1", "addressLine2", "city", "postcode", "country", "lat", "lng", "websiteUrl", "isPublished", "description", "featuredAssetId"]}
         defaultMatchBy="slug"
       />
     </main>
