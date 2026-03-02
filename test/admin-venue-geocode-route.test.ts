@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { handleAdminVenueGeocode } from "../app/api/admin/venues/[id]/geocode/route";
+import { handleAdminVenueGeocode } from "../lib/admin-venue-geocode";
 
 const venueId = "11111111-1111-4111-8111-111111111111";
 
