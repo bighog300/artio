@@ -25,7 +25,8 @@
     "perf:smoke": "node scripts/perf-smoke.mjs",
     "vercel:build": "node scripts/check-env.mjs --mode=vercel-build && next build && node scripts/cleanup-next-cache.mjs && node scripts/report-build-sizes.mjs",
     "vercel:install": "pnpm install --frozen-lockfile",
-    "prisma:safe-deploy": "tsx scripts/prisma-safe-deploy.ts"
+    "prisma:safe-deploy": "tsx scripts/prisma-safe-deploy.ts",
+    "test:node": "node --import tsx --test"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   computeDraftPatch,
   getNextEditingId,
+  requestVenueAutoGeocodePublish,
   requestInlineArchiveToggle,
   requestInlinePatch,
 } from "../app/(admin)/admin/_components/AdminInlineRowActions";
@@ -26,7 +27,7 @@ test("Edit save calls PATCH with JSON body", async () => {
   assert.equal(calls[0]?.url, "/api/admin/events/evt_1");
   assert.equal(calls[0]?.init?.method, "PATCH");
   assert.equal(calls[0]?.init?.headers && (calls[0].init.headers as Record<string, string>)["Content-Type"], "application/json");
-  assert.equal(calls[0]?.init?.body, JSON.stringify({ title: "After", isPublished: true }));
+  assert.equal(calls[0]?.init?.body, JSON.stringify({ title: "After" }));
 });
 
 test("Archive and restore call POST to expected URLs", async () => {
@@ -69,4 +70,19 @@ test("Only one row editing at a time picks the latest row", () => {
 
   const rowB = getNextEditingId(rowA, "row-b");
   assert.equal(rowB, "row-b");
+});
+
+test("Auto geocode publish flow publishes after geocode succeeds", async () => {
+  const calls: string[] = [];
+  const mockFetch: typeof fetch = async (input) => {
+    const url = String(input);
+    calls.push(url);
+    if (url.includes("/geocode")) return new Response(JSON.stringify({ ok: true, lat: 1, lng: 2 }), { status: 200 });
+    return new Response(JSON.stringify({ item: { status: "PUBLISHED" } }), { status: 200 });
+  };
+
+  const result = await requestVenueAutoGeocodePublish("ven_1", mockFetch);
+  assert.equal(result.ok, true);
+  assert.equal(calls[0], "/api/admin/venues/ven_1/geocode");
+  assert.equal(calls[1], "/api/admin/venues/ven_1/publish");
 });

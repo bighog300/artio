@@ -104,6 +104,43 @@ function toBlockerLabel(blocker: string) {
   if (blocker.includes("City is required")) return "City";
   return blocker;
 }
+function isCoordinatesOnlyBlocker(blockers: string[] = []) {
+  return blockers.length > 0 && blockers.every((blocker) => blocker.includes("Coordinates are required"));
+}
+
+type VenueMutationResponse = {
+  item?: {
+    status?: string;
+    publishBlockers?: string[];
+  };
+  message?: string;
+  ok?: boolean;
+};
+
+
+export async function requestVenueAutoGeocodePublish(id: string, fetchImpl: typeof fetch = fetch) {
+  const geocodeRes = await fetchImpl(`/api/admin/venues/${id}/geocode`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  const geocodeBody = await geocodeRes.json().catch(() => null) as VenueMutationResponse | null;
+  if (!geocodeRes.ok || geocodeBody?.ok !== true) {
+    return { ok: false as const, stage: "geocode" as const, body: geocodeBody, status: geocodeRes.status };
+  }
+
+  const publishRes = await fetchImpl(`/api/admin/venues/${id}/publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  const publishBody = await publishRes.json().catch(() => null) as VenueMutationResponse | null;
+  if (!publishRes.ok) {
+    return { ok: false as const, stage: "publish" as const, body: publishBody, status: publishRes.status };
+  }
+
+  return { ok: true as const, body: publishBody };
+}
 
 export default function AdminInlineRowActions<T extends Record<string, unknown>>({
   entityLabel,
@@ -145,6 +182,7 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
   const advanceToStatus = status === "DRAFT" ? "IN_REVIEW" : status === "IN_REVIEW" ? "APPROVED" : null;
   const readiness = getReadinessLabel(status, publishBlockers);
   const hasCoordinatesBlocker = publishBlockers.some((blocker) => blocker.includes("Coordinates are required"));
+  const canAutoRetryPublishAfterGeocode = entityType === "venues" && status !== "PUBLISHED" && status !== "ARCHIVED" && isCoordinatesOnlyBlocker(publishBlockers);
 
   async function save() {
     setRowError(null);
@@ -188,26 +226,64 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
     setIsPublishing(true);
     try {
       const res = await requestLifecycleTransition(url);
+      const body = await res.json().catch(() => null) as VenueMutationResponse | null;
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        const blockerMessage = res.status === 409 && body?.error?.code === "publish_blocked"
-          ? formatBlockers(body?.error?.details?.blockers)
+        const blockerMessage = res.status === 409 && (body as { error?: { code?: string; details?: { blockers?: unknown } } } | null)?.error?.code === "publish_blocked"
+          ? formatBlockers((body as { error?: { details?: { blockers?: unknown } } } | null)?.error?.details?.blockers)
           : null;
         const message = blockerMessage ? `Publish blocked: ${blockerMessage}` : actionErrorMessage(res.status, failureTitle);
         setRowError(message);
         enqueueToast({ title: message, variant: "error" });
         return;
       }
-      enqueueToast({ title: successTitle });
+      const serverStatus = body?.item?.status;
+      enqueueToast({ title: successTitle + (serverStatus ? ` (${serverStatus})` : "") });
       onCancelEdit();
-      router.refresh();
+      mutateDone();
     } finally {
       setIsPublishing(false);
     }
   }
 
+  async function autoGeocodeAndPublishVenue() {
+    const result = await requestVenueAutoGeocodePublish(id);
+    if (!result.ok && result.stage === "geocode") {
+      const message = typeof result.body?.message === "string"
+        ? result.body.message
+        : "Could not geocode venue coordinates. Publishing is still blocked.";
+      setRowError(message);
+      enqueueToast({ title: message, variant: "error" });
+      return false;
+    }
+
+    if (!result.ok && result.stage === "publish") {
+      const blockerMessage = result.status === 409 && (result.body as { error?: { code?: string; details?: { blockers?: unknown } } } | null)?.error?.code === "publish_blocked"
+        ? formatBlockers((result.body as { error?: { details?: { blockers?: unknown } } } | null)?.error?.details?.blockers)
+        : null;
+      const message = blockerMessage ? `Publish blocked: ${blockerMessage}` : "Publish failed after geocoding";
+      setRowError(message);
+      enqueueToast({ title: message, variant: "error" });
+      return false;
+    }
+
+    enqueueToast({ title: `${entityLabel} geocoded and published` });
+    onCancelEdit();
+    mutateDone();
+    return true;
+  }
+
   async function publish() {
-    if (!supportsModeratedPublish || !canPublish) return;
+    if (!supportsModeratedPublish || (!canPublish && !canAutoRetryPublishAfterGeocode)) return;
+    if (canAutoRetryPublishAfterGeocode) {
+      setRowError(null);
+      setIsPublishing(true);
+      try {
+        await autoGeocodeAndPublishVenue();
+      } finally {
+        setIsPublishing(false);
+      }
+      return;
+    }
     const url = entityType === "venues" ? `/api/admin/venues/${id}/publish` : `/api/admin/events/${id}/publish`;
     await runLifecycleTransition(url, `${entityLabel} published`, "Publish failed");
   }
@@ -255,7 +331,7 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
         enqueueToast({ title: message, variant: "error" });
         return;
       }
-      enqueueToast({ title: "Coordinates updated" });
+      enqueueToast({ title: typeof body?.message === "string" ? body.message : "Coordinates updated" });
       mutateDone();
     } finally {
       setIsGeocoding(false);
@@ -342,9 +418,9 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
           </>
         )}
 
-        {supportsModeratedPublish && canPublish ? (
-          <Button type="button" size="sm" onClick={() => void publish()} disabled={controlsDisabled || !canPublish}>
-            {isPublishing ? "Publishing…" : "Publish"}
+        {supportsModeratedPublish && (canPublish || canAutoRetryPublishAfterGeocode) ? (
+          <Button type="button" size="sm" onClick={() => void publish()} disabled={controlsDisabled || (!canPublish && !canAutoRetryPublishAfterGeocode)}>
+            {isPublishing ? "Publishing…" : canAutoRetryPublishAfterGeocode ? "Publish (auto-geocode)" : "Publish"}
           </Button>
         ) : null}
 
