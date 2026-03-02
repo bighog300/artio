@@ -27,7 +27,7 @@
     "vercel:install": "pnpm install --frozen-lockfile",
     "prisma:safe-deploy": "tsx scripts/prisma-safe-deploy.ts",
     "test:node": "node scripts/run-node-tests.mjs",
-    "test:node:ci": "node scripts/run-node-tests.mjs --reporter=spec"
+    "test:node:ci": "node scripts/run-node-tests.mjs --test-reporter=spec"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",

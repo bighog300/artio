@@ -37,8 +37,21 @@ if (files.length === 0) {
   process.exit(1)
 }
 
-const reporterArg = process.argv.slice(2).find((arg) => arg.startsWith('--reporter='))
-const reporter = reporterArg ? reporterArg.slice('--reporter='.length) : undefined
+let reporter
+for (const arg of process.argv.slice(2)) {
+  if (arg.startsWith('--reporter=')) {
+    reporter = arg.slice('--reporter='.length)
+    continue
+  }
+
+  if (arg.startsWith('--test-reporter=')) {
+    reporter = arg.slice('--test-reporter='.length)
+    continue
+  }
+
+  console.error(`Unknown argument: ${arg}`)
+  process.exit(1)
+}
 
 const nodeArgs = ['--import', 'tsx', '--test', ...files]
 if (reporter) {
