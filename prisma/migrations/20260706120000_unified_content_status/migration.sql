@@ -5,6 +5,7 @@ DO $$ BEGIN
     'IN_REVIEW',
     'APPROVED',
     'REJECTED',
+    'CHANGES_REQUESTED',
     'PUBLISHED',
     'ARCHIVED'
   );
@@ -52,6 +53,7 @@ ALTER TABLE "Venue"
       WHEN "status" IS NULL THEN NULL
       WHEN "isPublished" = true THEN 'PUBLISHED'::"ContentStatus"
       WHEN "status" = 'SUBMITTED' THEN 'IN_REVIEW'::"ContentStatus"
+      WHEN "status" = 'CHANGES_REQUESTED' THEN 'CHANGES_REQUESTED'::"ContentStatus"
       ELSE "status"::text::"ContentStatus"
     END
   );
@@ -84,6 +86,7 @@ ALTER TABLE "Event"
       WHEN "status" IS NULL THEN NULL
       WHEN "isPublished" = true THEN 'PUBLISHED'::"ContentStatus"
       WHEN "status" = 'SUBMITTED' THEN 'IN_REVIEW'::"ContentStatus"
+      WHEN "status" = 'CHANGES_REQUESTED' THEN 'CHANGES_REQUESTED'::"ContentStatus"
       ELSE "status"::text::"ContentStatus"
     END
   );
