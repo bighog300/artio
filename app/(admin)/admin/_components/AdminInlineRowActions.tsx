@@ -92,9 +92,17 @@ function getReadinessLabel(status?: string, blockers: string[] = []) {
   if (status === "ARCHIVED") return { icon: "🚫", label: "Archived" };
   if (status === "REJECTED") return { icon: "↩️", label: "Rejected" };
   if (status === "IN_REVIEW") return { icon: "⏳", label: "In Review" };
-  if (blockers.length > 0) return { icon: "⚠️", label: `Missing ${blockers.length} fields` };
+  if (blockers.length > 0) return { icon: "⚠️", label: `Missing: ${blockers.map(toBlockerLabel).join(", ")}` };
   if (status === "PUBLISHED") return { icon: "✅", label: "Published" };
   return { icon: "✅", label: "Ready" };
+}
+
+function toBlockerLabel(blocker: string) {
+  if (blocker.includes("Coordinates are required")) return "Coordinates";
+  if (blocker.includes("Country is required")) return "Country";
+  if (blocker.includes("Venue name is required")) return "Venue name";
+  if (blocker.includes("City is required")) return "City";
+  return blocker;
 }
 
 export default function AdminInlineRowActions<T extends Record<string, unknown>>({
@@ -124,17 +132,19 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const mutateDone = useMemo(() => onAfterMutate ?? (() => router.refresh()), [onAfterMutate, router]);
-  const controlsDisabled = isSaving || isArchiving || isDeleting || isPublishing || isAdvancing;
+  const controlsDisabled = isSaving || isArchiving || isDeleting || isPublishing || isAdvancing || isGeocoding;
   const supportsModeratedPublish = entityType === "events" || entityType === "venues";
   const canPublish = !!status && status !== "PUBLISHED" && status !== "ARCHIVED" && publishBlockers.length === 0;
   const canUnpublish = status === "PUBLISHED";
   const advanceToStatus = status === "DRAFT" ? "IN_REVIEW" : status === "IN_REVIEW" ? "APPROVED" : null;
   const readiness = getReadinessLabel(status, publishBlockers);
+  const hasCoordinatesBlocker = publishBlockers.some((blocker) => blocker.includes("Coordinates are required"));
 
   async function save() {
     setRowError(null);
@@ -228,6 +238,30 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
     await runLifecycleTransition(url, `${entityLabel} unpublished`, "Unpublish failed");
   }
 
+  async function geocodeVenue() {
+    if (entityType !== "venues" || !hasCoordinatesBlocker) return;
+    setRowError(null);
+    setIsGeocoding(true);
+    try {
+      const res = await fetch(`/api/admin/venues/${id}/geocode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || body?.ok !== true) {
+        const message = typeof body?.message === "string" ? body.message : actionErrorMessage(res.status, "Geocode failed");
+        setRowError(message);
+        enqueueToast({ title: message, variant: "error" });
+        return;
+      }
+      enqueueToast({ title: "Coordinates updated" });
+      mutateDone();
+    } finally {
+      setIsGeocoding(false);
+    }
+  }
+
 
   function cancel() {
     setDraft(buildEditableDraft(initial, editable));
@@ -311,6 +345,12 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
         {supportsModeratedPublish && canPublish ? (
           <Button type="button" size="sm" onClick={() => void publish()} disabled={controlsDisabled || !canPublish}>
             {isPublishing ? "Publishing…" : "Publish"}
+          </Button>
+        ) : null}
+
+        {entityType === "venues" && hasCoordinatesBlocker ? (
+          <Button type="button" size="sm" variant="outline" onClick={() => void geocodeVenue()} disabled={controlsDisabled}>
+            {isGeocoding ? "Geocoding…" : "Geocode now"}
           </Button>
         ) : null}
 
