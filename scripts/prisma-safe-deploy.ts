@@ -14,6 +14,7 @@ type StatusSummary = {
   pendingMigrations: string[];
   failedDetected: boolean;
   pendingDetected: boolean;
+  uninitializedDetected: boolean;
   upToDate: boolean;
 };
 
@@ -113,6 +114,9 @@ function parseStatusSummary(statusOutput: string): StatusSummary {
     pendingMigrations,
     failedDetected: /Following migration have failed:/i.test(statusOutput),
     pendingDetected: /Following migrations have not yet been applied:/i.test(statusOutput),
+    uninitializedDetected:
+      /relation\s+"_prisma_migrations"\s+does not exist/i.test(statusOutput) ||
+      /The table `?_prisma_migrations`? does not exist/i.test(statusOutput),
     upToDate: /Database is up to date/i.test(statusOutput),
   };
 }
@@ -157,10 +161,11 @@ async function main() {
   const status = parseStatusSummary(statusResult.output);
 
   console.log(
-    `[prisma-safe-deploy] [status] pending=${status.pendingMigrations.length} failed=${status.failedMigrations.length} upToDate=${status.upToDate}`,
+    `[prisma-safe-deploy] [status] pending=${status.pendingMigrations.length} failed=${status.failedMigrations.length} uninitialized=${status.uninitializedDetected} upToDate=${status.upToDate}`,
   );
 
-  const recognizedStateCount = Number(status.failedDetected) + Number(status.pendingDetected) + Number(status.upToDate);
+  const recognizedStateCount =
+    Number(status.failedDetected) + Number(status.pendingDetected) + Number(status.uninitializedDetected) + Number(status.upToDate);
 
   if (recognizedStateCount === 0) {
     throw new Error("[prisma-safe-deploy] [status] Unknown prisma migrate status output. Refusing to continue.");
@@ -194,7 +199,10 @@ async function main() {
     console.log("[prisma-safe-deploy] [action] running migrate deploy");
     await runDeployWithRetry();
     console.log("[prisma-safe-deploy] [result] migrations applied successfully");
-  } else if (status.pendingDetected) {
+  } else if (status.pendingDetected || status.uninitializedDetected) {
+    if (status.uninitializedDetected) {
+      console.log("[prisma-safe-deploy] [status] Migration table missing; treating database as uninitialized.");
+    }
     console.log("[prisma-safe-deploy] [resolve] No failed migration detected. Resolve skipped.");
     console.log("[prisma-safe-deploy] [action] running migrate deploy");
     await runDeployWithRetry();

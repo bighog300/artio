@@ -47,7 +47,7 @@ enum SubmissionType {
 
 enum SubmissionStatus {
   DRAFT
-  SUBMITTED
+  IN_REVIEW
   APPROVED
   REJECTED
 }
