@@ -23,7 +23,7 @@
     "prisma:check-migration-order": "node scripts/check-migration-order.mjs",
     "check-env": "node scripts/check-env.mjs",
     "perf:smoke": "node scripts/perf-smoke.mjs",
-    "vercel:build": "node scripts/check-env.mjs --mode=vercel-build && next build && node scripts/report-build-sizes.mjs",
+    "vercel:build": "node scripts/check-env.mjs --mode=vercel-build && next build && node scripts/cleanup-next-cache.mjs && node scripts/report-build-sizes.mjs",
     "vercel:install": "pnpm install --frozen-lockfile",
     "prisma:safe-deploy": "tsx scripts/prisma-safe-deploy.ts"
   },

@@ -5,7 +5,7 @@ import { relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const root = process.cwd();
-const targets = [".next", ".vercel/output"];
+const targets = [".next", ".vercel/output", "/vercel/output"];
 
 function kb(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
@@ -39,7 +39,7 @@ function largestFiles(pathname, count = 10) {
     });
 }
 
-console.log("[build-size] Summary");
+console.log("[build-size] Summary (post-cleanup)");
 for (const target of targets) {
   const size = dirSize(target);
   if (size === null) {
