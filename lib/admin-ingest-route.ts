@@ -436,7 +436,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         data: {
           type: "EVENT",
           kind: "PUBLISH",
-          status: "SUBMITTED",
+          status: "IN_REVIEW",
           submitterUserId: actor.id,
           venueId: candidate.venueId,
           targetEventId: createdEvent.id,

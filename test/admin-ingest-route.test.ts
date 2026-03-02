@@ -84,7 +84,7 @@ test("approve creates draft event + submission and updates candidate", async () 
   assert.equal(events[0]?.isPublished, false);
   assert.equal(submissions.length, 1);
   assert.equal(submissions[0]?.targetEventId, body.createdEventId);
-  assert.equal(submissions[0]?.status, "SUBMITTED");
+  assert.equal(submissions[0]?.status, "IN_REVIEW");
   assert.equal(candidate.status, "APPROVED");
   assert.equal(candidate.createdEventId, body.createdEventId);
 });

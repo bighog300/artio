@@ -22,7 +22,7 @@ type VenueRecord = {
   isPublished: boolean;
 };
 
-export default function VenueSelfServeForm({ venue, submissionStatus }: { venue: VenueRecord; submissionStatus: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null }) {
+export default function VenueSelfServeForm({ venue, submissionStatus }: { venue: VenueRecord; submissionStatus: "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED" | null }) {
   void submissionStatus;
   const router = useRouter();
   const [form, setForm] = useState<Record<string, unknown>>({ ...venue });

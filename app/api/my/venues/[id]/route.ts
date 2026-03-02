@@ -78,7 +78,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         select: { status: true },
       });
 
-      if (latest?.status === "SUBMITTED") {
+      if (latest?.status === "IN_REVIEW") {
         return NextResponse.json({ error: "ALREADY_SUBMITTED", message: "Submission is already pending review." }, { status: 409 });
       }
 
@@ -86,7 +86,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data: {
           type: "VENUE",
           kind: "PUBLISH",
-          status: "SUBMITTED",
+          status: "IN_REVIEW",
           submitterUserId: user.id,
           venueId: existing.id,
           targetVenueId: existing.id,

@@ -38,7 +38,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ eventId: 
     if (event.status === "IN_REVIEW") return NextResponse.json({ error: "ALREADY_SUBMITTED", message: "Submission is already pending review." }, { status: 409 });
     if (event.status === "PUBLISHED") return NextResponse.json({ error: "ALREADY_APPROVED", message: "Event is already approved and published." }, { status: 409 });
 
-    const created = await db.submission.create({ data: { type: "EVENT", kind: "PUBLISH", status: "SUBMITTED", submitterUserId: user.id, venueId: event.venueId, targetEventId: event.id, submittedAt: new Date(), decisionReason: null, decidedAt: null, decidedByUserId: null } });
+    const created = await db.submission.create({ data: { type: "EVENT", kind: "PUBLISH", status: "IN_REVIEW", submitterUserId: user.id, venueId: event.venueId, targetEventId: event.id, submittedAt: new Date(), decisionReason: null, decidedAt: null, decidedByUserId: null } });
 
     await db.event.update({ where: { id: event.id }, data: { status: "IN_REVIEW", submittedAt: new Date() } });
 

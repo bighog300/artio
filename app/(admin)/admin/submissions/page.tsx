@@ -5,15 +5,15 @@ import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 
 export const dynamic = "force-dynamic";
 
-const allowedStatuses = ["SUBMITTED", "APPROVED", "REJECTED"] as const;
+const allowedStatuses = ["IN_REVIEW", "APPROVED", "REJECTED"] as const;
 type StatusFilter = (typeof allowedStatuses)[number];
 const allowedTypes = ["EVENT", "VENUE", "ARTIST"] as const;
 type TypeFilter = (typeof allowedTypes)[number] | "ALL";
 
 export default async function AdminSubmissionsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const resolved = await searchParams;
-  const inputStatus = typeof resolved.status === "string" ? resolved.status : "SUBMITTED";
-  const status: StatusFilter = allowedStatuses.includes(inputStatus as StatusFilter) ? (inputStatus as StatusFilter) : "SUBMITTED";
+  const inputStatus = typeof resolved.status === "string" ? resolved.status : "IN_REVIEW";
+  const status: StatusFilter = allowedStatuses.includes(inputStatus as StatusFilter) ? (inputStatus as StatusFilter) : "IN_REVIEW";
   const inputType = typeof resolved.type === "string" ? resolved.type : "ALL";
   const type: TypeFilter = inputType === "ALL" || allowedTypes.includes(inputType as (typeof allowedTypes)[number]) ? (inputType as TypeFilter) : "ALL";
 

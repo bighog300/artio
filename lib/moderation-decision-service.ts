@@ -60,7 +60,7 @@ export async function decideSubmission(input: DecideSubmissionInput, dbClient: D
       throw new ModerationDecisionError(403, "forbidden", "Editor role required");
     }
 
-    if (submission.status !== "SUBMITTED") {
+    if (submission.status !== "IN_REVIEW") {
       return { submission, idempotent: true as const, submitterId: submission.submitter.id, submitterEmail: submission.submitter.email };
     }
 

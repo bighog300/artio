@@ -18,7 +18,7 @@ type QueueItem = {
   summary?: string | null;
 };
 
-type ModerationSubmission = { id: string; status: "SUBMITTED" | "APPROVED" | "REJECTED" | "DRAFT"; targetArtistId: string | null; targetVenueId: string | null; targetEventId: string | null };
+type ModerationSubmission = { id: string; status: "IN_REVIEW" | "APPROVED" | "REJECTED" | "DRAFT"; targetArtistId: string | null; targetVenueId: string | null; targetEventId: string | null };
 
 type ModerationDeps = {
   requireAdminUser: () => Promise<ModeratorUser>;
@@ -58,7 +58,7 @@ async function resolvePending(entityType: EntityType, params: { submissionId?: s
 
   const submission = await deps.findSubmission(entityType, submissionId);
   if (!submission) return { error: apiError(404, "not_found", "Submission not found") };
-  if (submission.status !== "SUBMITTED") return { error: NextResponse.json({ error: "ALREADY_DECIDED" }, { status: 409 }) };
+  if (submission.status !== "IN_REVIEW") return { error: NextResponse.json({ error: "ALREADY_DECIDED" }, { status: 409 }) };
 
   return { admin, submissionId };
 }

@@ -167,7 +167,7 @@ jobs:
           DIRECT_URL: ${{ steps.normalize-urls.outputs.direct_url }}
           NEXTAUTH_URL: http://127.0.0.1:3000
           CRON_SECRET: ci-preview-cron-secret
-        run: pnpm build
+        run: pnpm vercel:build
 
       - name: Seed preview DB
         env:

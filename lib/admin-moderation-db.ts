@@ -18,15 +18,15 @@ export function createAdminModerationDeps(): ModerationDeps {
     getQueueItems: async () => {
       const [artistSubmissions, venueSubmissions, eventSubmissions] = await Promise.all([
         db.submission.findMany({
-          where: { type: "ARTIST", status: "SUBMITTED", OR: publishKinds },
+          where: { type: "ARTIST", status: "IN_REVIEW", OR: publishKinds },
           include: { targetArtist: true, submitter: { select: { id: true, email: true, name: true } } },
         }),
         db.submission.findMany({
-          where: { type: "VENUE", status: "SUBMITTED", OR: publishKinds },
+          where: { type: "VENUE", status: "IN_REVIEW", OR: publishKinds },
           include: { targetVenue: true, submitter: { select: { id: true, email: true, name: true } } },
         }),
         db.submission.findMany({
-          where: { type: "EVENT", status: "SUBMITTED", OR: publishKinds },
+          where: { type: "EVENT", status: "IN_REVIEW", OR: publishKinds },
           include: { targetEvent: true, submitter: { select: { id: true, email: true, name: true } } },
         }),
       ]);

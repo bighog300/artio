@@ -268,7 +268,7 @@ If included in MVP, keep it minimal.
 
 - `Submission.type`: `VENUE | EVENT | ARTIST`
 - `Submission.kind`: `PUBLISH | REVISION` (`REVISION` currently used for published event edits)
-- `Submission.status`: `DRAFT | SUBMITTED | APPROVED | REJECTED`
+- `Submission.status`: `DRAFT | IN_REVIEW | APPROVED | REJECTED`
 - `targetArtistId` links artist publish submissions to `Artist`
 
 Publishing rule for artists:

@@ -13,7 +13,7 @@ const baseSubmission = {
   targetEventId: null,
   targetVenueId: "22222222-2222-4222-8222-222222222222",
   targetArtistId: null,
-  status: "SUBMITTED" as const,
+  status: "IN_REVIEW" as const,
   submitter: { id: "user-1", email: "submitter@example.com" },
   targetVenue: { slug: "gallery-aurora" },
   targetArtist: null,

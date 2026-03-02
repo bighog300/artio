@@ -1,20 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import type { ContentStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { enqueueToast } from "@/lib/toast";
 
-type ModerationStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "PUBLISHED" | "REJECTED" | "ARCHIVED";
+type ModerationStatus = ContentStatus;
 
 const actionsByStatus: Record<ModerationStatus, Array<{ label: string; nextStatus: ModerationStatus }>> = {
   DRAFT: [{ label: "Submit for Review", nextStatus: "IN_REVIEW" }],
-  IN_REVIEW: [{ label: "Approve", nextStatus: "APPROVED" }, { label: "Request Changes", nextStatus: "DRAFT" }, { label: "Reject", nextStatus: "REJECTED" }],
+  IN_REVIEW: [{ label: "Approve", nextStatus: "APPROVED" }, { label: "Request Changes", nextStatus: "CHANGES_REQUESTED" }, { label: "Reject", nextStatus: "REJECTED" }],
   APPROVED: [{ label: "Publish", nextStatus: "PUBLISHED" }, { label: "Reject", nextStatus: "REJECTED" }],
-  PUBLISHED: [{ label: "Unpublish", nextStatus: "APPROVED" }, { label: "Archive", nextStatus: "ARCHIVED" }],
   REJECTED: [{ label: "Reopen", nextStatus: "IN_REVIEW" }],
+  CHANGES_REQUESTED: [{ label: "Move to Draft", nextStatus: "DRAFT" }, { label: "Resubmit for Review", nextStatus: "IN_REVIEW" }],
+  PUBLISHED: [{ label: "Unpublish", nextStatus: "APPROVED" }, { label: "Archive", nextStatus: "ARCHIVED" }],
   ARCHIVED: [{ label: "Restore", nextStatus: "APPROVED" }],
 };
+
 
 export default function ModerationDetailClient({
   type,
@@ -44,7 +47,7 @@ export default function ModerationDetailClient({
         body: JSON.stringify({
           status: pendingAction.nextStatus,
           ...(pendingAction.nextStatus === "PUBLISHED" ? { isPublished: true } : {}),
-          ...(["APPROVED", "DRAFT", "IN_REVIEW", "REJECTED", "ARCHIVED"].includes(pendingAction.nextStatus) ? { isPublished: false } : {}),
+          ...(["APPROVED", "DRAFT", "IN_REVIEW", "REJECTED", "CHANGES_REQUESTED", "ARCHIVED"].includes(pendingAction.nextStatus) ? { isPublished: false } : {}),
         }),
       });
       if (!res.ok) {

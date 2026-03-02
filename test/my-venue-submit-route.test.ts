@@ -33,7 +33,7 @@ test("handleVenueSubmit returns unauthorized when user is anonymous", async () =
     requireVenueMembership: async () => undefined,
     findVenueForSubmit: async () => completeVenue,
     getLatestSubmissionStatus: async () => null,
-    createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    createSubmission: async () => ({ id: "sub-1", status: "IN_REVIEW", createdAt: new Date(), submittedAt: new Date() }),
     setVenuePublishedDraft: async () => undefined,
     enqueueSubmissionNotification: async () => undefined,
   });
@@ -50,7 +50,7 @@ test("handleVenueSubmit returns forbidden when user is not venue member", async 
     requireVenueMembership: async () => { throw new Error("forbidden"); },
     findVenueForSubmit: async () => completeVenue,
     getLatestSubmissionStatus: async () => null,
-    createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    createSubmission: async () => ({ id: "sub-1", status: "IN_REVIEW", createdAt: new Date(), submittedAt: new Date() }),
     setVenuePublishedDraft: async () => undefined,
     enqueueSubmissionNotification: async () => undefined,
   });
@@ -67,7 +67,7 @@ test("handleVenueSubmit allows site ADMIN to publish without venue membership", 
     requireVenueMembership: async () => undefined,
     findVenueForSubmit: async () => completeVenue,
     getLatestSubmissionStatus: async () => null,
-    createSubmission: async () => ({ id: "sub-admin", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    createSubmission: async () => ({ id: "sub-admin", status: "IN_REVIEW", createdAt: new Date(), submittedAt: new Date() }),
     setVenuePublishedDraft: async () => undefined,
     enqueueSubmissionNotification: async () => undefined,
   });
@@ -84,7 +84,7 @@ test("handleVenueSubmit allows venue OWNER to publish", async () => {
     requireVenueMembership: async () => undefined,
     findVenueForSubmit: async () => completeVenue,
     getLatestSubmissionStatus: async () => null,
-    createSubmission: async () => ({ id: "sub-owner", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    createSubmission: async () => ({ id: "sub-owner", status: "IN_REVIEW", createdAt: new Date(), submittedAt: new Date() }),
     setVenuePublishedDraft: async () => undefined,
     enqueueSubmissionNotification: async () => undefined,
   });
@@ -101,7 +101,7 @@ test("handleVenueSubmit blocks users who are not OWNER/EDITOR/ADMIN", async () =
     requireVenueMembership: async () => { throw new Error("forbidden"); },
     findVenueForSubmit: async () => completeVenue,
     getLatestSubmissionStatus: async () => null,
-    createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    createSubmission: async () => ({ id: "sub-1", status: "IN_REVIEW", createdAt: new Date(), submittedAt: new Date() }),
     setVenuePublishedDraft: async () => undefined,
     enqueueSubmissionNotification: async () => undefined,
   });
@@ -118,7 +118,7 @@ test("handleVenueSubmit returns NOT_READY when venue is incomplete", async () =>
     requireVenueMembership: async () => undefined,
     findVenueForSubmit: async () => ({ ...completeVenue, city: null, country: null, featuredAssetId: null, images: [] }),
     getLatestSubmissionStatus: async () => null,
-    createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    createSubmission: async () => ({ id: "sub-1", status: "IN_REVIEW", createdAt: new Date(), submittedAt: new Date() }),
     setVenuePublishedDraft: async () => undefined,
     enqueueSubmissionNotification: async () => undefined,
   });
@@ -145,7 +145,7 @@ test("handleVenueSubmit creates submission when venue is complete", async () => 
     createSubmission: async (input) => {
       created = true;
       assert.equal(input.message, "Ready for review");
-      return { id: "sub-1", status: "SUBMITTED", createdAt: new Date("2026-01-01T00:00:00.000Z"), submittedAt: new Date() };
+      return { id: "sub-1", status: "IN_REVIEW", createdAt: new Date("2026-01-01T00:00:00.000Z"), submittedAt: new Date() };
     },
     setVenuePublishedDraft: async () => undefined,
     enqueueSubmissionNotification: async () => undefined,
@@ -155,7 +155,7 @@ test("handleVenueSubmit creates submission when venue is complete", async () => 
   assert.equal(created, true);
   const body = await res.json();
   assert.equal(body.submission.id, "sub-1");
-  assert.equal(body.submission.status, "SUBMITTED");
+  assert.equal(body.submission.status, "IN_REVIEW");
 });
 
 test("handleVenueSubmit returns 409 when already submitted", async () => {
@@ -164,8 +164,8 @@ test("handleVenueSubmit returns 409 when already submitted", async () => {
     requireAuth: async () => ({ id: "owner-1", email: "owner@example.com" }),
     requireVenueMembership: async () => undefined,
     findVenueForSubmit: async () => completeVenue,
-    getLatestSubmissionStatus: async () => "SUBMITTED",
-    createSubmission: async () => ({ id: "sub-owner", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    getLatestSubmissionStatus: async () => "IN_REVIEW",
+    createSubmission: async () => ({ id: "sub-owner", status: "IN_REVIEW", createdAt: new Date(), submittedAt: new Date() }),
     setVenuePublishedDraft: async () => undefined,
     enqueueSubmissionNotification: async () => undefined,
   });

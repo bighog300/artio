@@ -28,8 +28,8 @@ export default async function MyVenuesPage({ searchParams }: { searchParams: Ven
 
   const rows = memberships.filter((m) => {
     const s = m.venue.targetSubmissions[0]?.status;
-    if (status === "Draft" || status === "draft") return !m.venue.isPublished && s !== "SUBMITTED" && s !== "REJECTED";
-    if (status === "Submitted" || status === "submitted") return s === "SUBMITTED";
+    if (status === "Draft" || status === "draft") return !m.venue.isPublished && s !== "IN_REVIEW" && s !== "REJECTED";
+    if (status === "Submitted" || status === "submitted") return s === "IN_REVIEW";
     if (status === "Rejected" || status === "rejected") return s === "REJECTED";
     if (status === "Published" || status === "published") return m.venue.isPublished;
     if (status === "Archived" || status === "archived") return !!m.venue.deletedAt;
@@ -68,7 +68,7 @@ export default async function MyVenuesPage({ searchParams }: { searchParams: Ven
         <tbody>
           {rows.map((item) => {
             const latest = item.venue.targetSubmissions[0]?.status;
-            const statusLabel = item.venue.deletedAt ? "Archived" : item.venue.isPublished ? "Published" : latest === "SUBMITTED" ? "Submitted" : latest === "REJECTED" ? "Rejected" : "Draft";
+            const statusLabel = item.venue.deletedAt ? "Archived" : item.venue.isPublished ? "Published" : latest === "IN_REVIEW" ? "Submitted" : latest === "REJECTED" ? "Rejected" : "Draft";
             return (
               <tr key={item.id} className="border-b">
                 <td className="p-2">{item.venue.name}</td>

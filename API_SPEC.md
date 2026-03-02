@@ -339,7 +339,7 @@ Error shape follows global conventions (`error.code` values include `invalid_req
 {
   "submission": {
     "id": "uuid",
-    "status": "SUBMITTED",
+    "status": "IN_REVIEW",
     "createdAt": "2026-02-14T10:00:00.000Z"
   }
 }
@@ -412,7 +412,7 @@ All endpoints return the standard error shape (`unauthorized`, `forbidden`, `inv
 {
   "submission": {
     "id": "uuid",
-    "status": "SUBMITTED",
+    "status": "IN_REVIEW",
     "createdAt": "2026-02-14T10:00:00.000Z"
   }
 }
@@ -462,7 +462,7 @@ Used for published events. This creates a moderation submission with `kind="REVI
 {
   "revisionSubmission": {
     "id": "uuid",
-    "status": "SUBMITTED",
+    "status": "IN_REVIEW",
     "createdAt": "2026-02-25T10:00:00.000Z"
   }
 }
@@ -586,7 +586,7 @@ Response 200:
 {
   "submission": {
     "id": "uuid",
-    "status": "SUBMITTED",
+    "status": "IN_REVIEW",
     "createdAt": "2026-02-14T10:00:00.000Z"
   }
 }

@@ -1,12 +1,13 @@
 import { Badge } from "@/components/ui/badge";
+import type { ContentStatus } from "@prisma/client";
 
-type SubmissionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null;
+type SubmissionStatus = ContentStatus | null;
 
 function getStatusMeta(status: SubmissionStatus, isPublished: boolean) {
   if (isPublished || status === "APPROVED") {
     return { label: "Published", subtext: "Published — visible on ArtPulse.", variant: "default" as const };
   }
-  if (status === "SUBMITTED") {
+  if (status === "IN_REVIEW") {
     return { label: "Submitted", subtext: "Submitted — in the Admin review queue.", variant: "secondary" as const };
   }
   if (status === "REJECTED") {

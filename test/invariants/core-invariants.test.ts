@@ -12,7 +12,7 @@ function makeModerationDbState() {
     submission: {
       id: "sub-1",
       type: "VENUE" as const,
-      status: "SUBMITTED" as const,
+      status: "IN_REVIEW" as const,
       submitterUserId: "user-1",
       targetArtistId: null,
       targetVenueId: "venue-1",
@@ -94,7 +94,7 @@ test("moderation approval is atomic: no partial writes on failure", async () => 
     /notification down/,
   );
 
-  assert.equal(state.submission.status, "SUBMITTED");
+  assert.equal(state.submission.status, "IN_REVIEW");
   assert.equal(state.venuePublished, false);
   assert.deepEqual(state.audits, []);
   assert.deepEqual(state.notifications, []);
@@ -112,7 +112,7 @@ test("editors cannot approve their own submissions", async () => {
       && error.message === "Editors cannot decide their own submissions",
   );
 
-  assert.equal(state.submission.status, "SUBMITTED");
+  assert.equal(state.submission.status, "IN_REVIEW");
   assert.equal(state.venuePublished, false);
   assert.deepEqual(state.audits, []);
   assert.deepEqual(state.notifications, []);

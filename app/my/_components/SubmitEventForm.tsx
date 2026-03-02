@@ -8,7 +8,7 @@ import { enqueueToast } from "@/lib/toast";
 
 type ExistingSubmission = {
   eventId: string;
-  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
+  status: "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED";
   decisionReason: string | null;
   submittedAt: string | null;
   decidedAt: string | null;
@@ -19,7 +19,7 @@ type ExistingSubmission = {
   timezone: string;
   latestRevision: {
     id: string;
-    status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
+    status: "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED";
     decisionReason: string | null;
     createdAt: string;
     decidedAt: string | null;
@@ -97,11 +97,11 @@ export default function SubmitEventForm({ venueId, existing }: { venueId: string
 
   const getStatusLabel = (item: ExistingSubmission) => {
     if (item.isPublished && !item.latestRevision) return "Live";
-    if (item.latestRevision?.status === "SUBMITTED") return "Revision pending";
+    if (item.latestRevision?.status === "IN_REVIEW") return "Revision pending";
     if (item.latestRevision?.status === "REJECTED") return "Needs changes";
     if (item.latestRevision?.status === "APPROVED") return "Applied";
     if (item.isPublished || item.status === "APPROVED") return "Published";
-    if (item.status === "SUBMITTED") return "Pending review";
+    if (item.status === "IN_REVIEW") return "Pending review";
     if (item.status === "REJECTED") return "Needs changes";
     return "Draft";
   };

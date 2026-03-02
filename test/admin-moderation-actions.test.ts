@@ -10,7 +10,7 @@ test("approve transitions submitted and publishes entity", async () => {
   let approved = false;
   const res = await handleAdminModerationApprove("VENUE", params, {
     requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
-    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: "venue-1", targetEventId: null }),
+    findSubmission: async () => ({ id: params.submissionId, status: "IN_REVIEW", targetArtistId: null, targetVenueId: "venue-1", targetEventId: null }),
     approveSubmission: async (_type, _submissionId, admin) => {
       approved = admin.id === "admin-1";
     },
@@ -25,7 +25,7 @@ test("approve accepts editor role", async () => {
   let actorRole = "";
   const res = await handleAdminModerationApprove("EVENT", params, {
     requireAdminUser: async () => ({ id: "editor-1", email: "editor@example.com", role: "EDITOR" }),
-    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "IN_REVIEW", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
     approveSubmission: async (_type, _submissionId, admin) => {
       actorRole = admin.role;
     },
@@ -45,7 +45,7 @@ test("reject transitions submitted and does not publish", async () => {
 
   const res = await handleAdminModerationReject(req, "VENUE", params, {
     requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
-    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: "venue-1", targetEventId: null }),
+    findSubmission: async () => ({ id: params.submissionId, status: "IN_REVIEW", targetArtistId: null, targetVenueId: "venue-1", targetEventId: null }),
     rejectSubmission: async (_type, _submissionId, _admin, reason) => {
       rejectionReason = reason;
     },
@@ -68,7 +68,7 @@ test("already decided returns 409", async () => {
 test("approve maps moderation decision errors to api responses", async () => {
   const res = await handleAdminModerationApprove("EVENT", params, {
     requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
-    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "IN_REVIEW", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
     approveSubmission: async () => {
       throw new ModerationDecisionError(403, "forbidden", "Editors cannot decide their own submissions");
     },
@@ -88,7 +88,7 @@ test("reject maps moderation decision errors to api responses", async () => {
 
   const res = await handleAdminModerationReject(rejectReq, "EVENT", params, {
     requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
-    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "IN_REVIEW", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
     rejectSubmission: async () => {
       throw new ModerationDecisionError(403, "forbidden", "Editors cannot decide their own submissions");
     },
@@ -103,7 +103,7 @@ test("approve/reject invoke audit-capable deps", async () => {
   const actions: string[] = [];
   await handleAdminModerationApprove("EVENT", params, {
     requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
-    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "IN_REVIEW", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
     approveSubmission: async () => { actions.push("ADMIN_SUBMISSION_APPROVED"); },
   });
 
@@ -114,7 +114,7 @@ test("approve/reject invoke audit-capable deps", async () => {
   });
   await handleAdminModerationReject(rejectReq, "EVENT", params, {
     requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
-    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "IN_REVIEW", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
     rejectSubmission: async () => { actions.push("ADMIN_SUBMISSION_REJECTED"); },
   });
 

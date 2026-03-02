@@ -25,7 +25,7 @@ test("handleVenueEventSubmit returns unauthorized when user is anonymous", async
     requireVenueMembership: async () => undefined,
     findEventForSubmit: async () => completeEvent,
     getLatestSubmissionStatus: async () => null,
-    createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    createSubmission: async () => ({ id: "sub-1", status: "IN_REVIEW", createdAt: new Date(), submittedAt: new Date() }),
     enqueueSubmissionNotification: async () => undefined,
   });
 
@@ -41,7 +41,7 @@ test("handleVenueEventSubmit returns forbidden when user is not a venue member",
     requireVenueMembership: async () => { throw new Error("forbidden"); },
     findEventForSubmit: async () => completeEvent,
     getLatestSubmissionStatus: async () => null,
-    createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    createSubmission: async () => ({ id: "sub-1", status: "IN_REVIEW", createdAt: new Date(), submittedAt: new Date() }),
     enqueueSubmissionNotification: async () => undefined,
   });
 
@@ -57,7 +57,7 @@ test("handleVenueEventSubmit returns NOT_READY when event is incomplete", async 
     requireVenueMembership: async () => undefined,
     findEventForSubmit: async () => ({ ...completeEvent, venueId: null }),
     getLatestSubmissionStatus: async () => null,
-    createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    createSubmission: async () => ({ id: "sub-1", status: "IN_REVIEW", createdAt: new Date(), submittedAt: new Date() }),
     enqueueSubmissionNotification: async () => undefined,
   });
 
@@ -83,7 +83,7 @@ test("handleVenueEventSubmit creates submission when event is complete", async (
     createSubmission: async (input) => {
       created = true;
       assert.equal(input.message, "Ready for event review");
-      return { id: "sub-1", status: "SUBMITTED", createdAt: new Date("2026-01-01T00:00:00.000Z"), submittedAt: new Date() };
+      return { id: "sub-1", status: "IN_REVIEW", createdAt: new Date("2026-01-01T00:00:00.000Z"), submittedAt: new Date() };
     },
     enqueueSubmissionNotification: async () => undefined,
   });
@@ -92,7 +92,7 @@ test("handleVenueEventSubmit creates submission when event is complete", async (
   assert.equal(created, true);
   const body = await res.json();
   assert.equal(body.submission.id, "sub-1");
-  assert.equal(body.submission.status, "SUBMITTED");
+  assert.equal(body.submission.status, "IN_REVIEW");
 });
 
 test("handleVenueEventSubmit returns 409 while pending", async () => {
@@ -101,8 +101,8 @@ test("handleVenueEventSubmit returns 409 while pending", async () => {
     requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
     requireVenueMembership: async () => undefined,
     findEventForSubmit: async () => completeEvent,
-    getLatestSubmissionStatus: async () => "SUBMITTED",
-    createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    getLatestSubmissionStatus: async () => "IN_REVIEW",
+    createSubmission: async () => ({ id: "sub-1", status: "IN_REVIEW", createdAt: new Date(), submittedAt: new Date() }),
     enqueueSubmissionNotification: async () => undefined,
   });
   assert.equal(res.status, 409);

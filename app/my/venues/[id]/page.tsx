@@ -142,7 +142,7 @@ export default async function MyVenueEditPage({
 
       <VenueCompletionProgress checks={checks} />
 
-      {checks.publishReady && submission?.status !== "SUBMITTED" && !venue.isPublished ? (
+      {checks.publishReady && submission?.status !== "IN_REVIEW" && !venue.isPublished ? (
         <div className="rounded-md border border-emerald-300 bg-emerald-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-semibold text-emerald-900">{canPublishDirectly ? "This venue is ready for direct publish control in admin moderation." : "This venue is ready to submit for review."}</p>

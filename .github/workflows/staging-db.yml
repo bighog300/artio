@@ -131,7 +131,7 @@ jobs:
           DIRECT_URL: ${{ steps.normalize-urls.outputs.direct_url }}
           NEXTAUTH_URL: http://127.0.0.1:3000
           CRON_SECRET: ci-staging-cron-secret
-        run: pnpm build
+        run: pnpm vercel:build
 
       - name: Seed staging DB (optional)
         if: ${{ vars.STAGING_SEED_ENABLED == 'true' }}

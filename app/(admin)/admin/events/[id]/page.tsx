@@ -16,7 +16,7 @@ export default async function AdminEditEvent({ params }: { params: Promise<{ id:
   if (!event) notFound();
 
   const pendingSubmission = await db.submission.findFirst({
-    where: { targetEventId: id, status: "SUBMITTED" },
+    where: { targetEventId: id, status: "IN_REVIEW" },
     orderBy: { createdAt: "desc" },
     select: { id: true },
   });

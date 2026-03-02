@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       data: {
         type: "EVENT",
         kind: "REVISION",
-        status: "SUBMITTED",
+        status: "IN_REVIEW",
         submitterUserId: userId,
         venueId,
         targetEventId: eventId,

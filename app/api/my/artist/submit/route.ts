@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       data: {
         type: "ARTIST",
         kind: "PUBLISH",
-        status: "SUBMITTED",
+        status: "IN_REVIEW",
         submitterUserId: userId,
         targetArtistId: artistId,
         note: message ?? null,

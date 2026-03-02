@@ -4,10 +4,10 @@ import test from "node:test";
 
 const source = readFileSync("app/(admin)/admin/submissions/page.tsx", "utf8");
 
-test("status tabs whitelist and fallback to SUBMITTED", () => {
-  assert.match(source, /const allowedStatuses = \["SUBMITTED", "APPROVED", "REJECTED"\] as const/);
-  assert.match(source, /const inputStatus = typeof resolved\.status === "string" \? resolved\.status : "SUBMITTED"/);
-  assert.match(source, /const status: StatusFilter = allowedStatuses\.includes\(inputStatus as StatusFilter\) \? \(inputStatus as StatusFilter\) : "SUBMITTED"/);
+test("status tabs whitelist and fallback to IN_REVIEW", () => {
+  assert.match(source, /const allowedStatuses = \["IN_REVIEW", "APPROVED", "REJECTED"\] as const/);
+  assert.match(source, /const inputStatus = typeof resolved\.status === "string" \? resolved\.status : "IN_REVIEW"/);
+  assert.match(source, /const status: StatusFilter = allowedStatuses\.includes\(inputStatus as StatusFilter\) \? \(inputStatus as StatusFilter\) : "IN_REVIEW"/);
 });
 
 test("status tab links preserve type filter", () => {

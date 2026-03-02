@@ -6,7 +6,7 @@ import { buildModerationRequest, normalizeModerationErrorMessage } from "@/app/(
 function makeItem(type: "EVENT" | "VENUE" | "ARTIST") {
   return {
     id: "sub_123",
-    status: "SUBMITTED",
+    status: "IN_REVIEW",
     type,
     note: null,
     decisionReason: null,

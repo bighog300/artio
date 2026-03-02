@@ -9,11 +9,11 @@ export function hasMinimumVenueRole(role: VenueRole, minRole: VenueRole) {
   return roleRank[role] >= roleRank[minRole];
 }
 
-export function canEditSubmission(status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED") {
+export function canEditSubmission(status: "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED") {
   return status === "DRAFT" || status === "REJECTED";
 }
 
-export function canResubmitSubmission(status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED") {
+export function canResubmitSubmission(status: "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED") {
   return status === "DRAFT" || status === "REJECTED";
 }
 
@@ -26,8 +26,8 @@ export function canRemoveOwnerMember(ownerCount: number, targetRole: VenueRole) 
   return ownerCount > 1;
 }
 
-export function nextSubmissionStatusForSubmit(status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED") {
-  return canResubmitSubmission(status) ? "SUBMITTED" : null;
+export function nextSubmissionStatusForSubmit(status: "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED") {
+  return canResubmitSubmission(status) ? "IN_REVIEW" : null;
 }
 
 export function canAccessSavedSearch(ownerUserId: string, requesterUserId: string) {

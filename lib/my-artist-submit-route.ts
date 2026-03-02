@@ -5,9 +5,10 @@ import { artistSubmitBodySchema, parseBody, zodDetails } from "@/lib/validators"
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
 import { submissionSubmittedDedupeKey } from "@/lib/notification-keys";
+import type { ContentStatus } from "@prisma/client";
 
 type SessionUser = { id: string; email: string };
-type SubmissionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
+type SubmissionStatus = ContentStatus | null;
 
 type ArtistRecord = { id: string; slug: string; name: string; bio: string | null; websiteUrl: string | null; featuredAssetId: string | null; featuredImageUrl: string | null; images: Array<{ id: string }>; isPublished?: boolean };
 type SubmissionRecord = { id: string; status: string; createdAt: Date; submittedAt: Date | null };
@@ -32,7 +33,7 @@ export async function handleMyArtistSubmit(req: NextRequest, deps: SubmitArtistD
     if (!artist) return apiError(403, "forbidden", "Artist ownership required");
 
     const latestStatus = await deps.getLatestSubmissionStatus(artist.id);
-    if (latestStatus === "SUBMITTED") return NextResponse.json({ error: "ALREADY_SUBMITTED", message: "Submission is already pending review." }, { status: 409 });
+    if (latestStatus === "IN_REVIEW") return NextResponse.json({ error: "ALREADY_SUBMITTED", message: "Submission is already pending review." }, { status: 409 });
     if (latestStatus === "APPROVED" && artist.isPublished) return NextResponse.json({ error: "ALREADY_APPROVED", message: "Artist is already approved and published." }, { status: 409 });
 
     const readiness = evaluateArtistReadiness(artist);

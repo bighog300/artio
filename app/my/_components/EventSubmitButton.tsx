@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
 import { enqueueToast } from "@/lib/toast";
 import { submitEventForReviewRequest } from "@/app/my/_components/MyEventSubmitButton";
+import type { ContentStatus } from "@prisma/client";
 
-type SubmissionStatus = "DRAFT" | "IN_REVIEW" | "CHANGES_REQUESTED" | "PUBLISHED" | "ARCHIVED" | null;
+type SubmissionStatus = ContentStatus | null;
 
 function deriveEventSubmitButtonUiState({
   isReady,

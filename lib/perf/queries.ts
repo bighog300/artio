@@ -11,7 +11,7 @@ const daysLimitParamsSchema = z.object({
 });
 
 const adminSubmissionsParamsSchema = z.object({
-  status: z.enum(["SUBMITTED", "APPROVED", "REJECTED"]).default("SUBMITTED"),
+  status: z.enum(["IN_REVIEW", "APPROVED", "REJECTED"]).default("IN_REVIEW"),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   cursor: z.string().uuid().optional(),
 });

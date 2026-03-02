@@ -6,7 +6,7 @@ import { decodeSubmissionsCursor, encodeSubmissionsCursor } from "@/lib/admin-su
 
 export const runtime = "nodejs";
 
-const allowedStatuses = ["SUBMITTED", "APPROVED", "REJECTED"] as const;
+const allowedStatuses = ["IN_REVIEW", "APPROVED", "REJECTED"] as const;
 type SubmissionStatusFilter = (typeof allowedStatuses)[number];
 
 export async function GET(req: NextRequest) {
@@ -14,8 +14,8 @@ export async function GET(req: NextRequest) {
     await requireEditor();
     const limit = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get("limit") || "50")));
     const cursor = req.nextUrl.searchParams.get("cursor") || undefined;
-    const rawStatus = req.nextUrl.searchParams.get("status") || "SUBMITTED";
-    const status: SubmissionStatusFilter = allowedStatuses.includes(rawStatus as SubmissionStatusFilter) ? (rawStatus as SubmissionStatusFilter) : "SUBMITTED";
+    const rawStatus = req.nextUrl.searchParams.get("status") || "IN_REVIEW";
+    const status: SubmissionStatusFilter = allowedStatuses.includes(rawStatus as SubmissionStatusFilter) ? (rawStatus as SubmissionStatusFilter) : "IN_REVIEW";
 
     const parsedCursor = cursor ? decodeSubmissionsCursor(cursor) : null;
     const legacyCursorRow = cursor && !parsedCursor

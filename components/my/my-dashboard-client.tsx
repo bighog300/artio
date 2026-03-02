@@ -38,7 +38,7 @@ type DashboardPayload = {
     profile: { completenessPct: number; missing: string[] };
   };
   entities: {
-    venues: Array<{ id: string; slug?: string | null; name: string; city?: string | null; country?: string | null; isPublished: boolean; coverUrl?: string | null; submissionStatus?: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null }>;
+    venues: Array<{ id: string; slug?: string | null; name: string; city?: string | null; country?: string | null; isPublished: boolean; coverUrl?: string | null; submissionStatus?: "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED" | null }>;
   };
   eventsPipeline?: {
     items: EventPipelineItem[];
@@ -65,7 +65,7 @@ type DashboardPayload = {
 };
 
 function getVenueStatus(venue: DashboardPayload["entities"]["venues"][number]) {
-  if (venue.submissionStatus === "SUBMITTED") return "Submitted";
+  if (venue.submissionStatus === "IN_REVIEW") return "Submitted";
   if (venue.submissionStatus === "REJECTED") return "Needs edits";
   if (venue.isPublished) return "Published";
   return "Draft";
@@ -89,7 +89,7 @@ function getEventSubmissionState(event: EventPipelineItem) {
   const submissionStatus = event.submissionStatus ?? null;
   const changesRequestedStatuses = new Set(["REJECTED", "CHANGES_REQUESTED", "NEEDS_CHANGES"]);
 
-  if (submissionStatus === "SUBMITTED") {
+  if (submissionStatus === "IN_REVIEW") {
     return {
       label: "Submitted",
       meta: event.submittedAtISO ? `Submitted ${formatEventDate(event.submittedAtISO)}` : null,

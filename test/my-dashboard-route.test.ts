@@ -90,7 +90,7 @@ test("/api/my/dashboard sorts events pipeline by actionable priority", async () 
       updatedAtISO: iso(-1 * 60 * 60 * 1000),
       venueName: "Main Hall",
       statusLabel: "Submitted",
-      submissionStatus: "SUBMITTED",
+      submissionStatus: "IN_REVIEW",
       isPublished: false,
       featuredAssetId: "asset-submitted",
     },
@@ -192,7 +192,7 @@ test("/api/my/dashboard computes stats, inbox counts, and top artworks ordering"
   deps.listManagedVenuesByUserId = async () => [{ id: "venue-1" }, { id: "venue-2" }, { id: "venue-3" }];
   deps.listManagedVenueDetailsByUserId = async () => [
     { id: "venue-1", slug: "venue-one", name: "Venue One", city: "Paris", country: "FR", isPublished: true, featuredAssetId: "asset-1", featuredAsset: { url: "https://img/v1.jpg" }, submissions: [] },
-    { id: "venue-2", slug: null, name: "Venue Two", city: null, country: null, isPublished: false, featuredAssetId: null, featuredAsset: null, submissions: [{ status: "SUBMITTED" }] },
+    { id: "venue-2", slug: null, name: "Venue Two", city: null, country: null, isPublished: false, featuredAssetId: null, featuredAsset: null, submissions: [{ status: "IN_REVIEW" }] },
     { id: "venue-3", slug: "venue-three", name: "Venue Three", city: "Berlin", country: "DE", isPublished: false, featuredAssetId: null, featuredAsset: null, submissions: [{ status: "REJECTED" }] },
   ];
   deps.listArtworksByArtistId = async () => [
@@ -268,7 +268,7 @@ test("/api/my/dashboard includes scoped venue entities and venue stats", async (
   deps.listManagedVenuesByUserId = async () => [{ id: "venue-1" }, { id: "venue-2" }, { id: "venue-3" }];
   deps.listManagedVenueDetailsByUserId = async () => [
     { id: "venue-1", slug: "venue-one", name: "Venue One", city: "Paris", country: "FR", isPublished: true, featuredAssetId: "asset-1", featuredAsset: { url: "https://img/v1.jpg" }, submissions: [] },
-    { id: "venue-2", slug: null, name: "Venue Two", city: null, country: null, isPublished: false, featuredAssetId: null, featuredAsset: null, submissions: [{ status: "SUBMITTED" }] },
+    { id: "venue-2", slug: null, name: "Venue Two", city: null, country: null, isPublished: false, featuredAssetId: null, featuredAsset: null, submissions: [{ status: "IN_REVIEW" }] },
     { id: "venue-3", slug: "venue-three", name: "Venue Three", city: "Berlin", country: "DE", isPublished: false, featuredAssetId: null, featuredAsset: null, submissions: [{ status: "REJECTED" }] },
     { id: "venue-unmanaged", slug: "hidden", name: "Hidden Venue", city: null, country: null, isPublished: true, featuredAssetId: null, featuredAsset: null, submissions: [] },
   ];

@@ -9,7 +9,7 @@ type SessionUser = { id: string };
 type SubmissionRecord = {
   id: string;
   submitterUserId: string;
-  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
+  status: "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED";
   venue: { memberships: Array<{ id: string }> } | null;
   targetEvent: { isPublished: boolean } | null;
 };

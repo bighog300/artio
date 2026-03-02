@@ -51,7 +51,7 @@ type ManagedVenueRecord = {
   isPublished: boolean;
   featuredAssetId: string | null;
   featuredAsset: { url: string } | null;
-  submissions: Array<{ status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" }>;
+  submissions: Array<{ status: "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED" }>;
 };
 
 type ActionInboxItem = {
@@ -120,7 +120,7 @@ function getPipelineTier(item: EventsPipelineItem) {
   const isPublished = Boolean(item.isPublished);
   const hasFeaturedImage = Boolean(item.featuredAssetId || item.featuredImageUrl);
   const isDraft = !isPublished && !submissionStatus;
-  const isSubmitted = submissionStatus === "SUBMITTED";
+  const isSubmitted = submissionStatus === "IN_REVIEW";
   const isApproved = submissionStatus === "APPROVED";
   const needsResubmit = submissionStatus === "REJECTED";
 
@@ -317,7 +317,7 @@ export async function handleGetMyDashboard(deps: Deps) {
     const venueDraftCount = venueList.filter((venue) => !venue.isPublished).length;
     const venueIncompleteCount = venueList.filter((venue) => !evaluateVenueReadiness({ name: venue.name, city: venue.city, country: venue.country, featuredAssetId: venue.coverUrl ? "cover" : null }).ready).length;
     const venueMissingCoverCount = venueList.filter((venue) => !venue.coverUrl).length;
-    const venueSubmissionsPending = venueList.filter((venue) => venue.submissionStatus === "SUBMITTED").length;
+    const venueSubmissionsPending = venueList.filter((venue) => venue.submissionStatus === "IN_REVIEW").length;
     const venueSubmissionsNeedsEdits = venueList.filter((venue) => venue.submissionStatus === "REJECTED").length;
     const artistReadiness = evaluateArtistReadiness({ name: artist.name, bio: artist.bio, featuredAssetId: artist.featuredAssetId, websiteUrl: artist.websiteUrl });
     const profileMissingAvatarCount = artistReadiness.blocking.some((item) => item.id === "artist-avatar") ? 1 : 0;

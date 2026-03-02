@@ -5,9 +5,10 @@ import { parseBody, venueIdParamSchema, venueSubmitBodySchema, zodDetails } from
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
 import { submissionSubmittedDedupeKey } from "@/lib/notification-keys";
+import type { ContentStatus } from "@prisma/client";
 
 type SessionUser = { id: string; email: string };
-type SubmissionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
+type SubmissionStatus = ContentStatus | null;
 
 type VenueRecord = { id: string; name: string; description: string | null; featuredAssetId: string | null; featuredImageUrl: string | null; addressLine1: string | null; city: string | null; country: string | null; websiteUrl: string | null; images: Array<{ id: string }>; isPublished?: boolean };
 type SubmissionRecord = { id: string; status: string; createdAt: Date; submittedAt: Date | null };
@@ -37,7 +38,7 @@ export async function handleVenueSubmit(req: NextRequest, params: Promise<{ id: 
     if (!venue) return apiError(400, "invalid_request", "Venue not found");
 
     const latestStatus = await deps.getLatestSubmissionStatus(venue.id);
-    if (latestStatus === "SUBMITTED") return NextResponse.json({ error: "ALREADY_SUBMITTED", message: "Submission is already pending review." }, { status: 409 });
+    if (latestStatus === "IN_REVIEW") return NextResponse.json({ error: "ALREADY_SUBMITTED", message: "Submission is already pending review." }, { status: 409 });
     if (latestStatus === "APPROVED" && venue.isPublished) return NextResponse.json({ error: "ALREADY_APPROVED", message: "Venue is already approved and published." }, { status: 409 });
 
     const readiness = evaluateVenueReadiness(venue);

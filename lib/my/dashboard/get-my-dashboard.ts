@@ -24,7 +24,7 @@ function toVenueCompleteness(venue: { name: string | null; city: string | null; 
 
 function mapSubmissionStatus(status: string | null | undefined, isPublished: boolean): PublisherStatus {
   if (isPublished) return "Published";
-  if (status === "SUBMITTED") return "Submitted";
+  if (status === "IN_REVIEW") return "Submitted";
   if (status === "REJECTED") return "Rejected";
   return "Draft";
 }
@@ -122,7 +122,7 @@ export async function getMyDashboard({ userId, venueId }: { userId: string; venu
     const submissionStatus = event.submissions[0]?.status;
     if (submissionStatus === "REJECTED") {
       attention.push({ id: `event-rejected-${event.id}`, kind: "rejected", entityType: "event", entityId: event.id, title: event.title, reason: "Submission was rejected and needs updates.", ctaLabel: "Fix & Resubmit", ctaHref: `/my/events/${event.id}`, venueId: event.venueId ?? undefined, ...withAttentionTimestamps(event.updatedAt) });
-    } else if (submissionStatus === "SUBMITTED") {
+    } else if (submissionStatus === "IN_REVIEW") {
       attention.push({ id: `event-submitted-${event.id}`, kind: "pending_review", entityType: "event", entityId: event.id, title: event.title, reason: "Submission is pending review.", ctaLabel: "View submission", ctaHref: `/my/events/${event.id}`, venueId: event.venueId ?? undefined, ...withAttentionTimestamps(event.updatedAt) });
     } else if (!event.isPublished && !event.venueId) {
       attention.push({ id: `event-draft-${event.id}`, kind: "incomplete_draft", entityType: "event", entityId: event.id, title: event.title, reason: "Missing required fields: venue.", ctaLabel: "Complete draft", ctaHref: `/my/events/${event.id}`, venueId: undefined, ...withAttentionTimestamps(event.updatedAt) });

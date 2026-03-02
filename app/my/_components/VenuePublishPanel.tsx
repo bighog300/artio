@@ -2,8 +2,9 @@ import Link from "next/link";
 import VenueSubmitButton from "@/app/my/_components/VenueSubmitButton";
 import DirectPublishButton from "@/app/my/_components/DirectPublishButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ContentStatus } from "@prisma/client";
 
-type SubmissionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null;
+type SubmissionStatus = ContentStatus | null;
 
 type Checks = {
   basicInfo: boolean;
@@ -34,7 +35,7 @@ export default function VenuePublishPanel({
   isOwner: boolean;
   canPublishDirectly?: boolean;
 }) {
-  const showAwaitingReview = submissionStatus === "SUBMITTED";
+  const showAwaitingReview = submissionStatus === "IN_REVIEW";
   const showPublished = venue.isPublished || submissionStatus === "APPROVED";
 
   return (

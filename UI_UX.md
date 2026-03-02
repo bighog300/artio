@@ -28,7 +28,7 @@
 
 - `/my/venues/[id]` now includes a dedicated **Publishing** panel with status mapping:
   - `DRAFT` (or no submission): Draft
-  - `SUBMITTED`: Pending review
+  - `IN_REVIEW`: Pending review
   - `REJECTED`: Needs changes
   - `APPROVED`/`isPublished=true`: Published
 - Owners can submit using **Submit for review** when required fields pass server validation.
@@ -69,7 +69,7 @@
 - `/my/artist` includes a **Publishing** panel mirroring venue/event workflows.
 - Status mapping:
   - Draft (`DRAFT` or no submission)
-  - Pending review (`SUBMITTED`)
+  - Pending review (`IN_REVIEW`)
   - Needs changes (`REJECTED`, with reviewer feedback inline)
   - Published (`APPROVED` and/or `Artist.isPublished=true`)
 - Artists submit with **Submit for review** (`POST /api/my/artist/submit`) and see inline readiness issues returned by the API.

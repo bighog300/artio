@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
 import { enqueueToast } from "@/lib/toast";
+import type { ContentStatus } from "@prisma/client";
 
-type SubmissionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "PENDING" | null;
+type SubmissionStatus = ContentStatus | null;
 
 type SubmitVenueForReviewParams = {
   venueId: string;
@@ -42,7 +43,7 @@ export function deriveVenueSubmitButtonUiState({
   ctaLabel?: string;
 }) {
   const normalizedStatus = typeof initialStatus === "string" ? initialStatus.toUpperCase() : null;
-  const isSubmittedPending = locallySubmitted || normalizedStatus === "SUBMITTED" || normalizedStatus === "PENDING";
+  const isSubmittedPending = locallySubmitted || normalizedStatus === "IN_REVIEW";
   if (isSubmittedPending) {
     return {
       label: "Submitted (pending)",

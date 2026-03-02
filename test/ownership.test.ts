@@ -28,8 +28,8 @@ test("only OWNER or global ADMIN can manage members", () => {
 
 test("rejected submission can be resubmitted", () => {
   assert.equal(canEditSubmission("REJECTED"), true);
-  assert.equal(nextSubmissionStatusForSubmit("REJECTED"), "SUBMITTED");
-  assert.equal(nextSubmissionStatusForSubmit("DRAFT"), "SUBMITTED");
+  assert.equal(nextSubmissionStatusForSubmit("REJECTED"), "IN_REVIEW");
+  assert.equal(nextSubmissionStatusForSubmit("DRAFT"), "IN_REVIEW");
   assert.equal(nextSubmissionStatusForSubmit("APPROVED"), null);
-  assert.equal(nextSubmissionStatusForSubmit("SUBMITTED"), null);
+  assert.equal(nextSubmissionStatusForSubmit("IN_REVIEW"), null);
 });

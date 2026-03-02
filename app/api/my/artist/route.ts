@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         await db.submission.update({ where: { id: latest.id }, data: { submitterUserId: userId } });
         return;
       }
-      if (latest?.status === "SUBMITTED") return;
+      if (latest?.status === "IN_REVIEW") return;
 
       await db.submission.create({
         data: {

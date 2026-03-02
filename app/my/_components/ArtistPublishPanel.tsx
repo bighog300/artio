@@ -11,7 +11,7 @@ type PublishIssue = { field: string; message: string };
 type Props = {
   artistSlug: string;
   isPublished: boolean;
-  submissionStatus: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null;
+  submissionStatus: "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED" | null;
   submittedAt: string | null;
   reviewedAt: string | null;
   decisionReason: string | null;
@@ -24,7 +24,7 @@ export function ArtistPublishPanel(props: Props) {
   const [issues, setIssues] = useState<PublishIssue[]>(props.initialIssues);
 
   async function onSubmit() {
-    if (pending || props.submissionStatus === "SUBMITTED") return;
+    if (pending || props.submissionStatus === "IN_REVIEW") return;
     setPending(true);
     setIssues([]);
     try {
@@ -47,7 +47,7 @@ export function ArtistPublishPanel(props: Props) {
     }
   }
 
-  const primaryAction = props.submissionStatus === "SUBMITTED"
+  const primaryAction = props.submissionStatus === "IN_REVIEW"
     ? { label: "Submitted (pending)", disabled: true }
     : props.isPublished || props.submissionStatus === "APPROVED"
       ? { label: "View public page", href: `/artists/${props.artistSlug}` }

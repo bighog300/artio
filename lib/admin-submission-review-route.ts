@@ -15,7 +15,7 @@ type SubmissionDetail = {
   targetEventId: string | null;
   targetVenueId: string | null;
   targetArtistId: string | null;
-  status: "SUBMITTED" | "APPROVED" | "REJECTED" | "DRAFT";
+  status: "IN_REVIEW" | "APPROVED" | "REJECTED" | "DRAFT";
   submitter: { id: string; email: string };
   targetVenue: { slug: string | null } | null;
   targetArtist: { slug: string | null } | null;
@@ -52,7 +52,7 @@ export async function handleApproveSubmission(params: Promise<{ id: string }>, d
     const editor = await deps.requireEditor();
     const submission = await deps.findSubmission(parsedId.submissionId);
     if (!submission) return apiError(400, "invalid_request", "Submission not found");
-    if (submission.status !== "SUBMITTED") return apiError(400, "invalid_request", "Submission is not pending review");
+    if (submission.status !== "IN_REVIEW") return apiError(400, "invalid_request", "Submission is not pending review");
 
     if (submission.type === "VENUE") {
       if (!submission.targetVenueId || submission.kind !== "PUBLISH") return apiError(400, "invalid_request", "Venue submission not found");
@@ -120,7 +120,7 @@ export async function handleRequestChangesSubmission(req: NextRequest, params: P
     const editor = await deps.requireEditor();
     const submission = await deps.findSubmission(parsedId.submissionId);
     if (!submission) return apiError(400, "invalid_request", "Submission not found");
-    if (submission.status !== "SUBMITTED") return apiError(400, "invalid_request", "Submission is not pending review");
+    if (submission.status !== "IN_REVIEW") return apiError(400, "invalid_request", "Submission is not pending review");
 
     if (submission.type === "VENUE") {
       if (!submission.targetVenueId || submission.kind !== "PUBLISH") return apiError(400, "invalid_request", "Venue submission not found");

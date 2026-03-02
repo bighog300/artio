@@ -44,7 +44,7 @@ export default function PerfAdminClient() {
   const [name, setName] = useState<QueryName>("events_list");
   const [days, setDays] = useState("30");
   const [limit, setLimit] = useState("20");
-  const [status, setStatus] = useState("SUBMITTED");
+  const [status, setStatus] = useState("IN_REVIEW");
   const [targetType, setTargetType] = useState("ARTIST");
   const [targetId, setTargetId] = useState("");
   const [output, setOutput] = useState("");
@@ -114,7 +114,7 @@ export default function PerfAdminClient() {
           <>
             <label className="text-sm">Status</label>
             <select className="border rounded px-2 py-1" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="SUBMITTED">SUBMITTED</option>
+              <option value="IN_REVIEW">IN_REVIEW</option>
               <option value="APPROVED">APPROVED</option>
               <option value="REJECTED">REJECTED</option>
             </select>

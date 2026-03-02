@@ -11,7 +11,7 @@ import { getEventTypeLabel } from "@/lib/event-types";
 
 type SubmissionItem = {
   id: string;
-  status: "SUBMITTED" | "APPROVED" | "REJECTED" | "DRAFT";
+  status: "IN_REVIEW" | "APPROVED" | "REJECTED" | "DRAFT";
   type: "EVENT" | "VENUE" | "ARTIST";
   note: string | null;
   decisionReason: string | null;
@@ -179,9 +179,9 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
   const [publishSummary, setPublishSummary] = useState<{ succeeded: number; blocked: Array<{ id: string; title: string; blockers: string[] }> }>({ succeeded: 0, blocked: [] });
   const [approvedVenueContext, setApprovedVenueContext] = useState<{ id: string; slug: string } | null>(null);
 
-  const actionableItems = useMemo(() => items.filter((item) => item.status === "SUBMITTED"), [items]);
+  const actionableItems = useMemo(() => items.filter((item) => item.status === "IN_REVIEW"), [items]);
   const actionableById = useMemo(() => new Map(actionableItems.map((item) => [item.id, item])), [actionableItems]);
-  const selectableIds = useMemo(() => items.filter((item) => item.status === "SUBMITTED" || (item.status === "APPROVED" && Boolean(getPublishTarget(item)))).map((item) => item.id), [items]);
+  const selectableIds = useMemo(() => items.filter((item) => item.status === "IN_REVIEW" || (item.status === "APPROVED" && Boolean(getPublishTarget(item)))).map((item) => item.id), [items]);
   const selectedPublishableCount = useMemo(() => {
     return [...selectedIds].filter((id) => {
       const item = items.find((entry) => entry.id === id);
@@ -502,7 +502,7 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
                   </div>
                 ) : null}
 
-                {item.status === "SUBMITTED" ? (
+                {item.status === "IN_REVIEW" ? (
                   <>
                     <input
                       className="border rounded p-1 w-full"

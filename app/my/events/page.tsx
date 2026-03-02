@@ -37,7 +37,7 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
   });
 
   const filtered = events.filter((e) => {
-    const computedStatus = e.deletedAt ? "Archived" : e.isPublished ? "Published" : e.submissions[0]?.status === "REJECTED" ? "Rejected" : e.submissions[0]?.status === "SUBMITTED" ? "Submitted" : "Draft";
+    const computedStatus = e.deletedAt ? "Archived" : e.isPublished ? "Published" : e.submissions[0]?.status === "REJECTED" ? "Rejected" : e.submissions[0]?.status === "IN_REVIEW" ? "Submitted" : "Draft";
     return status ? computedStatus.toLowerCase() === status.toLowerCase() : true;
   });
 

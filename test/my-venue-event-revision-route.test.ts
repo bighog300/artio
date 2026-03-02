@@ -23,7 +23,7 @@ test("handleCreateEventRevision returns unauthorized for anonymous users", async
     requireAuth: async () => { throw new Error("unauthorized"); },
     requireVenueMembership: async () => undefined,
     findEvent: async () => publishedEvent,
-    createRevisionSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), decisionReason: null, decidedAt: null }),
+    createRevisionSubmission: async () => ({ id: "sub-1", status: "IN_REVIEW", createdAt: new Date(), decisionReason: null, decidedAt: null }),
     getLatestRevision: async () => null,
   });
   assert.equal(res.status, 401);
@@ -35,7 +35,7 @@ test("handleCreateEventRevision returns forbidden for non-members", async () => 
     requireAuth: async () => ({ id: "u1", email: "u@example.com" }),
     requireVenueMembership: async () => { throw new Error("forbidden"); },
     findEvent: async () => publishedEvent,
-    createRevisionSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), decisionReason: null, decidedAt: null }),
+    createRevisionSubmission: async () => ({ id: "sub-1", status: "IN_REVIEW", createdAt: new Date(), decisionReason: null, decidedAt: null }),
     getLatestRevision: async () => null,
   });
   assert.equal(res.status, 403);
@@ -47,7 +47,7 @@ test("handleCreateEventRevision returns invalid_request for empty patch", async 
     requireAuth: async () => ({ id: "u1", email: "u@example.com" }),
     requireVenueMembership: async () => undefined,
     findEvent: async () => publishedEvent,
-    createRevisionSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), decisionReason: null, decidedAt: null }),
+    createRevisionSubmission: async () => ({ id: "sub-1", status: "IN_REVIEW", createdAt: new Date(), decisionReason: null, decidedAt: null }),
     getLatestRevision: async () => null,
   });
   assert.equal(res.status, 400);
@@ -63,7 +63,7 @@ test("handleCreateEventRevision creates revision submission", async () => {
     createRevisionSubmission: async (input) => {
       created = true;
       assert.equal(input.proposed.title, "Updated title");
-      return { id: "sub-1", status: "SUBMITTED", createdAt: new Date(), decisionReason: null, decidedAt: null };
+      return { id: "sub-1", status: "IN_REVIEW", createdAt: new Date(), decisionReason: null, decidedAt: null };
     },
     getLatestRevision: async () => null,
   });

@@ -13,7 +13,7 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
   if (!venue) notFound();
 
   const pendingSubmission = await db.submission.findFirst({
-    where: { targetVenueId: id, status: "SUBMITTED" },
+    where: { targetVenueId: id, status: "IN_REVIEW" },
     orderBy: { createdAt: "desc" },
     select: { id: true },
   });

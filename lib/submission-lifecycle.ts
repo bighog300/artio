@@ -1,4 +1,4 @@
-export type LifecycleStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
+export type LifecycleStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "REJECTED";
 
 export type SubmissionLifecycleSummary = {
   submissionId: string;
@@ -47,7 +47,7 @@ async function getLatest(db: LifecycleDb, where: Record<string, unknown>) {
 }
 
 export function getStatusUiLabel(status: LifecycleStatus | null) {
-  if (status === "SUBMITTED") return "Submitted";
+  if (status === "IN_REVIEW") return "Submitted";
   if (status === "APPROVED") return "Approved";
   if (status === "REJECTED") return "Needs edits";
   return "Draft";

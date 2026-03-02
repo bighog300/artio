@@ -23,7 +23,7 @@ test("getMyDashboard returns validated payload with venue scope", async () => {
         featuredAssetId: "asset-1",
         updatedAt: new Date("2026-01-01T00:00:00.000Z"),
         isPublished: false,
-        submissions: [{ status: "SUBMITTED" }],
+        submissions: [{ status: "IN_REVIEW" }],
       },
     },
   ]) as typeof db.venueMembership.findMany;
@@ -39,7 +39,7 @@ test("getMyDashboard returns validated payload with venue scope", async () => {
       startAt: new Date("2026-12-01T00:00:00.000Z"),
       isPublished: false,
       venue: { name: "Main Hall" },
-      submissions: [{ status: "SUBMITTED" }],
+      submissions: [{ status: "IN_REVIEW" }],
     },
   ]) as typeof db.event.findMany;
 
