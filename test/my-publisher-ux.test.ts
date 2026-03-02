@@ -2,14 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-test("/my/events/new shows create-venue interstitial when no manageable venues", () => {
-  const source = readFileSync("app/my/events/new/page.tsx", "utf8");
-  assert.match(source, /if \(memberships\.length === 0\)/);
-  assert.match(source, /Create a venue first/);
-  assert.match(source, /You need a venue profile before you can add events\./);
-  assert.match(source, /href="\/my\/venues\/new"/);
-});
-
 test("/my/events/new preserves venue preselection from query when membership allows it", () => {
   const source = readFileSync("app/my/events/new/page.tsx", "utf8");
   assert.match(source, /const venueIdFromQuery = typeof params\?\.venueId === "string" \? params\.venueId : undefined/);

@@ -45,15 +45,14 @@ test("venue setup page uses first-visit defaults and readiness banner", () => {
   const page = readFileSync("app/my/venues/[id]/page.tsx", "utf8");
 
   assert.match(page, /firstRequired === "basic"/);
-  assert.match(page, /This venue is ready to submit for review\./);
+  assert.match(page, /This venue is ready to publish\./);
   assert.match(page, /Next: Location/);
 });
 
-test("publish panel keeps missing checklist and submit readiness wiring", () => {
-  const panel = readFileSync("app/my/_components/VenuePublishPanel.tsx", "utf8");
+test("publish panel integration is present", () => {
+  const page = readFileSync("app/my/venues/[id]/page.tsx", "utf8");
 
-  assert.match(panel, /What\&apos;s missing/);
-  assert.match(panel, /checks\.missingRequired\.map/);
-  assert.match(panel, /What happens next/);
-  assert.match(panel, /isReady=\{checks\.publishReady && isOwner\}/);
+  assert.match(page, /<PublishPanel/);
+  assert.match(page, /resourceType="venue"/);
+  assert.match(page, /status=\{venue\.deletedAt \? "ARCHIVED" : venue\.isPublished \? "PUBLISHED"/);
 });

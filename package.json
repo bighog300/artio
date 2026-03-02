@@ -13,7 +13,7 @@
     "lint": "next lint",
     "pretypecheck": "prisma generate",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test test/",
+    "test": "pnpm test:node:ci",
     "smoke": "node --test test/smoke.test.js && node -e \"fetch('http://localhost:3000/api/health').then(r=>r.json()).then(console.log).catch(()=>process.exit(0))\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
@@ -26,7 +26,8 @@
     "vercel:build": "node scripts/check-env.mjs --mode=vercel-build && next build && node scripts/cleanup-next-cache.mjs && node scripts/report-build-sizes.mjs",
     "vercel:install": "pnpm install --frozen-lockfile",
     "prisma:safe-deploy": "tsx scripts/prisma-safe-deploy.ts",
-    "test:node": "node --import tsx --test"
+    "test:node": "node --import tsx --test",
+    "test:node:ci": "node --import tsx --test --test-reporter=spec"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",

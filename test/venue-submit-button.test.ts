@@ -79,7 +79,7 @@ test("deriveVenueSubmitButtonUiState treats null submission as not submitted", (
 test("deriveVenueSubmitButtonUiState keeps submitted CTA disabled for pending status", () => {
   const state = deriveVenueSubmitButtonUiState({
     isReady: true,
-    initialStatus: "PENDING",
+    initialStatus: "IN_REVIEW",
     isSubmitting: false,
     locallySubmitted: false,
   });

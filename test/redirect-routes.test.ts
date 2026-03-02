@@ -9,7 +9,8 @@ test("legacy venue submit-event page redirects to venue-scoped events list", () 
   assert.match(source, /query\.set\("venueId", id\)/);
 });
 
-test("admin moderation page redirects to submissions", () => {
+test("admin moderation page renders moderation client directly", () => {
   const source = readFileSync("app/(admin)/admin/moderation/page.tsx", "utf8");
-  assert.match(source, /redirect\("\/admin\/submissions"\)/);
+  assert.match(source, /<ModerationClient/);
+  assert.doesNotMatch(source, /redirect\("\/admin\/submissions"\)/);
 });
