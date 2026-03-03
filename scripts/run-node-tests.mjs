@@ -38,22 +38,46 @@ if (files.length === 0) {
 }
 
 let reporter
-for (const arg of process.argv.slice(2)) {
+const usage = 'Usage: node scripts/run-node-tests.mjs [--reporter=NAME|--reporter NAME|--test-reporter=NAME|--test-reporter NAME]'
+const args = process.argv.slice(2)
+
+function requireValue(flagName, value) {
+  if (!value || value.startsWith('-')) {
+    console.error(`Missing reporter value for ${flagName}`)
+    console.error(usage)
+    process.exit(2)
+  }
+
+  return value
+}
+
+for (let i = 0; i < args.length; i += 1) {
+  const arg = args[i]
+
+  if (arg === '--reporter' || arg === '--test-reporter') {
+    reporter = requireValue(arg, args[i + 1])
+    i += 1
+    continue
+  }
+
   if (arg.startsWith('--reporter=')) {
-    reporter = arg.slice('--reporter='.length)
+    reporter = requireValue('--reporter', arg.slice('--reporter='.length))
     continue
   }
 
   if (arg.startsWith('--test-reporter=')) {
-    reporter = arg.slice('--test-reporter='.length)
+    reporter = requireValue('--test-reporter', arg.slice('--test-reporter='.length))
     continue
   }
 
   console.error(`Unknown argument: ${arg}`)
-  process.exit(1)
+  console.error(usage)
+  process.exit(2)
 }
 
-const nodeArgs = ['--import', 'tsx', '--test', `--test-reporter=${reporter ?? 'spec'}`, ...files]
+const resolvedReporter = reporter ?? process.env.NODE_TEST_REPORTER ?? 'spec'
+const nodeArgs = ['--import', 'tsx', '--test', `--test-reporter=${resolvedReporter}`, ...files]
+console.log(`[run-node-tests] Spawning: ${process.execPath} ${nodeArgs.join(' ')}`)
 
 const child = spawn(process.execPath, nodeArgs, { stdio: 'inherit' })
 child.on('exit', (code, signal) => {
