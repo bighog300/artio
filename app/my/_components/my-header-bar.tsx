@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MyDashboardResponseSchema } from "@/lib/my/dashboard-schema";
 import { enqueueToast } from "@/lib/toast";
 
 type VenueOption = {
@@ -14,15 +13,18 @@ type VenueOption = {
   role: "OWNER" | "EDITOR";
 };
 
-export function MyHeaderBar() {
+type MyHeaderBarProps = {
+  venues: VenueOption[];
+  hasArtistProfile: boolean;
+};
+
+export function MyHeaderBar({ venues: initialVenues, hasArtistProfile: initialHasArtistProfile }: MyHeaderBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const venueId = searchParams.get("venueId") ?? "";
-  const [venues, setVenues] = useState<VenueOption[]>([]);
-  const [hasArtistProfile, setHasArtistProfile] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [venues] = useState(initialVenues);
+  const [hasArtistProfile] = useState(initialHasArtistProfile);
 
   const onVenueChange = useCallback((value: string, mode: "push" | "replace" = "push") => {
     const params = new URLSearchParams(searchParams.toString());
@@ -37,39 +39,10 @@ export function MyHeaderBar() {
     router.push(nextUrl);
   }, [pathname, router, searchParams]);
 
+  const onVenueChangeRef = useRef(onVenueChange);
   useEffect(() => {
-    const controller = new AbortController();
-
-    const loadVenues = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch("/api/my/dashboard", { signal: controller.signal });
-        if (!response.ok) {
-          setDashboardError(`Unable to load dashboard (status ${response.status}).`);
-          return;
-        }
-        const payload = await response.json();
-        const parsed = MyDashboardResponseSchema.safeParse(payload);
-        if (!parsed.success) {
-          console.error("dashboard parse failed");
-          setDashboardError("Unable to load dashboard (invalid response).");
-          return;
-        }
-        setDashboardError(null);
-        setVenues(parsed.data.context.venues);
-        setHasArtistProfile(parsed.data.context.hasArtistProfile);
-      } catch {
-        setDashboardError("Unable to load dashboard (invalid response).");
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadVenues();
-    return () => controller.abort();
-  }, []);
+    onVenueChangeRef.current = onVenueChange;
+  }, [onVenueChange]);
 
   useEffect(() => {
     if (!venueId || venues.length === 0) {
@@ -79,13 +52,13 @@ export function MyHeaderBar() {
     if (hasVenueAccess) {
       return;
     }
-    onVenueChange("", "replace");
+    onVenueChangeRef.current("", "replace");
     enqueueToast({
       title: "Venue not found",
       message: "Showing all venues instead.",
       variant: "error",
     });
-  }, [onVenueChange, venueId, venues]);
+  }, [venueId, venues]);
 
   const selectedVenueLabel = useMemo(() => {
     if (!venueId) {
@@ -106,7 +79,7 @@ export function MyHeaderBar() {
           <label className="text-sm text-muted-foreground" htmlFor="venue-selector">Venue</label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button id="venue-selector" size="sm" variant="outline" disabled={loading}>
+              <Button id="venue-selector" size="sm" variant="outline">
                 {selectedVenueLabel}
               </Button>
             </DropdownMenuTrigger>
@@ -128,7 +101,6 @@ export function MyHeaderBar() {
           ) : null}
         </div>
       </div>
-      {dashboardError ? <p className="mt-2 text-sm text-destructive">{dashboardError}</p> : null}
     </header>
   );
 }

@@ -2,7 +2,6 @@ import { db } from "@/lib/db";
 import { MyDashboardResponseSchema, type MyDashboardResponse, type PublisherStatus } from "@/lib/my/dashboard-schema";
 import { evaluateVenueReadiness } from "@/lib/publish-readiness";
 
-const ZERO_COUNTS = { Draft: 0, Submitted: 0, Published: 0, Rejected: 0 } satisfies Record<PublisherStatus, number>;
 
 const VENUE_READINESS_LABELS: Record<string, string> = {
   "venue-name": "Name",
@@ -50,7 +49,7 @@ export async function getMyDashboard({ userId, venueId }: { userId: string; venu
 
   const artist = await db.artist.findUnique({ where: { userId }, select: { id: true } });
 
-  const [events, artworks, pendingInvites] = await Promise.all([
+  const [events, artworks, pendingInvites, eventCountsByStatus, venueCountsByStatus, artworkDraftCount, artworkPublishedCount] = await Promise.all([
     db.event.findMany({
       where: {
         AND: [{ deletedAt: null }, {
@@ -92,29 +91,45 @@ export async function getMyDashboard({ userId, venueId }: { userId: string; venu
     scopedVenueIds.length
       ? db.venueInvite.findMany({ where: { venueId: { in: scopedVenueIds }, status: "PENDING", expiresAt: { gt: new Date() } }, select: { id: true, venueId: true, createdAt: true } })
       : Promise.resolve([]),
+    Promise.all([
+      db.event.count({ where: { deletedAt: null, venueId: scopedVenueIds.length ? { in: scopedVenueIds } : undefined, isPublished: true } }),
+      db.event.count({ where: { deletedAt: null, venueId: scopedVenueIds.length ? { in: scopedVenueIds } : undefined, isPublished: false, submissions: { some: { type: "EVENT", status: "IN_REVIEW" } } } }),
+      db.event.count({ where: { deletedAt: null, venueId: scopedVenueIds.length ? { in: scopedVenueIds } : undefined, isPublished: false, submissions: { some: { type: "EVENT", status: "REJECTED" } } } }),
+      db.event.count({ where: { deletedAt: null, venueId: scopedVenueIds.length ? { in: scopedVenueIds } : undefined, isPublished: false, NOT: { submissions: { some: { type: "EVENT", status: { in: ["IN_REVIEW", "REJECTED"] } } } } } }),
+    ]),
+    Promise.all([
+      db.venueMembership.count({ where: { userId, role: { in: ["OWNER", "EDITOR"] }, venue: { deletedAt: null, isPublished: true, ...(selectedVenueId ? { id: selectedVenueId } : {}) } } }),
+      db.venueMembership.count({ where: { userId, role: { in: ["OWNER", "EDITOR"] }, venue: { deletedAt: null, isPublished: false, submissions: { some: { type: "VENUE", status: "IN_REVIEW" } }, ...(selectedVenueId ? { id: selectedVenueId } : {}) } } }),
+      db.venueMembership.count({ where: { userId, role: { in: ["OWNER", "EDITOR"] }, venue: { deletedAt: null, isPublished: false, submissions: { some: { type: "VENUE", status: "REJECTED" } }, ...(selectedVenueId ? { id: selectedVenueId } : {}) } } }),
+      db.venueMembership.count({ where: { userId, role: { in: ["OWNER", "EDITOR"] }, venue: { deletedAt: null, isPublished: false, NOT: { submissions: { some: { type: "VENUE", status: { in: ["IN_REVIEW", "REJECTED"] } } } }, ...(selectedVenueId ? { id: selectedVenueId } : {}) } } }),
+    ]),
+    artist?.id ? db.artwork.count({ where: { artistId: artist.id, deletedAt: null, isPublished: false } }) : Promise.resolve(0),
+    artist?.id ? db.artwork.count({ where: { artistId: artist.id, deletedAt: null, isPublished: true } }) : Promise.resolve(0),
   ]);
 
   const venuesForContext = memberships.map((m) => ({ id: m.venueId, name: m.venue.name, role: m.role }));
 
-  const counts = {
-    venues: { ...ZERO_COUNTS },
-    events: { ...ZERO_COUNTS },
-    artwork: { Draft: 0, Published: 0 },
-  };
+  const [publishedEvents, submittedEvents, rejectedEvents, draftEvents] = eventCountsByStatus;
+  const [publishedVenues, submittedVenues, rejectedVenues, draftVenues] = venueCountsByStatus;
 
-  for (const m of memberships) {
-    if (selectedVenueId && m.venueId !== selectedVenueId) continue;
-    const status = mapSubmissionStatus(m.venue.submissions[0]?.status, m.venue.isPublished);
-    counts.venues[status] += 1;
-  }
-  for (const event of events) {
-    const status = mapSubmissionStatus(event.submissions[0]?.status, event.isPublished);
-    counts.events[status] += 1;
-  }
-  for (const artwork of artworks) {
-    if (artwork.isPublished) counts.artwork.Published += 1;
-    else counts.artwork.Draft += 1;
-  }
+  const counts = {
+    venues: {
+      Draft: draftVenues,
+      Submitted: submittedVenues,
+      Published: publishedVenues,
+      Rejected: rejectedVenues,
+    },
+    events: {
+      Draft: draftEvents,
+      Submitted: submittedEvents,
+      Published: publishedEvents,
+      Rejected: rejectedEvents,
+    },
+    artwork: {
+      Draft: artworkDraftCount,
+      Published: artworkPublishedCount,
+    },
+  };
 
   const attention: MyDashboardResponse["attention"] = [];
 
@@ -149,9 +164,24 @@ export async function getMyDashboard({ userId, venueId }: { userId: string; venu
   attention.sort((a, b) => Date.parse(b.updatedAtISO ?? b.createdAtISO ?? "") - Date.parse(a.updatedAtISO ?? a.createdAtISO ?? ""));
 
   const recentActivity = [
-    ...memberships.slice(0, 3).map((m) => ({ id: `venue-${m.venueId}`, label: `Updated venue: ${m.venue.name}`, href: `/my/venues/${m.venueId}`, occurredAtISO: m.venue.updatedAt.toISOString() })),
-    ...events.slice(0, 3).map((e) => ({ id: `event-${e.id}`, label: `Updated event: ${e.title}`, href: `/my/events/${e.id}`, occurredAtISO: e.updatedAt.toISOString() })),
-    ...artworks.slice(0, 3).map((a) => ({ id: `artwork-${a.id}`, label: `Updated artwork: ${a.title}`, href: `/my/artwork/${a.id}`, occurredAtISO: a.updatedAt.toISOString() })),
+    ...memberships.map((m) => ({
+      id: `venue-${m.venueId}`,
+      label: `Updated venue: ${m.venue.name}`,
+      href: `/my/venues/${m.venueId}`,
+      occurredAtISO: m.venue.updatedAt.toISOString(),
+    })),
+    ...events.map((e) => ({
+      id: `event-${e.id}`,
+      label: `Updated event: ${e.title}`,
+      href: `/my/events/${e.id}`,
+      occurredAtISO: e.updatedAt.toISOString(),
+    })),
+    ...artworks.map((a) => ({
+      id: `artwork-${a.id}`,
+      label: `Updated artwork: ${a.title}`,
+      href: `/my/artwork/${a.id}`,
+      occurredAtISO: a.updatedAt.toISOString(),
+    })),
   ]
     .sort((a, b) => Date.parse(b.occurredAtISO) - Date.parse(a.occurredAtISO))
     .slice(0, 8);

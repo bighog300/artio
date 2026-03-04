@@ -8,13 +8,19 @@ export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<{ venueId?: string }>;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export default async function MyDashboardPage({ searchParams }: { searchParams: SearchParams }) {
   const user = await getSessionUser();
   if (!user) redirectToLogin("/my");
+  if (!user) return null;
 
   const params = await searchParams;
   const rawVenueId = params.venueId;
-  const venueId = rawVenueId && rawVenueId.trim().length > 0 ? rawVenueId : undefined;
+  const venueId =
+    rawVenueId && rawVenueId.trim().length > 0 && UUID_RE.test(rawVenueId.trim())
+      ? rawVenueId.trim()
+      : undefined;
 
   const data = await getMyDashboard({ userId: user.id, venueId });
 
