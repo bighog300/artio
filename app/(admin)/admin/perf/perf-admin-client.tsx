@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { enqueueToast } from "@/lib/toast";
 
 type QueryName =
   | "events_list"
@@ -50,12 +51,21 @@ export default function PerfAdminClient() {
   const [output, setOutput] = useState("");
   const [items, setItems] = useState<SnapshotListItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+  const [inputError, setInputError] = useState<string | null>(null);
 
   async function loadSnapshots() {
-    const res = await fetch("/api/admin/perf/snapshots?limit=10", { cache: "no-store" });
-    if (!res.ok) return;
-    const data = await res.json();
-    setItems(data.items || []);
+    try {
+      const res = await fetch("/api/admin/perf/snapshots?limit=10", { cache: "no-store" });
+      if (!res.ok) {
+        enqueueToast({ title: "Failed to load snapshots", variant: "error" });
+        return;
+      }
+      const data = await res.json();
+      setItems(data.items || []);
+    } catch {
+      enqueueToast({ title: "Failed to load snapshots", variant: "error" });
+    }
   }
 
   useEffect(() => {
@@ -63,45 +73,93 @@ export default function PerfAdminClient() {
   }, []);
 
   async function runExplain() {
-    const params: Record<string, unknown> = { limit: Number(limit), days: Number(days) };
-    if (name === "admin_submissions") {
-      params.status = status;
-    }
-    if (name === "follow_counts") {
-      params.targetType = targetType;
-      params.targetId = targetId;
-    }
+    const parsedLimit = Number(limit);
+    const parsedDays = Number(days);
 
-    const res = await fetch("/api/admin/perf/explain", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, params }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setOutput(JSON.stringify(data, null, 2));
+    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 500) {
+      setInputError("Limit must be a whole number between 1 and 500.");
+      return;
+    }
+    if (!Number.isInteger(parsedDays) || parsedDays < 1 || parsedDays > 365) {
+      setInputError("Days must be a whole number between 1 and 365.");
+      return;
+    }
+    if (name === "follow_counts" && !targetId.trim()) {
+      setInputError("Target ID is required for follow_counts.");
       return;
     }
 
-    setOutput(data.explainText || "");
-    setSelectedId(data.snapshotId);
-    await loadSnapshots();
+    setInputError(null);
+    setRunning(true);
+    setOutput("");
+    try {
+      const params: Record<string, unknown> = { limit: parsedLimit, days: parsedDays };
+      if (name === "admin_submissions") {
+        params.status = status;
+      }
+      if (name === "follow_counts") {
+        params.targetType = targetType;
+        params.targetId = targetId;
+      }
+
+      const res = await fetch("/api/admin/perf/explain", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name, params }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setOutput(JSON.stringify(data, null, 2));
+        return;
+      }
+
+      setOutput(data.explainText || "");
+      setSelectedId(data.snapshotId);
+      await loadSnapshots();
+    } finally {
+      setRunning(false);
+    }
   }
 
   async function viewSnapshot(id: string) {
-    const res = await fetch(`/api/admin/perf/snapshots/${id}`, { cache: "no-store" });
-    if (!res.ok) return;
-    const data = await res.json();
-    setSelectedId(id);
-    setOutput(data.explainText || "");
+    try {
+      const res = await fetch(`/api/admin/perf/snapshots/${id}`, { cache: "no-store" });
+      if (!res.ok) {
+        enqueueToast({ title: "Failed to load snapshot", variant: "error" });
+        return;
+      }
+      const data = await res.json();
+      setSelectedId(id);
+      setOutput(data.explainText || "");
+    } catch {
+      enqueueToast({ title: "Failed to load snapshot", variant: "error" });
+    }
+  }
+
+  async function deleteSnapshot(id: string) {
+    try {
+      const res = await fetch(`/api/admin/perf/snapshots/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        enqueueToast({ title: "Delete failed", variant: "error" });
+        return;
+      }
+      if (selectedId === id) {
+        setSelectedId(null);
+        setOutput("");
+      }
+      await loadSnapshots();
+      enqueueToast({ title: "Snapshot deleted" });
+    } catch {
+      enqueueToast({ title: "Delete failed", variant: "error" });
+    }
   }
 
   return (
     <section className="space-y-4">
       <div className="grid gap-2 max-w-xl">
         <label className="text-sm">Query name</label>
-        <select className="border rounded px-2 py-1" value={name} onChange={(e) => setName(e.target.value as QueryName)}>
+        <select className="border rounded px-2 py-1" value={name} onChange={(e) => { setName(e.target.value as QueryName); setInputError(null); }}>
           {names.map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
 
@@ -133,7 +191,17 @@ export default function PerfAdminClient() {
           </>
         ) : null}
 
-        <button className="border rounded px-3 py-2 w-fit" onClick={runExplain}>Run EXPLAIN</button>
+        {inputError ? (
+          <p className="text-sm text-red-600">{inputError}</p>
+        ) : null}
+
+        <button
+          className="border rounded px-3 py-2 w-fit disabled:opacity-50"
+          disabled={running}
+          onClick={() => void runExplain()}
+        >
+          {running ? "Running…" : "Run EXPLAIN"}
+        </button>
       </div>
 
       <div>
@@ -145,9 +213,26 @@ export default function PerfAdminClient() {
         <h2 className="font-medium">Recent Snapshots</h2>
         <ul className="mt-2 space-y-1 text-sm">
           {items.map((item) => (
-            <li key={item.id} className="flex items-center gap-2">
-              <button className="underline" onClick={() => viewSnapshot(item.id)}>{item.name}</button>
-              <span className="text-neutral-500">{new Date(item.createdAt).toLocaleString()}</span>
+            <li key={item.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <button className="underline text-sm" onClick={() => void viewSnapshot(item.id)}>
+                {item.name}
+              </button>
+              <span className="text-xs text-neutral-500">
+                {new Date(item.createdAt).toLocaleString()}
+              </span>
+              {item.paramsJson && Object.keys(item.paramsJson).length > 0 ? (
+                <span className="text-xs text-neutral-400">
+                  {Object.entries(item.paramsJson)
+                    .map(([k, v]) => `${k}=${String(v)}`)
+                    .join(" · ")}
+                </span>
+              ) : null}
+              <button
+                className="text-xs text-red-600 underline"
+                onClick={() => void deleteSnapshot(item.id)}
+              >
+                Delete
+              </button>
             </li>
           ))}
         </ul>

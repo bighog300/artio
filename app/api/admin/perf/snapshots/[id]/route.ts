@@ -26,3 +26,27 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }
+
+
+export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const adminGuard = await guardAdmin();
+  if (adminGuard instanceof NextResponse) return adminGuard;
+
+  try {
+    const params = await context.params;
+    const parsed = idParamSchema.safeParse(params);
+    if (!parsed.success) return apiError(400, "invalid_request", "Invalid id", zodDetails(parsed.error));
+
+    const existing = await db.perfSnapshot.findUnique({
+      where: { id: parsed.data.id },
+      select: { id: true },
+    });
+
+    if (!existing) return apiError(404, "not_found", "Snapshot not found");
+
+    await db.perfSnapshot.delete({ where: { id: parsed.data.id } });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return apiError(500, "internal_error", "Unexpected server error");
+  }
+}
