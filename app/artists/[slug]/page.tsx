@@ -12,6 +12,7 @@ import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { EntityPageViewTracker } from "@/components/analytics/entity-page-view-tracker";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
+import { ArtistArtworkShowcase } from "@/components/artists/artist-artwork-showcase";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
@@ -19,6 +20,7 @@ import { buildArtistJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
 import { countPublishedArtworksByArtist, listFeaturedArtworksByArtist, listPublishedArtworksByArtist } from "@/lib/artworks";
+import { getArtistArtworks } from "@/lib/artists";
 
 const FALLBACK_METADATA = { title: "Artist | Artpulse", description: "Browse artist profiles and related events on Artpulse." };
 
@@ -76,13 +78,17 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
 
   if (!artist) notFound();
 
-  const [followersCount, existingFollow, artworks, artworkCount, featuredArtworks] = await Promise.all([
+  const [followersCount, existingFollow, artworks, artworkCount, featuredArtworks, showcaseResult, forSaleCount] = await Promise.all([
     db.follow.count({ where: { targetType: "ARTIST", targetId: artist.id } }),
     user ? db.follow.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "ARTIST", targetId: artist.id } }, select: { id: true } }) : Promise.resolve(null),
     listPublishedArtworksByArtist(artist.id, 6),
     countPublishedArtworksByArtist(artist.id),
     listFeaturedArtworksByArtist(artist.id, 6),
+    getArtistArtworks(slug, { limit: 24, sort: "newest" }),
+    db.artwork.count({ where: { artistId: artist.id, isPublished: true, deletedAt: null, priceAmount: { not: null } } }),
   ]);
+
+  const allArtworkTags = Array.from(new Set(showcaseResult.artworks.flatMap((item) => item.tags))).filter(Boolean);
 
   const imageUrl = resolveEntityPrimaryImage(artist)?.url ?? null;
   const events = artist.eventArtists.map((row) => ({
@@ -113,12 +119,13 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         coverUrl={imageUrl}
         tags={artistTags}
         primaryAction={<FollowButton targetType="ARTIST" targetId={artist.id} initialIsFollowing={Boolean(existingFollow)} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={artist.slug} />}
-        meta={<ArtworkCountBadge count={artworkCount} href={`/artwork?artistId=${artist.id}`} />}
+        meta={<div className="flex items-center gap-2"><ArtworkCountBadge count={artworkCount} href={`/artwork?artistId=${artist.id}`} /><span className="text-xs text-muted-foreground">{forSaleCount} for sale</span></div>}
       />
 
-            {Boolean(user) ? <ContextualNudgeSlot page="artist_detail" type="entity_save_search" nudgeId="nudge_entity_save_search" title="Turn this into alerts" body="Save a search like this to get weekly updates." destination={`/search?q=${encodeURIComponent(artist.name)}`} /> : null}
+      {Boolean(user) ? <ContextualNudgeSlot page="artist_detail" type="entity_save_search" nudgeId="nudge_entity_save_search" title="Turn this into alerts" body="Save a search like this to get weekly updates." destination={`/search?q=${encodeURIComponent(artist.name)}`} /> : null}
 
       <EntityTabs
+        artworks={<ArtistArtworkShowcase artistSlug={slug} initialArtworks={showcaseResult.artworks} initialNextCursor={showcaseResult.nextCursor} totalCount={showcaseResult.total} availableTags={allArtworkTags} />}
         upcoming={(
           <section className="space-y-3">
             <SectionHeader title="Upcoming events" subtitle="Catch this artist's next exhibitions and shows." />
@@ -134,7 +141,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         about={<EntityAboutCard description={artist.bio} websiteUrl={artist.websiteUrl} instagramUrl={artist.instagramUrl} tags={artistTags} />}
       />
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
     </PageShell>
   );
 }
