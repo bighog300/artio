@@ -14,10 +14,11 @@ test("artwork detail page renders stable detail signals", () => {
   assert.match(file, /shouldRedirectArtworkIdKey\(key, artwork\.slug\)/);
   assert.match(file, /permanentRedirect\(`\/artwork\/\$\{artwork\.slug\}`\)/);
 
-  // heading should be tied to dynamic artwork title, not brittle copy
-  assert.match(file, /<h1[^>]*>\{artwork\.title\}<\/h1>/);
+  // heading should be tied to dynamic artwork title via EntityHeader
+  assert.match(file, /<EntityHeader[^>]*title=\{artwork\.title\}/);
 
   // stable detail fields
   assert.match(file, /href=\{`\/artists\/\$\{artwork\.artist\.slug\}`\}/);
-  assert.match(file, /artwork\.images\.map\(\(image\)/);
+  assert.match(file, /const galleryImages = artwork\.images/);
+  assert.match(file, /<EventGalleryLightbox images=\{galleryImages\} \/>/);
 });
