@@ -8,6 +8,8 @@ export type ExtractedEvent = {
   locationText?: string | null;
   description?: string | null;
   sourceUrl?: string | null;
+  artistNames?: string[] | null;
+  imageUrl?: string | null;
 };
 
 export type ExtractUsage = {
@@ -30,7 +32,7 @@ const extractionJsonSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["title", "startAt", "endAt", "timezone", "locationText", "description", "sourceUrl"],
+        required: ["title", "startAt", "endAt", "timezone", "locationText", "description", "sourceUrl", "artistNames", "imageUrl"],
         properties: {
           title: { type: "string", minLength: 1 },
           startAt: { type: ["string", "null"] },
@@ -39,6 +41,8 @@ const extractionJsonSchema = {
           locationText: { type: ["string", "null"] },
           description: { type: ["string", "null"] },
           sourceUrl: { type: ["string", "null"] },
+          artistNames: { type: "array", items: { type: "string" } },
+          imageUrl: { type: ["string", "null"] },
         },
       },
     },
@@ -135,7 +139,14 @@ function isExtractResponse(value: unknown): value is StructuredExtractResponse {
     if (typeof maybeEvent.title !== "string" || maybeEvent.title.trim().length === 0) return false;
 
     const optionalStringOrNull = ["startAt", "endAt", "timezone", "locationText", "description", "sourceUrl"];
-    return optionalStringOrNull.every((key) => maybeEvent[key] === undefined || typeof maybeEvent[key] === "string" || maybeEvent[key] === null);
+    const hasValidOptionalStrings = optionalStringOrNull
+      .every((key) => maybeEvent[key] === undefined || typeof maybeEvent[key] === "string" || maybeEvent[key] === null);
+    const hasValidArtistNames = maybeEvent.artistNames === undefined
+      || maybeEvent.artistNames === null
+      || (Array.isArray(maybeEvent.artistNames) && maybeEvent.artistNames.every((name) => typeof name === "string"));
+    const hasValidImageUrl = maybeEvent.imageUrl === undefined || typeof maybeEvent.imageUrl === "string" || maybeEvent.imageUrl === null;
+
+    return hasValidOptionalStrings && hasValidArtistNames && hasValidImageUrl;
   });
 }
 
@@ -143,6 +154,10 @@ export async function extractEventsWithOpenAI(params: {
   html: string;
   sourceUrl: string;
   model?: string;
+  venueContext?: {
+    name: string;
+    address: string | null;
+  };
 }): Promise<{ model: string; events: ExtractedEvent[]; raw: unknown; usage?: ExtractUsage }> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -151,10 +166,28 @@ export async function extractEventsWithOpenAI(params: {
 
   const model = params.model?.trim() || process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
   const maxOutputTokens = 4000;
+  const today = new Date().toISOString().slice(0, 10);
+  const venueLine = params.venueContext
+    ? `Venue name: ${params.venueContext.name}${params.venueContext.address ? `\nVenue address: ${params.venueContext.address}` : ""}`
+    : "";
+
+  const systemPrompt = [
+    "You are extracting upcoming art events from a venue website.",
+    venueLine,
+    `Today's date: ${today}`,
+    "",
+    "Extract ONLY upcoming events (startAt in the future). Ignore navigation links,",
+    "past events, and page furniture. For artistNames return only names clearly",
+    "attributed to this event — do not include venue staff or sponsors.",
+    "For imageUrl return the full absolute URL of the primary event image if",
+    "present in the HTML, otherwise null.",
+    "Return results in the provided schema.",
+  ].filter(Boolean).join("\n");
+
   const input = [
     {
       role: "system",
-      content: "Extract upcoming events from the provided HTML. Return results in the provided schema.",
+      content: systemPrompt,
     },
     {
       role: "user",
