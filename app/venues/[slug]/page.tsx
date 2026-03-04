@@ -19,6 +19,7 @@ import { buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { getVenueDescriptionExcerpt } from "@/lib/venues";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
+import { VenueEventsGrid } from "@/components/venues/venue-events-grid";
 import Link from "next/link";
 import { countPublishedArtworksByVenue, listPublishedArtworksByVenue } from "@/lib/artworks";
 
@@ -153,9 +154,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
             <SectionHeader title="Upcoming events" subtitle="What’s happening at this venue next." />
             <ArtworkRelatedSection title="Artworks shown here" subtitle="Published works linked to this venue." items={artworks} viewAllHref={artworkCount > 6 ? `/artwork?venueId=${venue.id}` : undefined} showArtistName />
             {events.length === 0 ? <EmptyState title="No upcoming events" description="Follow this venue and check back soon." /> : (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {events.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={venue.name} venueSlug={venue.slug} imageUrl={event.imageUrl} imageAlt={event.imageAlt} tags={event.tags} />)}
-              </div>
+              <VenueEventsGrid events={events} venueName={venue.name} />
             )}
           </section>
         )}
