@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { requireEditor } from "@/lib/auth";
 import { StatusBadge } from "@/components/publishing/StatusBadge";
+import { notifySavedSearchMatches } from "@/lib/saved-searches/notify-saved-search-matches";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ async function reviewAction(formData: FormData) {
 
   if (entityType === "EVENT") {
     await db.event.update({ where: { id: entityId }, data: { status: nextStatus, reviewedAt: now, reviewNotes: reviewNotes || null, isPublished: nextStatus === "PUBLISHED" } });
+    if (nextStatus === "PUBLISHED") await notifySavedSearchMatches(entityId);
   } else if (entityType === "VENUE") {
     await db.venue.update({ where: { id: entityId }, data: { status: nextStatus, reviewedAt: now, reviewNotes: reviewNotes || null, isPublished: nextStatus === "PUBLISHED" } });
   } else if (entityType === "ARTIST") {

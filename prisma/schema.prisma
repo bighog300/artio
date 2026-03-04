@@ -74,6 +74,7 @@ enum NotificationType {
   INVITE_CREATED
   DIGEST_READY
   ARTWORK_VIEW_MILESTONE
+  SAVED_SEARCH_MATCH
 }
 
 enum ArtistVenueAssociationStatus {

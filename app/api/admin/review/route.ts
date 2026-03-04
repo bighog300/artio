@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireEditor, isAuthError } from "@/lib/auth";
 import { apiError } from "@/lib/api";
+import { notifySavedSearchMatches } from "@/lib/saved-searches/notify-saved-search-matches";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,7 @@ export async function PATCH(req: NextRequest) {
 
     if (parsed.data.entityType === "EVENT") {
       await db.event.update({ where: { id: parsed.data.entityId }, data: { status, reviewedAt: now, reviewNotes: parsed.data.reviewNotes ?? null, isPublished: status === "PUBLISHED" } });
+      if (status === "PUBLISHED") await notifySavedSearchMatches(parsed.data.entityId);
     } else if (parsed.data.entityType === "VENUE") {
       await db.venue.update({ where: { id: parsed.data.entityId }, data: { status, reviewedAt: now, reviewNotes: parsed.data.reviewNotes ?? null, isPublished: status === "PUBLISHED" } });
     } else {

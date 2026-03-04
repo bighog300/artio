@@ -54,3 +54,20 @@ test("approval and rejection templates generate expected hrefs and stable dedupe
   assert.ok(approved.title);
   assert.ok(rejectedOne.body);
 });
+
+
+test("SAVED_SEARCH_MATCH builds event href and dedupe", () => {
+  const one = buildNotification({
+    type: "SAVED_SEARCH_MATCH",
+    payload: { type: "SAVED_SEARCH_MATCH", savedSearchId: "ss-1", eventId: "ev-1", searchName: "Openings", eventTitle: "Spring Opening", eventSlug: "spring-opening" },
+  });
+  const two = buildNotification({
+    type: "SAVED_SEARCH_MATCH",
+    payload: { type: "SAVED_SEARCH_MATCH", savedSearchId: "ss-1", eventId: "ev-1", searchName: "Openings", eventTitle: "Spring Opening", eventSlug: "spring-opening" },
+  });
+
+  assert.equal(one.title, "New event matches your saved search");
+  assert.equal(one.body, 'Spring Opening matches your saved search "Openings".');
+  assert.equal(one.href, "/events/spring-opening");
+  assert.equal(one.dedupeKey, two.dedupeKey);
+});

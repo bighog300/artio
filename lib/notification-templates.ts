@@ -31,6 +31,14 @@ export type NotificationTemplatePayload =
       targetVenueId?: string | null;
       targetArtistId?: string | null;
       decisionReason?: string | null;
+    }
+  | {
+      type: "SAVED_SEARCH_MATCH";
+      savedSearchId: string;
+      eventId: string;
+      searchName: string;
+      eventTitle: string;
+      eventSlug?: string | null;
     };
 
 export function buildNotification({ type, payload }: { type: NotificationType; payload: NotificationTemplatePayload }) {
@@ -89,6 +97,15 @@ export function buildNotification({ type, payload }: { type: NotificationType; p
       body: payload.decisionReason ?? "Your submission was rejected by moderation.",
       href,
       dedupeKey: submissionDecisionDedupeKey(payload.submissionId, "REJECTED"),
+    };
+  }
+
+  if (type === "SAVED_SEARCH_MATCH" && payload.type === "SAVED_SEARCH_MATCH") {
+    return {
+      title: "New event matches your saved search",
+      body: `${payload.eventTitle} matches your saved search "${payload.searchName}".`,
+      href: payload.eventSlug ? `/events/${payload.eventSlug}` : undefined,
+      dedupeKey: `saved-search-match:${payload.savedSearchId}:${payload.eventId}`,
     };
   }
 

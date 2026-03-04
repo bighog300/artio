@@ -8,6 +8,7 @@ type Deps = {
   requireAdminUser: () => Promise<void>;
   findEvent: (id: string) => Promise<EventRecord | null>;
   updateEvent: (id: string, data: Record<string, unknown>) => Promise<void>;
+  onPublished?: (eventId: string) => Promise<void>;
 };
 
 export async function handleEventModerationIntent(req: Request, params: { id: string }, deps: Deps) {
@@ -29,6 +30,7 @@ export async function handleEventModerationIntent(req: Request, params: { id: st
 
   if (parsedBody.action === "approve_publish") {
     await deps.updateEvent(event.id, { status: "PUBLISHED", isPublished: true, publishedAt: new Date(), reviewedAt: new Date(), reviewNotes: null });
+    if (deps.onPublished) await deps.onPublished(event.id);
     return ok({ ok: true, status: "PUBLISHED", message: "Event approved and published.", publicUrl: event.slug ? `/events/${event.slug}` : undefined });
   }
   if (parsedBody.action === "request_changes") {
