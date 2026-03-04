@@ -146,6 +146,27 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
     return sorted;
   }, [items, sort]);
 
+  const thisWeekendEvents = useMemo(() => {
+    const now = new Date();
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() + 7);
+
+    return visibleItems
+      .filter((event) => {
+        const start = new Date(event.startAt);
+        return start >= now && start <= cutoff;
+      })
+      .slice(0, 3);
+  }, [visibleItems]);
+
+  const quickPickEvents = useMemo(() => {
+    const thisWeekendIds = new Set(thisWeekendEvents.map((event) => event.id));
+
+    return visibleItems
+      .filter((event) => !thisWeekendIds.has(event.id))
+      .slice(0, 6);
+  }, [thisWeekendEvents, visibleItems]);
+
   return (
     <section className="space-y-6">
       <EventsFiltersBar availableTags={allTags} />
@@ -192,38 +213,42 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
             ))}
           </div>
 
-          <div className="space-y-2">
-            <h3 className="text-base font-semibold tracking-tight">This weekend</h3>
-            <div className="grid gap-2">
-              {visibleItems.slice(0, 3).map((event) => (
-                <div key={`row-${event.id}`} onClick={() => track("event_viewed", { eventSlug: event.slug, source: "events", ui: "row" })}><EventRow
-                  href={`/events/${event.slug}`}
-                  title={event.title}
-                  startAt={event.startAt}
-                  endAt={event.endAt}
-                  venueName={event.venue?.name}
-                  action={<SaveEventButton eventId={event.id} initialSaved={favoriteIds.has(event.id)} nextUrl={`/events?${searchParams?.toString() ?? ""}`} isAuthenticated={isAuthenticated} analytics={{ eventSlug: event.slug }} />}
-                /></div>
-              ))}
+          {thisWeekendEvents.length >= 2 ? (
+            <div className="space-y-2">
+              <h3 className="text-base font-semibold tracking-tight">This weekend</h3>
+              <div className="grid gap-2">
+                {thisWeekendEvents.map((event) => (
+                  <div key={`row-${event.id}`} onClick={() => track("event_viewed", { eventSlug: event.slug, source: "events", ui: "row" })}><EventRow
+                    href={`/events/${event.slug}`}
+                    title={event.title}
+                    startAt={event.startAt}
+                    endAt={event.endAt}
+                    venueName={event.venue?.name}
+                    action={<SaveEventButton eventId={event.id} initialSaved={favoriteIds.has(event.id)} nextUrl={`/events?${searchParams?.toString() ?? ""}`} isAuthenticated={isAuthenticated} analytics={{ eventSlug: event.slug }} />}
+                  /></div>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
 
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold tracking-tight">Quick picks</h3>
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {visibleItems.slice(0, 6).map((event) => (
-                <div key={`rail-${event.id}`} onClick={() => track("event_viewed", { eventSlug: event.slug, source: "events", ui: "rail" })}><EventRailCard
-                  href={`/events/${event.slug}`}
-                  title={event.title}
-                  startAt={event.startAt}
-                  endAt={event.endAt}
-                  venueName={event.venue?.name}
-                  imageUrl={resolveEntityPrimaryImage(event)?.url ?? null}
-                imageAlt={resolveEntityPrimaryImage(event)?.alt}
-                /></div>
-              ))}
+          {quickPickEvents.length >= 2 ? (
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold tracking-tight">Quick picks</h3>
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {quickPickEvents.map((event) => (
+                  <div key={`rail-${event.id}`} onClick={() => track("event_viewed", { eventSlug: event.slug, source: "events", ui: "rail" })}><EventRailCard
+                    href={`/events/${event.slug}`}
+                    title={event.title}
+                    startAt={event.startAt}
+                    endAt={event.endAt}
+                    venueName={event.venue?.name}
+                    imageUrl={resolveEntityPrimaryImage(event)?.url ?? null}
+                    imageAlt={resolveEntityPrimaryImage(event)?.alt}
+                  /></div>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
         </>
       ) : null}
 
