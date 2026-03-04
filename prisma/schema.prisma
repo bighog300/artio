@@ -325,6 +325,7 @@ model Venue {
   lng                Float?
   timezone           String?
   websiteUrl         String?
+  eventsPageUrl      String?                   @map("eventsPageUrl")
   instagramUrl       String?
   facebookUrl        String?
   contactEmail       String?
@@ -616,6 +617,8 @@ model IngestExtractedEvent {
   timezone        String?
   locationText    String?
   description     String?
+  artistNames     String[]                   @default([])
+  imageUrl        String?
   rawJson         Json
   model           String?
   confidenceScore Int                        @default(0)
