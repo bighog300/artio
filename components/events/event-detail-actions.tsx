@@ -36,7 +36,13 @@ export function EventDetailActions({
         <a href={calendarLink} target="_blank" rel="noreferrer" onClick={() => track("event_add_to_calendar_clicked", { eventSlug })}>Add to Calendar</a>
       </Button>
       <ShareButton eventSlug={eventSlug} ui="detail" />
-      {subscribeFeedLink ? <a href={subscribeFeedLink} className="text-xs underline" onClick={() => track("event_calendar_feed_subscribe_clicked", { eventSlug })}>Subscribe to feed</a> : null}
+      {subscribeFeedLink ? (
+        <Button asChild variant="ghost" size="sm">
+          <a href={subscribeFeedLink} target="_blank" rel="noopener noreferrer" onClick={() => track("event_calendar_feed_subscribe_clicked", { eventSlug })}>
+            Subscribe to feed
+          </a>
+        </Button>
+      ) : null}
     </div>
   );
 }
