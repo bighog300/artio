@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { logAdminAction } from "@/lib/admin-audit";
 import { handleAdminCurationHomeOrder } from "@/lib/admin-curation-home-order-route";

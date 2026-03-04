@@ -1,8 +1,11 @@
 import { AdminCurationClient } from "./curation-client";
+import { requireAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminCurationPage() {
+export default async function AdminCurationPage() {
+  await requireAdmin();
+
   return (
     <main className="space-y-4 p-6">
       <div>

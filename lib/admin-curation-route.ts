@@ -10,7 +10,7 @@ type Deps = {
 };
 
 const defaultDeps: Deps = {
-  requireAdminUser: async () => (await import("@/lib/auth")).requireAdmin(),
+  requireAdminUser: async () => (await import("@/lib/admin")).requireAdmin(),
   getQaSummary: getCurationQaSummary,
   getPreview: getCollectionPreview,
 };

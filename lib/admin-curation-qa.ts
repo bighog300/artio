@@ -73,6 +73,8 @@ export async function getCurationQaSummary(now: Date = new Date()) {
   const [collections, items] = await Promise.all([
     db.curatedCollection.findMany({ select: { id: true, title: true, slug: true, isPublished: true, publishStartsAt: true, publishEndsAt: true, homeRank: true } }),
     db.curatedCollectionItem.findMany({
+      // Cap at 2000 items — sufficient for QA analysis; avoids unbounded memory load
+      take: 2000,
       select: {
         collectionId: true,
         artworkId: true,

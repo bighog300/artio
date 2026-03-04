@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, isAuthError } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin";
+import { isAuthError } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 
@@ -9,9 +10,10 @@ export async function GET(req: NextRequest) {
   try {
     await requireAdmin();
     const query = req.nextUrl.searchParams.get("query")?.trim() ?? "";
+    const publishedOnly = req.nextUrl.searchParams.get("published") === "true";
     const artworks = await db.artwork.findMany({
       where: {
-        isPublished: true,
+        ...(publishedOnly ? { isPublished: true } : {}),
         ...(query ? { OR: [{ title: { contains: query, mode: "insensitive" } }, { artist: { name: { contains: query, mode: "insensitive" } } }] } : {}),
       },
       orderBy: { updatedAt: "desc" },

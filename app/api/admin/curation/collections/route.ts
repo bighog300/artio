@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, isAuthError } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin";
+import { isAuthError } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logAdminAction } from "@/lib/admin-audit";
 import { apiError } from "@/lib/api";
