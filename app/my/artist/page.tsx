@@ -72,7 +72,7 @@ export default async function MyArtistPage() {
       where: { isPublished: true },
       orderBy: { name: "asc" },
       select: { id: true, name: true, slug: true },
-      take: 100,
+      take: 20, // Limited to avoid large payloads — ArtistVenuesPanel should move to search/autocomplete for scale
     }),
     countAllArtworksByArtist(artist.id),
     db.artwork.findMany({

@@ -3,7 +3,6 @@ import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { handlePatchMyArtist } from "@/lib/my-artist-route";
 import { handlePostMyArtist } from "@/lib/my-artist-create-route";
-import { setOnboardingFlagForSession } from "@/lib/onboarding";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,8 +45,8 @@ export async function POST(req: NextRequest) {
         },
       });
     },
-    setOnboardingFlag: async (user) => {
-      await setOnboardingFlagForSession(user, "hasCreatedVenue", true, { path: "/api/my/artist" });
+    setOnboardingFlag: async () => {
+      // No artist-specific onboarding flag exists in lib/onboarding.ts.
     },
   });
 }

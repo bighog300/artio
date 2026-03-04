@@ -25,6 +25,7 @@ export function ArtworkGalleryManager({
   const [coverAssetId, setCoverAssetId] = useState<string | null>(initialCoverAssetId);
   const [isUploading, setIsUploading] = useState(false);
   const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [altDraftMap, setAltDraftMap] = useState<Record<string, string>>(
     Object.fromEntries(initialImages.map((image) => [image.id, image.alt ?? ""])),
   );
@@ -162,7 +163,7 @@ export function ArtworkGalleryManager({
   }
 
   async function removeImage(imageId: string) {
-    if (!window.confirm("Delete this image?")) return;
+    setDeleteTargetId(null);
 
     const previousImages = images;
     const previousCover = coverAssetId;
@@ -281,9 +282,35 @@ export function ArtworkGalleryManager({
                 >
                   Set Cover
                 </Button>
-                <Button type="button" variant="destructive" onClick={() => removeImage(image.id)} disabled={Boolean(loadingMap[image.id])}>
-                  Delete
-                </Button>
+                {deleteTargetId === image.id ? (
+                  <>
+                    <span className="text-sm">Delete?</span>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={Boolean(loadingMap[image.id])}
+                      onClick={() => void removeImage(image.id)}
+                    >
+                      Yes, delete
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setDeleteTargetId(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => setDeleteTargetId(image.id)}
+                    disabled={Boolean(loadingMap[image.id])}
+                  >
+                    Delete
+                  </Button>
+                )}
               </div>
             </article>
           ))}

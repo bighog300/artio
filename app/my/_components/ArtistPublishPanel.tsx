@@ -26,7 +26,6 @@ export function ArtistPublishPanel(props: Props) {
   async function onSubmit() {
     if (pending || props.submissionStatus === "IN_REVIEW") return;
     setPending(true);
-    setIssues([]);
     try {
       const res = await fetch("/api/my/artist/submit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) });
       if (res.status === 401) {
@@ -40,6 +39,7 @@ export function ArtistPublishPanel(props: Props) {
         if (body?.error === "NOT_READY") document.getElementById("publish-readiness")?.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
+      setIssues([]);
       enqueueToast({ title: "Submitted for review", variant: "success" });
       router.refresh();
     } finally {

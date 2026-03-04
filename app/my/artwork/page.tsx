@@ -8,6 +8,8 @@ import { buildClearFiltersHref, buildRemoveFilterHref, getFirstSearchValue, toTi
 import { MyArchiveActionButton } from "@/app/my/_components/MyArchiveActionButton";
 import { MyArtworkPublishToggleButton } from "@/app/my/_components/MyArtworkPublishToggleButton";
 
+export const dynamic = "force-dynamic";
+
 type ArtworkSearchParams = Promise<{ q?: string; query?: string; status?: string; sort?: string; venueId?: string; showArchived?: string }>;
 
 export default async function MyArtworkPage({ searchParams }: { searchParams: ArtworkSearchParams }) {
