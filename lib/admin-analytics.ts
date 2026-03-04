@@ -5,6 +5,15 @@ export type AdminAnalyticsDb = {
     count: (args?: Prisma.EngagementEventCountArgs) => Promise<number>;
     groupBy: (args: Prisma.EngagementEventGroupByArgs) => Promise<Array<{ targetId?: string | null; userId?: string | null; sessionId?: string | null; _count: { _all: number } }>>;
   };
+  event: {
+    findMany: (args: { where: { id: { in: string[] } }; select: { id: true; title: true; slug: true } }) => Promise<Array<{ id: string; title: string; slug: string }>>;
+  };
+  venue: {
+    findMany: (args: { where: { id: { in: string[] } }; select: { id: true; name: true; slug: true } }) => Promise<Array<{ id: string; name: string; slug: string }>>;
+  };
+  artist: {
+    findMany: (args: { where: { id: { in: string[] } }; select: { id: true; name: true; slug: true } }) => Promise<Array<{ id: string; name: string; slug: string }>>;
+  };
 };
 
 export type AnalyticsOverview = {
@@ -25,11 +34,12 @@ export type AnalyticsOverview = {
     digestCtr: number | null;
     nearbyCtr: number | null;
     searchCtr: number | null;
+    followingCtr: number | null;
   };
   top: {
-    events: Array<{ eventId: string; clicks: number }>;
-    venues: Array<{ venueId: string; clicks: number }>;
-    artists: Array<{ artistId: string; clicks: number }>;
+    events: Array<{ eventId: string; clicks: number; label?: string; href?: string }>;
+    venues: Array<{ venueId: string; clicks: number; label?: string; href?: string }>;
+    artists: Array<{ artistId: string; clicks: number; label?: string; href?: string }>;
   };
 };
 
@@ -50,6 +60,9 @@ export async function getAdminAnalyticsOverview(windowDays: 7 | 30, analyticsDb:
     followingClicks,
     follows,
     saveSearches,
+    nearbyViews,
+    searchViews,
+    followingViews,
     eventGroups,
     venueGroups,
     artistGroups,
@@ -64,6 +77,9 @@ export async function getAdminAnalyticsOverview(windowDays: 7 | 30, analyticsDb:
     analyticsDb.engagementEvent.count({ where: { ...rangeWhere, action: "CLICK", targetType: "EVENT", surface: "FOLLOWING" } }),
     analyticsDb.engagementEvent.count({ where: { ...rangeWhere, action: "FOLLOW", targetType: { in: ["VENUE", "ARTIST"] } } }),
     analyticsDb.engagementEvent.count({ where: { ...rangeWhere, action: "SAVE_SEARCH", targetType: "SAVED_SEARCH" } }),
+    analyticsDb.engagementEvent.count({ where: { ...rangeWhere, action: "VIEW", targetType: "EVENT", surface: "NEARBY" } }),
+    analyticsDb.engagementEvent.count({ where: { ...rangeWhere, action: "VIEW", targetType: "EVENT", surface: "SEARCH" } }),
+    analyticsDb.engagementEvent.count({ where: { ...rangeWhere, action: "VIEW", targetType: "EVENT", surface: "FOLLOWING" } }),
     analyticsDb.engagementEvent.groupBy({
       by: ["targetId"],
       where: { ...rangeWhere, action: "CLICK", targetType: "EVENT" },
@@ -87,6 +103,20 @@ export async function getAdminAnalyticsOverview(windowDays: 7 | 30, analyticsDb:
     }),
   ]);
 
+  const eventIds = eventGroups.filter((item) => typeof item.targetId === "string").map((item) => item.targetId as string);
+  const venueIds = venueGroups.filter((item) => typeof item.targetId === "string").map((item) => item.targetId as string);
+  const artistIds = artistGroups.filter((item) => typeof item.targetId === "string").map((item) => item.targetId as string);
+
+  const [resolvedEvents, resolvedVenues, resolvedArtists] = await Promise.all([
+    eventIds.length ? analyticsDb.event.findMany({ where: { id: { in: eventIds } }, select: { id: true, title: true, slug: true } }) : [],
+    venueIds.length ? analyticsDb.venue.findMany({ where: { id: { in: venueIds } }, select: { id: true, name: true, slug: true } }) : [],
+    artistIds.length ? analyticsDb.artist.findMany({ where: { id: { in: artistIds } }, select: { id: true, name: true, slug: true } }) : [],
+  ]);
+
+  const eventMap = new Map(resolvedEvents.map((row) => [row.id, { label: row.title, href: `/events/${row.slug}` }]));
+  const venueMap = new Map(resolvedVenues.map((row) => [row.id, { label: row.name, href: `/venues/${row.slug}` }]));
+  const artistMap = new Map(resolvedArtists.map((row) => [row.id, { label: row.name, href: `/artists/${row.slug}` }]));
+
   return {
     windowDays,
     totals: {
@@ -103,13 +133,35 @@ export async function getAdminAnalyticsOverview(windowDays: 7 | 30, analyticsDb:
     },
     ctr: {
       digestCtr: safeCtr(digestClicks, digestsViewed),
-      nearbyCtr: safeCtr(nearbyClicks, digestsViewed),
-      searchCtr: safeCtr(searchClicks, digestsViewed),
+      nearbyCtr: safeCtr(nearbyClicks, nearbyViews),
+      searchCtr: safeCtr(searchClicks, searchViews),
+      followingCtr: safeCtr(followingClicks, followingViews),
     },
     top: {
-      events: eventGroups.filter((item) => typeof item.targetId === "string").map((item) => ({ eventId: item.targetId!, clicks: item._count._all })),
-      venues: venueGroups.filter((item) => typeof item.targetId === "string").map((item) => ({ venueId: item.targetId!, clicks: item._count._all })),
-      artists: artistGroups.filter((item) => typeof item.targetId === "string").map((item) => ({ artistId: item.targetId!, clicks: item._count._all })),
+      events: eventGroups
+        .filter((item) => typeof item.targetId === "string")
+        .map((item) => ({
+          eventId: item.targetId!,
+          clicks: item._count._all,
+          label: eventMap.get(item.targetId!)?.label,
+          href: eventMap.get(item.targetId!)?.href,
+        })),
+      venues: venueGroups
+        .filter((item) => typeof item.targetId === "string")
+        .map((item) => ({
+          venueId: item.targetId!,
+          clicks: item._count._all,
+          label: venueMap.get(item.targetId!)?.label,
+          href: venueMap.get(item.targetId!)?.href,
+        })),
+      artists: artistGroups
+        .filter((item) => typeof item.targetId === "string")
+        .map((item) => ({
+          artistId: item.targetId!,
+          clicks: item._count._all,
+          label: artistMap.get(item.targetId!)?.label,
+          href: artistMap.get(item.targetId!)?.href,
+        })),
     },
   };
 }

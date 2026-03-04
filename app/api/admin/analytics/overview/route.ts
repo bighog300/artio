@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin";
 import { handleAdminAnalyticsOverview } from "@/lib/admin-analytics-route";
 
 export const runtime = "nodejs";
