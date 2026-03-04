@@ -18,7 +18,7 @@ export type TasteModel = {
   dowWeights: { mon: number; tue: number; wed: number; thu: number; fri: number; sat: number; sun: number };
 };
 
-export type TasteFeedbackType = "click" | "save" | "follow" | "show_less" | "hide";
+export type TasteFeedbackType = "click" | "save" | "attend" | "follow" | "show_less" | "hide";
 
 export type TasteFeedbackEvent = {
   type: TasteFeedbackType;
@@ -199,6 +199,7 @@ export function applyTasteUpdate(model: TasteModel, feedbackEvent: TasteFeedback
   const deltaByType: Record<TasteFeedbackType, number> = {
     click: DEFAULT_WEIGHTS.tasteDeltaClick,
     save: DEFAULT_WEIGHTS.tasteDeltaSave,
+    attend: DEFAULT_WEIGHTS.tasteDeltaAttend,
     follow: DEFAULT_WEIGHTS.tasteDeltaFollow,
     show_less: DEFAULT_WEIGHTS.tasteDeltaShowLess,
     hide: DEFAULT_WEIGHTS.tasteDeltaHide,
@@ -207,6 +208,7 @@ export function applyTasteUpdate(model: TasteModel, feedbackEvent: TasteFeedback
   const timeDeltaByType: Partial<Record<TasteFeedbackType, number>> = {
     click: DEFAULT_WEIGHTS.tasteTimeDeltaClick,
     save: DEFAULT_WEIGHTS.tasteTimeDeltaSave,
+    attend: DEFAULT_WEIGHTS.tasteTimeDeltaAttend,
     show_less: DEFAULT_WEIGHTS.tasteTimeDeltaShowLess,
     hide: DEFAULT_WEIGHTS.tasteTimeDeltaHide,
   };

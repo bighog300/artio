@@ -36,7 +36,7 @@ export function recordFeedback({ type, item, source }: { type: TasteFeedbackType
     addFeedback("show_less", { type: item.type, idOrSlug: item.idOrSlug });
   }
 
-  if (type === "click" || type === "save" || type === "follow") {
+  if (type === "click" || type === "save" || type === "attend" || type === "follow") {
     addFeedback(type, { type: item.type, idOrSlug: item.idOrSlug });
   }
 

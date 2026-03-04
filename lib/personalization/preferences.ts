@@ -11,7 +11,7 @@ export const PERSONALIZATION_KEYS = {
 const FEEDBACK_LIMIT = 50;
 
 type PreferenceItem = { type: PreferenceEntityType; idOrSlug: string };
-export type PreferenceFeedbackEvent = PreferenceItem & { action: "hide" | "show_less" | "click" | "save" | "follow"; at: string };
+export type PreferenceFeedbackEvent = PreferenceItem & { action: "hide" | "show_less" | "click" | "save" | "attend" | "follow"; at: string };
 
 type FilterableItem = {
   id?: string;

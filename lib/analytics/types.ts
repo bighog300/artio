@@ -3,6 +3,7 @@ export type AnalyticsEventName =
   | "events_filters_changed"
   | "event_viewed"
   | "event_saved_toggled"
+  | "event_attendance_toggled"
   | "event_shared"
   | "event_add_to_calendar_clicked"
   | "event_calendar_feed_subscribe_clicked"
@@ -88,7 +89,7 @@ export type AnalyticsProps = {
   queryLength?: number;
   hasQuery?: boolean;
   hasLocation?: boolean;
-  nextState?: "saved" | "unsaved" | "followed" | "unfollowed" | "enabled" | "disabled";
+  nextState?: "saved" | "unsaved" | "going" | "not_going" | "followed" | "unfollowed" | "enabled" | "disabled";
   type?: "artist" | "venue";
   slug?: string;
   mode?: "single" | "bulk";
@@ -120,7 +121,7 @@ export type AnalyticsProps = {
   diversityRules?: string;
   version?: string;
   rate?: number;
-  action?: "click" | "save" | "follow" | "hide" | "show_less";
+  action?: "click" | "save" | "attend" | "follow" | "hide" | "show_less";
   position?: number;
   scoreBucket?: "top" | "mid" | "low";
   topReasonKind?: string;

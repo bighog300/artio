@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { SaveEventButton } from "@/components/events/save-event-button";
+import { AttendEventButton } from "@/components/events/attend-event-button";
 import { ShareButton } from "@/components/share-button";
 import { track } from "@/lib/analytics/client";
 
@@ -30,6 +31,7 @@ export function EventDetailActions({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <SaveEventButton eventId={eventId} initialSaved={initialSaved} nextUrl={nextUrl} isAuthenticated={isAuthenticated} analytics={{ eventSlug, ui: "detail" }} />
+      <AttendEventButton eventId={eventId} nextUrl={nextUrl} isAuthenticated={isAuthenticated} analytics={{ eventSlug, ui: "detail" }} />
       <Button asChild variant="secondary" size="sm">
         <a href={calendarLink} target="_blank" rel="noreferrer" onClick={() => track("event_add_to_calendar_clicked", { eventSlug })}>Add to Calendar</a>
       </Button>

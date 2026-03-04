@@ -14,15 +14,16 @@ function baseModel(): TasteModel {
   };
 }
 
-test("taste updates click/save/follow and show_less/hide deltas", () => {
+test("taste updates click/save/attend/follow and show_less/hide deltas", () => {
   let model = baseModel();
   model = applyTasteUpdate(model, { type: "click", tags: ["jazz"], venueSlug: "venue-1", artistSlugs: ["artist-1"], at: new Date("2025-01-06T09:00:00.000Z") });
   model = applyTasteUpdate(model, { type: "save", tags: ["jazz"], venueSlug: "venue-1", artistSlugs: ["artist-1"], at: new Date("2025-01-06T09:05:00.000Z") });
+  model = applyTasteUpdate(model, { type: "attend", tags: ["jazz"], venueSlug: "venue-1", artistSlugs: ["artist-1"], at: new Date("2025-01-06T09:08:00.000Z") });
   model = applyTasteUpdate(model, { type: "show_less", tags: ["jazz"], venueSlug: "venue-1", artistSlugs: ["artist-1"], at: new Date("2025-01-06T09:10:00.000Z") });
 
-  assert.equal(model.tagWeights.jazz.toFixed(2), (-0.15).toFixed(2));
-  assert.equal(model.venueWeights["venue-1"].toFixed(2), (-0.15).toFixed(2));
-  assert.equal(model.artistWeights["artist-1"].toFixed(2), (-0.15).toFixed(2));
+  assert.equal(model.tagWeights.jazz.toFixed(2), (0.60).toFixed(2));
+  assert.equal(model.venueWeights["venue-1"].toFixed(2), (0.60).toFixed(2));
+  assert.equal(model.artistWeights["artist-1"].toFixed(2), (0.60).toFixed(2));
   assert.ok(model.daypartWeights.morning > 0);
   assert.ok(model.dowWeights.mon > 0);
 });

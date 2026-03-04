@@ -192,6 +192,7 @@ model User {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   favorites            Favorite[]
+  attendances          Attendance[]
   venueMemberships     VenueMembership[]
   submissions          Submission[]          @relation("SubmissionSubmitter")
   decidedSubmissions   Submission[]          @relation("SubmissionDecider")
@@ -525,6 +526,7 @@ model Event {
   eventArtists  EventArtist[]
   submissions   Submission[]
   artworkEvents ArtworkEvent[]
+  attendances   Attendance[]
   ingestExtractedCandidate IngestExtractedEvent? @relation("IngestExtractedEventCreatedEvent")
 
   @@index([startAt])
@@ -1086,6 +1088,18 @@ model Favorite {
   @@unique([userId, targetType, targetId])
   @@index([targetType, targetId])
   @@index([targetType, createdAt, targetId])
+}
+
+model Attendance {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  eventId   String   @db.Uuid
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([eventId, createdAt])
 }
 
 model Follow {
