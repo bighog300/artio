@@ -56,7 +56,7 @@ export function ArtistArtworkLightbox({ artwork, onClose }: { artwork: ArtworkSu
           <span>{artwork.dimensions ?? "Dimensions unavailable"}</span>
           <span>{artwork.forSale && artwork.price ? `${artwork.price.currency} ${artwork.price.amount.toLocaleString()} • Available` : "Not for sale"}</span>
           <span>{index + 1} / {artwork.images.length}</span>
-          <Link href={`/artists/${artwork.artist.slug ?? ""}`} className="underline">Enquire</Link>
+          <Link href={`/artists/${artwork.artist.slug ?? ""}`} className="underline">Enquire about this work</Link>
         </footer>
       </div>
     </div>

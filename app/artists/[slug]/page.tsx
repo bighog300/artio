@@ -88,7 +88,8 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
     db.artwork.count({ where: { artistId: artist.id, isPublished: true, deletedAt: null, priceAmount: { not: null } } }),
   ]);
 
-  const allArtworkTags = Array.from(new Set(showcaseResult.artworks.flatMap((item) => item.tags))).filter(Boolean);
+  const initialArtworks = showcaseResult.artworks;
+  const allArtworkTags = Array.from(new Set(initialArtworks.flatMap((item) => item.tags))).filter(Boolean);
 
   const imageUrl = resolveEntityPrimaryImage(artist)?.url ?? null;
   const events = artist.eventArtists.map((row) => ({
@@ -125,7 +126,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
       {Boolean(user) ? <ContextualNudgeSlot page="artist_detail" type="entity_save_search" nudgeId="nudge_entity_save_search" title="Turn this into alerts" body="Save a search like this to get weekly updates." destination={`/search?q=${encodeURIComponent(artist.name)}`} /> : null}
 
       <EntityTabs
-        artworks={<ArtistArtworkShowcase artistSlug={slug} initialArtworks={showcaseResult.artworks} initialNextCursor={showcaseResult.nextCursor} totalCount={showcaseResult.total} availableTags={allArtworkTags} />}
+        artworks={<ArtistArtworkShowcase artistSlug={slug} initialArtworks={initialArtworks} initialNextCursor={showcaseResult.nextCursor} totalCount={showcaseResult.total} availableTags={allArtworkTags} />}
         upcoming={(
           <section className="space-y-3">
             <SectionHeader title="Upcoming events" subtitle="Catch this artist's next exhibitions and shows." />

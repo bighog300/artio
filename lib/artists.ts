@@ -27,7 +27,7 @@ export type ArtworkSummary = {
   tags: string[];
   featured: boolean;
   images: Array<{ id: string; url: string | null; isPrimary: boolean; order: number }>;
-  artist: { name: string; slug: string | null };
+  artist: { name: string; slug: string | null; website: string | null };
   updatedAt: Date;
 };
 
@@ -54,7 +54,7 @@ export async function getArtistArtworks(
 ): Promise<{ artworks: ArtworkSummary[]; nextCursor: string | null; total: number }> {
   const artist = await db.artist.findFirst({
     where: { slug, isPublished: true, deletedAt: null },
-    select: { id: true, slug: true, name: true },
+    select: { id: true, slug: true, name: true, websiteUrl: true },
   });
   if (!artist) return { artworks: [], nextCursor: null, total: 0 };
 
@@ -137,7 +137,7 @@ export async function getArtistArtworks(
       isPrimary: index === 0,
       order: image.sortOrder,
     })),
-    artist: { name: artist.name, slug: artist.slug },
+    artist: { name: artist.name, slug: artist.slug, website: artist.websiteUrl },
     updatedAt: item.updatedAt,
   }));
 
