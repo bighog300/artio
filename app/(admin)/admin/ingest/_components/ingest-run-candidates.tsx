@@ -11,6 +11,8 @@ type Lane = "HIGH" | "NEEDS_REVIEW" | "LOW" | "ALL";
 type Candidate = {
   id: string;
   title: string;
+  artistNames: string[];
+  imageUrl: string | null;
   startAt: string | null;
   locationText: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE";
@@ -87,6 +89,7 @@ export default function IngestRunCandidates({ candidates, venueId }: { candidate
               <th className="px-3 py-2">Title</th>
               <th className="px-3 py-2">Start Date</th>
               <th className="px-3 py-2">Location</th>
+              <th className="px-3 py-2">Image</th>
               <th className="px-3 py-2">Confidence</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Actions</th>
@@ -102,6 +105,11 @@ export default function IngestRunCandidates({ candidates, venueId }: { candidate
                   <tr className="border-b align-top">
                     <td className="px-3 py-2 font-medium">
                       {candidate.title}
+                      {candidate.artistNames.length > 0 ? (
+                        <div className="text-xs text-muted-foreground">
+                          {candidate.artistNames.join(", ")}
+                        </div>
+                      ) : null}
                       {duplicates.length > 0 ? (
                         <button
                           className="ml-2 text-xs underline"
@@ -114,6 +122,11 @@ export default function IngestRunCandidates({ candidates, venueId }: { candidate
                     </td>
                     <td className="px-3 py-2">{candidate.startAt ? new Date(candidate.startAt).toLocaleString() : "—"}</td>
                     <td className="px-3 py-2">{candidate.locationText ?? "—"}</td>
+                    <td className="px-3 py-2">
+                      {candidate.imageUrl
+                        ? <img src={candidate.imageUrl} alt={candidate.title} className="h-10 w-16 rounded object-cover" />
+                        : "—"}
+                    </td>
                     <td className="px-3 py-2">
                       <IngestConfidenceBadge
                         score={candidate.confidenceScore}
@@ -143,6 +156,11 @@ export default function IngestRunCandidates({ candidates, venueId }: { candidate
                       <td className="px-3 py-2">{duplicate.startAt ? new Date(duplicate.startAt).toLocaleString() : "—"}</td>
                       <td className="px-3 py-2">{duplicate.locationText ?? "—"}</td>
                       <td className="px-3 py-2">
+                        {duplicate.imageUrl
+                          ? <img src={duplicate.imageUrl} alt={duplicate.title} className="h-10 w-16 rounded object-cover" />
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2">
                         <IngestConfidenceBadge
                           score={duplicate.confidenceScore}
                           band={duplicate.confidenceBand ?? "LOW"}
@@ -158,7 +176,7 @@ export default function IngestRunCandidates({ candidates, venueId }: { candidate
             })}
             {grouped.primaryCandidates.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-muted-foreground" colSpan={6}>No extracted candidates in this lane.</td>
+                <td className="px-3 py-6 text-muted-foreground" colSpan={7}>No extracted candidates in this lane.</td>
               </tr>
             ) : null}
           </tbody>

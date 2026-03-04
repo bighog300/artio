@@ -31,6 +31,8 @@ type RunDetailResponse = {
     extractedEvents: Array<{
       id: string;
       title: string;
+      artistNames: string[];
+      imageUrl: string | null;
       startAt: string | null;
       locationText: string | null;
       status: "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE";

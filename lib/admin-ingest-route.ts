@@ -168,6 +168,8 @@ export async function handleAdminIngestRunGet(req: NextRequest, params: { runId?
             id: true,
             status: true,
             title: true,
+            artistNames: true,
+            imageUrl: true,
             startAt: true,
             endAt: true,
             locationText: true,
