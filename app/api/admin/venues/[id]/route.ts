@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
+import { withAdminRoute } from "@/lib/admin-route";
 import { requireAdmin, isAuthError } from "@/lib/auth";
 import { idParamSchema, zodDetails } from "@/lib/validators";
-import { handleAdminEntityGet, handleAdminEntityPatch } from "@/lib/admin-entities-route";
+import { handleAdminVenuePatch } from "@/lib/admin-venue-patch-route";
+import { handleAdminEntityGet } from "@/lib/admin-entities-route";
 
 export const runtime = "nodejs";
 
@@ -12,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  return handleAdminEntityPatch(req, "venues", await params, { requireAdminUser: requireAdmin, appDb: db });
+  return withAdminRoute(async ({ actorEmail }) => handleAdminVenuePatch(req, await params, actorEmail));
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {

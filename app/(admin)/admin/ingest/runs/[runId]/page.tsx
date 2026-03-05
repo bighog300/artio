@@ -4,7 +4,9 @@ import { headers } from "next/headers";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import IngestStatusBadge from "@/app/(admin)/admin/ingest/_components/ingest-status-badge";
 import IngestRunCandidates from "@/app/(admin)/admin/ingest/_components/ingest-run-candidates";
+import IngestVenueSnapshot from "@/app/(admin)/admin/ingest/_components/ingest-venue-snapshot";
 import { InlineBanner } from "@/components/ui/inline-banner";
+import { db } from "@/lib/db";
 import { getServerBaseUrl } from "@/lib/server/get-base-url";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +80,32 @@ export default async function AdminIngestRunDetailPage({ params }: { params: Pro
   if (!detail) notFound();
 
   const { run, counts } = detail;
+  const venueDetails = run.venueSnapshot
+    ? await db.venue.findUnique({
+      where: { id: run.venue.id },
+      select: {
+        description: true,
+        openingHours: true,
+        contactEmail: true,
+        instagramUrl: true,
+        facebookUrl: true,
+        featuredAssetId: true,
+      },
+    })
+    : null;
+  const venueDetailsForSnapshot = venueDetails
+    ? {
+      ...venueDetails,
+      openingHours:
+          typeof venueDetails.openingHours === "string"
+            ? venueDetails.openingHours
+            : venueDetails.openingHours && typeof venueDetails.openingHours === "object" && "raw" in venueDetails.openingHours && typeof venueDetails.openingHours.raw === "string"
+              ? venueDetails.openingHours.raw
+              : null,
+    }
+    : null;
+
+  const snapshotHasAnyData = Boolean(run.venueSnapshot && Object.values(run.venueSnapshot).some((value) => typeof value === "string" && value.trim().length > 0));
 
   return (
     <main className="space-y-4">
@@ -127,6 +155,17 @@ export default async function AdminIngestRunDetailPage({ params }: { params: Pro
           </div>
         ) : null}
       </section>
+
+      {run.venueSnapshot && snapshotHasAnyData && venueDetailsForSnapshot ? (
+        <section className="rounded-lg border bg-background p-4">
+          <IngestVenueSnapshot
+            runId={run.id}
+            venueId={run.venue.id}
+            snapshot={run.venueSnapshot}
+            venue={venueDetailsForSnapshot}
+          />
+        </section>
+      ) : null}
 
       <section className="rounded-lg border bg-background p-4">
         <div className="mb-3">
