@@ -272,3 +272,32 @@ test("venue generation pipeline records warnings and preserves existing social f
   assert.equal(updates[0].featuredImageUrl, undefined);
   assert.equal(state.createdItems[0].socialWarning, "invalid_instagram_url,invalid_contact_email,invalid_featured_image_url");
 });
+
+test("venue generation pipeline stores normalized featured image URL on run item", async () => {
+  const state = baseDb();
+
+  await runVenueGenerationPipeline({
+    input: { country: "United Kingdom", region: "England" },
+    triggeredById: "11111111-1111-4111-8111-111111111111",
+    db: state.db as never,
+    openai: {
+      createResponse: async () => ({
+        output_parsed: {
+          venues: [
+            {
+              ...openAiPayload.output_parsed.venues[0],
+              name: "Raw Image Venue",
+              country: "United Kingdom",
+              featuredImageUrl: "http://example.com/not-https.jpg",
+            },
+          ],
+        },
+      }),
+    },
+    geocode: async () => null,
+  });
+
+  assert.equal(state.createdVenues[0].featuredImageUrl, null);
+  assert.equal(state.createdItems[0].featuredImageUrl, null);
+  assert.equal(state.createdItems[0].socialWarning, "invalid_featured_image_url");
+});

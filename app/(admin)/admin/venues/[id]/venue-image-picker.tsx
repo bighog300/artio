@@ -119,8 +119,8 @@ export default function VenueImagePicker(props: VenueImagePickerProps) {
         {suggestions.length > 0 ? (
           <section className="space-y-2">
             <div>
-              <h3 className="text-sm font-medium">Suggested from ingest</h3>
-              <p className="text-xs text-muted-foreground">Images extracted from recent ingest runs for this venue. Import to add to gallery.</p>
+              <h3 className="text-sm font-medium">Suggested images</h3>
+              <p className="text-xs text-muted-foreground">Images from AI venue generation and ingest runs. Import to add to gallery.</p>
             </div>
             <div className="flex flex-wrap gap-3">
               {suggestions.map((suggestion) => {

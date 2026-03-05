@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { type ComponentProps } from "react";
 import AdminEntityForm from "@/app/(admin)/admin/_components/AdminEntityForm";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import { db } from "@/lib/db";
@@ -11,12 +12,27 @@ import VenueImagePicker from "@/app/(admin)/admin/venues/[id]/venue-image-picker
 
 export default async function AdminVenue({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [venue, venueImages, ingestCandidates] = await Promise.all([
+  const [venue, venueImages, generationItems, ingestCandidates] = await Promise.all([
     db.venue.findUnique({ where: { id } }),
     db.venueImage.findMany({
       where: { venueId: id },
       orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
       select: { id: true, url: true, alt: true, isPrimary: true, sortOrder: true, width: true, height: true },
+    }),
+    db.venueGenerationRunItem.findMany({
+      where: {
+        venueId: id,
+        status: "created",
+        featuredImageUrl: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        featuredImageUrl: true,
+        name: true,
+        run: { select: { id: true } },
+      },
     }),
     db.ingestExtractedEvent.findMany({
       where: {
@@ -30,6 +46,16 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
     }),
   ]);
   if (!venue) notFound();
+
+  const generationSuggestions: ComponentProps<typeof VenueImagePicker>["suggestions"] = generationItems
+    .filter((item): item is typeof item & { featuredImageUrl: string } => item.featuredImageUrl !== null)
+    .map((item) => ({
+      candidateId: item.id,
+      runId: item.run.id,
+      displayUrl: item.featuredImageUrl,
+      originalUrl: item.featuredImageUrl,
+      title: item.name,
+    }));
 
   const ingestSuggestions = Array.from(
     ingestCandidates.reduce((acc, s) => {
@@ -82,7 +108,7 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
       <VenueImagePicker
         venueId={id}
         images={venueImages}
-        suggestions={ingestSuggestions}
+        suggestions={[...generationSuggestions, ...ingestSuggestions]}
       />
       <ModerationPanel resource="venues" id={venue.id} status={venue.status} blockers={blockers.map((item) => item.message)} />
       <section className="rounded-lg border border-destructive/30 bg-card p-4">
