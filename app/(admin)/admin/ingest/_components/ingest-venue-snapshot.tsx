@@ -57,7 +57,7 @@ export default function IngestVenueSnapshot({ runId, venueId, snapshot, venue }:
     setApplying(field);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/venues/${venueId}`, {
+      const res = await fetch(`/api/admin/venues/${venueId}/snapshot`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [field]: value }),
