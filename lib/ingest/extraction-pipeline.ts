@@ -12,6 +12,7 @@ import { extractJsonLdEvents } from "@/lib/ingest/jsonld-extract";
 import { parseExtractedEventsFromModel, type NormalizedExtractedEvent } from "@/lib/ingest/schemas";
 import { clusterCandidates, computeSimilarityKey, scoreSimilarity } from "@/lib/ingest/similarity";
 import { inferTimezoneFromLatLng } from "@/lib/timezone";
+import { detectPlatform, getPlatformPromptHint, isJsRenderedPlatform, type Platform } from "@/lib/ingest/detect-platform";
 
 
 function resolveRelativeImageUrl(imageUrl: string | null | undefined, baseUrl: string): string | null {
@@ -45,7 +46,7 @@ type JsonLdExtractor = typeof extractJsonLdEvents;
 type IngestStore = {
   ingestRun: {
     create: typeof db.ingestRun.create;
-    update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<unknown>;
+    update: (args: { where: { id: string }; data: Record<string, unknown> & { detectedPlatform?: string | null } }) => Promise<unknown>;
   };
   ingestExtractedEvent: {
     findUnique: typeof db.ingestExtractedEvent.findUnique;
@@ -148,6 +149,7 @@ async function markRunFailed(
   errorCode: string,
   errorMessage: string,
   errorDetail?: unknown,
+  detectedPlatform?: Platform | null,
 ) {
   const finishedAt = new Date();
   await store.ingestRun.update({
@@ -159,6 +161,7 @@ async function markRunFailed(
       errorCode,
       errorMessage: truncateMessage(errorMessage, MAX_ERROR_MESSAGE_LENGTH),
       errorDetail: errorDetail ? truncateMessage(String(errorDetail), MAX_ERROR_DETAIL_LENGTH) : undefined,
+      detectedPlatform,
     },
   });
 }
@@ -181,6 +184,7 @@ export async function runVenueIngestExtraction(
     assertSafeUrl?: typeof assertSafeUrl;
     fetchImageWithGuards?: typeof fetchImageWithGuards;
     uploadCandidateImageToBlob?: typeof uploadCandidateImageToBlob;
+    detectPlatformFn?: typeof detectPlatform;
   } = {},
 ): Promise<{ runId: string; createdCount: number; dedupedCount: number; createdDuplicateCount: number; stopReason: string | null }> {
   const store = (deps.store ?? db) as IngestStore;
@@ -191,7 +195,9 @@ export async function runVenueIngestExtraction(
   const assertSafeUrlImpl = deps.assertSafeUrl ?? assertSafeUrl;
   const fetchImageWithGuardsImpl = deps.fetchImageWithGuards ?? fetchImageWithGuards;
   const uploadCandidateImageToBlobImpl = deps.uploadCandidateImageToBlob ?? uploadCandidateImageToBlob;
+  const detectPlatformFn = deps.detectPlatformFn ?? detectPlatform;
   const startedAtMs = now();
+  let detectedPlatform: Platform | null = null;
 
   const run = await store.ingestRun.create({
     data: {
@@ -214,6 +220,27 @@ export async function runVenueIngestExtraction(
         fetchBytes: fetched.bytes,
       },
     });
+
+    detectedPlatform = detectPlatformFn(fetched.html, fetched.finalUrl);
+
+    if (isJsRenderedPlatform(detectedPlatform)) {
+      const finishedAt = new Date(now());
+      await store.ingestRun.update({
+        where: { id: run.id },
+        data: {
+          status: "SUCCEEDED",
+          finishedAt,
+          durationMs: finishedAt.getTime() - startedAtMs,
+          createdCandidates: 0,
+          createdDuplicates: 0,
+          dedupedCandidates: 0,
+          totalCandidatesReturned: 0,
+          detectedPlatform,
+          stopReason: "PLATFORM_REQUIRES_JS",
+        },
+      });
+      return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0, stopReason: "PLATFORM_REQUIRES_JS" };
+    }
 
     const venue = await store.venue.findUnique({
       where: { id: params.venueId },
@@ -271,6 +298,7 @@ export async function runVenueIngestExtraction(
         systemPromptOverride: settings?.ingestSystemPrompt ?? null,
         modelOverride: settings?.ingestModel ?? null,
         maxOutputTokensOverride: settings?.ingestMaxOutputTokens ?? null,
+        platformHint: getPlatformPromptHint(detectedPlatform),
         venueContext: venue
           ? {
               name: venue.name,
@@ -559,6 +587,7 @@ export async function runVenueIngestExtraction(
         usagePromptTokens: extractedUsage?.promptTokens,
         usageCompletionTokens: extractedUsage?.completionTokens,
         usageTotalTokens: extractedUsage?.totalTokens,
+        detectedPlatform,
         venueSnapshot: Object.keys(extractedVenueSnapshot).length > 0
           ? (extractedVenueSnapshot as Prisma.JsonObject)
           : undefined,
@@ -569,12 +598,12 @@ export async function runVenueIngestExtraction(
     return { runId: run.id, createdCount, dedupedCount, createdDuplicateCount, stopReason };
   } catch (error) {
     if (error instanceof IngestError) {
-      await markRunFailed(store, run.id, startedAtMs, error.code, error.message, error.meta ? JSON.stringify(error.meta) : undefined);
+      await markRunFailed(store, run.id, startedAtMs, error.code, error.message, error.meta ? JSON.stringify(error.meta) : undefined, detectedPlatform);
       throw error;
     }
 
     const message = error instanceof Error ? error.message : "Unexpected ingest failure";
-    await markRunFailed(store, run.id, startedAtMs, "FETCH_FAILED", message);
+    await markRunFailed(store, run.id, startedAtMs, "FETCH_FAILED", message, undefined, detectedPlatform);
     throw error;
   }
 }

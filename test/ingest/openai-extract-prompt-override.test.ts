@@ -100,3 +100,29 @@ test("maxOutputTokensOverride is used when provided; default 4000 when omitted",
 
   assert.deepEqual(tokenValues, [1234, 4000]);
 });
+
+
+test("platformHint appears between date and static lines", async () => {
+  process.env.OPENAI_API_KEY = "test-key";
+
+  let systemPrompt = "";
+  global.fetch = (async (_input, init) => {
+    const body = JSON.parse(String(init?.body ?? "{}")) as { input?: Array<{ content?: string }> };
+    systemPrompt = body.input?.[0]?.content ?? "";
+    return new Response(JSON.stringify({ output_parsed: { events: [{ title: "Test" }], venueDescription: null, venueCoverImageUrl: null, venueOpeningHours: null, venueContactEmail: null, venueInstagramUrl: null, venueFacebookUrl: null } }), { status: 200 });
+  }) as typeof fetch;
+
+  await extractEventsWithOpenAI({
+    html: "<html><body><h1>Test</h1></body></html>",
+    sourceUrl: "https://example.com",
+    platformHint: "This is a test platform hint.",
+  });
+
+  const dateIdx = systemPrompt.indexOf("Today's date:");
+  const hintIdx = systemPrompt.indexOf("This is a test platform hint.");
+  const staticIdx = systemPrompt.indexOf("You are extracting structured data from a venue website.");
+
+  assert.ok(dateIdx >= 0);
+  assert.ok(hintIdx > dateIdx);
+  assert.ok(staticIdx > hintIdx);
+});

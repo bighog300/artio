@@ -27,6 +27,7 @@ type RunRecord = {
   usageCompletionTokens?: number | null;
   usageTotalTokens?: number | null;
   stopReason?: string | null;
+  detectedPlatform?: string | null;
   venueSnapshot?: Record<string, unknown> | null;
 };
 
@@ -479,4 +480,80 @@ test("falls through to openai when no json-ld blocks were found", async () => {
 
   assert.equal(openAiCalls, 1);
   assert.equal(store.runs[0]?.extractionMethod, "openai");
+});
+
+
+test("JS-rendered platform short-circuits before OpenAI", async () => {
+  process.env.AI_INGEST_ENABLED = "0";
+  process.env.OPENAI_API_KEY = "";
+
+  const store = createStore();
+  let openAiCalled = false;
+
+  const result = await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://example.com" },
+    {
+      store,
+      fetchHtml: async () => ({ finalUrl: "https://example.com", status: 200, contentType: "text/html", bytes: 100, html: "<html></html>" }),
+      detectPlatformFn: () => "wix",
+      extractWithOpenAI: async () => {
+        openAiCalled = true;
+        return { model: "test-model", events: [], venueSnapshot: {}, raw: [] };
+      },
+    },
+  );
+
+  assert.equal(openAiCalled, false);
+  assert.equal(result.createdCount, 0);
+  assert.equal(result.stopReason, "PLATFORM_REQUIRES_JS");
+  assert.equal(store.runs[0]?.status, "SUCCEEDED");
+  assert.equal(store.runs[0]?.stopReason, "PLATFORM_REQUIRES_JS");
+  assert.equal(store.runs[0]?.detectedPlatform, "wix");
+});
+
+test("non-JS platform passes platform hint to OpenAI", async () => {
+  process.env.AI_INGEST_ENABLED = "1";
+  process.env.OPENAI_API_KEY = "test-key";
+
+  const store = createStore();
+  let capturedHint: string | null | undefined;
+
+  await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://example.com" },
+    {
+      store,
+      fetchHtml: async () => ({ finalUrl: "https://example.com", status: 200, contentType: "text/html", bytes: 100, html: "<html></html>" }),
+      detectPlatformFn: () => "artlogic",
+      extractWithOpenAI: async (params) => {
+        capturedHint = params.platformHint;
+        return { model: "test-model", events: [{ title: "A" }], venueSnapshot: {}, raw: [] };
+      },
+    },
+  );
+
+  assert.equal(typeof capturedHint, "string");
+  assert.match(capturedHint ?? "", /Artlogic/);
+});
+
+test("unknown platform passes null hint", async () => {
+  process.env.AI_INGEST_ENABLED = "1";
+  process.env.OPENAI_API_KEY = "test-key";
+
+  const store = createStore();
+  let capturedHint: string | null | undefined;
+
+  await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://example.com" },
+    {
+      store,
+      fetchHtml: async () => ({ finalUrl: "https://example.com", status: 200, contentType: "text/html", bytes: 100, html: "<html></html>" }),
+      detectPlatformFn: () => "unknown",
+      extractWithOpenAI: async (params) => {
+        capturedHint = params.platformHint;
+        return { model: "test-model", events: [{ title: "A" }], venueSnapshot: {}, raw: [] };
+      },
+    },
+  );
+
+  assert.equal(capturedHint, null);
 });

@@ -185,6 +185,7 @@ export async function extractEventsWithOpenAI(params: {
   systemPromptOverride?: string | null;
   modelOverride?: string | null;
   maxOutputTokensOverride?: number | null;
+  platformHint?: string | null;
   venueContext?: {
     name: string;
     address: string | null;
@@ -244,6 +245,7 @@ export async function extractEventsWithOpenAI(params: {
     "You are extracting upcoming art events from a venue website.",
     venueLine,
     `Today's date: ${today}`,
+    params.platformHint ?? null,
     "",
     ...staticPromptLines,
   ].filter(Boolean).join("\n");

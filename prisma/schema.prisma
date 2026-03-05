@@ -625,6 +625,7 @@ model IngestRun {
   usageCompletionTokens Int?
   usageTotalTokens Int?
   costUsdMicros    Int?
+  detectedPlatform String?
   stopReason       String?
   venueSnapshot    Json?
   venue            Venue                 @relation(fields: [venueId], references: [id], onDelete: Cascade)
