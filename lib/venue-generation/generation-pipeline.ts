@@ -43,8 +43,14 @@ type PipelineDb = {
   venue: {
     findFirst: (args: {
       where: Prisma.VenueWhereInput;
-      select: { id: true; instagramUrl: true; facebookUrl: true; contactEmail: true; featuredImageUrl: true };
-    }) => Promise<{ id: string; instagramUrl: string | null; facebookUrl: string | null; contactEmail: string | null; featuredImageUrl: string | null } | null>;
+      select: {
+        id: true;
+        instagramUrl: true;
+        facebookUrl: true;
+        contactEmail: true;
+        _count: { select: { homepageImageCandidates: { where: { status: "pending" } } } };
+      };
+    }) => Promise<{ id: string; instagramUrl: string | null; facebookUrl: string | null; contactEmail: string | null; _count: { homepageImageCandidates: number } } | null>;
     findUnique: (args: { where: { slug: string }; select: { id: true } }) => Promise<{ id: string } | null>;
     create: (args: { data: Prisma.VenueCreateInput }) => Promise<{ id: string }>;
     update: (args: { where: { id: string }; data: Prisma.VenueUpdateInput }) => Promise<{ id: string }>;
@@ -233,6 +239,51 @@ async function geocodeVenue(venue: GeneratedVenue, geocodeFn: typeof forwardGeoc
   }
 }
 
+async function runHomepageImageExtraction(args: {
+  venueId: string;
+  runItemId: string;
+  websiteUrl: string | null;
+  extractFn: typeof extractHomepageImages;
+  fetchHtmlFn: typeof fetchHtmlWithGuards;
+  db: Pick<PipelineDb, "venueHomepageImageCandidate" | "venueGenerationRunItem">;
+}): Promise<{ homepageImageStatus: string; homepageImageCandidateCount: number }> {
+  let homepageImageStatus = "no_url";
+  let homepageImageCandidateCount = 0;
+
+  if (!args.websiteUrl) return { homepageImageStatus, homepageImageCandidateCount };
+
+  try {
+    const result = await args.extractFn({
+      websiteUrl: args.websiteUrl,
+      fetchHtml: args.fetchHtmlFn,
+      assertUrl: assertSafeUrl,
+    });
+
+    if (result === null) {
+      homepageImageStatus = "fetch_failed";
+    } else if (result.candidates.length === 0) {
+      homepageImageStatus = "none_found";
+    } else {
+      await args.db.venueHomepageImageCandidate.createMany({
+        data: result.candidates.map((candidate) => ({
+          venueId: args.venueId,
+          runItemId: args.runItemId,
+          url: candidate.url,
+          source: candidate.source,
+          sortOrder: candidate.sortOrder,
+          status: "pending",
+        })),
+      });
+      homepageImageStatus = "candidates_extracted";
+      homepageImageCandidateCount = result.candidates.length;
+    }
+  } catch {
+    homepageImageStatus = "fetch_failed";
+  }
+
+  return { homepageImageStatus, homepageImageCandidateCount };
+}
+
 export function getStructuredPayloadFromResponses(raw: OpenAIResponse): unknown {
   if (raw.output_parsed !== undefined) return raw.output_parsed;
 
@@ -415,7 +466,13 @@ export async function runVenueGenerationPipeline(args: {
     const dedupe = dedupeWhereForVenue(venue);
     const duplicate = await args.db.venue.findFirst({
       where: dedupe.where,
-      select: { id: true, instagramUrl: true, facebookUrl: true, contactEmail: true, featuredImageUrl: true },
+      select: {
+        id: true,
+        instagramUrl: true,
+        facebookUrl: true,
+        contactEmail: true,
+        _count: { select: { homepageImageCandidates: { where: { status: "pending" } } } },
+      },
     });
     if (duplicate) {
       totalSkipped += 1;
@@ -430,7 +487,7 @@ export async function runVenueGenerationPipeline(args: {
         },
       });
 
-      await args.db.venueGenerationRunItem.create({
+      const runItem = await args.db.venueGenerationRunItem.create({
         data: {
           runId: run.id,
           name: venue.name,
@@ -445,9 +502,26 @@ export async function runVenueGenerationPipeline(args: {
           reason: dedupe.reason,
           venueId: duplicate.id,
           geocodeStatus: "not_attempted",
-          homepageImageStatus: "skipped",
+          homepageImageStatus: "pending",
           homepageImageCandidateCount: 0,
         },
+      });
+
+      const homepageImageResult =
+        duplicate._count.homepageImageCandidates === 0
+          ? await runHomepageImageExtraction({
+              venueId: duplicate.id,
+              runItemId: runItem.id,
+              websiteUrl: venue.websiteUrl,
+              extractFn: extractHomepageImagesFn,
+              fetchHtmlFn,
+              db: args.db,
+            })
+          : { homepageImageStatus: "skipped", homepageImageCandidateCount: 0 };
+
+      await args.db.venueGenerationRunItem.update({
+        where: { id: runItem.id },
+        data: homepageImageResult,
       });
       continue;
     }
@@ -542,43 +616,18 @@ export async function runVenueGenerationPipeline(args: {
       },
     });
 
-    let homepageImageStatus = "no_url";
-    let homepageImageCandidateCount = 0;
-
-    if (venue.websiteUrl) {
-      try {
-        const result = await extractHomepageImagesFn({
-          websiteUrl: venue.websiteUrl,
-          fetchHtml: fetchHtmlFn,
-          assertUrl: assertSafeUrl,
-        });
-
-        if (result === null) {
-          homepageImageStatus = "fetch_failed";
-        } else if (result.candidates.length === 0) {
-          homepageImageStatus = "none_found";
-        } else {
-          await args.db.venueHomepageImageCandidate.createMany({
-            data: result.candidates.map((candidate) => ({
-              venueId: created.id,
-              runItemId: runItem.id,
-              url: candidate.url,
-              source: candidate.source,
-              sortOrder: candidate.sortOrder,
-              status: "pending",
-            })),
-          });
-          homepageImageStatus = "candidates_extracted";
-          homepageImageCandidateCount = result.candidates.length;
-        }
-      } catch {
-        homepageImageStatus = "fetch_failed";
-      }
-    }
+    const homepageImageResult = await runHomepageImageExtraction({
+      venueId: created.id,
+      runItemId: runItem.id,
+      websiteUrl: venue.websiteUrl,
+      extractFn: extractHomepageImagesFn,
+      fetchHtmlFn,
+      db: args.db,
+    });
 
     await args.db.venueGenerationRunItem.update({
       where: { id: runItem.id },
-      data: { homepageImageStatus, homepageImageCandidateCount },
+      data: homepageImageResult,
     });
 
     seen.add(memoryDedupeKey);

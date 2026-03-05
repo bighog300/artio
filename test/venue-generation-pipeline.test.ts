@@ -122,7 +122,9 @@ test("venue generation pipeline dedupe tiering uses postcode before city", async
 
   state.db.venue.findFirst = async ({ where }: { where: Record<string, unknown> }) => {
     whereClauses.push(where);
-    if ((where.postcode as { equals?: string })?.equals === "8001") return { id: "dup-1" };
+    if ((where.postcode as { equals?: string })?.equals === "8001") {
+      return { id: "dup-1", instagramUrl: null, facebookUrl: null, contactEmail: null, _count: { homepageImageCandidates: 0 } };
+    }
     return null;
   };
 
@@ -240,7 +242,7 @@ test("venue generation pipeline records warnings and preserves existing social f
     instagramUrl: "https://www.instagram.com/existing",
     facebookUrl: null,
     contactEmail: null,
-    featuredImageUrl: "https://cdn.example.com/existing.jpg",
+    _count: { homepageImageCandidates: 0 },
   });
   state.db.venue.update = async ({ data }: { data: Record<string, unknown> }) => {
     updates.push(data);
@@ -251,6 +253,10 @@ test("venue generation pipeline records warnings and preserves existing social f
     input: { country: "United Kingdom", region: "England" },
     triggeredById: "11111111-1111-4111-8111-111111111111",
     db: state.db as never,
+    extractHomepageImagesFn: async () => ({
+      candidates: [{ url: "https://img.example.com/home.jpg", source: "og", sortOrder: 0 }],
+    }),
+    fetchHtmlFn: async () => null as never,
     openai: {
       createResponse: async () => ({
         output_parsed: {
@@ -262,6 +268,7 @@ test("venue generation pipeline records warnings and preserves existing social f
               instagramUrl: "https://bad.example/social",
               facebookUrl: "https://facebook.com/newpage",
               contactEmail: "not-an-email",
+              websiteUrl: "https://existing.example.com",
             },
           ],
         },
@@ -276,5 +283,46 @@ test("venue generation pipeline records warnings and preserves existing social f
   assert.equal(updates[0].facebookUrl, "https://www.facebook.com/newpage");
   assert.equal(updates[0].contactEmail, null);
   assert.equal(state.createdItems[0].socialWarning, "invalid_instagram_url,invalid_contact_email");
+  assert.equal(state.homepageCandidates.filter((candidate) => candidate.venueId === "venue-existing").length, 1);
 });
 
+
+
+test("venue generation pipeline skips duplicate homepage extraction when pending candidates already exist", async () => {
+  const state = baseDb();
+
+  state.db.venue.findFirst = async () => ({
+    id: "venue-existing",
+    instagramUrl: null,
+    facebookUrl: null,
+    contactEmail: null,
+    _count: { homepageImageCandidates: 2 },
+  });
+
+  await runVenueGenerationPipeline({
+    input: { country: "United Kingdom", region: "England" },
+    triggeredById: "11111111-1111-4111-8111-111111111111",
+    db: state.db as never,
+    extractHomepageImagesFn: async () => ({
+      candidates: [{ url: "https://img.example.com/should-not-run.jpg", source: "og", sortOrder: 0 }],
+    }),
+    fetchHtmlFn: async () => null as never,
+    openai: {
+      createResponse: async () => ({
+        output_parsed: {
+          venues: [
+            {
+              ...openAiPayload.output_parsed.venues[0],
+              name: "Existing Venue With Pending Candidates",
+              country: "United Kingdom",
+              websiteUrl: "https://existing.example.com",
+            },
+          ],
+        },
+      }),
+    },
+    geocode: async () => null,
+  });
+
+  assert.equal(state.homepageCandidates.filter((candidate) => candidate.venueId === "venue-existing").length, 0);
+});
