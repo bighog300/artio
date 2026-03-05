@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { requireAdmin, isAuthError } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { VenueGenerationError, createOpenAIResponsesClient, runVenueGenerationPipeline } from "@/lib/venue-generation/generation-pipeline";
-import { defaultAutoSelectDeps } from "@/lib/venue-generation/auto-select-venue-cover";
+import { VenueGenerationError, createOpenAIResponsesClient, runVenueGenerationPhase1 } from "@/lib/venue-generation/generation-pipeline";
+import { runJob } from "@/lib/jobs/run-job";
 import { venueGenerationInputSchema } from "@/lib/venue-generation/schemas";
 import { parseBody, zodDetails } from "@/lib/validators";
 
@@ -12,7 +12,8 @@ type VenueGenerationPostDeps = {
   requireAdminFn: typeof requireAdmin;
   parseBodyFn: typeof parseBody;
   createOpenAiClientFn: typeof createOpenAIResponsesClient;
-  runVenueGenerationPipelineFn: typeof runVenueGenerationPipeline;
+  runVenueGenerationPhase1Fn: typeof runVenueGenerationPhase1;
+  runJobFn: typeof runJob;
   dbClient: typeof db;
   openAiApiKey?: string;
 };
@@ -22,7 +23,8 @@ export async function handleVenueGenerationPost(req: NextRequest, deps?: Partial
     const requireAdminFn = deps?.requireAdminFn ?? requireAdmin;
     const parseBodyFn = deps?.parseBodyFn ?? parseBody;
     const createOpenAiClientFn = deps?.createOpenAiClientFn ?? createOpenAIResponsesClient;
-    const runVenueGenerationPipelineFn = deps?.runVenueGenerationPipelineFn ?? runVenueGenerationPipeline;
+    const runVenueGenerationPhase1Fn = deps?.runVenueGenerationPhase1Fn ?? runVenueGenerationPhase1;
+    const runJobFn = deps?.runJobFn ?? runJob;
     const dbClient = deps?.dbClient ?? db;
 
     const admin = await requireAdminFn();
@@ -33,13 +35,20 @@ export async function handleVenueGenerationPost(req: NextRequest, deps?: Partial
     if (!apiKey) return apiError(500, "OPENAI_KEY_MISSING", "OPENAI_API_KEY is required");
 
     const openai = await createOpenAiClientFn({ apiKey });
-    const result = await runVenueGenerationPipelineFn({
+    const result = await runVenueGenerationPhase1Fn({
       input: parsed.data,
       triggeredById: admin.id,
       db: dbClient,
       openai,
-      autoPublish: process.env.VENUE_AUTO_PUBLISH === "1",
-      autoSelectDeps: defaultAutoSelectDeps,
+    });
+
+    // TODO: Replace with a proper queue when function timeout becomes a problem at scale.
+    void runJobFn("venue.generation.process-run", {
+      trigger: "admin",
+      actorEmail: admin.email,
+      params: { runId: result.runId },
+    }).catch((err) => {
+      console.error("venue_generation_job_dispatch_failed", { runId: result.runId, error: String(err) });
     });
 
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });

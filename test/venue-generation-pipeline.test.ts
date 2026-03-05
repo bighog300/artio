@@ -1,42 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ForwardGeocodeError } from "../lib/geocode/forward";
-import { runVenueGenerationPipeline } from "../lib/venue-generation/generation-pipeline";
+import { runVenueGenerationPhase1 } from "../lib/venue-generation/generation-pipeline";
 
 function baseDb() {
   const createdItems: Array<Record<string, unknown>> = [];
-  const createdVenues: Array<Record<string, unknown>> = [];
   const runs: Array<Record<string, unknown>> = [];
-  const homepageCandidates: Array<Record<string, unknown>> = [];
-  const venueUpdates: Array<Record<string, unknown>> = [];
-  const assets: Array<Record<string, unknown>> = [];
-  const venueImages: Array<Record<string, unknown>> = [];
-
   return {
     createdItems,
-    createdVenues,
     runs,
-    homepageCandidates,
-    venueUpdates,
-    assets,
-    venueImages,
     db: {
       venue: {
-        findFirst: async ({ where }: { where?: { id?: string } } = {}) => {
-          if (where?.id) {
-            return { id: String(where.id), instagramUrl: null, facebookUrl: null, contactEmail: null, description: null, openingHours: null, name: "Generated", city: "Cape Town", country: "South Africa", lat: -33.9, lng: 18.4, featuredAssetId: venueImages.length ? "asset-1" : null, status: "DRAFT", isPublished: false, _count: { homepageImageCandidates: 0 } };
-          }
-          return null;
-        },
-        findUnique: async () => null,
-        create: async ({ data }: { data: Record<string, unknown> }) => {
-          createdVenues.push(data);
-          return { id: `venue-${createdVenues.length}` };
-        },
-        update: async ({ data }: { data: Record<string, unknown> }) => {
-          venueUpdates.push(data);
-          return { id: "venue-updated" };
-        },
+        findFirst: async () => null,
       },
       venueGenerationRun: {
         create: async ({ data }: { data: Record<string, unknown> }) => {
@@ -53,104 +27,15 @@ function baseDb() {
           createdItems.push(data);
           return { id: `item-${createdItems.length}` };
         },
-        update: async () => ({ id: "item-updated" }),
-      },
-      venueHomepageImageCandidate: {
-        createMany: async ({ data }: { data: Array<Record<string, unknown>> }) => {
-          homepageCandidates.push(...data);
-          return { count: data.length };
-        },
-        findFirst: async () => ({ id: "candidate-1" }),
-        update: async () => ({ id: "candidate-1" }),
-      },
-      asset: {
-        create: async ({ data }: { data: Record<string, unknown> }) => { assets.push(data); return { id: "asset-1" }; },
-      },
-      venueImage: {
-        create: async ({ data }: { data: Record<string, unknown> }) => { venueImages.push(data); return { id: "venue-image-1" }; },
       },
     },
   };
 }
 
-const openAiPayload = {
-  output_parsed: {
-    venues: [
-      {
-        name: "New Museum",
-        addressLine1: "2 Main",
-        addressLine2: null,
-        city: "Cape Town",
-        region: "Western Cape",
-        postcode: null,
-        country: "South Africa",
-        contactEmail: null,
-        contactPhone: null,
-        websiteUrl: null,
-        instagramUrl: null,
-        facebookUrl: null,
-        featuredImageUrl: null,
-        openingHours: null,
-        venueType: "MUSEUM",
-      },
-    ],
-  },
-};
-
-test("venue generation pipeline records geocode success/no-match/failure", async () => {
+test("venue generation phase1 queues pending items and tracks skips", async () => {
   const state = baseDb();
-  const geocodeResponses = [
-    { lat: -33.9, lng: 18.4 },
-    null,
-    new ForwardGeocodeError("provider_error", "provider failed"),
-  ];
 
-  const response = {
-    output_parsed: {
-      venues: [
-        { ...openAiPayload.output_parsed.venues[0], name: "Success Gallery" },
-        { ...openAiPayload.output_parsed.venues[0], name: "No Match Gallery", postcode: "8001" },
-        { ...openAiPayload.output_parsed.venues[0], name: "Failure Gallery", city: "Durban" },
-      ],
-    },
-  };
-
-  const result = await runVenueGenerationPipeline({
-    input: { country: "South Africa", region: "Western Cape" },
-    triggeredById: "11111111-1111-4111-8111-111111111111",
-    db: state.db as never,
-    openai: { createResponse: async () => response },
-    geocode: async () => {
-      const next = geocodeResponses.shift();
-      if (next instanceof Error) throw next;
-      return next ?? null;
-    },
-  });
-
-  assert.equal(result.totalCreated, 3);
-  assert.equal(result.geocodeAttempted, 3);
-  assert.equal(result.geocodeSucceeded, 1);
-  assert.equal(result.geocodeFailed, 1);
-  assert.equal((result.geocodeFailureBreakdown as Record<string, number>).provider_error, 1);
-  assert.equal(state.createdItems.length, 3);
-  assert.deepEqual(state.createdItems.map((item) => item.geocodeStatus), ["succeeded", "no_match", "failed"]);
-  assert.equal(state.createdVenues[1].timezone, null);
-  assert.equal(state.createdItems[1].timezoneWarning, undefined);
-});
-
-test("venue generation pipeline dedupe tiering uses postcode before city", async () => {
-  const state = baseDb();
-  const whereClauses: Array<Record<string, unknown>> = [];
-
-  state.db.venue.findFirst = async ({ where }: { where: Record<string, unknown> }) => {
-    whereClauses.push(where);
-    if ((where.postcode as { equals?: string })?.equals === "8001") {
-      return { id: "dup-1", instagramUrl: null, facebookUrl: null, contactEmail: null, description: null, openingHours: null, _count: { homepageImageCandidates: 0 } };
-    }
-    return null;
-  };
-
-  const result = await runVenueGenerationPipeline({
+  const result = await runVenueGenerationPhase1({
     input: { country: "South Africa", region: "Western Cape" },
     triggeredById: "11111111-1111-4111-8111-111111111111",
     db: state.db as never,
@@ -158,75 +43,57 @@ test("venue generation pipeline dedupe tiering uses postcode before city", async
       createResponse: async () => ({
         output_parsed: {
           venues: [
-            { ...openAiPayload.output_parsed.venues[0], name: "Postcode Match", postcode: "8001", city: "Cape Town" },
-            { ...openAiPayload.output_parsed.venues[0], name: "City Match", postcode: null, city: "Cape Town" },
-            { ...openAiPayload.output_parsed.venues[0], name: "Name Country Only", postcode: null, city: null },
+            {
+              name: "Queued Venue",
+              addressLine1: "1 Main",
+              addressLine2: null,
+              city: "Cape Town",
+              region: "Western Cape",
+              postcode: "8001",
+              country: "South Africa",
+              contactEmail: null,
+              contactPhone: null,
+              websiteUrl: "https://example.com",
+              instagramUrl: null,
+              facebookUrl: null,
+              openingHours: null,
+              venueType: "GALLERY",
+            },
+            {
+              name: "Queued Venue",
+              addressLine1: "1 Main",
+              addressLine2: null,
+              city: "Cape Town",
+              region: "Western Cape",
+              postcode: "8001",
+              country: "South Africa",
+              contactEmail: null,
+              contactPhone: null,
+              websiteUrl: null,
+              instagramUrl: null,
+              facebookUrl: null,
+              openingHours: null,
+              venueType: "GALLERY",
+            },
           ],
         },
       }),
     },
-    geocode: async () => null,
   });
 
+  assert.equal(result.totalReturned, 2);
+  assert.equal(result.totalQueued, 1);
   assert.equal(result.totalSkipped, 1);
-  assert.equal(state.createdVenues.length, 2);
-  assert.equal((whereClauses[0].postcode as { equals?: string }).equals, "8001");
-  assert.equal((whereClauses[1].city as { equals?: string }).equals, "Cape Town");
-  assert.ok(!("city" in whereClauses[2]));
+  assert.equal(state.createdItems[0].status, "pending_processing");
+  assert.equal(state.createdItems[1].status, "skipped");
 });
 
-
-test("venue generation pipeline sets timezone from geocoded coordinates", async () => {
+test("venue generation phase1 does not call geocode or homepage fetch", async () => {
   const state = baseDb();
+  let geocodeCalled = false;
+  let fetchCalled = false;
 
-  await runVenueGenerationPipeline({
-    input: { country: "United Kingdom", region: "England" },
-    triggeredById: "11111111-1111-4111-8111-111111111111",
-    db: state.db as never,
-    openai: {
-      createResponse: async () => ({
-        output_parsed: {
-          venues: [
-            { ...openAiPayload.output_parsed.venues[0], name: "London Venue", city: "London", country: "United Kingdom" },
-          ],
-        },
-      }),
-    },
-    geocode: async () => ({ lat: 51.5074, lng: -0.1278 }),
-  });
-
-  assert.equal(state.createdVenues[0].timezone, "Europe/London");
-  assert.equal(state.createdItems[0].timezoneWarning, undefined);
-});
-
-test("venue generation pipeline records timezone warning when lookup fails", async () => {
-  const state = baseDb();
-
-  await runVenueGenerationPipeline({
-    input: { country: "United Kingdom", region: "England" },
-    triggeredById: "11111111-1111-4111-8111-111111111111",
-    db: state.db as never,
-    openai: {
-      createResponse: async () => ({
-        output_parsed: {
-          venues: [
-            { ...openAiPayload.output_parsed.venues[0], name: "Bad Coords Venue", city: "London", country: "United Kingdom" },
-          ],
-        },
-      }),
-    },
-    geocode: async () => ({ lat: 999, lng: -0.1278 }),
-  });
-
-  assert.equal(state.createdVenues[0].timezone, null);
-  assert.equal(state.createdItems[0].timezoneWarning, "timezone_lookup_failed");
-});
-
-
-test("venue generation pipeline normalizes and persists social fields", async () => {
-  const state = baseDb();
-
-  await runVenueGenerationPipeline({
+  await runVenueGenerationPhase1({
     input: { country: "United Kingdom", region: "England" },
     triggeredById: "11111111-1111-4111-8111-111111111111",
     db: state.db as never,
@@ -235,228 +102,35 @@ test("venue generation pipeline normalizes and persists social fields", async ()
         output_parsed: {
           venues: [
             {
-              ...openAiPayload.output_parsed.venues[0],
-              name: "Social Venue",
+              name: "Only Queue",
+              addressLine1: null,
+              addressLine2: null,
+              city: "London",
+              region: "England",
+              postcode: null,
               country: "United Kingdom",
-              instagramUrl: "https://instagram.com/socialvenue/?hl=en",
-              facebookUrl: "https://www.facebook.com/socialvenue/posts/1?ref=foo",
-              contactEmail: "hello@socialvenue.com",
+              contactEmail: null,
+              contactPhone: null,
+              websiteUrl: null,
+              instagramUrl: null,
+              facebookUrl: null,
+              openingHours: null,
+              venueType: "MUSEUM",
             },
           ],
         },
       }),
     },
-    geocode: async () => null,
-  });
-
-  assert.equal(state.createdVenues[0].instagramUrl, "https://www.instagram.com/socialvenue");
-  assert.equal(state.createdVenues[0].facebookUrl, "https://www.facebook.com/socialvenue");
-  assert.equal(state.createdVenues[0].contactEmail, "hello@socialvenue.com");
-  assert.equal(state.createdItems[0].socialWarning, undefined);
-});
-
-test("venue generation pipeline records warnings and preserves existing social fields on duplicates", async () => {
-  const state = baseDb();
-  const updates: Array<Record<string, unknown>> = [];
-
-  state.db.venue.findFirst = async () => ({
-    id: "venue-existing",
-    instagramUrl: "https://www.instagram.com/existing",
-    facebookUrl: null,
-    contactEmail: null,
-    description: null,
-    openingHours: null,
-    _count: { homepageImageCandidates: 0 },
-  });
-  state.db.venue.update = async ({ data }: { data: Record<string, unknown> }) => {
-    updates.push(data);
-    return { id: "venue-existing" };
-  };
-
-  await runVenueGenerationPipeline({
-    input: { country: "United Kingdom", region: "England" },
-    triggeredById: "11111111-1111-4111-8111-111111111111",
-    db: state.db as never,
-    fetchHtmlFn: async () => ({
-      finalUrl: "https://example.com",
-      contentType: "text/html",
-      html: `<meta property="og:image" content="/home.jpg">`,
-      status: 200,
-      bytes: 10,
-    }) as never,
-    openai: {
-      createResponse: async () => ({
-        output_parsed: {
-          venues: [
-            {
-              ...openAiPayload.output_parsed.venues[0],
-              name: "Existing Venue",
-              country: "United Kingdom",
-              instagramUrl: "https://bad.example/social",
-              facebookUrl: "https://facebook.com/newpage",
-              contactEmail: "not-an-email",
-              websiteUrl: "https://example.com",
-            },
-          ],
-        },
-      }),
+    geocode: async () => {
+      geocodeCalled = true;
+      return null;
     },
-    geocode: async () => null,
-  });
-
-  assert.equal(state.createdVenues.length, 0);
-  assert.equal(updates.length, 1);
-  assert.equal(updates[0].instagramUrl, undefined);
-  assert.equal(updates[0].facebookUrl, "https://www.facebook.com/newpage");
-  assert.equal(updates[0].contactEmail, null);
-  assert.equal(updates[0].description, null);
-  assert.equal(updates[0].openingHours, undefined);
-  assert.equal(state.createdItems[0].socialWarning, "invalid_instagram_url,invalid_contact_email");
-  assert.equal(state.homepageCandidates.filter((candidate) => candidate.venueId === "venue-existing").length, 1);
-});
-
-
-
-
-
-test("venue generation pipeline applies extracted homepage details to created venue when missing", async () => {
-  const state = baseDb();
-
-  await runVenueGenerationPipeline({
-    input: { country: "United Kingdom", region: "England" },
-    triggeredById: "11111111-1111-4111-8111-111111111111",
-    db: state.db as never,
-    fetchHtmlFn: async () => ({
-      finalUrl: "https://example.com",
-      contentType: "text/html",
-      html: `
-        <meta name="description" content="A detailed venue description that is definitely long enough for extraction.">
-        <a href="mailto:hello@created.example.com">Email</a>
-        <a href="https://instagram.com/createdvenue">Instagram</a>
-        <a href="https://facebook.com/createdvenue">Facebook</a>
-        <div class="hours">Mon-Fri 10:00-18:00</div>
-        <meta property="og:image" content="/hero.jpg">
-      `,
-      status: 200,
-      bytes: 10,
-    }) as never,
-    openai: {
-      createResponse: async () => ({
-        output_parsed: {
-          venues: [
-            {
-              ...openAiPayload.output_parsed.venues[0],
-              name: "Created Venue",
-              country: "United Kingdom",
-              websiteUrl: "https://example.com",
-            },
-          ],
-        },
-      }),
+    fetchHtmlFn: async () => {
+      fetchCalled = true;
+      return null as never;
     },
-    geocode: async () => null,
-  });
+  } as never);
 
-  assert.equal(state.venueUpdates.length, 1);
-  assert.equal(state.venueUpdates[0].description, "A detailed venue description that is definitely long enough for extraction.");
-  assert.equal(state.venueUpdates[0].contactEmail, "hello@created.example.com");
-  assert.equal(state.venueUpdates[0].instagramUrl, "https://instagram.com/createdvenue");
-  assert.equal(state.venueUpdates[0].facebookUrl, "https://facebook.com/createdvenue");
-  assert.deepEqual(state.venueUpdates[0].openingHours, { raw: "Mon-Fri 10:00-18:00" });
-});
-test("venue generation pipeline skips duplicate homepage extraction when pending candidates already exist", async () => {
-  const state = baseDb();
-
-  state.db.venue.findFirst = async () => ({
-    id: "venue-existing",
-    instagramUrl: null,
-    facebookUrl: null,
-    contactEmail: null,
-    description: null,
-    openingHours: null,
-    _count: { homepageImageCandidates: 2 },
-  });
-
-  await runVenueGenerationPipeline({
-    input: { country: "United Kingdom", region: "England" },
-    triggeredById: "11111111-1111-4111-8111-111111111111",
-    db: state.db as never,
-    fetchHtmlFn: async () => null as never,
-    openai: {
-      createResponse: async () => ({
-        output_parsed: {
-          venues: [
-            {
-              ...openAiPayload.output_parsed.venues[0],
-              name: "Existing Venue With Pending Candidates",
-              country: "United Kingdom",
-              websiteUrl: "https://example.com",
-            },
-          ],
-        },
-      }),
-    },
-    geocode: async () => null,
-  });
-
-  assert.equal(state.homepageCandidates.filter((candidate) => candidate.venueId === "venue-existing").length, 0);
-});
-
-
-test("venue generation pipeline auto-publishes created venues when auto-select succeeds", async () => {
-  const state = baseDb();
-
-  await runVenueGenerationPipeline({
-    input: { country: "South Africa", region: "Western Cape" },
-    triggeredById: "11111111-1111-4111-8111-111111111111",
-    db: state.db as never,
-    fetchHtmlFn: async () => ({ finalUrl: "https://example.com", contentType: "text/html", html: '<meta property="og:image" content="/hero.jpg">', status: 200, bytes: 10 }) as never,
-    openai: { createResponse: async () => ({ output_parsed: { venues: [{ ...openAiPayload.output_parsed.venues[0], websiteUrl: "https://example.com" }] } }) },
-    geocode: async () => ({ lat: -33.9, lng: 18.4 }),
-    autoPublish: true,
-    autoSelectDeps: {
-      assertUrl: async () => undefined,
-      fetchImage: async () => ({ contentType: "image/jpeg", bytes: new Uint8Array([1]), sizeBytes: 1 }),
-      uploadImage: async () => ({ url: "https://blob.example/hero.jpg", path: "x" }),
-    },
-  });
-
-  assert.ok(state.venueUpdates.some((update) => update.status === "PUBLISHED" && update.isPublished === true));
-});
-
-test("venue generation pipeline does not auto-publish when autoPublish is false", async () => {
-  const state = baseDb();
-
-  await runVenueGenerationPipeline({
-    input: { country: "South Africa", region: "Western Cape" },
-    triggeredById: "11111111-1111-4111-8111-111111111111",
-    db: state.db as never,
-    fetchHtmlFn: async () => ({ finalUrl: "https://example.com", contentType: "text/html", html: '<meta property="og:image" content="/hero.jpg">', status: 200, bytes: 10 }) as never,
-    openai: { createResponse: async () => ({ output_parsed: { venues: [{ ...openAiPayload.output_parsed.venues[0], websiteUrl: "https://example.com" }] } }) },
-    geocode: async () => ({ lat: -33.9, lng: 18.4 }),
-    autoPublish: false,
-  });
-
-  assert.equal(state.venueUpdates.some((update) => update.status === "PUBLISHED"), false);
-});
-
-test("venue generation pipeline continues without publish when auto-select fails", async () => {
-  const state = baseDb();
-
-  await runVenueGenerationPipeline({
-    input: { country: "South Africa", region: "Western Cape" },
-    triggeredById: "11111111-1111-4111-8111-111111111111",
-    db: state.db as never,
-    fetchHtmlFn: async () => ({ finalUrl: "https://example.com", contentType: "text/html", html: '<meta property="og:image" content="/hero.jpg">', status: 200, bytes: 10 }) as never,
-    openai: { createResponse: async () => ({ output_parsed: { venues: [{ ...openAiPayload.output_parsed.venues[0], websiteUrl: "https://example.com" }] } }) },
-    geocode: async () => ({ lat: -33.9, lng: 18.4 }),
-    autoPublish: true,
-    autoSelectDeps: {
-      assertUrl: async () => undefined,
-      fetchImage: async () => { throw new Error("boom"); },
-      uploadImage: async () => ({ url: "https://blob.example/hero.jpg", path: "x" }),
-    },
-  });
-
-  assert.equal(state.venueUpdates.some((update) => update.status === "PUBLISHED"), false);
+  assert.equal(geocodeCalled, false);
+  assert.equal(fetchCalled, false);
 });

@@ -14,7 +14,7 @@ test("POST /api/admin/venue-generation returns 502 with stable code when model o
   const res = await handleVenueGenerationPost(req, {
     requireAdminFn: async () => ({ id: "11111111-1111-4111-8111-111111111111" }) as never,
     createOpenAiClientFn: async () => ({}) as never,
-    runVenueGenerationPipelineFn: async () => {
+    runVenueGenerationPhase1Fn: async () => {
       throw new VenueGenerationError("OPENAI_BAD_OUTPUT", "OpenAI response did not include structured JSON output", {
         outputItems: 1,
       });

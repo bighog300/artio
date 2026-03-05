@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { runBlobCleanupOrphansJob } from "@/lib/jobs/blob-cleanup-orphans";
+import { runVenueGenerationProcessRunJob } from "@/lib/jobs/venue-generation-process-run";
 
 export type JobRunContext = {
   params?: unknown;
@@ -27,6 +28,17 @@ export const JOBS: Record<string, JobDefinition> = {
   "blob.cleanup-orphans": {
     description: "Delete unreferenced Vercel Blob images (dry-run supported).",
     run: async ({ params, actorEmail }) => runBlobCleanupOrphansJob({ params, actorEmail }),
+  },
+  "venue.generation.process-run": {
+    description: "Process a pending VenueGenerationRun: geocode, homepage extraction, and image selection for each queued venue.",
+    run: async ({ params }) => {
+      const runId = (params as { runId?: unknown } | undefined)?.runId;
+      if (typeof runId !== "string" || runId.trim().length === 0) {
+        const { RunJobError } = await import("@/lib/jobs/run-job");
+        throw new RunJobError(400, "missing_run_id");
+      }
+      return runVenueGenerationProcessRunJob({ runId: runId.trim() });
+    },
   },
   "db.vacuum-lite": {
     description: "Lightweight DB check that validates connectivity and captures key table counts.",

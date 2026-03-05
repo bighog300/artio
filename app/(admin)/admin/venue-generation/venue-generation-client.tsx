@@ -44,6 +44,8 @@ type Run = {
   autoPublishedCount: number;
   createdAt: string | Date;
   status?: string | null;
+  isStale?: boolean;
+  totalQueued?: number;
   items: RunItem[];
 };
 
@@ -127,7 +129,7 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
             });
             const body = await response.json();
             if (!response.ok) throw new Error(body?.error?.message ?? "Generation failed");
-            setMessage(`${body.totalCreated} venues created, ${body.totalSkipped} skipped, ${body.totalFailed ?? 0} failed.`);
+            setMessage(`${body.totalQueued ?? 0} venues queued, ${body.totalSkipped} skipped.`);
             await refreshRuns();
           } catch (err) {
             setError(err instanceof Error ? err.message : "Generation failed");
@@ -159,11 +161,12 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
           return (
             <details key={run.id} className="rounded border p-3" open>
               <summary className="cursor-pointer text-sm font-medium">
-                <span className={run.status === "FAILED" ? "text-red-600" : run.status === "RUNNING" ? "text-amber-600" : "text-emerald-700"}>
+                <span className={run.status === "FAILED" ? "text-red-600" : run.status === "RUNNING" || run.status === "PENDING" ? "text-amber-600" : "text-emerald-700"}>
                   [{run.status ?? "SUCCEEDED"}]
                 </span>{" "}
-                {run.region}, {run.country} — created {run.totalCreated}/{run.totalReturned}, skipped {run.totalSkipped}, failed {run.totalFailed}, geocode {geocodeRate(run)}{run.autoPublishedCount > 0 ? `, auto-published: ${run.autoPublishedCount}` : ""}
+                {run.region}, {run.country} — created {run.totalCreated}/{run.totalReturned}, queued {run.totalQueued ?? Math.max(0, run.totalReturned - run.totalSkipped)}, skipped {run.totalSkipped}, failed {run.totalFailed}, geocode {geocodeRate(run)}{run.autoPublishedCount > 0 ? `, auto-published: ${run.autoPublishedCount}` : ""}
               </summary>
+              {run.isStale ? <p className="mt-2 text-xs text-amber-700">⚠️ Stale run (older than 30 minutes and not completed)</p> : null}
               <div className="mt-3 space-y-3 text-sm">
                 <div className="flex flex-wrap items-center gap-3">
                   <span>Geocode: attempted {run.geocodeAttempted}, succeeded {run.geocodeSucceeded}, failed {run.geocodeFailed}</span>

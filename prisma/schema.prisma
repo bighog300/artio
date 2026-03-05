@@ -420,6 +420,12 @@ model VenueGenerationRunItem {
   instagramUrl      String?
   facebookUrl       String?
   contactEmail      String?
+  websiteUrl        String?
+  openingHours      String?
+  contactPhone      String?
+  addressLine1      String?
+  addressLine2      String?
+  region            String?
   featuredImageUrl  String?
   socialWarning     String?
   geocodeStatus     String             @default("not_attempted")

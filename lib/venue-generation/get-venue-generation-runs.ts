@@ -76,8 +76,11 @@ export async function getVenueGenerationRuns(deps: {
 
   const venueMap = new Map(venues.map((venue) => [venue.id, venue]));
 
+  const staleThreshold = Date.now() - 30 * 60 * 1000;
+
   return runs.map((run) => ({
     ...run,
+    isStale: ["RUNNING", "PENDING"].includes(run.status) && new Date(run.createdAt).getTime() < staleThreshold,
     items: run.items.map((item) => {
       const venue = item.venueId ? venueMap.get(item.venueId) : null;
       const blockers = item.status === "created" && item.venueId

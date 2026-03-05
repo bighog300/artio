@@ -96,6 +96,12 @@ type PipelineDb = {
         instagramUrl?: string | null;
         facebookUrl?: string | null;
         contactEmail?: string | null;
+        websiteUrl?: string | null;
+        openingHours?: string | null;
+        contactPhone?: string | null;
+        addressLine1?: string | null;
+        addressLine2?: string | null;
+        region?: string | null;
         socialWarning?: string;
         geocodeStatus: string;
         geocodeErrorCode?: string;
@@ -139,11 +145,11 @@ type OpenAIClient = {
   createResponse: (args: { model: string; input: Array<{ role: "system" | "user"; content: string }>; schema: object }) => Promise<OpenAIResponse>;
 };
 
-function normalize(value: string | null | undefined) {
+export function normalize(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function toJsonOpeningHours(value: string | null): Prisma.InputJsonValue | undefined {
+export function toJsonOpeningHours(value: string | null): Prisma.InputJsonValue | undefined {
   if (!value) return undefined;
   return { raw: value };
 }
@@ -152,7 +158,7 @@ function getOutputItems(raw: OpenAIResponse): ResponseOutputItem[] {
   return [...(raw.output ?? []), ...(raw.response?.output ?? [])];
 }
 
-function normalizeGeneratedVenue(venue: GeneratedVenue): GeneratedVenue {
+export function normalizeGeneratedVenue(venue: GeneratedVenue): GeneratedVenue {
   return {
     ...venue,
     name: venue.name.trim(),
@@ -168,7 +174,7 @@ function normalizeGeneratedVenue(venue: GeneratedVenue): GeneratedVenue {
   };
 }
 
-function normalizeSocialsAndEmail(venue: GeneratedVenue) {
+export function normalizeSocialsAndEmail(venue: GeneratedVenue) {
   const warnings: string[] = [];
   const instagram = normalizeInstagramUrl(venue.instagramUrl);
   const facebook = normalizeFacebookUrl(venue.facebookUrl);
@@ -186,11 +192,11 @@ function normalizeSocialsAndEmail(venue: GeneratedVenue) {
   };
 }
 
-function incrementBreakdown(map: Record<string, number>, code: ForwardGeocodeErrorCode) {
+export function incrementBreakdown(map: Record<string, number>, code: ForwardGeocodeErrorCode) {
   map[code] = (map[code] ?? 0) + 1;
 }
 
-function dedupeWhereForVenue(venue: GeneratedVenue): { where: Prisma.VenueWhereInput; reason: string } {
+export function dedupeWhereForVenue(venue: GeneratedVenue): { where: Prisma.VenueWhereInput; reason: string } {
   const name = venue.name.trim();
   const country = venue.country.trim();
   const postcode = venue.postcode?.trim();
@@ -227,7 +233,7 @@ function dedupeWhereForVenue(venue: GeneratedVenue): { where: Prisma.VenueWhereI
   };
 }
 
-async function geocodeVenue(venue: GeneratedVenue, geocodeFn: typeof forwardGeocodeVenueAddressToLatLng) {
+export async function geocodeVenue(venue: GeneratedVenue, geocodeFn: typeof forwardGeocodeVenueAddressToLatLng) {
   const queryTexts = buildVenueGeocodeQueries(venue);
   if (queryTexts.length === 0) {
     return { status: "not_attempted" as const, geocoded: null, geocodeErrorCode: undefined };
@@ -249,7 +255,7 @@ async function geocodeVenue(venue: GeneratedVenue, geocodeFn: typeof forwardGeoc
   }
 }
 
-async function runHomepageExtraction(args: {
+export async function runHomepageExtraction(args: {
   venueId: string;
   runItemId: string;
   websiteUrl: string | null;
@@ -411,22 +417,18 @@ function venuePrompt(input: VenueGenerationInput) {
   ].join("\n");
 }
 
-export async function runVenueGenerationPipeline(args: {
+export async function runVenueGenerationPhase1(args: {
   input: VenueGenerationInput;
   triggeredById: string;
   db: PipelineDb;
   openai: OpenAIClient;
-  geocode?: typeof forwardGeocodeVenueAddressToLatLng;
   model?: string;
-  fetchHtmlFn?: typeof fetchHtmlWithGuards;
-  autoPublish?: boolean;
-  autoSelectDeps?: Partial<AutoSelectDeps>;
 }) {
   const run = await args.db.venueGenerationRun.create({
     data: {
       country: args.input.country,
       region: args.input.region,
-      status: "RUNNING",
+      status: "PENDING",
       totalReturned: 0,
       totalCreated: 0,
       totalSkipped: 0,
@@ -492,123 +494,81 @@ export async function runVenueGenerationPipeline(args: {
       }
       throw error;
     }
-    const geocodeFn = args.geocode ?? forwardGeocodeVenueAddressToLatLng;
-    const fetchHtmlFn = args.fetchHtmlFn ?? fetchHtmlWithGuards;
-    const autoPublish = args.autoPublish ?? (process.env.VENUE_AUTO_PUBLISH === "1");
 
-    let totalCreated = 0;
     let totalSkipped = 0;
-    let totalFailed = 0;
-    let geocodeAttempted = 0;
-    let geocodeSucceeded = 0;
-    let geocodeFailed = 0;
-    const geocodeFailureBreakdown: Record<string, number> = {};
-    let autoPublishedCount = 0;
-
+    let totalQueued = 0;
     const seen = new Set<string>();
 
     for (const rawVenue of parsed.venues) {
-    const venue = normalizeGeneratedVenue(rawVenue);
-    const normalizedSocials = normalizeSocialsAndEmail(venue);
-    const socialWarning = normalizedSocials.warnings.length > 0 ? normalizedSocials.warnings.join(",") : undefined;
-    const memoryDedupeKey = `${normalize(venue.name)}|${normalize(venue.postcode)}|${normalize(venue.city)}|${normalize(venue.country)}`;
-    if (seen.has(memoryDedupeKey)) {
-      totalSkipped += 1;
-      await args.db.venueGenerationRunItem.create({
-        data: {
-          runId: run.id,
-          name: venue.name,
-          city: venue.city,
-          postcode: venue.postcode,
-          country: venue.country,
-          instagramUrl: venue.instagramUrl,
-          facebookUrl: venue.facebookUrl,
-          contactEmail: venue.contactEmail,
-          socialWarning,
-          status: "skipped",
-          reason: "duplicate(in-run)",
-          geocodeStatus: "not_attempted",
-          homepageImageStatus: "skipped",
-          homepageImageCandidateCount: 0,
-        },
-      });
-      continue;
-    }
+      const venue = normalizeGeneratedVenue(rawVenue);
+      const normalizedSocials = normalizeSocialsAndEmail(venue);
+      const socialWarning = normalizedSocials.warnings.length > 0 ? normalizedSocials.warnings.join(",") : undefined;
+      const memoryDedupeKey = `${normalize(venue.name)}|${normalize(venue.postcode)}|${normalize(venue.city)}|${normalize(venue.country)}`;
 
-    const dedupe = dedupeWhereForVenue(venue);
-    const duplicate = await args.db.venue.findFirst({
-      where: dedupe.where,
-      select: {
-        id: true,
-        instagramUrl: true,
-        facebookUrl: true,
-        contactEmail: true,
-        description: true,
-        openingHours: true,
-        _count: { select: { homepageImageCandidates: { where: { status: "pending" } } } },
-      },
-    });
-    if (duplicate) {
-      totalSkipped += 1;
+      if (seen.has(memoryDedupeKey)) {
+        totalSkipped += 1;
+        await args.db.venueGenerationRunItem.create({
+          data: {
+            runId: run.id,
+            name: venue.name,
+            city: venue.city,
+            postcode: venue.postcode,
+            country: venue.country,
+            region: venue.region,
+            addressLine1: venue.addressLine1,
+            addressLine2: venue.addressLine2,
+            websiteUrl: venue.websiteUrl,
+            openingHours: venue.openingHours,
+            contactPhone: venue.contactPhone,
+            instagramUrl: venue.instagramUrl,
+            facebookUrl: venue.facebookUrl,
+            contactEmail: venue.contactEmail,
+            socialWarning,
+            status: "skipped",
+            reason: "duplicate(in-run)",
+            geocodeStatus: "not_attempted",
+            homepageImageStatus: "skipped",
+            homepageImageCandidateCount: 0,
+          },
+        });
+        continue;
+      }
+
+      const dedupe = dedupeWhereForVenue(venue);
+      const duplicate = await args.db.venue.findFirst({ where: dedupe.where, select: { id: true } });
+      if (duplicate) {
+        totalSkipped += 1;
+        seen.add(memoryDedupeKey);
+        await args.db.venueGenerationRunItem.create({
+          data: {
+            runId: run.id,
+            name: venue.name,
+            city: venue.city,
+            postcode: venue.postcode,
+            country: venue.country,
+            region: venue.region,
+            addressLine1: venue.addressLine1,
+            addressLine2: venue.addressLine2,
+            websiteUrl: venue.websiteUrl,
+            openingHours: venue.openingHours,
+            contactPhone: venue.contactPhone,
+            instagramUrl: venue.instagramUrl,
+            facebookUrl: venue.facebookUrl,
+            contactEmail: venue.contactEmail,
+            socialWarning,
+            status: "skipped",
+            reason: dedupe.reason,
+            venueId: duplicate.id,
+            geocodeStatus: "not_attempted",
+            homepageImageStatus: "skipped",
+            homepageImageCandidateCount: 0,
+          },
+        });
+        continue;
+      }
+
+      totalQueued += 1;
       seen.add(memoryDedupeKey);
-
-      const runItem = await args.db.venueGenerationRunItem.create({
-        data: {
-          runId: run.id,
-          name: venue.name,
-          city: venue.city,
-          postcode: venue.postcode,
-          country: venue.country,
-          instagramUrl: venue.instagramUrl,
-          facebookUrl: venue.facebookUrl,
-          contactEmail: venue.contactEmail,
-          socialWarning,
-          status: "skipped",
-          reason: dedupe.reason,
-          venueId: duplicate.id,
-          geocodeStatus: "not_attempted",
-          homepageImageStatus: "pending",
-          homepageImageCandidateCount: 0,
-        },
-      });
-
-      const homepageResult =
-        duplicate._count.homepageImageCandidates === 0
-          ? await runHomepageExtraction({
-              venueId: duplicate.id,
-              runItemId: runItem.id,
-              websiteUrl: venue.websiteUrl,
-              fetchHtmlFn,
-              db: args.db,
-              autoPublish: false,
-            })
-          : { homepageImageStatus: "skipped", homepageImageCandidateCount: 0, details: null as HomepageDetails | null };
-
-      await args.db.venue.update({
-        where: { id: duplicate.id },
-        data: {
-          instagramUrl: duplicate.instagramUrl ? undefined : normalizedSocials.instagramUrl,
-          facebookUrl: duplicate.facebookUrl ? undefined : normalizedSocials.facebookUrl,
-          contactEmail: duplicate.contactEmail ? undefined : normalizedSocials.contactEmail,
-          description: duplicate.description ? undefined : homepageResult.details?.description,
-          openingHours: duplicate.openingHours ? undefined : toJsonOpeningHours(homepageResult.details?.openingHours ?? null),
-        },
-      });
-
-      await args.db.venueGenerationRunItem.update({
-        where: { id: runItem.id },
-        data: {
-          homepageImageStatus: homepageResult.homepageImageStatus,
-          homepageImageCandidateCount: homepageResult.homepageImageCandidateCount,
-        },
-      });
-      continue;
-    }
-
-    const slugBase = slugifyVenueName(venue.name);
-    const slug = await ensureUniqueVenueSlugWithDeps({ findBySlug: (candidate) => args.db.venue.findUnique({ where: { slug: candidate }, select: { id: true } }) }, slugBase);
-    if (!slug) {
-      totalFailed += 1;
       await args.db.venueGenerationRunItem.create({
         data: {
           runId: run.id,
@@ -616,188 +576,57 @@ export async function runVenueGenerationPipeline(args: {
           city: venue.city,
           postcode: venue.postcode,
           country: venue.country,
-          instagramUrl: venue.instagramUrl,
-          facebookUrl: venue.facebookUrl,
-          contactEmail: venue.contactEmail,
+          region: venue.region,
+          addressLine1: venue.addressLine1,
+          addressLine2: venue.addressLine2,
+          websiteUrl: venue.websiteUrl,
+          openingHours: venue.openingHours,
+          contactPhone: venue.contactPhone,
+          instagramUrl: normalizedSocials.instagramUrl,
+          facebookUrl: normalizedSocials.facebookUrl,
+          contactEmail: normalizedSocials.contactEmail,
           socialWarning,
-          status: "failed",
-          reason: "slug_generation_failed",
+          status: "pending_processing",
           geocodeStatus: "not_attempted",
           homepageImageStatus: "skipped",
           homepageImageCandidateCount: 0,
         },
       });
-      continue;
     }
-
-    const geocodeResult = await geocodeVenue(venue, geocodeFn);
-    if (geocodeResult.status !== "not_attempted") geocodeAttempted += 1;
-    if (geocodeResult.status === "succeeded") geocodeSucceeded += 1;
-    if (geocodeResult.status === "failed") {
-      geocodeFailed += 1;
-      if (geocodeResult.geocodeErrorCode) incrementBreakdown(geocodeFailureBreakdown, geocodeResult.geocodeErrorCode);
-    }
-
-    let timezone: string | null = null;
-    let timezoneWarning: string | undefined;
-    if (typeof geocodeResult.geocoded?.lat === "number" && typeof geocodeResult.geocoded?.lng === "number") {
-      try {
-        timezone = tzLookup(geocodeResult.geocoded.lat, geocodeResult.geocoded.lng);
-      } catch {
-        timezoneWarning = "timezone_lookup_failed";
-      }
-    }
-
-    const created = await args.db.venue.create({
-      data: {
-        name: venue.name,
-        slug,
-        addressLine1: venue.addressLine1,
-        addressLine2: venue.addressLine2,
-        city: venue.city,
-        region: venue.region,
-        postcode: venue.postcode,
-        country: venue.country,
-        contactEmail: normalizedSocials.contactEmail,
-        contactPhone: venue.contactPhone,
-        websiteUrl: venue.websiteUrl,
-        instagramUrl: normalizedSocials.instagramUrl,
-        facebookUrl: normalizedSocials.facebookUrl,
-        openingHours: toJsonOpeningHours(venue.openingHours),
-        lat: geocodeResult.geocoded?.lat,
-        lng: geocodeResult.geocoded?.lng,
-        timezone,
-        isPublished: false,
-        aiGenerated: true,
-        aiGeneratedAt: new Date(),
-        claimStatus: "UNCLAIMED",
-      },
-    });
-
-    const runItem = await args.db.venueGenerationRunItem.create({
-      data: {
-        runId: run.id,
-        name: venue.name,
-        city: venue.city,
-        postcode: venue.postcode,
-        country: venue.country,
-        instagramUrl: venue.instagramUrl,
-        facebookUrl: venue.facebookUrl,
-        contactEmail: venue.contactEmail,
-        socialWarning,
-        status: "created",
-        venueId: created.id,
-        geocodeStatus: geocodeResult.status,
-        geocodeErrorCode: geocodeResult.geocodeErrorCode,
-        timezoneWarning,
-        homepageImageStatus: "pending",
-        homepageImageCandidateCount: 0,
-      },
-    });
-
-    const homepageResult = await runHomepageExtraction({
-      venueId: created.id,
-      runItemId: runItem.id,
-      websiteUrl: venue.websiteUrl,
-      fetchHtmlFn,
-      db: args.db,
-      autoPublish,
-      autoSelectDeps: args.autoSelectDeps,
-    });
-
-    await args.db.venueGenerationRunItem.update({
-      where: { id: runItem.id },
-      data: {
-        homepageImageStatus: homepageResult.homepageImageStatus,
-        homepageImageCandidateCount: homepageResult.homepageImageCandidateCount,
-      },
-    });
-
-
-    if (autoPublish && homepageResult.autoSelectedCandidateId) {
-      const refreshed = await args.db.venue.findFirst({
-        where: { id: created.id },
-        select: {
-          id: true,
-          instagramUrl: true,
-          facebookUrl: true,
-          contactEmail: true,
-          description: true,
-          openingHours: true,
-          name: true,
-          city: true,
-          country: true,
-          lat: true,
-          lng: true,
-          featuredAssetId: true,
-          status: true,
-          isPublished: true,
-          _count: { select: { homepageImageCandidates: { where: { status: "pending" } } } },
-        },
-      }) as { country: string | null; lat: number | null; lng: number | null; name: string | null; city: string | null; featuredAssetId: string | null } | null;
-      if (refreshed) {
-        const blockers = computeVenuePublishBlockers(refreshed);
-        if (blockers.length === 0 && refreshed.featuredAssetId) {
-          await args.db.venue.update({ where: { id: created.id }, data: { status: "PUBLISHED", isPublished: true } });
-          autoPublishedCount += 1;
-        }
-      }
-    }
-
-    if (homepageResult.details) {
-      const detailPatch: Prisma.VenueUpdateInput = {};
-      if (!normalizedSocials.instagramUrl && homepageResult.details.instagramUrl) detailPatch.instagramUrl = homepageResult.details.instagramUrl;
-      if (!normalizedSocials.facebookUrl && homepageResult.details.facebookUrl) detailPatch.facebookUrl = homepageResult.details.facebookUrl;
-      if (!normalizedSocials.contactEmail && homepageResult.details.contactEmail) detailPatch.contactEmail = homepageResult.details.contactEmail;
-      if (homepageResult.details.description) detailPatch.description = homepageResult.details.description;
-      if (homepageResult.details.openingHours && !venue.openingHours) detailPatch.openingHours = toJsonOpeningHours(homepageResult.details.openingHours);
-      if (Object.keys(detailPatch).length > 0) {
-        await args.db.venue.update({ where: { id: created.id }, data: detailPatch });
-      }
-    }
-
-    seen.add(memoryDedupeKey);
-    totalCreated += 1;
-  }
 
     await args.db.venueGenerationRun.update({
       where: { id: run.id },
       data: {
-        status: "SUCCEEDED",
+        status: "PENDING",
         totalReturned: parsed.venues.length,
-        totalCreated,
         totalSkipped,
-        totalFailed,
-        geocodeAttempted,
-        geocodeSucceeded,
-        geocodeFailed,
-        geocodeFailureBreakdown,
-        autoPublishedCount,
       },
     });
 
     return {
       runId: run.id,
       totalReturned: parsed.venues.length,
-      totalCreated,
+      totalQueued,
       totalSkipped,
-      totalFailed,
-      geocodeAttempted,
-      geocodeSucceeded,
-      geocodeFailed,
-      geocodeFailureBreakdown,
-      autoPublishedCount,
+      totalCreated: 0,
+      totalFailed: 0,
     };
   } catch (error) {
-    await args.db.venueGenerationRun
-      .update({
-        where: { id: run.id },
-        data: { status: "FAILED" },
-      })
-      .catch(() => undefined);
+    await args.db.venueGenerationRun.update({ where: { id: run.id }, data: { status: "FAILED" } }).catch(() => undefined);
     throw error;
   }
 }
+
+export async function runVenueGenerationPipeline(args: {
+  input: VenueGenerationInput;
+  triggeredById: string;
+  db: PipelineDb;
+  openai: OpenAIClient;
+  model?: string;
+}) {
+  return runVenueGenerationPhase1(args);
+}
+
 
 export async function createOpenAIResponsesClient(args: { apiKey: string }) {
   return {
