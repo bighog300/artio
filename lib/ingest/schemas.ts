@@ -10,7 +10,7 @@ const extractedEventSchema = z.object({
   description: z.string().trim().min(1).nullable().optional(),
   sourceUrl: z.string().trim().url().nullable().optional(),
   artistNames: z.array(z.string().trim().min(1)).optional().default([]),
-  imageUrl: z.string().trim().url().nullable().optional(),
+  imageUrl: z.string().trim().min(1).nullable().optional(),
 });
 
 const extractedEventArraySchema = z.array(extractedEventSchema);
