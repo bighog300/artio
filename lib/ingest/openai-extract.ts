@@ -1,4 +1,5 @@
 import { IngestError } from "@/lib/ingest/errors";
+import { preprocessHtml } from "@/lib/ingest/preprocess-html";
 
 export type ExtractedEvent = {
   title: string;
@@ -188,6 +189,7 @@ export async function extractEventsWithOpenAI(params: {
     name: string;
     address: string | null;
   };
+  _preprocessHtml?: (html: string) => string;
 }): Promise<{ model: string; events: ExtractedEvent[]; venueSnapshot: VenueSnapshot; raw: unknown; usage?: ExtractUsage }> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -199,6 +201,8 @@ export async function extractEventsWithOpenAI(params: {
     || process.env.OPENAI_MODEL?.trim()
     || "gpt-4o-mini";
   const maxOutputTokens = params.maxOutputTokensOverride ?? 4000;
+  const preprocess = params._preprocessHtml ?? preprocessHtml;
+  const processedHtml = preprocess(params.html);
   const today = new Date().toISOString().slice(0, 10);
   const venueLine = params.venueContext
     ? `Venue name: ${params.venueContext.name}${params.venueContext.address ? `\nVenue address: ${params.venueContext.address}` : ""}`
@@ -254,7 +258,7 @@ export async function extractEventsWithOpenAI(params: {
       content: [
         `Source URL: ${params.sourceUrl}`,
         "HTML:",
-        params.html.slice(0, 120_000),
+        processedHtml.slice(0, 120_000),
       ].join("\n"),
     },
   ];

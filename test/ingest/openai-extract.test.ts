@@ -213,6 +213,39 @@ test("extractEventsWithOpenAI uses default model and Responses API request shape
 });
 
 
+
+
+test("extractEventsWithOpenAI calls preprocessHtml before truncation", async () => {
+  process.env.OPENAI_API_KEY = "test-key";
+
+  let capturedBody: Record<string, unknown> | null = null;
+  global.fetch = (async (_input, init) => {
+    capturedBody = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+    return new Response(JSON.stringify({
+      output_parsed: {
+        events: [{ title: "Test" }],
+        venueDescription: null,
+        venueCoverImageUrl: null,
+        venueOpeningHours: null,
+        venueContactEmail: null,
+        venueInstagramUrl: null,
+        venueFacebookUrl: null,
+      },
+    }), { status: 200 });
+  }) as typeof fetch;
+
+  await extractEventsWithOpenAI({
+    html: "<div>raw</div>",
+    sourceUrl: "https://example.com",
+    _preprocessHtml: (html) => `${html} SENTINEL_PREPROCESSED`,
+  });
+
+  const input = capturedBody?.input as Array<{ content?: string }> | undefined;
+  assert.ok(Array.isArray(input));
+  const userMessage = input?.[1]?.content;
+  assert.equal(typeof userMessage, "string");
+  assert.match(String(userMessage), /SENTINEL_PREPROCESSED/);
+});
 test("extractEventsWithOpenAI surfaces response_format 400 diagnostics", async () => {
   process.env.OPENAI_API_KEY = "test-key";
 
