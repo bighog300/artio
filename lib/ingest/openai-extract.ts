@@ -179,8 +179,13 @@ export async function extractEventsWithOpenAI(params: {
     "Extract ONLY upcoming events (startAt in the future). Ignore navigation links,",
     "past events, and page furniture. For artistNames return only names clearly",
     "attributed to this event — do not include venue staff or sponsors.",
-    "For imageUrl return the full absolute URL of the primary event image if",
-    "present in the HTML, otherwise null.",
+    "For imageUrl: find the image specific to THIS event — look first in any",
+    "application/ld+json script blocks for an Event or ExhibitionEvent 'image'",
+    "property, then in <img> tags adjacent to the event title or description,",
+    "then in og:image meta tags only if the page covers a single event.",
+    "Do NOT return the venue's global hero, banner, or logo image.",
+    "If the src is relative, return it as-is — do not attempt to resolve it.",
+    "If no event-specific image is found, return null.",
     "Return results in the provided schema.",
   ].filter(Boolean).join("\n");
 
