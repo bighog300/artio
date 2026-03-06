@@ -76,6 +76,15 @@ enum NotificationType {
   DIGEST_READY
   ARTWORK_VIEW_MILESTONE
   SAVED_SEARCH_MATCH
+  VENUE_CLAIM_VERIFY
+  VENUE_CLAIM_APPROVED
+  VENUE_CLAIM_REJECTED
+  RSVP_CONFIRMED
+  RSVP_CANCELLED
+  EVENT_CHANGE_NOTIFY
+  EVENT_REMINDER_24H
+  NEW_USER_WELCOME
+  BROADCAST
 }
 
 enum ArtistVenueAssociationStatus {
@@ -99,6 +108,7 @@ enum NotificationStatus {
   PROCESSING
   SENT
   FAILED
+  SKIPPED_UNSUBSCRIBED
 }
 
 enum NotificationInboxStatus {
@@ -804,6 +814,8 @@ model NotificationOutbox {
   dedupeKey    String             @unique
   status       NotificationStatus @default(PENDING)
   createdAt    DateTime           @default(now())
+  attemptCount Int                @default(0)
+  nextRetryAt  DateTime?
   sentAt       DateTime?
   errorMessage String?
 
@@ -1000,6 +1012,9 @@ model SiteSettings {
   id          String   @id
   logoAssetId String?  @db.Uuid
   logoAsset   Asset?   @relation(fields: [logoAssetId], references: [id], onDelete: SetNull)
+  emailEnabled Boolean @default(false)
+  emailFromAddress String?
+  emailOutboxBatchSize Int?
   ingestSystemPrompt String?
   ingestModel String?
   ingestMaxOutputTokens Int?
