@@ -32,6 +32,7 @@ export default async function AdminOpsPage() {
         <Link href="/admin/ops/jobs" className="underline">Open Jobs Panel</Link>
         <Link href="/admin/ops/audit" className="underline">View Admin Audit Log</Link>
         <Link href="/api/cron/outbox/send?dryRun=1" className="underline">Run Outbox Dry Run</Link>
+        <Link href="/admin/ops/email" className="underline">Open Outbox Monitoring</Link>
         <Link href="/api/cron/digests/weekly?dryRun=1" className="underline">Run Digest Dry Run</Link>
       </section>
     </main>
