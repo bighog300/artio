@@ -15,6 +15,12 @@ type OutboxRow = {
 };
 
 export type OutboxWorkerDb = {
+  emailUnsubscribe: {
+    findUnique: (args: {
+      where: { email: string };
+      select: { id: true };
+    }) => Promise<{ id: string } | null>;
+  };
   notificationOutbox: {
     findMany: (args: {
       where: {
@@ -37,7 +43,7 @@ export type OutboxWorkerDb = {
         | { id: string; status: "PENDING" | "PROCESSING"; errorMessage?: string | null }
         | { status: "PROCESSING"; createdAt: { lte: Date } };
       data: {
-        status?: "PENDING" | "PROCESSING" | "SENT" | "FAILED";
+        status?: "PENDING" | "PROCESSING" | "SENT" | "FAILED" | "SKIPPED_UNSUBSCRIBED";
         sentAt?: Date | null;
         errorMessage?: string | null;
         attemptCount?: number;
@@ -96,6 +102,25 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
 
     try {
       await withSpan("outbox:deliver", async () => {
+        // Only broadcast and digest emails respect unsubscribes.
+        // Transactional types (INVITE_CREATED, SUBMISSION_*, etc.) always deliver
+        // because they are responses to a user's own action.
+        if (notification.type === "BROADCAST" || notification.type === "DIGEST_READY") {
+          const isUnsubscribed = await db.emailUnsubscribe.findUnique({
+            where: { email: notification.toEmail.toLowerCase() },
+            select: { id: true },
+          });
+
+          if (isUnsubscribed) {
+            await db.notificationOutbox.updateMany({
+              where: { id: notification.id, status: "PROCESSING" },
+              data: { status: "SKIPPED_UNSUBSCRIBED", sentAt: new Date() },
+            });
+            skipped += 1;
+            return;
+          }
+        }
+
         const { subject, html, text } = await renderEmailTemplate(
           notification.type,
           notification.payload as NotificationTemplatePayload,

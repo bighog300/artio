@@ -11,6 +11,11 @@ function createMemoryDb(seed: NotificationOutbox[]) {
   return {
     rows,
     db: {
+      emailUnsubscribe: {
+        async findUnique() {
+          return null;
+        },
+      },
       notificationOutbox: {
         async findMany(args: {
           where: {

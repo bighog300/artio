@@ -822,6 +822,15 @@ model NotificationOutbox {
   @@index([status, createdAt])
 }
 
+model EmailUnsubscribe {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  token     String   @unique
+  reason    String?
+  source    String?
+  createdAt DateTime @default(now())
+}
+
 model Notification {
   id        String                  @id @default(uuid()) @db.Uuid
   userId    String                  @db.Uuid
