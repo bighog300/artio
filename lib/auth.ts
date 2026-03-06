@@ -8,6 +8,7 @@ import { trackMetric } from "@/lib/telemetry";
 import { getBetaConfig, isEmailAllowed, normalizeEmail } from "@/lib/beta/access";
 import { getAuthDebugRequestMeta, logAuthDebug } from "@/lib/auth-debug";
 import { ForbiddenError } from "@/lib/http-errors";
+import { enqueueNotification } from "@/lib/notifications";
 
 export type SessionUser = { id: string; email: string; name: string | null; role: "USER" | "EDITOR" | "ADMIN"; isTrustedPublisher?: boolean | null };
 export type EditorSessionUser = SessionUser & { role: "EDITOR" | "ADMIN" };
@@ -142,7 +143,7 @@ export const authOptions: NextAuthOptions = {
         return false;
       }
 
-      await db.user.upsert({
+      const dbUser = await db.user.upsert({
         where: { email: normalizedEmail },
         update: {
           name: user.name ?? undefined,
@@ -155,7 +156,25 @@ export const authOptions: NextAuthOptions = {
           imageUrl: user.image,
           role: isAdminEmail ? "ADMIN" : "USER",
         },
+        select: {
+          id: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       });
+
+      const isFirstSignIn = dbUser.createdAt instanceof Date && dbUser.updatedAt instanceof Date && dbUser.createdAt.getTime() === dbUser.updatedAt.getTime();
+      if (isFirstSignIn) {
+        void enqueueNotification({
+          type: "NEW_USER_WELCOME",
+          toEmail: normalizedEmail,
+          dedupeKey: `welcome:${dbUser.id}`,
+          payload: {
+            type: "NEW_USER_WELCOME",
+            userName: user.name ?? null,
+          },
+        }).catch(() => undefined);
+      }
       return true;
     },
     async jwt({ token }) {
