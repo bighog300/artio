@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
 import { handlePatchMyArtist } from "@/lib/my-artist-route";
 import { myArtistPatchSchema } from "@/lib/validators";
-import { deriveArtistTags } from "@/app/artists/[slug]/page";
+import { deriveArtistTags } from "@/lib/artists";
 
 test("my artist patch returns forbidden when no owned artist", async () => {
   const req = new NextRequest("http://localhost/api/my/artist", {

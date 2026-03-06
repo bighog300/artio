@@ -31,6 +31,12 @@ export type ArtworkSummary = {
   updatedAt: Date;
 };
 
+export function deriveArtistTags(mediums: string[], eventTagGroups: string[][]): string[] {
+  return mediums.length > 0
+    ? mediums.slice(0, 8)
+    : Array.from(new Set(eventTagGroups.flat())).slice(0, 8);
+}
+
 export function resolveArtistCoverUrl(artist: ArtistCoverSource): string | null {
   if (artist.featuredAsset?.url) return artist.featuredAsset.url;
   if (artist.featuredImageUrl) return artist.featuredImageUrl;

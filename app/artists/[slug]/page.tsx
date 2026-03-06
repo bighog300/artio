@@ -21,7 +21,7 @@ import { buildArtistJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
 import { countPublishedArtworksByArtist, listFeaturedArtworksByArtist, listPublishedArtworksByArtist } from "@/lib/artworks";
-import { getArtistArtworks } from "@/lib/artists";
+import { deriveArtistTags, getArtistArtworks } from "@/lib/artists";
 
 const FALLBACK_METADATA = { title: "Artist | Artpulse", description: "Browse artist profiles and related events on Artpulse." };
 
@@ -36,13 +36,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const imageUrl = resolveEntityPrimaryImage(artist)?.url ?? null;
   return { title: `${artist.name} | Artpulse`, description, openGraph: { title: `${artist.name} | Artpulse`, description, images: imageUrl ? [{ url: imageUrl, alt: artist.name }] : undefined } };
 }
-
-export function deriveArtistTags(mediums: string[], eventTagGroups: string[][]): string[] {
-  return mediums.length > 0
-    ? mediums.slice(0, 8)
-    : Array.from(new Set(eventTagGroups.flatMap((tags) => tags))).slice(0, 8);
-}
-
 export default async function ArtistDetail({ params }: { params: Promise<{ slug: string }> }) {
   if (!hasDatabaseUrl()) return <main className="p-6">Set DATABASE_URL to view artists locally.</main>;
   const { slug } = await params;
