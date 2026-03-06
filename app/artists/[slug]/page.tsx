@@ -37,6 +37,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { title: `${artist.name} | Artpulse`, description, openGraph: { title: `${artist.name} | Artpulse`, description, images: imageUrl ? [{ url: imageUrl, alt: artist.name }] : undefined } };
 }
 
+export function deriveArtistTags(mediums: string[], eventTagGroups: string[][]): string[] {
+  return mediums.length > 0
+    ? mediums.slice(0, 8)
+    : Array.from(new Set(eventTagGroups.flatMap((tags) => tags))).slice(0, 8);
+}
+
 export default async function ArtistDetail({ params }: { params: Promise<{ slug: string }> }) {
   if (!hasDatabaseUrl()) return <main className="p-6">Set DATABASE_URL to view artists locally.</main>;
   const { slug } = await params;
@@ -52,6 +58,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
       bio: true,
       websiteUrl: true,
       instagramUrl: true,
+      mediums: true,
       avatarImageUrl: true,
       featuredImageUrl: true,
       images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } },
@@ -138,7 +145,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
     tags: row.event.eventTags.map(({ tag }) => tag.slug),
   }));
 
-  const artistTags = Array.from(new Set(events.flatMap((event) => event.tags))).slice(0, 8);
+  const artistTags = deriveArtistTags(artist.mediums, events.map((event) => event.tags));
   const detailUrl = getDetailUrl("artist", slug);
   const jsonLd = buildArtistJsonLd({ name: artist.name, description: artist.bio, detailUrl, imageUrl, websiteUrl: artist.websiteUrl });
 

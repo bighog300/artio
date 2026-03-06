@@ -185,6 +185,7 @@ export const myArtistPatchSchema = z.object({
   bio: z.string().trim().max(4000).optional().nullable(),
   websiteUrl: httpUrlSchema.optional().nullable(),
   instagramUrl: httpUrlSchema.optional().nullable(),
+  mediums: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
   avatarImageUrl: httpUrlSchema.optional().nullable(),
   featuredAssetId: z.string().uuid().optional().nullable(),
 });
@@ -453,6 +454,7 @@ export const adminArtistCreateSchema = z.object({
   bio: z.string().optional().nullable(),
   websiteUrl: httpUrlSchema.optional().nullable(),
   instagramUrl: httpUrlSchema.optional().nullable(),
+  mediums: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
   avatarImageUrl: httpUrlSchema.optional().nullable(),
   featuredImageUrl: httpUrlSchema.optional().nullable(),
   featuredAssetId: z.string().uuid().optional().nullable(),
@@ -465,6 +467,7 @@ export const adminArtistPatchSchema = z.object({
   bio: z.string().optional().nullable(),
   websiteUrl: httpUrlSchema.optional().nullable(),
   instagramUrl: httpUrlSchema.optional().nullable(),
+  mediums: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
   avatarImageUrl: httpUrlSchema.optional().nullable(),
   featuredImageUrl: httpUrlSchema.optional().nullable(),
   featuredAssetId: z.string().uuid().optional().nullable(),

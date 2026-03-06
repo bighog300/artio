@@ -36,6 +36,7 @@ export default async function ArtistsPage() {
         bio: true,
         avatarImageUrl: true,
         featuredImageUrl: true,
+        mediums: true,
         images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } },
         eventArtists: { where: { event: { isPublished: true, deletedAt: null } }, take: 8, select: { event: { select: { eventTags: { select: { tag: { select: { slug: true } } } } } } } },
       },
@@ -56,7 +57,10 @@ export default async function ArtistsPage() {
       bio: artist.bio,
       avatarImageUrl: resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl,
       imageAlt: resolveEntityPrimaryImage(artist)?.alt ?? artist.name,
-      tags: Array.from(new Set(artist.eventArtists.flatMap((row) => row.event.eventTags.map(({ tag }) => tag.slug)))).slice(0, 6),
+      tags:
+        artist.mediums.length > 0
+          ? Array.from(new Set(artist.mediums)).slice(0, 6)
+          : Array.from(new Set(artist.eventArtists.flatMap((row) => row.event.eventTags.map(({ tag }) => tag.slug)))).slice(0, 6),
       followersCount: countById.get(artist.id) ?? 0,
       isFollowing: followedSet.has(artist.id),
       artworkCount: artworkCountByArtistId.get(artist.id) ?? 0,

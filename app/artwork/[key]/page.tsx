@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { EntityPageViewTracker } from "@/components/analytics/entity-page-view-tracker";
@@ -15,6 +16,46 @@ import { listPublishedArtworksByEvent, listPublishedArtworksByVenue, type Publis
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
+import { buildArtworkJsonLd, getSiteUrl } from "@/lib/seo.public-profiles";
+
+
+const FALLBACK_METADATA: Metadata = {
+  title: "Artwork | Artpulse",
+  description: "Discover original artworks by independent artists on Artpulse.",
+};
+
+export async function generateMetadata({ params }: { params: Promise<{ key: string }> }): Promise<Metadata> {
+  const { key } = await params;
+  const isIdLookup = isArtworkIdKey(key);
+  const artwork = await db.artwork.findFirst({
+    where: isIdLookup
+      ? { id: key, isPublished: true, deletedAt: null }
+      : { slug: key, isPublished: true, deletedAt: null },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      description: true,
+      artist: { select: { name: true } },
+      featuredAsset: { select: { url: true } },
+      images: { take: 1, orderBy: { sortOrder: "asc" }, select: { asset: { select: { url: true } } } },
+    },
+  });
+  if (!artwork) return FALLBACK_METADATA;
+  const title = `${artwork.title} by ${artwork.artist.name} | Artpulse`;
+  const description =
+    (artwork.description ?? "").trim().slice(0, 160) ||
+    `An artwork by ${artwork.artist.name} on Artpulse.`;
+  const imageUrl = artwork.featuredAsset?.url ?? artwork.images[0]?.asset?.url ?? null;
+  const url = `${getSiteUrl()}/artwork/${artwork.slug ?? artwork.id}`;
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { title, description, url, type: "website", images: imageUrl ? [{ url: imageUrl, alt: artwork.title }] : undefined },
+    twitter: { card: "summary_large_image", title, description, images: imageUrl ? [imageUrl] : undefined },
+  };
+}
 
 export default async function ArtworkDetailPage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
@@ -22,7 +63,27 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
 
   const artwork = await db.artwork.findFirst({
     where: isIdLookup ? { id: key, deletedAt: null } : { slug: key, deletedAt: null },
-    include: { artist: true, featuredAsset: true, images: { include: { asset: true }, orderBy: { sortOrder: "asc" } }, venues: { include: { venue: true } }, events: { include: { event: true } } },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      description: true,
+      year: true,
+      medium: true,
+      dimensions: true,
+      priceAmount: true,
+      currency: true,
+      isPublished: true,
+      deletedAt: true,
+      artist: { select: { name: true, slug: true } },
+      featuredAsset: { select: { url: true } },
+      images: {
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, alt: true, asset: { select: { url: true } } },
+      },
+      venues: { select: { venueId: true } },
+      events: { select: { eventId: true } },
+    },
   });
 
   if (!artwork || !artwork.isPublished) notFound();
@@ -62,9 +123,24 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
   const dedupeRelated = (items: PublishedArtworkListItem[]) => Array.from(new Map(items.filter((item) => item.id !== artwork.id).map((item) => [item.id, item])).values());
   const venueRelatedArtworks = dedupeRelated(venueRelatedArtworksByVenue.flat()).slice(0, 6);
   const eventRelatedArtworks = dedupeRelated(eventRelatedArtworksByEvent.flat()).slice(0, 6);
+  const artworkJsonLd = buildArtworkJsonLd({
+    title: artwork.title,
+    artistName: artwork.artist.name,
+    description: artwork.description,
+    detailUrl: `${getSiteUrl()}/artwork/${artwork.slug ?? artwork.id}`,
+    imageUrl: cover,
+    year: artwork.year,
+    medium: artwork.medium,
+    priceAmount: artwork.priceAmount,
+    currency: artwork.currency,
+  });
 
   return (
     <PageShell className="page-stack">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(artworkJsonLd).replace(/</g, "\\u003c") }}
+      />
       <EntityPageViewTracker entityType="ARTWORK" entityId={artwork.id} />
       <Breadcrumbs items={[{ label: "Artworks", href: "/artwork" }, { label: artwork.title, href: `/artwork/${artwork.slug ?? artwork.id}` }]} />
       <EntityHeader

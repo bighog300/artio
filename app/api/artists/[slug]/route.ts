@@ -19,7 +19,34 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
 
   const parsed = slugParamSchema.safeParse(await params);
   if (!parsed.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsed.error));
-  const artist = await db.artist.findFirst({ where: { slug: parsed.data.slug, isPublished: true }, include: { eventArtists: { include: { event: true } } } });
+  const artist = await db.artist.findFirst({
+    where: { slug: parsed.data.slug, isPublished: true },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      bio: true,
+      websiteUrl: true,
+      instagramUrl: true,
+      avatarImageUrl: true,
+      featuredImageUrl: true,
+      isPublished: true,
+      eventArtists: {
+        select: {
+          event: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              startAt: true,
+              endAt: true,
+              isPublished: true,
+            },
+          },
+        },
+      },
+    },
+  });
   if (!artist) return apiError(404, "not_found", "Artist not found");
   return NextResponse.json(artist);
 }

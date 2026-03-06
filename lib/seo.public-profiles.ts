@@ -40,6 +40,18 @@ type ArtistJsonLdInput = {
   websiteUrl?: string | null;
 };
 
+type ArtworkJsonLdInput = {
+  title: string;
+  artistName: string;
+  description?: string | null;
+  detailUrl: string;
+  imageUrl?: string | null;
+  year?: number | null;
+  medium?: string | null;
+  priceAmount?: number | null;
+  currency?: string | null;
+};
+
 const FALLBACK_COPY: Record<DetailKind, { title: string; description: string; path: string }> = {
   event: {
     title: "Event details",
@@ -135,5 +147,28 @@ export function buildArtistJsonLd(input: ArtistJsonLdInput) {
     url: input.detailUrl,
     image: input.imageUrl ? [input.imageUrl] : undefined,
     sameAs: input.websiteUrl || undefined,
+  };
+}
+
+export function buildArtworkJsonLd(input: ArtworkJsonLdInput) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "VisualArtwork",
+    name: input.title,
+    description: input.description || undefined,
+    url: input.detailUrl,
+    image: input.imageUrl ? [input.imageUrl] : undefined,
+    creator: { "@type": "Person", name: input.artistName },
+    dateCreated: input.year ? String(input.year) : undefined,
+    artMedium: input.medium || undefined,
+    offers:
+      input.priceAmount != null && input.currency
+        ? {
+            "@type": "Offer",
+            price: input.priceAmount,
+            priceCurrency: input.currency,
+            availability: "https://schema.org/InStock",
+          }
+        : undefined,
   };
 }

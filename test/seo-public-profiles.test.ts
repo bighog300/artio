@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildArtistJsonLd, buildDetailMetadata, buildEventJsonLd, buildVenueJsonLd } from "../lib/seo.public-profiles.ts";
+import { buildArtistJsonLd, buildArtworkJsonLd, buildDetailMetadata, buildEventJsonLd, buildVenueJsonLd } from "../lib/seo.public-profiles.ts";
 
 test("buildDetailMetadata returns fallback title and description", () => {
   const metadata = buildDetailMetadata({ kind: "event", slug: "missing-event" });
@@ -40,4 +40,49 @@ test("buildVenueJsonLd and buildArtistJsonLd include expected schema types", () 
 
   assert.equal(venue["@type"], "Place");
   assert.equal(artist["@type"], "Person");
+});
+
+
+test('buildArtworkJsonLd sets @type to "VisualArtwork"', () => {
+  const jsonLd = buildArtworkJsonLd({
+    title: "Moonrise",
+    artistName: "Ada",
+    detailUrl: "https://example.com/artwork/moonrise",
+  });
+
+  assert.equal(jsonLd["@type"], "VisualArtwork");
+});
+
+test("buildArtworkJsonLd includes creator.name equal to the input artistName", () => {
+  const jsonLd = buildArtworkJsonLd({
+    title: "Moonrise",
+    artistName: "Ada Lovelace",
+    detailUrl: "https://example.com/artwork/moonrise",
+  });
+
+  assert.equal(jsonLd.creator.name, "Ada Lovelace");
+});
+
+test("buildArtworkJsonLd omits offers when priceAmount is null", () => {
+  const jsonLd = buildArtworkJsonLd({
+    title: "Moonrise",
+    artistName: "Ada",
+    detailUrl: "https://example.com/artwork/moonrise",
+    priceAmount: null,
+    currency: "USD",
+  });
+
+  assert.equal(jsonLd.offers, undefined);
+});
+
+test("buildArtworkJsonLd includes offers with correct priceCurrency when priceAmount is set", () => {
+  const jsonLd = buildArtworkJsonLd({
+    title: "Moonrise",
+    artistName: "Ada",
+    detailUrl: "https://example.com/artwork/moonrise",
+    priceAmount: 1200,
+    currency: "EUR",
+  });
+
+  assert.equal(jsonLd.offers?.priceCurrency, "EUR");
 });

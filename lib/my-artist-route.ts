@@ -12,6 +12,7 @@ type ArtistRecord = {
   instagramUrl: string | null;
   avatarImageUrl: string | null;
   featuredAssetId: string | null;
+  mediums?: string[];
 };
 
 type Deps = {

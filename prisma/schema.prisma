@@ -492,6 +492,7 @@ model Artist {
   bio               String?
   websiteUrl        String?
   instagramUrl      String?
+  mediums           String[]                 @default([])
   avatarImageUrl    String?
   featuredImageUrl  String?
   featuredAssetId   String?                  @db.Uuid
