@@ -13,6 +13,7 @@ const fixturesEnabled = getUiFixturesEnabled();
 
 export default async function ArtistsPage() {
   const user = await getSessionUser();
+  let total = 0;
 
   if (!hasDatabaseUrl() && !fixturesEnabled) {
     return (
@@ -29,6 +30,7 @@ export default async function ArtistsPage() {
     const dbArtists = await db.artist.findMany({
       where: { isPublished: true, deletedAt: null },
       orderBy: { name: "asc" },
+      take: 48,
       select: {
         id: true,
         name: true,
@@ -42,11 +44,13 @@ export default async function ArtistsPage() {
       },
     });
     const ids = dbArtists.map((artist) => artist.id);
-    const [followerCounts, userFollows, artworkCounts] = await Promise.all([
+    const [followerCounts, userFollows, artworkCounts, artistCount] = await Promise.all([
       ids.length ? db.follow.groupBy({ by: ["targetId"], where: { targetType: "ARTIST", targetId: { in: ids } }, _count: { _all: true } }) : Promise.resolve([]),
       user && ids.length ? db.follow.findMany({ where: { userId: user.id, targetType: "ARTIST", targetId: { in: ids } }, select: { targetId: true } }) : Promise.resolve([]),
       ids.length ? db.artwork.groupBy({ by: ["artistId"], where: { isPublished: true, deletedAt: null, artistId: { in: ids } }, _count: { _all: true } }) : Promise.resolve([]),
+      db.artist.count({ where: { isPublished: true, deletedAt: null } }),
     ]);
+    total = artistCount;
     const countById = new Map(followerCounts.map((entry) => [entry.targetId, entry._count._all]));
     const followedSet = new Set(userFollows.map((row) => row.targetId));
     const artworkCountByArtistId = new Map(artworkCounts.map((entry) => [entry.artistId, entry._count._all]));
@@ -67,12 +71,13 @@ export default async function ArtistsPage() {
     }));
   } else {
     artists = uiFixtureArtists.map((artist) => ({ ...artist, avatarImageUrl: resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl, imageAlt: resolveEntityPrimaryImage(artist)?.alt ?? artist.name, tags: artist.tags ?? [], followersCount: 0, isFollowing: false, artworkCount: 0 }));
+    total = artists.length;
   }
 
   return (
     <PageShell className="page-stack">
       <PageHeader title="Artists" subtitle="Discover artists and follow the creators you care about." />
-      <ArtistsClient artists={artists} isAuthenticated={Boolean(user)} />
+      <ArtistsClient artists={artists} total={total} isAuthenticated={Boolean(user)} />
     </PageShell>
   );
 }

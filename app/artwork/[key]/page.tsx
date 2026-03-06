@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { EntityPageViewTracker } from "@/components/analytics/entity-page-view-tracker";
 import { ArtworkRelatedSection } from "@/components/artwork/artwork-related-section";
 import { SaveArtworkButton } from "@/components/artwork/save-artwork-button";
+import { FollowButton } from "@/components/follows/follow-button";
 import { EntityHeader } from "@/components/entities/entity-header";
 import { EventGalleryLightbox } from "@/components/events/event-gallery-lightbox";
 import { Badge } from "@/components/ui/badge";
@@ -75,7 +76,7 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
       currency: true,
       isPublished: true,
       deletedAt: true,
-      artist: { select: { name: true, slug: true } },
+      artist: { select: { id: true, name: true, slug: true } },
       featuredAsset: { select: { url: true } },
       images: {
         orderBy: { sortOrder: "asc" },
@@ -90,14 +91,25 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
   if (shouldRedirectArtworkIdKey(key, artwork.slug)) permanentRedirect(`/artwork/${artwork.slug}`);
 
   const user = await getSessionUser();
-  const initialSaved = user
-    ? Boolean(await db.favorite.findUnique({
-      where: {
-        userId_targetType_targetId: { userId: user.id, targetType: "ARTWORK", targetId: artwork.id },
-      },
-      select: { id: true },
-    }))
-    : false;
+  const [initialSaved, initialFollowing, artistFollowersCount] = await Promise.all([
+    user
+      ? db.favorite.findUnique({
+        where: {
+          userId_targetType_targetId: { userId: user.id, targetType: "ARTWORK", targetId: artwork.id },
+        },
+        select: { id: true },
+      }).then(Boolean)
+      : Promise.resolve(false),
+    user
+      ? db.follow.findUnique({
+        where: {
+          userId_targetType_targetId: { userId: user.id, targetType: "ARTIST", targetId: artwork.artist.id },
+        },
+        select: { id: true },
+      }).then(Boolean)
+      : Promise.resolve(false),
+    db.follow.count({ where: { targetType: "ARTIST", targetId: artwork.artist.id } }),
+  ]);
 
   const cover = resolveImageUrl(artwork.featuredAsset?.url, artwork.images[0]?.asset?.url);
   const metadataChips = [
@@ -148,7 +160,19 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
         subtitle={<span>by <Link className="underline" href={`/artists/${artwork.artist.slug}`}>{artwork.artist.name}</Link></span>}
         imageUrl={cover}
         coverUrl={cover}
-        primaryAction={<SaveArtworkButton artworkId={artwork.id} initialSaved={initialSaved} signedIn={Boolean(user)} />}
+        primaryAction={
+          <div className="flex items-center gap-2">
+            <SaveArtworkButton artworkId={artwork.id} initialSaved={initialSaved} signedIn={Boolean(user)} />
+            <FollowButton
+              targetType="ARTIST"
+              targetId={artwork.artist.id}
+              initialIsFollowing={initialFollowing}
+              initialFollowersCount={artistFollowersCount}
+              isAuthenticated={Boolean(user)}
+              analyticsSlug={artwork.artist.slug}
+            />
+          </div>
+        }
         meta={<div className="flex flex-wrap gap-2">{metadataChips.map((chip) => <Badge key={chip} variant="secondary">{chip}</Badge>)}</div>}
       />
 

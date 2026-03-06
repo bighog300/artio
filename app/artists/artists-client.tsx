@@ -20,7 +20,7 @@ type ArtistListItem = {
   artworkCount: number;
 };
 
-export function ArtistsClient({ artists, isAuthenticated }: { artists: ArtistListItem[]; isAuthenticated: boolean }) {
+export function ArtistsClient({ artists, total, isAuthenticated }: { artists: ArtistListItem[]; total: number; isAuthenticated: boolean }) {
   const searchParams = useSearchParams();
   const q = searchParams.get("q")?.toLowerCase() ?? "";
   const sort = searchParams.get("sort") ?? "az";
@@ -54,6 +54,11 @@ export function ArtistsClient({ artists, isAuthenticated }: { artists: ArtistLis
           ))}
         </div>
       )}
+      {total > artists.length ? (
+        <p className="text-sm text-muted-foreground text-center">
+          Showing {artists.length} of {total} artists
+        </p>
+      ) : null}
     </div>
   );
 }
