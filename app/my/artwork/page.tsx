@@ -23,16 +23,29 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
   const sort = params.sort ?? "updated";
 
   const artist = await db.artist.findUnique({ where: { userId: user.id }, select: { id: true } });
-  const items = artist ? await db.artwork.findMany({
-    where: {
-      artistId: artist.id,
-      title: query ? { contains: query, mode: "insensitive" } : undefined,
-      isPublished: status?.toLowerCase() === "published" ? true : status?.toLowerCase() === "draft" ? false : undefined,
-      deletedAt: showArchived ? { not: null } : null,
-    },
-    orderBy: sort === "title" ? { title: "asc" } : { updatedAt: "desc" },
-    select: { id: true, title: true, slug: true, isPublished: true, updatedAt: true, deletedAt: true, _count: { select: { venues: true, events: true } }, featuredAsset: { select: { url: true } }, images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true } } } } },
-  }) : [];
+  const items = artist
+    ? await db.artwork.findMany({
+        where: {
+          artistId: artist.id,
+          title: query ? { contains: query, mode: "insensitive" } : undefined,
+          isPublished:
+            status?.toLowerCase() === "published" ? true : status?.toLowerCase() === "draft" ? false : undefined,
+          deletedAt: showArchived ? { not: null } : null,
+        },
+        orderBy: sort === "title" ? { title: "asc" } : { updatedAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          isPublished: true,
+          updatedAt: true,
+          deletedAt: true,
+          _count: { select: { venues: true, events: true } },
+          featuredAsset: { select: { url: true } },
+          images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true } } } },
+        },
+      })
+    : [];
 
   const pills: FilterPill[] = [];
   if (status) {
@@ -62,7 +75,42 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
       </div>
       <ActiveFiltersBar pills={pills} clearAllHref={buildClearFiltersHref("/my/artwork", params, ["status", "q", "query", "sort", "showArchived"], ["venueId"])} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((item) => <article key={item.id} className="rounded border p-3">{(() => { const coverUrl = item.featuredAsset?.url ?? item.images[0]?.asset?.url ?? null; return coverUrl ? <div className="relative mb-2 h-28 w-full overflow-hidden rounded bg-muted"><Image src={coverUrl} alt={item.title} fill className="object-cover" /></div> : <div className="mb-2 h-28 w-full rounded bg-muted" />; })()}<h3 className="font-medium">{item.title}</h3><p className="text-xs text-muted-foreground">{item.deletedAt ? "Archived" : item.isPublished ? "Published" : "Draft"}</p>{(item._count.venues > 0 || item._count.events > 0) && (<p className="text-xs text-muted-foreground">{[item._count.venues > 0 ? `${item._count.venues} venue${item._count.venues === 1 ? "" : "s"}` : null, item._count.events > 0 ? `${item._count.events} event${item._count.events === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ")}</p>)}<div className="mt-2 space-x-2 text-sm"><Link className="underline" href={`/my/artwork/${item.id}`}>Edit</Link><MyArtworkPublishToggleButton artworkId={item.id} initialIsPublished={item.isPublished} /><Link className="underline" href={`/artwork/${item.slug ?? item.id}`}>View Public</Link><MyArchiveActionButton entityLabel="artwork" endpointBase={`/api/my/artwork/${item.id}`} archived={!!item.deletedAt} /></div></article>)}
+        {items.map((item) => (
+          <article key={item.id} className="rounded border p-3">
+            {(() => {
+              const coverUrl = item.featuredAsset?.url ?? item.images[0]?.asset?.url ?? null;
+              return coverUrl ? (
+                <div className="relative mb-2 h-28 w-full overflow-hidden rounded bg-muted">
+                  <Image src={coverUrl} alt={item.title} fill className="object-cover" />
+                </div>
+              ) : (
+                <div className="mb-2 h-28 w-full rounded bg-muted" />
+              );
+            })()}
+            <h3 className="font-medium">{item.title}</h3>
+            <p className="text-xs text-muted-foreground">{item.deletedAt ? "Archived" : item.isPublished ? "Published" : "Draft"}</p>
+            {(item._count.venues > 0 || item._count.events > 0) && (
+              <p className="text-xs text-muted-foreground">
+                {[
+                  item._count.venues > 0 ? `${item._count.venues} venue${item._count.venues === 1 ? "" : "s"}` : null,
+                  item._count.events > 0 ? `${item._count.events} event${item._count.events === 1 ? "" : "s"}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
+            <div className="mt-2 space-x-2 text-sm">
+              <Link className="underline" href={`/my/artwork/${item.id}`}>
+                Edit
+              </Link>
+              <MyArtworkPublishToggleButton artworkId={item.id} initialIsPublished={item.isPublished} />
+              <Link className="underline" href={`/artwork/${item.slug ?? item.id}`}>
+                View Public
+              </Link>
+              <MyArchiveActionButton entityLabel="artwork" endpointBase={`/api/my/artwork/${item.id}`} archived={!!item.deletedAt} />
+            </div>
+          </article>
+        ))}
       </div>
     </main>
   );
