@@ -4,7 +4,7 @@
   "crons": [
     {
       "path": "/api/cron/outbox/send",
-      "schedule": "5 2 * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/digests/weekly",

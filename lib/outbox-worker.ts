@@ -1,4 +1,8 @@
+import { getResendClient } from "@/lib/email/client";
+import { renderEmailTemplate } from "@/lib/email/render";
 import { captureException, withSpan } from "@/lib/monitoring";
+import { NotificationTemplatePayload } from "@/lib/notification-templates";
+import { getSiteSettings } from "@/lib/site-settings/get-site-settings";
 import { NotificationType, Prisma } from "@prisma/client";
 
 type OutboxRow = {
@@ -7,12 +11,16 @@ type OutboxRow = {
   toEmail: string;
   payload: Prisma.JsonValue;
   dedupeKey: string;
+  attemptCount: number;
 };
 
 export type OutboxWorkerDb = {
   notificationOutbox: {
     findMany: (args: {
-      where: { status: "PENDING"; errorMessage: null };
+      where: {
+        status: "PENDING";
+        OR: Array<{ nextRetryAt: null } | { nextRetryAt: { lte: Date } }>;
+      };
       orderBy: { createdAt: "asc" };
       take: number;
       select: {
@@ -21,22 +29,41 @@ export type OutboxWorkerDb = {
         toEmail: true;
         payload: true;
         dedupeKey: true;
+        attemptCount: true;
       };
     }) => Promise<OutboxRow[]>;
     updateMany: (args: {
-      where: { id: string; status: "PENDING" | "PROCESSING"; errorMessage?: string | null };
+      where:
+        | { id: string; status: "PENDING" | "PROCESSING"; errorMessage?: string | null }
+        | { status: "PROCESSING"; createdAt: { lte: Date } };
       data: {
         status?: "PENDING" | "PROCESSING" | "SENT" | "FAILED";
         sentAt?: Date | null;
-        errorMessage: string | null;
+        errorMessage?: string | null;
+        attemptCount?: number;
+        nextRetryAt?: Date | null;
       };
     }) => Promise<{ count: number }>;
   };
 };
 
 export async function sendPendingNotificationsWithDb({ limit }: { limit: number }, db: OutboxWorkerDb) {
+  await db.notificationOutbox.updateMany({
+    where: {
+      status: "PROCESSING",
+      createdAt: { lte: new Date(Date.now() - 10 * 60 * 1000) },
+    },
+    data: { status: "PENDING" },
+  });
+
   const pending = await withSpan("outbox:load_pending", async () => db.notificationOutbox.findMany({
-    where: { status: "PENDING", errorMessage: null },
+    where: {
+      status: "PENDING",
+      OR: [
+        { nextRetryAt: null },
+        { nextRetryAt: { lte: new Date() } },
+      ],
+    },
     orderBy: { createdAt: "asc" },
     take: limit,
     select: {
@@ -45,6 +72,7 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
       toEmail: true,
       payload: true,
       dedupeKey: true,
+      attemptCount: true,
     },
   }));
 
@@ -68,34 +96,56 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
 
     try {
       await withSpan("outbox:deliver", async () => {
-      console.log(
-        `[outbox] ${notification.type} to=${notification.toEmail} dedupe=${notification.dedupeKey} payload=${JSON.stringify(notification.payload)}`,
-      );
+        const { subject, html, text } = await renderEmailTemplate(
+          notification.type,
+          notification.payload as NotificationTemplatePayload,
+        );
 
-      const markedSent = await db.notificationOutbox.updateMany({
-        where: { id: notification.id, status: "PROCESSING", errorMessage: null },
-        data: {
-          status: "SENT",
-          sentAt: new Date(),
-          errorMessage: null,
-        },
-      });
+        const fromAddress =
+          (await getSiteSettings()).emailFromAddress ??
+          process.env.RESEND_FROM_ADDRESS ??
+          "Artpulse <noreply@mail.artpulse.co>";
 
-      if (markedSent.count === 1) {
-        sent += 1;
-      } else {
-        skipped += 1;
-      }
+        const resend = getResendClient();
+        await resend.emails.send({
+          from: fromAddress,
+          to: notification.toEmail,
+          subject,
+          html,
+          text,
+          tags: [{ name: "type", value: notification.type }],
+        });
+
+        const markedSent = await db.notificationOutbox.updateMany({
+          where: { id: notification.id, status: "PROCESSING", errorMessage: null },
+          data: {
+            status: "SENT",
+            sentAt: new Date(),
+            errorMessage: null,
+          },
+        });
+
+        if (markedSent.count === 1) {
+          sent += 1;
+        } else {
+          skipped += 1;
+        }
       });
     } catch (error) {
       captureException(error, { worker: "outbox", outboxId: notification.id, dedupeKey: notification.dedupeKey });
       const message = error instanceof Error ? error.message : "Unknown send error";
+      const BACKOFF_MS = [60_000, 300_000, 1_800_000];
+      const attempt = notification.attemptCount + 1;
+      const backoff = BACKOFF_MS[attempt - 1] ?? null;
+
       const markedFailed = await db.notificationOutbox.updateMany({
         where: { id: notification.id, status: "PROCESSING", errorMessage: null },
         data: {
-          status: "FAILED",
+          status: backoff ? "PENDING" : "FAILED",
           sentAt: null,
           errorMessage: message,
+          attemptCount: attempt,
+          nextRetryAt: backoff ? new Date(Date.now() + backoff) : null,
         },
       });
 
