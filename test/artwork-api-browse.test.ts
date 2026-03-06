@@ -60,3 +60,25 @@ test("GET /api/artwork uses views sorting query path and returns views30", async
     db.artwork.findMany = of;
   }
 });
+
+test("GET /api/artwork returns 429 when public read rate limit is exceeded", async () => {
+  const originalFindMany = db.artwork.findMany;
+  const originalCount = db.artwork.count;
+  db.artwork.findMany = (async () => []) as never;
+  db.artwork.count = (async () => 0) as never;
+
+  try {
+    const url = "http://localhost/api/artwork";
+    const headers = { "x-forwarded-for": "198.51.100.33" };
+
+    let response = await getArtwork(new NextRequest(url, { headers }));
+    for (let i = 1; i < 140 && response.status !== 429; i += 1) {
+      response = await getArtwork(new NextRequest(url, { headers }));
+    }
+
+    assert.equal(response.status, 429);
+  } finally {
+    db.artwork.findMany = originalFindMany;
+    db.artwork.count = originalCount;
+  }
+});

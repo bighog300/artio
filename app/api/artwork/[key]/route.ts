@@ -4,10 +4,21 @@ import { apiError } from "@/lib/api";
 import { artworkRouteKeyParamSchema, zodDetails } from "@/lib/validators";
 import { resolveImageUrl } from "@/lib/assets";
 import { isArtworkIdKey } from "@/lib/artwork-route";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ key: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ key: string }> }) {
+  try {
+    await enforceRateLimit({
+      key: principalRateLimitKey(req, "public:artwork:detail"),
+      ...RATE_LIMITS.publicRead,
+    });
+  } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
+    throw error;
+  }
+
   const parsedParams = artworkRouteKeyParamSchema.safeParse(await params);
   if (!parsedParams.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedParams.error));
 

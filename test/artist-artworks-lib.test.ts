@@ -39,7 +39,7 @@ function installLibMocks() {
 
   db.artwork.findFirst = (async ({ where }: { where: { id: string; artistId: string } }) => {
     const found = DATA.find((item) => item.id === where.id && item.artistId === where.artistId && item.isPublished);
-    return found ? { id: found.id, updatedAt: found.updatedAt } : null;
+    return found ? { id: found.id, updatedAt: found.updatedAt, title: found.title } : null;
   }) as never;
 
   db.artwork.findMany = (async ({ where, take, orderBy }: { where: any; take: number; orderBy: any }) => {
@@ -48,6 +48,8 @@ function installLibMocks() {
     if (where.priceAmount?.not === null) rows = rows.filter((item) => item.priceAmount != null);
     if (where.OR) {
       rows = rows.filter((item) => where.OR.some((rule: any) => {
+        if (rule.title?.gt) return item.title > rule.title.gt;
+        if (rule.title && rule.id?.gt) return item.title === rule.title && item.id > rule.id.gt;
         const lt = rule.updatedAt?.lt ? item.updatedAt < rule.updatedAt.lt : false;
         const gt = rule.updatedAt?.gt ? item.updatedAt > rule.updatedAt.gt : false;
         const eq = rule.updatedAt instanceof Date ? item.updatedAt.getTime() === rule.updatedAt.getTime() : false;
@@ -163,6 +165,28 @@ test("Returns null nextCursor on last page", async () => {
     const second = await getArtistArtworks("artist", { limit: 2, cursor: first.nextCursor ?? undefined });
     assert.equal(second.nextCursor, null);
   } finally {
+    restore();
+  }
+});
+
+test("Uses title-aware A-Z cursor predicate", async () => {
+  const restore = installLibMocks();
+  const originalFindMany = db.artwork.findMany;
+  let capturedWhere: any;
+  db.artwork.findMany = (async ({ where, take, orderBy }: { where: any; take: number; orderBy: any }) => {
+    capturedWhere = where;
+    return originalFindMany({ where, take, orderBy } as never);
+  }) as never;
+
+  try {
+    await getArtistArtworks("artist", { sort: "az", limit: 2, cursor: "w3" });
+    assert.deepEqual(capturedWhere.OR, [
+      { title: { gt: "C" } },
+      { title: "C", id: { gt: "w3" } },
+    ]);
+    assert.equal(capturedWhere.id, undefined);
+  } finally {
+    db.artwork.findMany = originalFindMany;
     restore();
   }
 });

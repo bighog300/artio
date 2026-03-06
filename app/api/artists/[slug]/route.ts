@@ -1,11 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { slugParamSchema, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
 
-export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  try {
+    await enforceRateLimit({
+      key: principalRateLimitKey(req, "public:artists:detail"),
+      ...RATE_LIMITS.publicRead,
+    });
+  } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
+    throw error;
+  }
+
   const parsed = slugParamSchema.safeParse(await params);
   if (!parsed.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsed.error));
   const artist = await db.artist.findFirst({ where: { slug: parsed.data.slug, isPublished: true }, include: { eventArtists: { include: { event: true } } } });

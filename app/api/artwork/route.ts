@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/assets";
 import { apiError } from "@/lib/api";
 import { listPublishedArtworkIdsByViews30 } from "@/lib/artworks";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { artworkListQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -52,6 +53,16 @@ function shouldIncludeViews(sort: string, includeViews: boolean) {
 }
 
 export async function GET(req: NextRequest) {
+  try {
+    await enforceRateLimit({
+      key: principalRateLimitKey(req, "public:artwork:list"),
+      ...RATE_LIMITS.publicRead,
+    });
+  } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
+    throw error;
+  }
+
   const parsed = artworkListQuerySchema.safeParse(paramsToObject(req.nextUrl.searchParams));
   if (!parsed.success) return apiError(400, "invalid_request", "Invalid query parameters", zodDetails(parsed.error));
 

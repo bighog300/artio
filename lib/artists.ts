@@ -71,17 +71,22 @@ export async function getArtistArtworks(
   };
 
   let cursorItem: UpdatedAtIdCursor | null = null;
+  let cursorItemTitle: string | null = null;
   if (opts.cursor) {
     const foundCursor = await db.artwork.findFirst({
       where: { id: opts.cursor, artistId: artist.id, isPublished: true, deletedAt: null },
-      select: { id: true, updatedAt: true },
+      select: { id: true, updatedAt: true, title: true },
     });
-    if (foundCursor) cursorItem = foundCursor;
+    if (foundCursor) {
+      cursorItem = foundCursor;
+      cursorItemTitle = foundCursor.title;
+    }
   }
 
   const cursorWhere =
     sort === "oldest" ? buildUpdatedAtIdCursorPredicate(cursorItem, "asc")
-      : sort === "az" && cursorItem ? [{ id: { gt: cursorItem.id } }]
+      : sort === "az" && cursorItem && cursorItemTitle !== null
+        ? [{ OR: [{ title: { gt: cursorItemTitle } }, { title: cursorItemTitle, id: { gt: cursorItem.id } }] }]
       : buildUpdatedAtIdCursorPredicate(cursorItem, "desc");
 
   const orderBy =
