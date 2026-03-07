@@ -37,12 +37,39 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       where: { venueId },
       select: { stripeAccountId: true, status: true, chargesEnabled: true },
     }),
+    findPromoCodeByEventIdAndCode: (eventId, code) => db.promoCode.findFirst({
+      where: { eventId, code: { equals: code, mode: "insensitive" } },
+      select: { id: true, discountType: true, value: true, maxUses: true, usedCount: true, expiresAt: true, isActive: true },
+    }),
     getPlatformFeePercent: async () => (await getSiteSettings()).platformFeePercent,
-    createRegistration: (data) => db.registration.create({
-      data,
-      select: { id: true, confirmationCode: true },
+    createRegistrationWithPromo: async (data) => db.$transaction(async (tx) => {
+      const registration = await tx.registration.create({
+        data: {
+          eventId: data.eventId,
+          tierId: data.tierId,
+          userId: data.userId,
+          guestName: data.guestName,
+          guestEmail: data.guestEmail,
+          quantity: data.quantity,
+          status: data.status,
+          confirmationCode: data.confirmationCode,
+          promoCodeId: data.promoCodeId,
+          discountAppliedGbp: data.discountAppliedGbp,
+        },
+        select: { id: true, confirmationCode: true },
+      });
+
+      if (data.promoCodeId && data.incrementPromoCodeUsageBy) {
+        await tx.promoCode.update({
+          where: { id: data.promoCodeId },
+          data: { usedCount: { increment: data.incrementPromoCodeUsageBy } },
+        });
+      }
+
+      return registration;
     }),
     createCheckoutSession: (sessionArgs) => stripe.checkout.sessions.create(sessionArgs),
     generateConfirmationCode: () => `AP-${nanoid(6).toUpperCase()}`,
+    now: () => new Date(),
   });
 }

@@ -19,8 +19,11 @@ function makeDeps(options?: {
   tier?: { eventId?: string; isActive?: boolean; priceAmount?: number } | null;
   stripeAccount?: { status?: "PENDING" | "ACTIVE" | "RESTRICTED" | "DEAUTHORIZED"; chargesEnabled?: boolean } | null;
   platformFeePercent?: number;
+  promoCode?: null | { isActive?: boolean; maxUses?: number | null; usedCount?: number; expiresAt?: Date | null; discountType?: "PERCENT" | "FIXED"; value?: number };
 }) {
   let capturedApplicationFeeAmount: number | null = null;
+  let capturedUnitAmount: number | null = null;
+  let capturedIncrementBy: number | null = null;
 
   const deps: Parameters<typeof handlePostCheckoutSession>[2] = {
     getSessionUser: async () => ({ id: "user-1" }),
@@ -53,16 +56,38 @@ function makeDeps(options?: {
         chargesEnabled: options?.stripeAccount?.chargesEnabled ?? true,
       };
     },
+    findPromoCodeByEventIdAndCode: async () => {
+      if (options?.promoCode === null) return null;
+      return {
+        id: "promo-1",
+        discountType: options?.promoCode?.discountType ?? "PERCENT",
+        value: options?.promoCode?.value ?? 20,
+        maxUses: options?.promoCode?.maxUses ?? null,
+        usedCount: options?.promoCode?.usedCount ?? 0,
+        expiresAt: options?.promoCode?.expiresAt ?? null,
+        isActive: options?.promoCode?.isActive ?? true,
+      };
+    },
     getPlatformFeePercent: async () => options?.platformFeePercent ?? 5,
-    createRegistration: async () => ({ id: "reg-1", confirmationCode: "AP-ABC123" }),
+    createRegistrationWithPromo: async (data) => {
+      capturedIncrementBy = data.incrementPromoCodeUsageBy;
+      return { id: "reg-1", confirmationCode: "AP-ABC123" };
+    },
     createCheckoutSession: async (params) => {
       capturedApplicationFeeAmount = params.application_fee_amount;
+      capturedUnitAmount = params.line_items[0]?.price_data.unit_amount ?? null;
       return { id: "cs_123", url: "https://checkout.stripe.com/c/pay/cs_123" };
     },
     generateConfirmationCode: () => "AP-ABC123",
+    now: () => new Date("2026-01-01T00:00:00.000Z"),
   };
 
-  return { deps, getApplicationFeeAmount: () => capturedApplicationFeeAmount };
+  return {
+    deps,
+    getApplicationFeeAmount: () => capturedApplicationFeeAmount,
+    getUnitAmount: () => capturedUnitAmount,
+    getIncrementBy: () => capturedIncrementBy,
+  };
 }
 
 test("successful session creation returns checkout URL", async () => {
@@ -116,4 +141,48 @@ test("platform fee amount is rounded from total", async () => {
 
   assert.equal(res.status, 201);
   assert.equal(getApplicationFeeAmount(), 525);
+});
+
+test("valid promo applies discount", async () => {
+  const { deps, getApplicationFeeAmount, getUnitAmount } = makeDeps({ promoCode: { discountType: "PERCENT", value: 20 } });
+  const res = await handlePostCheckoutSession(makeRequest({ tierId: TIER_ID, quantity: 2, guestName: "Jane", guestEmail: "jane@example.com", promoCode: "opening20" }), "spring-open", deps);
+
+  assert.equal(res.status, 201);
+  assert.equal(getUnitAmount(), 2000);
+  assert.equal(getApplicationFeeAmount(), 200);
+});
+
+test("expired promo returns 400", async () => {
+  const { deps } = makeDeps({ promoCode: { expiresAt: new Date("2025-12-31T23:59:59.000Z") } });
+  const res = await handlePostCheckoutSession(makeRequest({ tierId: TIER_ID, guestName: "Jane", guestEmail: "jane@example.com", promoCode: "old" }), "spring-open", deps);
+
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.code, "promo_code_expired");
+});
+
+test("exhausted promo returns 400", async () => {
+  const { deps } = makeDeps({ promoCode: { maxUses: 2, usedCount: 2 } });
+  const res = await handlePostCheckoutSession(makeRequest({ tierId: TIER_ID, guestName: "Jane", guestEmail: "jane@example.com", promoCode: "full" }), "spring-open", deps);
+
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.code, "promo_code_exhausted");
+});
+
+test("invalid promo returns 400", async () => {
+  const { deps } = makeDeps({ promoCode: null });
+  const res = await handlePostCheckoutSession(makeRequest({ tierId: TIER_ID, guestName: "Jane", guestEmail: "jane@example.com", promoCode: "bad" }), "spring-open", deps);
+
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.code, "promo_code_invalid");
+});
+
+test("usedCount incremented by quantity when promo applied", async () => {
+  const { deps, getIncrementBy } = makeDeps();
+  const res = await handlePostCheckoutSession(makeRequest({ tierId: TIER_ID, quantity: 3, guestName: "Jane", guestEmail: "jane@example.com", promoCode: "OPENING20" }), "spring-open", deps);
+
+  assert.equal(res.status, 201);
+  assert.equal(getIncrementBy(), 3);
 });

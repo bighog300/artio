@@ -156,6 +156,11 @@ enum RegistrationStatus {
   WAITLISTED
 }
 
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
 enum IngestStatus {
   PENDING
   RUNNING
@@ -662,6 +667,7 @@ model Event {
   attendances   Attendance[]
   ticketTiers   TicketTier[]
   registrations Registration[]
+  promoCodes    PromoCode[]
   ingestExtractedCandidate IngestExtractedEvent? @relation("IngestExtractedEventCreatedEvent")
 
   @@index([startAt])
@@ -700,6 +706,7 @@ model Registration {
   id                    String             @id @default(uuid()) @db.Uuid
   eventId               String             @db.Uuid
   tierId                String?            @db.Uuid
+  promoCodeId           String?            @db.Uuid
   userId                String?            @db.Uuid
   guestName             String
   guestEmail            String
@@ -708,6 +715,7 @@ model Registration {
   confirmationCode      String             @unique
   stripePaymentIntentId String?
   amountPaidGbp         Int?
+  discountAppliedGbp    Int?
   checkedInAt           DateTime?
   cancelledAt           DateTime?
   refundedAt            DateTime?
@@ -716,12 +724,32 @@ model Registration {
   updatedAt             DateTime           @updatedAt
   event                 Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   tier                  TicketTier?        @relation(fields: [tierId], references: [id], onDelete: SetNull)
+  promoCode             PromoCode?         @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
   user                  User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([eventId])
   @@index([userId])
   @@index([status])
   @@index([confirmationCode])
+}
+
+model PromoCode {
+  id         String       @id @default(uuid()) @db.Uuid
+  eventId    String       @db.Uuid
+  code       String
+  discountType DiscountType
+  value      Int
+  maxUses    Int?
+  usedCount  Int          @default(0)
+  expiresAt  DateTime?
+  isActive   Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  event      Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrations Registration[]
+
+  @@unique([eventId, code])
+  @@index([eventId])
 }
 
 model IngestRun {
