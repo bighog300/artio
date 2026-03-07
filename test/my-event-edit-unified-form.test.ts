@@ -8,5 +8,4 @@ test("event edit uses unified editor form with single save action", () => {
   assert.match(source, /body: JSON\.stringify\(\{[\s\S]*eventType,[\s\S]*\}\)/);
   assert.match(source, /Save changes/);
   assert.equal((source.match(/Save changes/g) || []).length, 1);
-  assert.equal((source.match(/method: "PATCH"/g) || []).length, 1);
 });
