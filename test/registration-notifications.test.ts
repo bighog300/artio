@@ -72,14 +72,22 @@ test("RSVP cancellation enqueue on organiser cancel", async () => {
     summarizeRegistrations: async () => ({ confirmed: 0, waitlisted: 0, cancelled: 0 }),
     prisma: {
       $transaction: async <T>(fn: (tx: {
+        event: {
+          findUnique: () => Promise<{ capacity: number | null } | null>;
+        };
         registration: {
-          findUnique: () => Promise<{ id: string; eventId: string; guestEmail: string; confirmationCode: string; status: "CONFIRMED" | "PENDING" | "WAITLISTED" | "CANCELLED" } | null>;
-          update: () => Promise<{ id: string; eventId: string; guestEmail: string; confirmationCode: string; status: "CANCELLED" }>;
+          findUnique: () => Promise<{ id: string; eventId: string; tierId: string | null; guestEmail: string; confirmationCode: string; status: "CONFIRMED" | "PENDING" | "WAITLISTED" | "CANCELLED" } | null>;
+          update: (args: { data: { status: "CANCELLED"; cancelledAt: Date } | { status: "CONFIRMED" } }) => Promise<{ id: string; eventId: string; tierId: string | null; guestEmail: string; confirmationCode: string; status: "CONFIRMED" | "PENDING" | "WAITLISTED" | "CANCELLED" }>;
+          count: () => Promise<number>;
+          findFirst: () => Promise<{ id: string; eventId: string; tierId: string | null; guestEmail: string; confirmationCode: string; status: "WAITLISTED" } | null>;
         };
       }) => Promise<T>) => fn({
+        event: { findUnique: async () => ({ capacity: 1 }) },
         registration: {
-          findUnique: async () => ({ id: "reg-1", eventId: "event-1", guestEmail: "jane@example.com", confirmationCode: "AP-AAA111", status: "CONFIRMED" }),
-          update: async () => ({ id: "reg-1", eventId: "event-1", guestEmail: "jane@example.com", confirmationCode: "AP-AAA111", status: "CANCELLED" }),
+          findUnique: async () => ({ id: "reg-1", eventId: "event-1", tierId: null, guestEmail: "jane@example.com", confirmationCode: "AP-AAA111", status: "CONFIRMED" }),
+          update: async (args) => ({ id: "reg-1", eventId: "event-1", tierId: null, guestEmail: "jane@example.com", confirmationCode: "AP-AAA111", status: args.data.status }),
+          count: async () => 1,
+          findFirst: async () => null,
         },
       }),
     },

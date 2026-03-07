@@ -1,31 +1,57 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
+import { Prisma } from "@prisma/client";
+import { NextRequest } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { apiError } from "@/lib/api";
-import { parseBody } from "@/lib/validators";
-
-const bodySchema = z.object({ guestEmail: z.string().trim().email() });
+import { handleDeleteRegistrationByConfirmationCode } from "@/lib/registration-cancel-route";
 
 export const runtime = "nodejs";
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ confirmationCode: string }> }) {
   const { confirmationCode } = await params;
-  const parsed = bodySchema.safeParse(await parseBody(req));
-  if (!parsed.success) return apiError(400, "invalid_request", "Invalid payload");
 
-  const registration = await db.registration.findUnique({
-    where: { confirmationCode },
-    select: { id: true, guestEmail: true, status: true },
+  return handleDeleteRegistrationByConfirmationCode(req, confirmationCode, {
+    getSessionUser,
+    findRegistrationByConfirmationCode: (code) => db.registration.findUnique({
+      where: { confirmationCode: code },
+      select: {
+        id: true,
+        userId: true,
+        eventId: true,
+        tierId: true,
+        guestEmail: true,
+        confirmationCode: true,
+        status: true,
+        event: {
+          select: {
+            title: true,
+            slug: true,
+            venueId: true,
+          },
+        },
+      },
+    }),
+    hasVenueMembership: async (venueId, userId) => {
+      const member = await db.venueMembership.findUnique({
+        where: {
+          userId_venueId: {
+            userId,
+            venueId,
+          },
+        },
+        select: { id: true },
+      });
+      return Boolean(member);
+    },
+    prisma: db,
+    enqueueNotificationOutbox: ({ type, toEmail, dedupeKey, payload }) => db.notificationOutbox.upsert({
+      where: { dedupeKey },
+      update: {},
+      create: {
+        type: type as never,
+        toEmail,
+        dedupeKey,
+        payload: payload as Prisma.InputJsonValue,
+      },
+    }),
   });
-
-  if (!registration || registration.guestEmail.toLowerCase() !== parsed.data.guestEmail.toLowerCase()) {
-    return apiError(404, "not_found", "Registration not found");
-  }
-
-  if (registration.status === "CANCELLED") {
-    return NextResponse.json({ ok: true, alreadyCancelled: true }, { headers: { "Cache-Control": "no-store" } });
-  }
-
-  await db.registration.update({ where: { id: registration.id }, data: { status: "CANCELLED", cancelledAt: new Date() } });
-  return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 }

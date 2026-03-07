@@ -28,16 +28,37 @@ type Deps = {
   summarizeRegistrations: (eventId: string) => Promise<{ confirmed: number; waitlisted: number; cancelled: number }>;
   prisma: {
     $transaction: <T>(fn: (tx: {
+      event: {
+        findUnique: (args: {
+          where: { id: string };
+          select: { capacity: true };
+        }) => Promise<{ capacity: number | null } | null>;
+      };
       registration: {
         findUnique: (args: {
           where: { id: string };
-          select: { id: true; eventId: true; guestEmail: true; confirmationCode: true; status: true };
-        }) => Promise<{ id: string; eventId: string; guestEmail: string; confirmationCode: string; status: "PENDING" | "CONFIRMED" | "WAITLISTED" | "CANCELLED" } | null>;
+          select: { id: true; eventId: true; tierId: true; guestEmail: true; confirmationCode: true; status: true };
+        }) => Promise<{ id: string; eventId: string; tierId: string | null; guestEmail: string; confirmationCode: string; status: "PENDING" | "CONFIRMED" | "WAITLISTED" | "CANCELLED" } | null>;
         update: (args: {
           where: { id: string };
-          data: { status: "CANCELLED"; cancelledAt: Date };
-          select: { id: true; eventId: true; guestEmail: true; confirmationCode: true; status: true };
-        }) => Promise<{ id: string; eventId: string; guestEmail: string; confirmationCode: string; status: "PENDING" | "CONFIRMED" | "WAITLISTED" | "CANCELLED" }>;
+          data: { status: "CANCELLED"; cancelledAt: Date } | { status: "CONFIRMED" };
+          select: { id: true; eventId: true; tierId: true; guestEmail: true; confirmationCode: true; status: true };
+        }) => Promise<{ id: string; eventId: string; tierId: string | null; guestEmail: string; confirmationCode: string; status: "PENDING" | "CONFIRMED" | "WAITLISTED" | "CANCELLED" }>;
+        count: (args: {
+          where: {
+            eventId: string;
+            status: { in: Array<"PENDING" | "CONFIRMED" | "WAITLISTED" | "CANCELLED"> };
+          };
+        }) => Promise<number>;
+        findFirst: (args: {
+          where: {
+            eventId: string;
+            status: "WAITLISTED";
+            tierId?: string;
+          };
+          orderBy: { createdAt: "asc" };
+          select: { id: true; eventId: true; tierId: true; guestEmail: true; confirmationCode: true; status: true };
+        }) => Promise<{ id: string; eventId: string; tierId: string | null; guestEmail: string; confirmationCode: string; status: "PENDING" | "CONFIRMED" | "WAITLISTED" | "CANCELLED" } | null>;
       };
     }) => Promise<T>) => Promise<T>;
   };
@@ -149,7 +170,7 @@ export async function handlePostMyEventRegistrationCancel(req: NextRequest, even
     const event = await deps.findEventById(eventId);
     if (!event) return apiError(404, "not_found", "Event not found");
 
-    const cancelled = await deps.prisma.$transaction((tx) => cancelRegistrationTransaction(tx, { registrationId }));
+    const { cancelled } = await deps.prisma.$transaction((tx) => cancelRegistrationTransaction(tx, { registrationId }));
     if (cancelled.eventId !== eventId) return apiError(404, "not_found", "Registration not found");
 
     await deps.enqueueNotification({
