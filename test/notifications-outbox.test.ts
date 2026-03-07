@@ -11,6 +11,16 @@ function createMemoryDb(seed: NotificationOutbox[]) {
   return {
     rows,
     db: {
+      siteSettings: {
+        async findUnique() {
+          return {
+            emailEnabled: true,
+            emailFromAddress: null,
+            resendApiKey: "test-resend-key",
+            resendFromAddress: "Artpulse <noreply@mail.artpulse.co>",
+          };
+        },
+      },
       emailUnsubscribe: {
         async findUnique() {
           return null;
@@ -128,6 +138,10 @@ test("outbox worker records retry backoff when delivery fails", async () => {
     makeOutboxRow("newer-pending", "PENDING", "2026-01-01T00:02:00.000Z"),
   ]);
 
+
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "test";
+
   const firstRun = await sendPendingNotificationsWithDb({ limit: 25 }, db);
   assert.deepEqual(firstRun, { sent: 0, failed: 2, skipped: 0 });
   assert.equal(rows.get("oldest-pending")?.status, "PENDING");
@@ -138,4 +152,6 @@ test("outbox worker records retry backoff when delivery fails", async () => {
 
   const secondRun = await sendPendingNotificationsWithDb({ limit: 25 }, db);
   assert.deepEqual(secondRun, { sent: 0, failed: 0, skipped: 0 });
+
+  process.env.NODE_ENV = previousNodeEnv;
 });

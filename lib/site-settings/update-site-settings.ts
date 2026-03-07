@@ -8,6 +8,8 @@ export async function updateSiteSettings(data: {
   ingestMaxOutputTokens?: number | null;
   emailEnabled?: boolean;
   emailFromAddress?: string | null;
+  resendApiKey?: string | null;
+  resendFromAddress?: string | null;
   emailOutboxBatchSize?: number | null;
 }) {
   return db.siteSettings.upsert({

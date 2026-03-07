@@ -1063,6 +1063,8 @@ model SiteSettings {
   logoAsset   Asset?   @relation(fields: [logoAssetId], references: [id], onDelete: SetNull)
   emailEnabled Boolean @default(false)
   emailFromAddress String?
+  resendApiKey String?
+  resendFromAddress String?
   emailOutboxBatchSize Int?
   ingestSystemPrompt String?
   ingestModel String?

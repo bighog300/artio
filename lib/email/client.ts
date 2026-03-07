@@ -1,22 +1,21 @@
 import type { Resend } from "resend";
 
-let resend: Resend | null = null;
+const resendClientsByKey = new Map<string, Resend>();
 
-export function getResendClient(): Resend {
+export function getResendClient(apiKey: string): Resend {
   if (process.env.NODE_ENV === "test") {
     throw new Error("Resend client must not be called in tests. Use a mock.");
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    throw new Error("RESEND_API_KEY is not set");
+  const normalizedKey = apiKey.trim();
+  const existing = resendClientsByKey.get(normalizedKey);
+  if (existing) {
+    return existing;
   }
 
-  if (!resend) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { Resend: ResendClient } = require("resend") as { Resend: new (key: string) => Resend };
-    resend = new ResendClient(apiKey);
-  }
-
-  return resend;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Resend: ResendClient } = require("resend") as { Resend: new (key: string) => Resend };
+  const created = new ResendClient(normalizedKey);
+  resendClientsByKey.set(normalizedKey, created);
+  return created;
 }

@@ -12,6 +12,8 @@ const patchSchema = z.object({
   ingestMaxOutputTokens: z.number().int().positive().nullable().optional(),
   emailEnabled: z.boolean().optional(),
   emailFromAddress: z.string().max(200).nullable().optional(),
+  resendApiKey: z.string().max(500).nullable().optional(),
+  resendFromAddress: z.string().max(200).nullable().optional(),
   emailOutboxBatchSize: z.number().int().min(1).max(100).nullable().optional(),
 });
 
@@ -27,6 +29,8 @@ export async function handleAdminSettingsGet(_req: Request, deps: {
       ingestMaxOutputTokens: settings.ingestMaxOutputTokens,
       emailEnabled: settings.emailEnabled,
       emailFromAddress: settings.emailFromAddress,
+      resendApiKey: settings.resendApiKey,
+      resendFromAddress: settings.resendFromAddress,
       emailOutboxBatchSize: settings.emailOutboxBatchSize,
     });
   }, { requireAdminFn: deps.requireAdminFn });
@@ -49,6 +53,8 @@ export async function handleAdminSettingsPatch(req: Request, deps: {
         ingestMaxOutputTokens: updated.ingestMaxOutputTokens,
         emailEnabled: updated.emailEnabled,
         emailFromAddress: updated.emailFromAddress,
+        resendApiKey: updated.resendApiKey,
+        resendFromAddress: updated.resendFromAddress,
         emailOutboxBatchSize: updated.emailOutboxBatchSize,
       },
     });

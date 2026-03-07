@@ -2,7 +2,6 @@ import { getResendClient } from "@/lib/email/client";
 import { renderEmailTemplate } from "@/lib/email/render";
 import { captureException, withSpan } from "@/lib/monitoring";
 import { NotificationTemplatePayload } from "@/lib/notification-templates";
-import { getSiteSettings } from "@/lib/site-settings/get-site-settings";
 import { NotificationType, Prisma } from "@prisma/client";
 
 type OutboxRow = {
@@ -15,6 +14,22 @@ type OutboxRow = {
 };
 
 export type OutboxWorkerDb = {
+  siteSettings: {
+    findUnique: (args: {
+      where: { id: "default" };
+      select: {
+        emailEnabled: true;
+        emailFromAddress: true;
+        resendApiKey: true;
+        resendFromAddress: true;
+      };
+    }) => Promise<{
+      emailEnabled: boolean;
+      emailFromAddress: string | null;
+      resendApiKey: string | null;
+      resendFromAddress: string | null;
+    } | null>;
+  };
   emailUnsubscribe: {
     findUnique: (args: {
       where: { email: string };
@@ -61,6 +76,25 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
     },
     data: { status: "PENDING" },
   });
+
+  const settings = await db.siteSettings.findUnique({
+    where: { id: "default" },
+    select: {
+      emailEnabled: true,
+      emailFromAddress: true,
+      resendApiKey: true,
+      resendFromAddress: true,
+    },
+  });
+
+  if (!settings?.emailEnabled) {
+    return { sent: 0, failed: 0, skipped: limit };
+  }
+
+  const resendApiKey = settings.resendApiKey?.trim();
+  if (!resendApiKey) {
+    return { sent: 0, failed: 0, skipped: limit };
+  }
 
   const pending = await withSpan("outbox:load_pending", async () => db.notificationOutbox.findMany({
     where: {
@@ -127,11 +161,11 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
         );
 
         const fromAddress =
-          (await getSiteSettings()).emailFromAddress ??
-          process.env.RESEND_FROM_ADDRESS ??
+          settings.resendFromAddress ??
+          settings.emailFromAddress ??
           "Artpulse <noreply@mail.artpulse.co>";
 
-        const resend = getResendClient();
+        const resend = getResendClient(resendApiKey);
         const payload = notification.payload as { tags?: Array<{ name: string; value: string }> };
         await resend.emails.send({
           from: fromAddress,

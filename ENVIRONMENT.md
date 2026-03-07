@@ -39,8 +39,9 @@ NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=
 BLOB_READ_WRITE_TOKEN=
 
 # Email (Resend)
-RESEND_API_KEY=
-RESEND_FROM_ADDRESS=Artpulse <noreply@mail.artpulse.co>
+# Deprecated (moved to /admin/settings):
+# RESEND_API_KEY=
+# RESEND_FROM_ADDRESS=Artpulse <noreply@mail.artpulse.co>
 RESEND_WEBHOOK_SECRET=
 UNSUBSCRIBE_TOKEN_SECRET=replace-with-long-random-string
 
@@ -60,13 +61,16 @@ Minimum required:
 - `AUTH_SECRET`
 - `AUTH_GOOGLE_ID`
 - `AUTH_GOOGLE_SECRET`
-- `RESEND_API_KEY`
-- `RESEND_FROM_ADDRESS`
 - `RESEND_WEBHOOK_SECRET`
 - `UNSUBSCRIBE_TOKEN_SECRET`
 - `ADMIN_EMAILS` (required for admin panel access control, comma-separated email allowlist)
 - `ADMIN_EMAIL_DOMAINS` (optional, comma-separated admin email domains)
 - `ADMIN_IMAGE_ALT_REQUIRED` (optional; defaults to `false`, when `true` admin image alt text is required before setting an image as featured/primary)
+
+
+Deprecated (configured in Admin → /admin/settings instead of environment):
+- `RESEND_API_KEY`
+- `RESEND_FROM_ADDRESS`
 
 Optional:
 - `AI_INGEST_ENABLED` (set to `1` to enable server-side AI ingest extraction; defaults to disabled)

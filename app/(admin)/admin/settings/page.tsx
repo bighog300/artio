@@ -22,6 +22,8 @@ export default async function AdminSettingsPage() {
         initial={{
           emailEnabled: settings.emailEnabled ?? false,
           emailFromAddress: settings.emailFromAddress ?? null,
+          resendApiKey: settings.resendApiKey ?? null,
+          resendFromAddress: settings.resendFromAddress ?? null,
           emailOutboxBatchSize: settings.emailOutboxBatchSize ?? null,
         }}
       />

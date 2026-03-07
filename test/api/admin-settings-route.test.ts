@@ -14,6 +14,8 @@ test("GET returns null ingest settings when row has no values", async () => {
       ingestMaxOutputTokens: null,
       emailEnabled: false,
       emailFromAddress: null,
+      resendApiKey: null,
+      resendFromAddress: null,
       emailOutboxBatchSize: null,
     }) as never,
   });
@@ -25,6 +27,8 @@ test("GET returns null ingest settings when row has no values", async () => {
     ingestMaxOutputTokens: null,
     emailEnabled: false,
     emailFromAddress: null,
+    resendApiKey: null,
+    resendFromAddress: null,
     emailOutboxBatchSize: null,
   });
 });
@@ -39,6 +43,8 @@ test("PATCH updates and returns ingest settings", async () => {
       ingestMaxOutputTokens: 8000,
       emailEnabled: true,
       emailFromAddress: "Artpulse <noreply@mail.artpulse.co>",
+      resendApiKey: "re_test_123",
+      resendFromAddress: "Artpulse <noreply@mail.artpulse.co>",
       emailOutboxBatchSize: 50,
     }),
   });
@@ -58,6 +64,8 @@ test("PATCH updates and returns ingest settings", async () => {
     ingestMaxOutputTokens: 8000,
     emailEnabled: true,
     emailFromAddress: "Artpulse <noreply@mail.artpulse.co>",
+    resendApiKey: "re_test_123",
+    resendFromAddress: "Artpulse <noreply@mail.artpulse.co>",
     emailOutboxBatchSize: 50,
   });
   assert.equal(res.status, 200);
@@ -69,6 +77,8 @@ test("PATCH updates and returns ingest settings", async () => {
       ingestMaxOutputTokens: 8000,
       emailEnabled: true,
       emailFromAddress: "Artpulse <noreply@mail.artpulse.co>",
+      resendApiKey: "re_test_123",
+      resendFromAddress: "Artpulse <noreply@mail.artpulse.co>",
       emailOutboxBatchSize: 50,
     },
   });
@@ -90,6 +100,8 @@ test("PATCH allows clearing ingestSystemPrompt to null", async () => {
       ingestMaxOutputTokens: null,
       emailEnabled: false,
       emailFromAddress: null,
+      resendApiKey: null,
+      resendFromAddress: null,
       emailOutboxBatchSize: null,
     }) as never,
   });
@@ -103,6 +115,8 @@ test("PATCH allows clearing ingestSystemPrompt to null", async () => {
       ingestMaxOutputTokens: null,
       emailEnabled: false,
       emailFromAddress: null,
+      resendApiKey: null,
+      resendFromAddress: null,
       emailOutboxBatchSize: null,
     },
   });
