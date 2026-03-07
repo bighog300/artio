@@ -19,8 +19,6 @@ type AttendEventButtonProps = {
 };
 
 export function AttendEventButton({ eventId, nextUrl, isAuthenticated, analytics, ticketingMode }: AttendEventButtonProps) {
-  if (ticketingMode === "RSVP") return null;
-
   const router = useRouter();
   const [count, setCount] = useState(0);
   const [isGoing, setIsGoing] = useState(false);
@@ -29,6 +27,14 @@ export function AttendEventButton({ eventId, nextUrl, isAuthenticated, analytics
 
   useEffect(() => {
     let mounted = true;
+
+    if (ticketingMode === "RSVP") {
+      setIsLoading(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
     (async () => {
       try {
         const res = await fetch(`/api/events/by-id/${eventId}/attend`, { method: "GET" });
@@ -45,7 +51,9 @@ export function AttendEventButton({ eventId, nextUrl, isAuthenticated, analytics
     return () => {
       mounted = false;
     };
-  }, [eventId]);
+  }, [eventId, ticketingMode]);
+
+  if (ticketingMode === "RSVP") return null;
 
   async function onToggle() {
     if (isPending || isLoading) return;

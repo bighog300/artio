@@ -171,7 +171,6 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ name: tierName, capacity: tierCapacity.trim() ? Number(tierCapacity) : null, priceAmount: 0, currency: "GBP", isActive: true }),
     });
-    const body = await res.json().catch(() => ({}));
     if (!res.ok) return;
     await loadTiers();
     setTierName("");
@@ -184,7 +183,6 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(patch),
     });
-    const body = await res.json().catch(() => ({}));
     if (!res.ok) return;
     await loadTiers();
   }
