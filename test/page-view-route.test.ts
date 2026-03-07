@@ -1,7 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
+import { db } from "@/lib/db";
 import { handleTrackPageView } from "@/lib/page-view-route";
+
+const mockDb = db as unknown as {
+  siteSettings: {
+    findUnique: (args: { where: { id: string }; select: { analyticsSalt: boolean } }) => Promise<{ analyticsSalt: string | null } | null>;
+  };
+};
+
+mockDb.siteSettings = {
+  findUnique: async () => ({ analyticsSalt: null }),
+};
 
 test("/api/analytics/view validates payload", async () => {
   const req = new NextRequest("http://localhost/api/analytics/view", {
