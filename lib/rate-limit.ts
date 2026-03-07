@@ -187,6 +187,10 @@ export const RATE_LIMITS = {
     limit: Number(process.env.RATE_LIMIT_EVENT_REVISION_WRITE_PER_HOUR ?? 30),
     windowMs: Number(process.env.RATE_LIMIT_EVENT_REVISION_WRITE_WINDOW_MS ?? 3_600_000),
   },
+  eventRegisterWrite: {
+    limit: Number(process.env.RATE_LIMIT_EVENT_REGISTER_WRITE_PER_HOUR ?? 30),
+    windowMs: Number(process.env.RATE_LIMIT_EVENT_REGISTER_WRITE_WINDOW_MS ?? 3_600_000),
+  },
   recommendationsEvents: {
     limit: Number(process.env.RATE_LIMIT_RECOMMENDATIONS_EVENTS_PER_MINUTE ?? 45),
     windowMs: Number(process.env.RATE_LIMIT_RECOMMENDATIONS_EVENTS_WINDOW_MS ?? 60_000),
