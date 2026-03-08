@@ -8,8 +8,9 @@ import EmailSettingsClient from "./email-settings-client";
 import IngestSettingsClient from "./ingest-settings-client";
 import PaymentsSettingsClient from "./payments-settings-client";
 import SeoSettingsClient from "./seo-settings-client";
+import CronSettingsClient from "./cron-settings-client";
 
-const TABS = ["general", "email", "ingest-ai", "payments", "notifications", "seo", "ops"] as const;
+const TABS = ["general", "email", "ingest-ai", "payments", "notifications", "seo", "ops", "cron"] as const;
 type TabKey = (typeof TABS)[number];
 
 function isTab(value: string | null): value is TabKey { return !!value && (TABS as readonly string[]).includes(value); }
@@ -44,6 +45,7 @@ export default function SettingsShell({ initial }: { initial: Record<string, unk
         <TabsTrigger className="justify-start" value="notifications">Notifications</TabsTrigger>
         <TabsTrigger className="justify-start" value="seo">SEO</TabsTrigger>
         <TabsTrigger className="justify-start" value="ops">Ops</TabsTrigger>
+        <TabsTrigger className="justify-start" value="cron">Scheduled Jobs</TabsTrigger>
       </TabsList>
 
       <div>
@@ -73,6 +75,7 @@ export default function SettingsShell({ initial }: { initial: Record<string, unk
         <TabsContent value="notifications"><NotificationSettings initial={initial} /></TabsContent>
         <TabsContent value="seo"><SeoSettingsClient initial={{ googleIndexingEnabled: Boolean(initial.googleIndexingEnabled), googleServiceAccountJsonSet: Boolean(initial.googleServiceAccountJsonSet) }} /></TabsContent>
         <TabsContent value="ops"><OpsSettings initial={initial} /></TabsContent>
+        <TabsContent value="cron"><CronSettingsClient /></TabsContent>
       </div>
     </Tabs>
   );

@@ -3,24 +3,8 @@
   "buildCommand": "pnpm run vercel:build",
   "crons": [
     {
-      "path": "/api/cron/outbox/send",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/digests/weekly",
-      "schedule": "20 2 * * *"
-    },
-    {
-      "path": "/api/cron/retention/engagement",
-      "schedule": "35 2 * * *"
-    },
-    {
-      "path": "/api/cron/editorial-notifications",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/ingest/venues",
-      "schedule": "50 2 * * *"
+      "path": "/api/cron/tick",
+      "schedule": "* * * * *"
     }
   ]
 }
