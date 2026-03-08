@@ -42,7 +42,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
       uid: event.id,
       summary: event.title,
       dtstart: event.startAt,
-      dtend: event.endAt ?? event.startAt,
+      dtend: event.endAt,
       location: venueLocation(venue.name, venue.addressLine1),
       description: event.description,
       url: getDetailUrl("event", event.slug),

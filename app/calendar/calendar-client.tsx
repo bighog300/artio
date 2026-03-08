@@ -32,7 +32,7 @@ type CalendarItem = {
   artistIds?: string[];
 };
 
-type EventsResponse = { items: CalendarItem[] };
+type EventsResponse = { items: CalendarItem[]; truncated?: boolean };
 
 export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureItems }: { isAuthenticated: boolean; fixtureItems?: CalendarItem[]; fallbackFixtureItems?: CalendarItem[] }) {
   const calendarRef = useRef<FullCalendar | null>(null);
@@ -51,6 +51,7 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
   const [isLoading, setIsLoading] = useState(!fixtureItems);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<{ from: string; to: string } | null>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarItem | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
@@ -105,12 +106,15 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
       if (!response.ok) throw new Error("failed");
       const data = (await response.json()) as EventsResponse;
       setEvents(data.items ?? []);
+      setIsTruncated(Boolean(data.truncated));
     } catch {
       if (fallbackFixtureItems?.length) {
         setEvents(fallbackFixtureItems);
+        setIsTruncated(false);
         setError(null);
       } else {
         setError("Unable to load calendar events right now.");
+        setIsTruncated(false);
         setEvents([]);
       }
     } finally {
@@ -151,41 +155,42 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
 
       <Section title="Calendar view">
         {error ? <ErrorCard message={error} onRetry={() => void fetchEvents()} /> : null}
-        <div className="relative min-h-[600px] w-full overflow-x-hidden rounded-lg border bg-card p-2">
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
-            initialView="dayGridMonth"
-            headerToolbar={{ left: "prev,next", center: "title", right: "dayGridMonth,timeGridWeek,listWeek" }}
-            height="auto"
-            datesSet={(info) => {
-              const from = info.startStr.slice(0, 10);
-              const to = info.endStr.slice(0, 10);
-              setRange((prev) => (prev?.from === from && prev?.to === to ? prev : { from, to }));
-            }}
-            events={calendarEvents}
-            eventClick={openEventPanel}
-          />
-          {isLoading ? (
-            <div className="pointer-events-none absolute inset-2 z-10 space-y-2 rounded-md bg-background/70 p-2">
-              {Array.from({ length: 3 }).map((_, i) => <EventCardSkeleton key={`calendar-loading-${i}`} />)}
-            </div>
-          ) : null}
-        </div>
-        {!isLoading && !error && events.length === 0 ? <EmptyState title="No events match these filters" description="Try broadening your filters or moving to a different date range." actions={[{ label: "Go to Events", href: eventsHref }]} /> : null}
-      </Section>
-
-      {viewMode === "agenda" ? (
-        <Section title="Agenda" subtitle="List view for the current filtered set.">
-          {events.length === 0 ? <EmptyState title="No agenda items" description="Switch back to calendar view or update filters." /> : (
+        {isTruncated ? <InlineBanner>Showing first 1,000 events — narrow your date range to see all results.</InlineBanner> : null}
+        {viewMode === "agenda" ? (
+          events.length === 0 ? <EmptyState title="No agenda items" description="Switch back to calendar view or update filters." /> : (
             <ul className="space-y-2">
               {events.map((event) => (
                 <li key={`agenda-${event.id}`}><EventCard href={`/events/${event.slug}`} title={event.title} startAt={event.start} endAt={event.end} venueName={event.venue?.name ?? undefined} /></li>
               ))}
             </ul>
-          )}
-        </Section>
-      ) : null}
+          )
+        ) : (
+          <>
+            <div className="relative min-h-[600px] w-full overflow-x-hidden rounded-lg border bg-card p-2">
+              <FullCalendar
+                ref={calendarRef}
+                plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
+                initialView="dayGridMonth"
+                headerToolbar={{ left: "prev,next", center: "title", right: "dayGridMonth,timeGridWeek,listWeek" }}
+                height="auto"
+                datesSet={(info) => {
+                  const from = info.startStr.slice(0, 10);
+                  const to = info.endStr.slice(0, 10);
+                  setRange((prev) => (prev?.from === from && prev?.to === to ? prev : { from, to }));
+                }}
+                events={calendarEvents}
+                eventClick={openEventPanel}
+              />
+              {isLoading ? (
+                <div className="pointer-events-none absolute inset-2 z-10 space-y-2 rounded-md bg-background/70 p-2">
+                  {Array.from({ length: 3 }).map((_, i) => <EventCardSkeleton key={`calendar-loading-${i}`} />)}
+                </div>
+              ) : null}
+            </div>
+            {!isLoading && !error && events.length === 0 ? <EmptyState title="No events match these filters" description="Try broadening your filters or moving to a different date range." actions={[{ label: "Go to Events", href: eventsHref }]} /> : null}
+          </>
+        )}
+      </Section>
 
       <Dialog open={Boolean(selectedEvent)} onOpenChange={(isOpen) => !isOpen && setSelectedEvent(null)}>
         <DialogContent className="left-auto right-0 top-0 h-full max-w-md translate-x-0 translate-y-0 rounded-none p-4 sm:max-w-md" aria-describedby="calendar-event-panel-description">
@@ -200,7 +205,23 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
                 <div className="flex flex-wrap gap-2">
                   <SaveEventButton eventId={selectedEvent.id} initialSaved={scope === "saved"} nextUrl="/calendar" isAuthenticated={isAuthenticated} analytics={{ eventSlug: selectedEvent.slug, ui: "calendar_panel" }} />
                   <Link href={`/events/${selectedEvent.slug}`} className="rounded border px-3 py-2 text-sm">View details</Link>
-                  <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => navigator.share?.({ title: selectedEvent.title, url: `${window.location.origin}/events/${selectedEvent.slug}` })}>Share</button>
+                  {typeof navigator !== "undefined" && navigator.share ? (
+                    <button
+                      type="button"
+                      className="rounded border px-3 py-2 text-sm"
+                      onClick={() => navigator.share?.({ title: selectedEvent.title, url: `${window.location.origin}/events/${selectedEvent.slug}` })}
+                    >
+                      Share
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="rounded border px-3 py-2 text-sm"
+                      onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/events/${selectedEvent.slug}`)}
+                    >
+                      Copy link
+                    </button>
+                  )}
                 </div>
               </div>
             </>

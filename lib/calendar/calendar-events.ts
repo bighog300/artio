@@ -18,6 +18,9 @@ const calendarEventsQuerySchema = z.object({
   if (new Date(value.from).getTime() > new Date(value.to).getTime()) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["from"], message: "from must be <= to" });
   }
+  if (new Date(value.to).getTime() - new Date(value.from).getTime() > 366 * 24 * 60 * 60 * 1000) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["to"], message: "Date range cannot exceed 366 days" });
+  }
 });
 
 type CalendarEventRow = {
@@ -85,14 +88,21 @@ export async function handleCalendarEventsGet(req: Request, deps: CalendarEventD
     return apiError(400, "invalid_request", "Invalid query parameters", zodDetails(parsed.error));
   }
 
-  const { scope, from, to } = parsed.data;
+  const { scope, from, to, tags } = parsed.data;
   const fromDate = new Date(from);
   const toDate = new Date(to);
   const baseWhere: Prisma.EventWhereInput = { isPublished: true, ...rangePredicate(fromDate, toDate) };
 
+  if (tags) {
+    const tagList = tags.split(",").map((tag) => tag.trim()).filter(Boolean);
+    if (tagList.length > 0) {
+      baseWhere.eventTags = { some: { tag: { name: { in: tagList } } } };
+    }
+  }
+
   if (scope === "all") {
     const items = await deps.findEvents({ where: baseWhere, orderBy: [{ startAt: "asc" }, { id: "asc" }], take: 1000, select: eventSelect }) as CalendarEventRow[];
-    return NextResponse.json({ items: mapCalendarItems(items) });
+    return NextResponse.json({ items: mapCalendarItems(items), truncated: items.length === 1000 });
   }
 
   const user = await deps.getUser();
@@ -101,15 +111,15 @@ export async function handleCalendarEventsGet(req: Request, deps: CalendarEventD
   if (scope === "saved") {
     const favorites = await deps.findFavorites({ where: { userId: user.id, targetType: "EVENT" }, select: { targetId: true } });
     const savedIds = favorites.map((favorite) => favorite.targetId);
-    if (savedIds.length === 0) return NextResponse.json({ items: [] });
+    if (savedIds.length === 0) return NextResponse.json({ items: [], truncated: false });
     const items = await deps.findEvents({ where: { ...baseWhere, id: { in: savedIds } }, orderBy: [{ startAt: "asc" }, { id: "asc" }], take: 1000, select: eventSelect }) as CalendarEventRow[];
-    return NextResponse.json({ items: mapCalendarItems(items) });
+    return NextResponse.json({ items: mapCalendarItems(items), truncated: items.length === 1000 });
   }
 
   const follows = await deps.findFollows({ where: { userId: user.id }, select: { targetType: true, targetId: true } });
   const followedVenueIds = follows.filter((follow) => follow.targetType === "VENUE").map((follow) => follow.targetId);
   const followedArtistIds = follows.filter((follow) => follow.targetType === "ARTIST").map((follow) => follow.targetId);
-  if (followedVenueIds.length === 0 && followedArtistIds.length === 0) return NextResponse.json({ items: [] });
+  if (followedVenueIds.length === 0 && followedArtistIds.length === 0) return NextResponse.json({ items: [], truncated: false });
 
   const orFilters: Prisma.EventWhereInput[] = [];
   if (followedVenueIds.length) orFilters.push({ venueId: { in: followedVenueIds } });
@@ -121,5 +131,5 @@ export async function handleCalendarEventsGet(req: Request, deps: CalendarEventD
     take: 1000,
     select: eventSelect,
   }) as CalendarEventRow[];
-  return NextResponse.json({ items: mapCalendarItems(items) });
+  return NextResponse.json({ items: mapCalendarItems(items), truncated: items.length === 1000 });
 }
