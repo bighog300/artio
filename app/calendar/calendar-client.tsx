@@ -65,6 +65,8 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
   const [isTruncated, setIsTruncated] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarItem | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const [calendarDate, setCalendarDate] = useState<Date | null>(null);
+  const [queryInput, setQueryInput] = useState(filters.query ?? "");
 
   const refetchEvents = useCallback(() => {
     setReloadToken((value) => value + 1);
@@ -92,6 +94,10 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
       setIsLoading(false);
     }
   }, [fixtureItems]);
+
+  useEffect(() => {
+    setQueryInput(filters.query ?? "");
+  }, [filters.query]);
 
   const replaceSearch = useCallback((updates: Record<string, string | null>) => {
     const next = buildEventQueryString(stableSearchParams, updates);
@@ -150,6 +156,9 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
     }
     return Array.from(groups.entries());
   }, [events]);
+  const todayLabel = new Date().toLocaleDateString("en-GB", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
 
   function openEventPanel(clickInfo: EventClickArg) {
     clickInfo.jsEvent.preventDefault();
@@ -163,34 +172,88 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
   return (
     <section className="space-y-4">
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-2">
-          <CalendarScopeToggle scope={scope} />
-          <div className="flex items-center gap-2">
-            <div className="rounded-md border p-0.5 text-sm">
-              <button
-                type="button"
-                className={`rounded px-2 py-1 ${viewMode === "calendar" ? "bg-foreground text-background" : "text-foreground"}`}
-                onClick={() => setViewMode("calendar")}
-                aria-pressed={viewMode === "calendar"}
-              >
-                Month/Week
-              </button>
-              <button
-                type="button"
-                className={`rounded px-2 py-1 ${viewMode === "agenda" ? "bg-foreground text-background" : "text-foreground"}`}
-                onClick={() => setViewMode("agenda")}
-                aria-pressed={viewMode === "agenda"}
-              >
-                List
-              </button>
+        <div className="space-y-2 pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CalendarScopeToggle scope={scope} />
+            <div className="flex items-center gap-2">
+              <div className="rounded-md border p-0.5 text-sm">
+                <button
+                  type="button"
+                  className={`rounded px-2 py-1 ${viewMode === "calendar" ? "bg-foreground text-background" : "text-foreground"}`}
+                  onClick={() => setViewMode("calendar")}
+                  aria-pressed={viewMode === "calendar"}
+                >
+                  Month/Week
+                </button>
+                <button
+                  type="button"
+                  className={`rounded px-2 py-1 ${viewMode === "agenda" ? "bg-foreground text-background" : "text-foreground"}`}
+                  onClick={() => setViewMode("agenda")}
+                  aria-pressed={viewMode === "agenda"}
+                >
+                  List
+                </button>
+              </div>
+              {viewMode === "calendar" ? (
+                <button
+                  type="button"
+                  className="rounded border px-3 py-1 text-sm"
+                  onClick={() => calendarRef.current?.getApi().today()}
+                >
+                  Today
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="rounded border px-3 py-1 text-sm"
+                  onClick={() => {
+                    document.getElementById("agenda-today")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                >
+                  Today
+                </button>
+              )}
+              {isAuthenticated && scope === "saved" ? (
+                <a
+                  href="/api/calendar-events/saved"
+                  className="rounded border px-3 py-1 text-sm"
+                  title="Subscribe to your saved events in your calendar app"
+                >
+                  Export feed
+                </a>
+              ) : null}
             </div>
-            <button
-              type="button"
-              className="rounded border px-3 py-1 text-sm"
-              onClick={() => calendarRef.current?.getApi().today()}
-            >
-              Today
-            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="search"
+              placeholder="Search events…"
+              value={queryInput}
+              onChange={(e) => setQueryInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  replaceSearch({ query: queryInput.trim() || null });
+                }
+                if (e.key === "Escape") {
+                  setQueryInput("");
+                  replaceSearch({ query: null });
+                }
+              }}
+              className="h-8 w-full max-w-xs rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Search events"
+            />
+            {queryInput ? (
+              <button
+                type="button"
+                className="text-xs text-muted-foreground underline"
+                onClick={() => {
+                  setQueryInput("");
+                  replaceSearch({ query: null });
+                }}
+              >
+                Clear
+              </button>
+            ) : null}
           </div>
         </div>
         <EventFilterChips filters={{ query: filters.query, tags: activeTags, from: filters.from, to: filters.to }} onRemove={replaceSearch} onClearAll={() => replaceSearch({ query: null, tags: null, from: null, to: null })} />
@@ -199,10 +262,18 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
       {error ? <ErrorCard message={error} onRetry={() => void fetchEvents()} /> : null}
       {isTruncated ? <InlineBanner>Showing first 1,000 events — narrow your date range to see all results.</InlineBanner> : null}
       {viewMode === "agenda" ? (
-        events.length === 0 ? <EmptyState title="No agenda items" description="Switch back to calendar view or update filters." /> : (
+        events.length === 0 ? (
+          scope === "saved" ? (
+            <EmptyState title="No saved events in this range" description="Save events you're interested in and they'll appear here." actions={[{ label: "Browse Events", href: eventsHref }]} />
+          ) : scope === "following" ? (
+            <EmptyState title="No upcoming events from people you follow" description="Follow venues and artists to see their events here." actions={[{ label: "Browse Events", href: eventsHref }]} />
+          ) : (
+            <EmptyState title="No events in this date range" description="Try moving to a different month or broadening your filters." />
+          )
+        ) : (
           <div className="space-y-4">
             {agendaGroups.map(([dateLabel, groupEvents]) => (
-              <div key={dateLabel}>
+              <div key={dateLabel} id={dateLabel === todayLabel ? "agenda-today" : undefined}>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {dateLabel}
                 </p>
@@ -230,12 +301,14 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
               initialView="dayGridMonth"
+              initialDate={calendarDate ?? undefined}
               headerToolbar={{ left: "prev,next", center: "title", right: "dayGridMonth,timeGridWeek,listWeek" }}
               height="auto"
               datesSet={(info) => {
                 const from = info.startStr.slice(0, 10);
                 const to = info.endStr.slice(0, 10);
                 setRange((prev) => (prev?.from === from && prev?.to === to ? prev : { from, to }));
+                setCalendarDate(info.view.currentStart);
               }}
               events={calendarEvents}
               eventClick={openEventPanel}
@@ -246,13 +319,33 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
               </div>
             ) : null}
           </div>
-          {!isLoading && !error && events.length === 0 ? <EmptyState title="No events match these filters" description="Try broadening your filters or moving to a different date range." actions={[{ label: "Go to Events", href: eventsHref }]} /> : null}
+          {!isLoading && !error && events.length === 0 ? (
+            scope === "saved" ? (
+              <EmptyState
+                title="No saved events in this range"
+                description="Save events you're interested in and they'll appear here."
+                actions={[{ label: "Browse Events", href: eventsHref }]}
+              />
+            ) : scope === "following" ? (
+              <EmptyState
+                title="No upcoming events from people you follow"
+                description="Follow venues and artists to see their events here."
+                actions={[{ label: "Browse Events", href: eventsHref }]}
+              />
+            ) : (
+              <EmptyState
+                title="No events in this date range"
+                description="Try moving to a different month or broadening your filters."
+                actions={[{ label: "Browse Events", href: eventsHref }]}
+              />
+            )
+          ) : null}
         </>
       )}
 
       <Dialog open={Boolean(selectedEvent)} onOpenChange={(isOpen) => !isOpen && setSelectedEvent(null)}>
-        <DialogContent className="fixed inset-x-0 bottom-0 top-auto h-auto max-h-[85vh] w-full translate-x-0 translate-y-0 overflow-y-auto rounded-t-xl rounded-b-none p-4 sm:inset-x-auto sm:left-auto sm:right-0 sm:top-0 sm:h-full sm:max-h-none sm:w-full sm:max-w-md sm:rounded-none" aria-describedby="calendar-event-panel-description">
-          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-muted sm:hidden" />
+        <DialogContent className="fixed inset-x-0 bottom-0 top-auto h-auto max-h-[85vh] w-full translate-x-0 translate-y-0 overflow-y-auto rounded-t-xl rounded-b-none p-4 md:inset-x-auto md:left-auto md:right-0 md:top-0 md:h-full md:max-h-none md:w-full md:max-w-md md:rounded-none" aria-describedby="calendar-event-panel-description">
+          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-muted md:hidden" />
           {selectedEvent ? (
             <>
               <DialogHeader>
@@ -277,6 +370,14 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
                 ) : null}
                 <div className="flex flex-wrap gap-2">
                   <SaveEventButton eventId={selectedEvent.id} initialSaved={scope === "saved"} nextUrl="/calendar" isAuthenticated={isAuthenticated} analytics={{ eventSlug: selectedEvent.slug, ui: "calendar_panel" }} />
+                  <a
+                    href={`/api/events/${selectedEvent.slug}/ical`}
+                    download
+                    className="rounded border px-3 py-2 text-sm"
+                    onClick={() => track("calendar_event_ical_download", { eventSlug: selectedEvent.slug, ui: "calendar_panel" })}
+                  >
+                    Add to Calendar
+                  </a>
                   <Link href={`/events/${selectedEvent.slug}`} className="rounded border px-3 py-2 text-sm">View details</Link>
                   {typeof navigator !== "undefined" && navigator.share ? (
                     <button

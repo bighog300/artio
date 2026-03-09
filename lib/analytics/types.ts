@@ -13,6 +13,7 @@ export type AnalyticsEventName =
   | "following_viewed"
   | "calendar_viewed"
   | "calendar_event_opened"
+  | "calendar_event_ical_download"
   | "notifications_viewed"
   | "notification_marked_read"
   | "notifications_mark_all_read"
