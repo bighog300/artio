@@ -27,7 +27,7 @@ test("check-env skips strict checks outside deploy context", () => {
   assert.match(result.stdout, /non-deploy context detected/);
 });
 
-test("check-env requires CRON_SECRET in deploy context when vercel crons are configured", () => {
+test("check-env requires CRON_SECRET in deploy context", () => {
   const result = runCheckEnv({ CI: "true", AUTH_SECRET: "a", DATABASE_URL: "postgres://db" });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /CRON_SECRET/);

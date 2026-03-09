@@ -1,18 +1,5 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
-function hasVercelCrons() {
-  try {
-    const raw = readFileSync(resolve(process.cwd(), "vercel.json"), "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed?.crons) && parsed.crons.length > 0;
-  } catch {
-    return false;
-  }
-}
-
 function parseMode(argv) {
   const modeArg = argv.find((entry) => entry.startsWith("--mode="));
   if (!modeArg) return "auto";
@@ -30,10 +17,7 @@ if (!shouldEnforce) {
 
 const requiredInDeploy = ["AUTH_SECRET", "DATABASE_URL"];
 const optional = ["DIRECT_URL"];
-
-if (hasVercelCrons()) {
-  requiredInDeploy.push("CRON_SECRET");
-}
+requiredInDeploy.push("CRON_SECRET");
 
 const geocoderProvider = process.env.GEOCODER_PROVIDER?.trim().toLowerCase() || "mapbox";
 const isGoogleGeocoder = geocoderProvider === "google";
