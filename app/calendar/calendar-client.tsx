@@ -99,6 +99,13 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
     setQueryInput(filters.query ?? "");
   }, [filters.query]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768 && searchParams?.get("view") === null) {
+      setViewMode("agenda");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const replaceSearch = useCallback((updates: Record<string, string | null>) => {
     const next = buildEventQueryString(stableSearchParams, updates);
     router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
@@ -173,9 +180,9 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
     <section className="space-y-4">
       <div className="space-y-3">
         <div className="space-y-2 pb-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-2">
             <CalendarScopeToggle scope={scope} />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2">
               <div className="rounded-md border p-0.5 text-sm">
                 <button
                   type="button"
@@ -194,34 +201,36 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
                   List
                 </button>
               </div>
-              {viewMode === "calendar" ? (
-                <button
-                  type="button"
-                  className="rounded border px-3 py-1 text-sm"
-                  onClick={() => calendarRef.current?.getApi().today()}
-                >
-                  Today
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="rounded border px-3 py-1 text-sm"
-                  onClick={() => {
-                    document.getElementById("agenda-today")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
-                >
-                  Today
-                </button>
-              )}
-              {isAuthenticated && scope === "saved" ? (
-                <a
-                  href="/api/calendar-events/saved"
-                  className="rounded border px-3 py-1 text-sm"
-                  title="Subscribe to your saved events in your calendar app"
-                >
-                  Export feed
-                </a>
-              ) : null}
+              <div className="flex items-center gap-2">
+                {viewMode === "calendar" ? (
+                  <button
+                    type="button"
+                    className="rounded border px-3 py-1 text-sm"
+                    onClick={() => calendarRef.current?.getApi().today()}
+                  >
+                    Today
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="rounded border px-3 py-1 text-sm"
+                    onClick={() => {
+                      document.getElementById("agenda-today")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                  >
+                    Today
+                  </button>
+                )}
+                {isAuthenticated && scope === "saved" ? (
+                  <a
+                    href="/api/calendar-events/saved"
+                    className="rounded border px-3 py-1 text-sm"
+                    title="Subscribe to your saved events calendar feed"
+                  >
+                    Export feed
+                  </a>
+                ) : null}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -239,7 +248,7 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
                   replaceSearch({ query: null });
                 }
               }}
-              className="h-8 w-full max-w-xs rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-9 w-full max-w-xs rounded-md border bg-background px-3 text-base md:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Search events"
             />
             {queryInput ? (
@@ -296,13 +305,21 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
         )
       ) : (
         <>
-          <div className="relative min-h-[600px] w-full overflow-x-hidden rounded-lg border bg-card p-2">
+          <div className="relative min-h-[420px] md:min-h-[600px] w-full overflow-x-hidden rounded-lg border bg-card p-2">
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
               initialView="dayGridMonth"
               initialDate={calendarDate ?? undefined}
-              headerToolbar={{ left: "prev,next", center: "title", right: "dayGridMonth,timeGridWeek,listWeek" }}
+              headerToolbar={{
+                left: "prev,next",
+                center: "title",
+                right: "dayGridMonth,timeGridWeek",
+              }}
+              buttonText={{
+                month: "Month",
+                week: "Week",
+              }}
               height="auto"
               datesSet={(info) => {
                 const from = info.startStr.slice(0, 10);
@@ -345,7 +362,25 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
 
       <Dialog open={Boolean(selectedEvent)} onOpenChange={(isOpen) => !isOpen && setSelectedEvent(null)}>
         <DialogContent className="fixed inset-x-0 bottom-0 top-auto h-auto max-h-[85vh] w-full translate-x-0 translate-y-0 overflow-y-auto rounded-t-xl rounded-b-none p-4 md:inset-x-auto md:left-auto md:right-0 md:top-0 md:h-full md:max-h-none md:w-full md:max-w-md md:rounded-none" aria-describedby="calendar-event-panel-description">
-          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-muted md:hidden" />
+          <div
+            className="mx-auto mb-3 h-1.5 w-10 cursor-grab rounded-full bg-muted active:cursor-grabbing md:hidden"
+            onTouchStart={(e) => {
+              const startY = e.touches[0].clientY;
+              const onTouchMove = (moveEvent: TouchEvent) => {
+                const delta = moveEvent.touches[0].clientY - startY;
+                if (delta > 60) {
+                  setSelectedEvent(null);
+                  document.removeEventListener("touchmove", onTouchMove);
+                }
+              };
+              document.addEventListener("touchmove", onTouchMove, { passive: true });
+              const onTouchEnd = () => {
+                document.removeEventListener("touchmove", onTouchMove);
+                document.removeEventListener("touchend", onTouchEnd);
+              };
+              document.addEventListener("touchend", onTouchEnd, { passive: true });
+            }}
+          />
           {selectedEvent ? (
             <>
               <DialogHeader>
