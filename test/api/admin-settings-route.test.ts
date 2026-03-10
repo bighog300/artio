@@ -62,6 +62,8 @@ test("GET returns null ingest settings when row has no values", async () => {
     emailOutboxBatchSize: null,
     analyticsSalt: null,
     openAiApiKeySet: false,
+    geminiApiKeySet: false,
+    anthropicApiKeySet: false,
     ingestEnabled: false,
     ingestMaxCandidatesPerVenueRun: null,
     ingestDuplicateSimilarityThreshold: null,
