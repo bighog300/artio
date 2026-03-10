@@ -638,6 +638,7 @@ model Artist {
   artworks          Artwork[]
   featuredArtworks  ArtistFeaturedArtwork[]
   ingestCandidates  IngestExtractedArtist[]  @relation("IngestExtractedArtistCreated")
+  stripeAccount     ArtistStripeAccount?
 
   @@index([isPublished])
   @@index([featuredAssetId])
@@ -1419,6 +1420,20 @@ model StripeAccount {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   venue            Venue               @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([stripeAccountId])
+}
+
+model ArtistStripeAccount {
+  id               String              @id @default(uuid()) @db.Uuid
+  artistId         String              @unique @db.Uuid
+  stripeAccountId  String              @unique
+  status           StripeAccountStatus @default(PENDING)
+  chargesEnabled   Boolean             @default(false)
+  payoutsEnabled   Boolean             @default(false)
+  createdAt        DateTime            @default(now()) @db.Timestamptz
+  updatedAt        DateTime            @updatedAt @db.Timestamptz
+  artist           Artist              @relation(fields: [artistId], references: [id], onDelete: Cascade)
 
   @@index([stripeAccountId])
 }

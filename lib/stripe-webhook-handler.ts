@@ -8,6 +8,8 @@ type Deps = {
   constructEvent: (payload: string, signature: string, secret: string) => StripeWebhookEvent;
   findStripeAccountByStripeAccountId: (stripeAccountId: string) => Promise<{ id: string } | null>;
   updateStripeAccount: (id: string, data: { chargesEnabled?: boolean; payoutsEnabled?: boolean; status: "ACTIVE" | "RESTRICTED" | "DEAUTHORIZED" }) => Promise<unknown>;
+  findArtistStripeAccountByStripeAccountId: (stripeAccountId: string) => Promise<{ id: string } | null>;
+  updateArtistStripeAccount: (id: string, data: { chargesEnabled?: boolean; payoutsEnabled?: boolean; status: "ACTIVE" | "RESTRICTED" | "DEAUTHORIZED" }) => Promise<unknown>;
   findRegistrationByPaymentIntentId: (paymentIntentId: string) => Promise<{ id: string; status: "PENDING" | "CONFIRMED" | "CANCELLED" | "WAITLISTED" } | null>;
   findRegistrationById: (registrationId: string) => Promise<{ id: string; status: "PENDING" | "CONFIRMED" | "CANCELLED" | "WAITLISTED" } | null>;
   updateRegistrationStatus: (registrationId: string, status: "CONFIRMED") => Promise<unknown>;
@@ -32,16 +34,26 @@ export async function handleStripeWebhook(req: Request, deps: Deps) {
   if (event.type === "account.updated") {
     const accountId = event.data.object.id;
     if (accountId) {
+      const isDeleted = event.data.object.deleted === true;
+      const chargesEnabled = event.data.object.charges_enabled === true;
+      const payoutsEnabled = event.data.object.payouts_enabled === true;
+      const status = isDeleted ? "DEAUTHORIZED" : chargesEnabled ? "ACTIVE" : "RESTRICTED";
+
       const account = await deps.findStripeAccountByStripeAccountId(accountId);
       if (account) {
-        const isDeleted = event.data.object.deleted === true;
-        const chargesEnabled = event.data.object.charges_enabled === true;
-        const payoutsEnabled = event.data.object.payouts_enabled === true;
-
         await deps.updateStripeAccount(account.id, {
           chargesEnabled,
           payoutsEnabled,
-          status: isDeleted ? "DEAUTHORIZED" : chargesEnabled ? "ACTIVE" : "RESTRICTED",
+          status,
+        });
+      }
+
+      const artistAccount = await deps.findArtistStripeAccountByStripeAccountId(accountId);
+      if (artistAccount) {
+        await deps.updateArtistStripeAccount(artistAccount.id, {
+          chargesEnabled,
+          payoutsEnabled,
+          status,
         });
       }
     }
@@ -53,6 +65,11 @@ export async function handleStripeWebhook(req: Request, deps: Deps) {
       const account = await deps.findStripeAccountByStripeAccountId(accountId);
       if (account) {
         await deps.updateStripeAccount(account.id, { status: "DEAUTHORIZED" });
+      }
+
+      const artistAccount = await deps.findArtistStripeAccountByStripeAccountId(accountId);
+      if (artistAccount) {
+        await deps.updateArtistStripeAccount(artistAccount.id, { status: "DEAUTHORIZED" });
       }
     }
   }

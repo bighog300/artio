@@ -13,6 +13,8 @@ export async function POST(req: Request) {
     constructEvent: (payload, signature, secret) => stripe.webhooks.constructEvent(payload, signature, secret),
     findStripeAccountByStripeAccountId: (stripeAccountId) => db.stripeAccount.findUnique({ where: { stripeAccountId }, select: { id: true } }),
     updateStripeAccount: (id, data) => db.stripeAccount.update({ where: { id }, data }),
+    findArtistStripeAccountByStripeAccountId: (stripeAccountId) => db.artistStripeAccount.findUnique({ where: { stripeAccountId }, select: { id: true } }),
+    updateArtistStripeAccount: (id, data) => db.artistStripeAccount.update({ where: { id }, data }),
     findRegistrationByPaymentIntentId: (stripePaymentIntentId) => db.registration.findFirst({ where: { stripePaymentIntentId }, select: { id: true, status: true } }),
     findRegistrationById: (id) => db.registration.findUnique({ where: { id }, select: { id: true, status: true } }),
     updateRegistrationStatus: (id, status) => db.registration.update({ where: { id }, data: { status } }),

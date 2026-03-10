@@ -15,6 +15,7 @@ import { ArtistFeaturedArtworksPanel } from "@/components/artists/artist-feature
 import { CreateArtistProfileForm } from "@/app/my/artist/_components/CreateArtistProfileForm";
 import { evaluateArtistReadiness } from "@/lib/publish-readiness";
 import { PublishReadinessChecklist } from "@/components/publishing/publish-readiness-checklist";
+import { ArtistStripeConnectButton } from "@/app/my/artist/_components/ArtistStripeConnectButton";
 
 export default async function MyArtistPage() {
   const user = await getSessionUser();
@@ -100,6 +101,11 @@ export default async function MyArtistPage() {
     }),
   ]);
 
+  const stripeAccount = await db.artistStripeAccount.findUnique({
+    where: { artistId: artist.id },
+    select: { status: true, chargesEnabled: true, payoutsEnabled: true },
+  });
+
   const readiness = evaluateArtistReadiness({ name: artist.name, bio: artist.bio, featuredAssetId: artist.featuredAssetId, websiteUrl: artist.websiteUrl });
 
   return (
@@ -147,6 +153,49 @@ export default async function MyArtistPage() {
         initialFeatured={featuredArtworks.map((row) => ({ id: row.artwork.id, slug: row.artwork.slug, title: row.artwork.title, coverUrl: row.artwork.featuredAsset?.url ?? row.artwork.images[0]?.asset?.url ?? null, sortOrder: row.sortOrder }))}
         options={publishedArtworks.map((item) => ({ id: item.id, slug: item.slug, title: item.title, coverUrl: item.featuredAsset?.url ?? item.images[0]?.asset?.url ?? null, isPublished: item.isPublished }))}
       />
+      <ArtistStripePanel stripeAccount={stripeAccount} />
     </main>
+  );
+}
+
+
+type ArtistStripePanelProps = {
+  stripeAccount: {
+    status: "PENDING" | "ACTIVE" | "RESTRICTED" | "DEAUTHORIZED";
+    chargesEnabled: boolean;
+    payoutsEnabled: boolean;
+  } | null;
+};
+
+function ArtistStripePanel({ stripeAccount }: ArtistStripePanelProps) {
+  const isActive = stripeAccount?.status === "ACTIVE" && stripeAccount.chargesEnabled;
+  const isPendingOrRestricted = stripeAccount?.status === "PENDING" || stripeAccount?.status === "RESTRICTED";
+  const isDeauthorized = stripeAccount?.status === "DEAUTHORIZED";
+
+  return (
+    <section className="space-y-3 rounded-lg border bg-card p-4">
+      <h2 className="text-lg font-semibold">Sell your artwork</h2>
+      <p className="text-sm text-muted-foreground">Connect a Stripe account to receive payment when buyers purchase your work directly.</p>
+
+      {!stripeAccount || stripeAccount.status !== "ACTIVE" ? (
+        <div className="space-y-3">
+          {isPendingOrRestricted ? (
+            <>
+              <p className="text-sm">Your Stripe account is being reviewed. You&apos;ll be able to accept payments once approved.</p>
+              <ArtistStripeConnectButton>Continue onboarding</ArtistStripeConnectButton>
+            </>
+          ) : isDeauthorized ? (
+            <>
+              <p className="text-sm">Your Stripe account was disconnected. Reconnect to accept payments.</p>
+              <ArtistStripeConnectButton>Reconnect Stripe</ArtistStripeConnectButton>
+            </>
+          ) : (
+            <ArtistStripeConnectButton>Connect Stripe</ArtistStripeConnectButton>
+          )}
+        </div>
+      ) : null}
+
+      {isActive ? <p className="text-sm text-emerald-700">✓ Stripe connected — you can accept artwork payments.</p> : null}
+    </section>
   );
 }

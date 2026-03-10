@@ -69,3 +69,54 @@ export async function handleGetVenueStripeStatus(params: Promise<{ id: string }>
     payoutsEnabled: stripeAccount?.payoutsEnabled ?? false,
   }, { headers: NO_STORE_HEADERS });
 }
+
+export async function handlePostArtistStripeConnect(
+  artistId: string,
+  deps: {
+    findArtistStripeAccount: (artistId: string) => Promise<{ stripeAccountId: string; status: StripeAccountStatus; chargesEnabled: boolean; payoutsEnabled: boolean } | null>;
+    createArtistStripeAccount: (input: { artistId: string; stripeAccountId: string; status: StripeAccountStatus }) => Promise<unknown>;
+    createExpressAccount: () => Promise<{ id: string }>;
+    createAccountLink: (input: { account: string; refreshUrl: string; returnUrl: string }) => Promise<{ url: string }>;
+    appUrl?: string;
+  },
+): Promise<Response> {
+  const existing = await deps.findArtistStripeAccount(artistId);
+  if (existing?.status === "ACTIVE") {
+    return apiError(400, "already_connected", "Artist already connected to Stripe");
+  }
+
+  const stripeAccountId = existing?.stripeAccountId ?? (await deps.createExpressAccount()).id;
+
+  if (!existing) {
+    await deps.createArtistStripeAccount({
+      artistId,
+      stripeAccountId,
+      status: "PENDING",
+    });
+  }
+
+  const appUrl = resolveAppUrl(deps.appUrl);
+  const accountLink = await deps.createAccountLink({
+    account: stripeAccountId,
+    refreshUrl: `${appUrl}/my/artist/stripe/refresh`,
+    returnUrl: `${appUrl}/my/artist/stripe/return`,
+  });
+
+  return NextResponse.json({ url: accountLink.url }, { headers: NO_STORE_HEADERS });
+}
+
+export async function handleGetArtistStripeStatus(
+  artistId: string,
+  deps: {
+    findArtistStripeAccount: (artistId: string) => Promise<{ status: StripeAccountStatus; chargesEnabled: boolean; payoutsEnabled: boolean } | null>;
+  },
+): Promise<Response> {
+  const stripeAccount = await deps.findArtistStripeAccount(artistId);
+
+  return NextResponse.json({
+    connected: stripeAccount?.status === "ACTIVE",
+    status: stripeAccount?.status ?? null,
+    chargesEnabled: stripeAccount?.chargesEnabled ?? false,
+    payoutsEnabled: stripeAccount?.payoutsEnabled ?? false,
+  }, { headers: NO_STORE_HEADERS });
+}
