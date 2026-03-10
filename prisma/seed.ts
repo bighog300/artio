@@ -34,12 +34,57 @@ async function run() {
     });
   }
 
-  const tags = [
-    { name: "Photography", slug: "photography" },
-    { name: "Sculpture", slug: "sculpture" },
-    { name: "Free Entry", slug: "free-entry" },
-    { name: "Performance", slug: "performance" },
-  ];
+  const TAXONOMY_TAGS = [
+    { name: "Painting", slug: "painting", category: "medium" },
+    { name: "Drawing", slug: "drawing", category: "medium" },
+    { name: "Photography", slug: "photography", category: "medium" },
+    { name: "Sculpture", slug: "sculpture", category: "medium" },
+    { name: "Printmaking", slug: "printmaking", category: "medium" },
+    { name: "Ceramics", slug: "ceramics", category: "medium" },
+    { name: "Textile", slug: "textile", category: "medium" },
+    { name: "Video Art", slug: "video-art", category: "medium" },
+    { name: "Performance Art", slug: "performance-art", category: "medium" },
+    { name: "Installation", slug: "installation", category: "medium" },
+    { name: "Digital Art", slug: "digital-art", category: "medium" },
+    { name: "Mixed Media", slug: "mixed-media", category: "medium" },
+    { name: "Collage", slug: "collage", category: "medium" },
+    { name: "Film", slug: "film", category: "medium" },
+    { name: "Sound Art", slug: "sound-art", category: "medium" },
+    { name: "New Media", slug: "new-media", category: "medium" },
+    { name: "Portrait", slug: "portrait", category: "genre" },
+    { name: "Landscape", slug: "landscape", category: "genre" },
+    { name: "Abstract", slug: "abstract", category: "genre" },
+    { name: "Still Life", slug: "still-life", category: "genre" },
+    { name: "Figurative", slug: "figurative", category: "genre" },
+    { name: "Street Art", slug: "street-art", category: "genre" },
+    { name: "Documentary Photography", slug: "documentary-photography", category: "genre" },
+    { name: "Fashion", slug: "fashion", category: "genre" },
+    { name: "Architecture", slug: "architecture", category: "genre" },
+    { name: "Wildlife", slug: "wildlife", category: "genre" },
+    { name: "Sports", slug: "sports", category: "genre" },
+    { name: "Botanical", slug: "botanical", category: "genre" },
+    { name: "Contemporary", slug: "contemporary", category: "movement" },
+    { name: "Modern", slug: "modern", category: "movement" },
+    { name: "Expressionism", slug: "expressionism", category: "movement" },
+    { name: "Surrealism", slug: "surrealism", category: "movement" },
+    { name: "Minimalism", slug: "minimalism", category: "movement" },
+    { name: "Conceptual Art", slug: "conceptual-art", category: "movement" },
+    { name: "Pop Art", slug: "pop-art", category: "movement" },
+    { name: "Impressionism", slug: "impressionism", category: "movement" },
+    { name: "Bauhaus", slug: "bauhaus", category: "movement" },
+    { name: "Futurism", slug: "futurism", category: "movement" },
+    { name: "Dada", slug: "dada", category: "movement" },
+    { name: "Arte Povera", slug: "arte-povera", category: "movement" },
+    { name: "Free Entry", slug: "free-entry", category: "mood" },
+    { name: "Family Friendly", slug: "family-friendly", category: "mood" },
+    { name: "Opening Night", slug: "opening-night", category: "mood" },
+    { name: "Immersive", slug: "immersive", category: "mood" },
+    { name: "Interactive", slug: "interactive", category: "mood" },
+    { name: "Outdoor", slug: "outdoor", category: "mood" },
+    { name: "Pop-up", slug: "pop-up", category: "mood" },
+    { name: "Charity", slug: "charity", category: "mood" },
+    { name: "Award Show", slug: "award-show", category: "mood" },
+  ] as const;
 
   const venues = [
     { slug: "modern-gallery", name: "Modern Gallery", city: "London" },
@@ -53,8 +98,14 @@ async function run() {
   ];
 
   const tagBySlug = new Map<string, { id: string }>();
-  for (const tag of tags) {
-    const result = await trackedUpsert(db.tag, { where: { slug: tag.slug }, update: { name: tag.name }, create: tag });
+  for (const tag of TAXONOMY_TAGS) {
+    const existing = await db.tag.findUnique({ where: { slug: tag.slug }, select: { id: true } });
+    const result = await db.tag.upsert({
+      where: { slug: tag.slug },
+      update: { name: tag.name, category: tag.category },
+      create: { name: tag.name, slug: tag.slug, category: tag.category },
+    });
+    summary[existing ? "updated" : "created"] += 1;
     tagBySlug.set(tag.slug, { id: result.id });
   }
 

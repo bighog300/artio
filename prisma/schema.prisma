@@ -1054,8 +1054,11 @@ model Tag {
   id        String     @id @default(uuid()) @db.Uuid
   name      String     @unique
   slug      String     @unique
+  category  String     @default("medium")
   createdAt DateTime   @default(now())
   eventTags EventTag[]
+
+  @@index([category])
 }
 
 model EventTag {
