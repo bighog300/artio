@@ -12,6 +12,8 @@ type ArtworkListItem = {
   isPublished: boolean;
   updatedAt: string;
   deletedAt: string | null;
+  priceAmount?: number | null;
+  currency?: string | null;
   artist?: { name: string };
 };
 
@@ -21,7 +23,28 @@ const editableFields = [
   { key: "isPublished", label: "Published", type: "checkbox" },
 ] as const;
 
-export default function AdminArtworkListClient() {
+const CURRENCIES = ["GBP", "USD", "EUR"] as const;
+
+function normalizeItem(item: ArtworkListItem): ArtworkListItem {
+  return {
+    ...item,
+    priceAmount: typeof item.priceAmount === "number" ? item.priceAmount : null,
+    currency: typeof item.currency === "string" ? item.currency : null,
+  };
+}
+
+function formatPrice(priceAmount: number | null | undefined, currency: string | null | undefined): string {
+  if (priceAmount == null) return "—";
+  const resolvedCurrency = currency && CURRENCIES.includes(currency as (typeof CURRENCIES)[number]) ? currency : "GBP";
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: resolvedCurrency,
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  }).format(priceAmount / 100);
+}
+
+export default function AdminArtworkListClient({ pricedCount: initialPricedCount }: { pricedCount: number }) {
   const [items, setItems] = useState<ArtworkListItem[]>([]);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -32,6 +55,14 @@ export default function AdminArtworkListClient() {
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Record<string, unknown>>>({});
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkCurrency, setBulkCurrency] = useState<(typeof CURRENCIES)[number]>("GBP");
+  const [bulkPrice, setBulkPrice] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState<string | null>(null);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [isBulkOpen, setIsBulkOpen] = useState(initialPricedCount < 200);
+  const [pricedCount, setPricedCount] = useState(initialPricedCount);
 
   const maxPage = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
 
@@ -46,8 +77,10 @@ export default function AdminArtworkListClient() {
       const res = await fetch(`/api/admin/artwork?${params.toString()}`);
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error?.message ?? "Failed to load artworks");
-      setItems(body.items ?? []);
+      const incomingItems = Array.isArray(body.items) ? (body.items as ArtworkListItem[]).map(normalizeItem) : [];
+      setItems(incomingItems);
       setTotal(body.total ?? 0);
+      setSelectedIds((current) => current.filter((id) => incomingItems.some((item) => item.id === id)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load artworks");
     } finally {
@@ -65,8 +98,95 @@ export default function AdminArtworkListClient() {
     setDrafts((current) => ({ ...current, [item.id]: buildEditableDraft(item, editableFields) }));
   }
 
+  const progressPct = Math.min(100, Math.round((pricedCount / 200) * 100));
+  const progressColor = pricedCount >= 200 ? "bg-emerald-500" : pricedCount >= 100 ? "bg-amber-500" : "bg-gray-400";
+  const allVisibleSelected = items.length > 0 && items.every((item) => selectedIds.includes(item.id));
+
+  const parsedBulkPrice = bulkPrice === "" ? null : Number.parseInt(bulkPrice, 10);
+  const canApplyBulk = !bulkBusy && selectedIds.length > 0 && parsedBulkPrice != null && Number.isFinite(parsedBulkPrice) && parsedBulkPrice >= 0 && parsedBulkPrice <= 100_000;
+
+  async function applyBulkPrice() {
+    if (!canApplyBulk || parsedBulkPrice == null) return;
+    setBulkBusy(true);
+    setBulkError(null);
+    setBulkMessage(null);
+
+    const selectedItems = items.filter((item) => selectedIds.includes(item.id));
+    const newlyPricedCount = selectedItems.filter((item) => item.priceAmount == null).length;
+    const nextAmount = Math.round(parsedBulkPrice * 100);
+
+    try {
+      const res = await fetch("/api/admin/artwork/bulk-price", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: selectedIds.map((id) => ({ id, priceAmount: nextAmount, currency: bulkCurrency })),
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? "Failed to update prices");
+
+      setItems((current) => current.map((item) => (selectedIds.includes(item.id) ? { ...item, priceAmount: nextAmount, currency: bulkCurrency } : item)));
+      setSelectedIds([]);
+      setBulkMessage(`Updated ${selectedItems.length} artworks`);
+      if (newlyPricedCount > 0) setPricedCount((current) => current + newlyPricedCount);
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : "Failed to update prices");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   return (
     <section className="space-y-4">
+      <div className="rounded border bg-background p-4">
+        <div className="mb-2 text-sm font-medium">B4 Progress: {pricedCount} / 200 priced published artworks</div>
+        <div className="h-2 w-full overflow-hidden rounded bg-muted">
+          <div className={`h-full ${progressColor}`} style={{ width: `${progressPct}%` }} />
+        </div>
+      </div>
+
+      <div className="rounded border bg-background p-4">
+        <button type="button" className="flex w-full items-center justify-between text-left text-sm font-semibold" onClick={() => setIsBulkOpen((current) => !current)}>
+          <span>Bulk price panel</span>
+          <span>{isBulkOpen ? "Hide" : "Show"}</span>
+        </button>
+
+        {isBulkOpen ? (
+          <div className="mt-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <select className="rounded border px-2 py-1 text-sm" value={bulkCurrency} onChange={(event) => setBulkCurrency(event.target.value as (typeof CURRENCIES)[number])}>
+                {CURRENCIES.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+              </select>
+              <input
+                type="number"
+                min={0}
+                max={100000}
+                step={1}
+                value={bulkPrice}
+                onChange={(event) => setBulkPrice(event.target.value)}
+                className="w-52 rounded border px-2 py-1 text-sm"
+                placeholder="Price (e.g. 1200)"
+              />
+              <Button type="button" size="sm" onClick={() => void applyBulkPrice()} disabled={!canApplyBulk}>
+                {bulkBusy ? "Applying..." : "Apply to selected"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedIds(items.filter((item) => item.priceAmount == null).map((item) => item.id))}
+                disabled={items.length === 0}
+              >
+                Select all unprice
+              </Button>
+            </div>
+            {bulkError ? <p className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700">{bulkError}</p> : null}
+            {bulkMessage ? <p className="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-700">{bulkMessage}</p> : null}
+          </div>
+        ) : null}
+      </div>
+
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Manage Artwork</h2>
         <p className="text-sm text-muted-foreground">Total: {total}</p>
@@ -114,8 +234,17 @@ export default function AdminArtworkListClient() {
         <table className="w-full min-w-[980px] text-sm">
           <thead className="bg-muted/50">
             <tr>
+              <th className="px-3 py-2 text-left">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={(event) => setSelectedIds(event.target.checked ? items.map((item) => item.id) : [])}
+                  aria-label="Select all visible artworks"
+                />
+              </th>
               <th className="px-3 py-2 text-left">title</th>
               <th className="px-3 py-2 text-left">artist</th>
+              <th className="px-3 py-2 text-left">price</th>
               <th className="px-3 py-2 text-left">status</th>
               <th className="px-3 py-2 text-left">updatedAt</th>
               <th className="px-3 py-2 text-left">archived</th>
@@ -125,12 +254,22 @@ export default function AdminArtworkListClient() {
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td className="px-3 py-3 text-muted-foreground" colSpan={6}>{busy ? "Loading..." : "No records"}</td>
+                <td className="px-3 py-3 text-muted-foreground" colSpan={8}>{busy ? "Loading..." : "No records"}</td>
               </tr>
             ) : items.map((item) => {
               const isEditing = editingId === item.id;
               return (
                 <tr key={item.id} className="border-t align-top">
+                  <td className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(item.id)}
+                      onChange={(event) => {
+                        setSelectedIds((current) => (event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id)));
+                      }}
+                      aria-label={`Select ${item.title}`}
+                    />
+                  </td>
                   <td className="px-3 py-2">
                     {isEditing ? (
                       <input
@@ -141,6 +280,7 @@ export default function AdminArtworkListClient() {
                     ) : item.title}
                   </td>
                   <td className="px-3 py-2">{item.artist?.name ?? item.artistId}</td>
+                  <td className="px-3 py-2">{formatPrice(item.priceAmount, item.currency)}</td>
                   <td className="px-3 py-2">
                     {isEditing ? (
                       <label className="flex items-center gap-2 text-xs">
