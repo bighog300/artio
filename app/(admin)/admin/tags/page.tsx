@@ -5,8 +5,16 @@ import { AdminTagsClient } from "./tags-client";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+type TagSelect = {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  _count: { eventTags: number };
+};
+
 export default async function AdminTagsPage() {
-  const tags = await db.tag.findMany({
+  const tags: TagSelect[] = await db.tag.findMany({
     orderBy: { name: "asc" },
     select: {
       id: true,
