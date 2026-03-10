@@ -325,6 +325,16 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         return {
           candidate: updated,
           createdEventId: updated.createdEventId as string,
+          unmatchedNames: [] as string[],
+          artistSettings: null as {
+            googlePseApiKey: string | undefined;
+            googlePseCx: string | undefined;
+            artistLookupProvider: string | null | undefined;
+            artistBioProvider: string | null | undefined;
+            geminiApiKey: string | null | undefined;
+            anthropicApiKey: string | null | undefined;
+            openAiApiKey: string | null | undefined;
+          } | null,
           imageContext: {
             runId: candidate.runId,
             venueId: candidate.venueId,
@@ -406,8 +416,19 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         }
       }
 
+      let unmatchedNames: string[] = [];
+      let artistSettings: {
+        googlePseApiKey: string | undefined;
+        googlePseCx: string | undefined;
+        artistLookupProvider: string | null | undefined;
+        artistBioProvider: string | null | undefined;
+        geminiApiKey: string | null | undefined;
+        anthropicApiKey: string | null | undefined;
+        openAiApiKey: string | null | undefined;
+      } | null = null;
+
       if (process.env.AI_ARTIST_INGEST_ENABLED === "1") {
-        const unmatchedNames = (candidate.artistNames ?? []).filter(
+        unmatchedNames = (candidate.artistNames ?? []).filter(
           (name) => !matchedArtists.some(
             (a) => a.name.toLowerCase() === name.toLowerCase(),
           ),
@@ -427,7 +448,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
             },
           });
 
-          const artistSettings = {
+          artistSettings = {
             googlePseApiKey: settings?.googlePseApiKey ?? process.env.GOOGLE_PSE_API_KEY,
             googlePseCx: settings?.googlePseCx ?? process.env.GOOGLE_PSE_CX,
             artistLookupProvider: settings?.artistLookupProvider,
@@ -436,19 +457,6 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
             anthropicApiKey: settings?.anthropicApiKey,
             openAiApiKey: settings?.openAiApiKey,
           };
-
-          Promise.all(
-            unmatchedNames.map((name) =>
-              discoverArtist({
-                db: tx,
-                artistName: name,
-                eventId: createdEvent.id,
-                settings: artistSettings,
-              }).catch((err) =>
-                console.error("[artist-discovery] failed for", name, err),
-              ),
-            ),
-          ).catch(() => {});
         }
       }
 
@@ -486,6 +494,8 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
       return {
         candidate: updated,
         createdEventId: createdEvent.id,
+        unmatchedNames,
+        artistSettings,
         linkedArtistCount: matchedArtists.length,
         imageContext: {
           runId: candidate.runId,
@@ -500,6 +510,25 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
     });
 
     if ("error" in approved) return approved.error;
+
+    if (
+      process.env.AI_ARTIST_INGEST_ENABLED === "1" &&
+      approved.unmatchedNames.length > 0 &&
+      approved.artistSettings
+    ) {
+      Promise.all(
+        approved.unmatchedNames.map((name) =>
+          discoverArtist({
+            db: resolved.appDb,
+            artistName: name,
+            eventId: approved.createdEventId,
+            settings: approved.artistSettings!,
+          }).catch((err) =>
+            console.error("[artist-discovery] failed for", name, err),
+          ),
+        ),
+      ).catch(() => {});
+    }
 
     let imageWarning: string | null = null;
     const imageImport = await resolved.importEventImage({
