@@ -1,0 +1,4 @@
+ALTER TABLE "SiteSettings"
+  ADD COLUMN IF NOT EXISTS "autoTagEnabled" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "autoTagProvider" TEXT,
+  ADD COLUMN IF NOT EXISTS "autoTagModel" TEXT;

@@ -29,6 +29,9 @@ type IngestSettingsProps = {
     ingestDuplicateLookbackDays: number | null;
     ingestConfidenceHighMin: number | null;
     ingestConfidenceMediumMin: number | null;
+    autoTagEnabled: boolean;
+    autoTagProvider: string | null;
+    autoTagModel: string | null;
   };
 };
 
@@ -57,6 +60,9 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
   const [lookbackDays, setLookbackDays] = useState(props.initial.ingestDuplicateLookbackDays != null ? String(props.initial.ingestDuplicateLookbackDays) : "");
   const [confidenceHigh, setConfidenceHigh] = useState(props.initial.ingestConfidenceHighMin != null ? String(props.initial.ingestConfidenceHighMin) : "");
   const [confidenceMedium, setConfidenceMedium] = useState(props.initial.ingestConfidenceMediumMin != null ? String(props.initial.ingestConfidenceMediumMin) : "");
+  const [autoTagEnabled, setAutoTagEnabled] = useState(props.initial.autoTagEnabled);
+  const [autoTagProvider, setAutoTagProvider] = useState<ProviderName>((props.initial.autoTagProvider as ProviderName | null) ?? "openai");
+  const [autoTagModel, setAutoTagModel] = useState(props.initial.autoTagModel ?? "");
   const [prompt, setPrompt] = useState(props.initial.ingestSystemPrompt ?? "");
   const [model, setModel] = useState(props.initial.ingestModel ?? "");
   const [maxTokens, setMaxTokens] = useState(props.initial.ingestMaxOutputTokens != null ? String(props.initial.ingestMaxOutputTokens) : "");
@@ -89,6 +95,9 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
         ingestDuplicateLookbackDays: lookbackDays.trim() ? Number.parseInt(lookbackDays.trim(), 10) : null,
         ingestConfidenceHighMin: confidenceHigh.trim() ? Number.parseInt(confidenceHigh.trim(), 10) : null,
         ingestConfidenceMediumMin: confidenceMedium.trim() ? Number.parseInt(confidenceMedium.trim(), 10) : null,
+        autoTagEnabled,
+        autoTagProvider: autoTagEnabled ? autoTagProvider : null,
+        autoTagModel: autoTagEnabled ? (autoTagModel.trim() || null) : null,
         ingestSystemPrompt: prompt.trim() || null,
         ingestModel: model.trim() || null,
         ingestMaxOutputTokens: maxTokens.trim() ? Number.parseInt(maxTokens.trim(), 10) : null,
@@ -214,6 +223,27 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
             </select>
           </label>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium">Auto-tagging</h3>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={autoTagEnabled} onChange={(e) => { setAutoTagEnabled(e.target.checked); setStatus("idle"); }} />Enable AI auto-tagging on event approval</label>
+        {autoTagEnabled ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-1 text-sm">
+              <span>Auto-tag provider</span>
+              <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={autoTagProvider} onChange={(e) => { setAutoTagProvider(e.target.value as ProviderName); setStatus("idle"); }}>
+                <option value="openai">OpenAI</option>
+                <option value="gemini">Gemini</option>
+                <option value="claude">Claude</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-sm">
+              <span>Auto-tag model (leave blank for default)</span>
+              <input className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={autoTagModel} onChange={(e) => { setAutoTagModel(e.target.value); setStatus("idle"); }} type="text" />
+            </label>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

@@ -1391,6 +1391,9 @@ model SiteSettings {
   ingestConfidenceHighMin Int?
   ingestConfidenceMediumMin Int?
   ingestImageEnabled Boolean @default(true)
+  autoTagEnabled Boolean @default(false)
+  autoTagProvider String?
+  autoTagModel String?
   venueGenerationModel String?
   venueAutoPublish Boolean @default(false)
   editorialNotifyTo String?

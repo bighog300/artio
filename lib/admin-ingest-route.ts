@@ -13,6 +13,7 @@ import { inferTimezoneFromLatLng } from "@/lib/timezone";
 import { getAdminIngestHealthData } from "@/lib/ingest/health-query";
 import { discoverArtist } from "@/lib/ingest/artist-discovery";
 import { extractArtworksForEvent } from "@/lib/ingest/artwork-extraction";
+import { autoTagEvent } from "@/lib/ingest/auto-tag-event";
 
 type AdminActor = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN" };
 
@@ -399,7 +400,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
           isAiExtracted: true,
           ingestSourceRunId: candidate.runId,
         },
-        select: { id: true },
+        select: { id: true, title: true, description: true },
       });
 
       let matchedArtists: Array<{ id: string; name: string }> = [];
@@ -443,17 +444,38 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         openAiApiKey: string | null | undefined;
       } | null = null;
 
-      if (process.env.AI_ARTWORK_INGEST_ENABLED === "1") {
-        const settings = await tx.siteSettings.findUnique({
+      let autoTagSettings: {
+        autoTagEnabled: boolean;
+        autoTagProvider: string | null;
+        autoTagModel: string | null;
+        geminiApiKey: string | null;
+        anthropicApiKey: string | null;
+        openAiApiKey: string | null;
+      } | null = null;
+
+      const needsSettings = process.env.AI_ARTWORK_INGEST_ENABLED === "1"
+        || process.env.AI_ARTIST_INGEST_ENABLED === "1"
+        || process.env.AI_AUTO_TAG_ENABLED === "1";
+      const settings = needsSettings
+        ? await tx.siteSettings.findUnique({
           where: { id: "default" },
           select: {
             artworkExtractionProvider: true,
-            anthropicApiKey: true,
+            googlePseApiKey: true,
+            googlePseCx: true,
+            artistLookupProvider: true,
+            artistBioProvider: true,
+            autoTagEnabled: true,
+            autoTagProvider: true,
+            autoTagModel: true,
             geminiApiKey: true,
+            anthropicApiKey: true,
             openAiApiKey: true,
           },
-        });
+        })
+        : null;
 
+      if (process.env.AI_ARTWORK_INGEST_ENABLED === "1") {
         artworkSettings = {
           artworkExtractionProvider: settings?.artworkExtractionProvider,
           anthropicApiKey: settings?.anthropicApiKey,
@@ -470,19 +492,6 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         );
 
         if (unmatchedNames.length > 0) {
-          const settings = await tx.siteSettings.findUnique({
-            where: { id: "default" },
-            select: {
-              googlePseApiKey: true,
-              googlePseCx: true,
-              artistLookupProvider: true,
-              artistBioProvider: true,
-              geminiApiKey: true,
-              anthropicApiKey: true,
-              openAiApiKey: true,
-            },
-          });
-
           artistSettings = {
             googlePseApiKey: settings?.googlePseApiKey ?? process.env.GOOGLE_PSE_API_KEY,
             googlePseCx: settings?.googlePseCx ?? process.env.GOOGLE_PSE_CX,
@@ -493,6 +502,17 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
             openAiApiKey: settings?.openAiApiKey,
           };
         }
+      }
+
+      if (process.env.AI_AUTO_TAG_ENABLED === "1") {
+        autoTagSettings = {
+          autoTagEnabled: settings?.autoTagEnabled ?? false,
+          autoTagProvider: settings?.autoTagProvider ?? null,
+          autoTagModel: settings?.autoTagModel ?? null,
+          geminiApiKey: settings?.geminiApiKey ?? null,
+          anthropicApiKey: settings?.anthropicApiKey ?? null,
+          openAiApiKey: settings?.openAiApiKey ?? null,
+        };
       }
 
       await tx.submission.create({
@@ -529,6 +549,9 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
       return {
         candidate: updated,
         createdEventId: createdEvent.id,
+        eventTitle: createdEvent.title,
+        eventDescription: createdEvent.description ?? null,
+        autoTagSettings,
         unmatchedNames,
         artistSettings,
         artworkSettings,
@@ -583,6 +606,25 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         },
       }).catch((err) =>
         console.error("[artwork-extraction] failed for event", approved.createdEventId, err)
+      );
+    }
+
+
+    if (process.env.AI_AUTO_TAG_ENABLED === "1" && approved.autoTagSettings?.autoTagEnabled) {
+      autoTagEvent({
+        db: resolved.appDb,
+        eventId: approved.createdEventId,
+        title: approved.eventTitle,
+        description: approved.eventDescription,
+        settings: {
+          autoTagProvider: approved.autoTagSettings.autoTagProvider,
+          autoTagModel: approved.autoTagSettings.autoTagModel,
+          geminiApiKey: approved.autoTagSettings.geminiApiKey,
+          anthropicApiKey: approved.autoTagSettings.anthropicApiKey,
+          openAiApiKey: approved.autoTagSettings.openAiApiKey,
+        },
+      }).catch((err) =>
+        console.error("[auto-tag] failed for event", approved.createdEventId, err)
       );
     }
 

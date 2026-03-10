@@ -74,6 +74,9 @@ export default function SettingsShell({ initial }: { initial: Record<string, unk
           ingestDuplicateLookbackDays: (initial.ingestDuplicateLookbackDays as number | null) ?? null,
           ingestConfidenceHighMin: (initial.ingestConfidenceHighMin as number | null) ?? null,
           ingestConfidenceMediumMin: (initial.ingestConfidenceMediumMin as number | null) ?? null,
+          autoTagEnabled: Boolean(initial.autoTagEnabled),
+          autoTagProvider: (initial.autoTagProvider as string | null) ?? null,
+          autoTagModel: (initial.autoTagModel as string | null) ?? null,
         }} /></TabsContent>
         <TabsContent value="payments"><PaymentsSettingsClient initial={{
           stripePublishableKey: (initial.stripePublishableKey as string | null) ?? null,
