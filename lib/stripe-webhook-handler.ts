@@ -1,3 +1,4 @@
+import { ArtworkOrderStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 
@@ -13,6 +14,8 @@ type Deps = {
   findRegistrationByPaymentIntentId: (paymentIntentId: string) => Promise<{ id: string; status: "PENDING" | "CONFIRMED" | "CANCELLED" | "WAITLISTED" } | null>;
   findRegistrationById: (registrationId: string) => Promise<{ id: string; status: "PENDING" | "CONFIRMED" | "CANCELLED" | "WAITLISTED" } | null>;
   updateRegistrationStatus: (registrationId: string, status: "CONFIRMED") => Promise<unknown>;
+  findArtworkOrderBySessionId: (sessionId: string) => Promise<{ id: string; artworkId: string; status: ArtworkOrderStatus } | null>;
+  confirmArtworkOrder: (orderId: string, artworkId: string, paymentIntentId: string | null) => Promise<void>;
   enqueueNotification: (params: { type: string; toEmail: string; payload: Record<string, unknown>; dedupeKey: string }) => Promise<unknown>;
 };
 
@@ -76,7 +79,8 @@ export async function handleStripeWebhook(req: Request, deps: Deps) {
 
   if (event.type === "checkout.session.completed") {
     const paymentIntentId = event.data.object.payment_intent;
-    const metadataRegistrationId = event.data.object.metadata?.registrationId;
+    const metadata = event.data.object.metadata as { registrationId?: string; artworkOrderId?: string } | undefined;
+    const metadataRegistrationId = metadata?.registrationId;
 
     const registration = paymentIntentId
       ? await deps.findRegistrationByPaymentIntentId(paymentIntentId)
@@ -92,6 +96,20 @@ export async function handleStripeWebhook(req: Request, deps: Deps) {
         payload: { registrationId: registration.id },
         dedupeKey: `registration-confirmed:${registration.id}`,
       });
+    }
+
+    const artworkOrderId = metadata?.artworkOrderId;
+    if (artworkOrderId && event.data.object.id) {
+      const artworkOrder = await deps.findArtworkOrderBySessionId(event.data.object.id);
+      if (artworkOrder && artworkOrder.status === "PENDING") {
+        await deps.confirmArtworkOrder(
+          artworkOrder.id,
+          artworkOrder.artworkId,
+          typeof event.data.object.payment_intent === "string"
+            ? event.data.object.payment_intent
+            : null,
+        );
+      }
     }
   }
 

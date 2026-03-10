@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { EntityPageViewTracker } from "@/components/analytics/entity-page-view-tracker";
-import { ArtworkEnquireCard } from "@/components/artwork/artwork-enquire-card";
+import { ArtworkEnquireCard, ArtworkPurchaseCard } from "@/components/artwork/artwork-enquire-card";
 import { ArtworkRelatedSection } from "@/components/artwork/artwork-related-section";
 import { SaveArtworkButton } from "@/components/artwork/save-artwork-button";
 import { FollowButton } from "@/components/follows/follow-button";
@@ -75,9 +75,23 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
       dimensions: true,
       priceAmount: true,
       currency: true,
+      soldAt: true,
       isPublished: true,
       deletedAt: true,
-      artist: { select: { id: true, name: true, slug: true, user: { select: { email: true } } } },
+      artist: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          user: { select: { email: true } },
+          stripeAccount: {
+            select: {
+              chargesEnabled: true,
+              status: true,
+            },
+          },
+        },
+      },
       featuredAsset: { select: { url: true } },
       images: {
         orderBy: { sortOrder: "asc" },
@@ -209,11 +223,16 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
 
 
       {artwork.priceAmount != null && artwork.currency ? (
-        <ArtworkEnquireCard
-          artworkKey={key}
+        <ArtworkPurchaseCard
+          artworkKey={artwork.slug ?? artwork.id}
           artworkTitle={artwork.title}
           priceFormatted={formatPrice(artwork.priceAmount, artwork.currency)}
           artistName={artwork.artist.name}
+          artistStripeReady={
+            artwork.artist.stripeAccount?.status === "ACTIVE" &&
+            artwork.artist.stripeAccount?.chargesEnabled === true
+          }
+          isSold={artwork.soldAt !== null}
         />
       ) : null}
 
