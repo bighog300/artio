@@ -20,9 +20,13 @@ function makeDeps(overrides?: Partial<Parameters<typeof handleStripeWebhook>[1]>
     constructEvent: (_payload, _sig, _secret) => ({ type: "unhandled", data: { object: {} } }),
     findStripeAccountByStripeAccountId: async () => ({ id: "sa-1" }),
     updateStripeAccount: async (_id, data) => { updatedStripeStatus = data.status; },
+    findArtistStripeAccountByStripeAccountId: async () => null,
+    updateArtistStripeAccount: async () => {},
     findRegistrationByPaymentIntentId: async () => ({ id: "reg-1", status: "PENDING" }),
     findRegistrationById: async () => ({ id: "reg-1", status: "PENDING" }),
     updateRegistrationStatus: async (_id, status) => { registrationStatus = status; },
+    findArtworkOrderBySessionId: async () => null,
+    confirmArtworkOrder: async () => {},
     enqueueNotification: async ({ type }) => { notificationType = type; },
     ...overrides,
   };
