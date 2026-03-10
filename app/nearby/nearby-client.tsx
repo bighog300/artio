@@ -137,7 +137,6 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
     }
   }, [eventItems]);
 
-  const tags = useMemo(() => Array.from(new Set(eventItems.flatMap((item) => (item.tags ?? []).map((tag) => tag.slug)))), [eventItems]);
 
   const enableLocation = async () => {
     track("location_enable_clicked", { page: "nearby" });
@@ -209,7 +208,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
         {isAuthenticated && canSearch ? <div className="mt-3"><SaveSearchButton type="NEARBY" params={{ lat: Number(form.lat), lng: Number(form.lng), radiusKm: Number(form.radiusKm || "25"), q: filters.q || undefined, tags: filters.tags, days: filters.from || filters.to ? undefined : filters.days, from: filters.from || undefined, to: filters.to || undefined, sort: filters.sort, view }} defaultName={`Nearby: ${form.locationLabel || "Current location"} (${form.radiusKm || "25"}km)`} /></div> : null}
       </div>
 
-      <EventsFiltersBar availableTags={tags} defaultSort="soonest" queryParamName="q" sortOptions={["soonest", "distance"]} dayOptions={[7, 30, 90]} />
+      <EventsFiltersBar defaultSort="soonest" queryParamName="q" sortOptions={["soonest", "distance"]} dayOptions={[7, 30, 90]} />
       {inlineError ? <p className="text-sm text-destructive">{inlineError}</p> : null}
 
       <div className="inline-flex rounded-md border border-border p-1" role="tablist" aria-label="Nearby view mode">

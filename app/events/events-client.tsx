@@ -135,7 +135,6 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
     return () => { cancelled = true; };
   }, [isAuthenticated]);
 
-  const allTags = useMemo(() => Array.from(new Set(items.flatMap((item) => (item.tags ?? []).map((tag) => tag.slug)))).slice(0, 8), [items]);
   const sort = searchParams?.get("sort") ?? "soonest";
 
   const visibleItems = useMemo(() => {
@@ -169,7 +168,7 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
 
   return (
     <section className="space-y-6">
-      <EventsFiltersBar availableTags={allTags} />
+      <EventsFiltersBar />
       {isAuthenticated && favoriteIds.size === 0 ? (
         <p className="rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">Tip: Save events to build your calendar.</p>
       ) : null}

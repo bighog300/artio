@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,18 @@ import { buildEventQueryString } from "@/lib/events-filters";
 import { track } from "@/lib/analytics/client";
 
 type EventsFiltersBarProps = {
-  availableTags?: string[];
   defaultSort?: "soonest" | "popular" | "nearby";
   queryParamName?: "query" | "q";
   sortOptions?: Array<"soonest" | "popular" | "nearby" | "distance">;
   dayOptions?: number[];
+};
+
+
+const CATEGORY_LABELS: Record<string, string> = {
+  medium: "Medium",
+  genre: "Genre",
+  movement: "Movement",
+  mood: "Mood",
 };
 
 function dateRangeForPreset(preset: string) {
@@ -38,7 +45,7 @@ function dateRangeForPreset(preset: string) {
   return { from: "", to: "" };
 }
 
-export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest", queryParamName = "query", sortOptions = ["soonest", "popular", "nearby"], dayOptions }: EventsFiltersBarProps) {
+export function EventsFiltersBar({ defaultSort = "soonest", queryParamName = "query", sortOptions = ["soonest", "popular", "nearby"], dayOptions }: EventsFiltersBarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -47,6 +54,14 @@ export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest", 
   const [isPending, startTransition] = useTransition();
   const [frequency, setFrequency] = useState<"WEEKLY" | "OFF">("WEEKLY");
   const [savedSearchId, setSavedSearchId] = useState<string | null>(null);
+  const [fetchedTags, setFetchedTags] = useState<Array<{ id: string; name: string; slug: string; category: string }>>([]);
+
+  useEffect(() => {
+    fetch("/api/tags")
+      .then((r) => r.json())
+      .then((data) => setFetchedTags(data.items ?? []))
+      .catch(() => {});
+  }, []);
 
   const query = searchParams?.get(queryParamName) ?? "";
   const from = searchParams?.get("from") ?? "";
@@ -67,6 +82,16 @@ export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest", 
 
   const hasFilters = Boolean(query || from || to || tags.length || days || sort !== defaultSort);
   const canSaveSearch = Boolean(query.trim() || tags.length || datePreset !== "all" || days || sort !== defaultSort);
+  const tagGroups = useMemo(() => {
+    const order = ["medium", "genre", "movement", "mood"];
+    return order
+      .map((cat) => ({
+        category: cat,
+        label: CATEGORY_LABELS[cat] ?? cat,
+        tags: fetchedTags.filter((t) => t.category === cat),
+      }))
+      .filter((g) => g.tags.length > 0);
+  }, [fetchedTags]);
 
   const updateQuery = (updates: Record<string, string | null>) => {
     const next = buildEventQueryString(searchParams, updates);
@@ -141,7 +166,29 @@ export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest", 
         </TabsList>
       </Tabs>
 
-      {availableTags.length ? <div className="flex flex-wrap gap-2">{availableTags.slice(0, 8).map((tag) => <Button key={tag} type="button" size="sm" className={`ui-trans ui-press focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${tags.includes(tag) ? "shadow-sm" : ""}`} variant={tags.includes(tag) ? "default" : "outline"} onClick={() => toggleTag(tag)} aria-label={`Filter by tag ${tag}`}>{tag}</Button>)}</div> : null}
+      {tagGroups.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          {tagGroups.map((group) => (
+            <div key={group.category}>
+              <p className="text-xs text-muted-foreground mb-1">{group.label}</p>
+              <div className="flex flex-wrap gap-2">
+                {group.tags.map((tag) => (
+                  <Button
+                    key={tag.slug}
+                    type="button"
+                    size="sm"
+                    variant={tags.includes(tag.slug) ? "default" : "outline"}
+                    onClick={() => toggleTag(tag.slug)}
+                    aria-label={`Filter by tag ${tag.name}`}
+                  >
+                    {tag.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="h-4" aria-live="polite">{isPending ? <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" aria-hidden="true" />Updating filters…</span> : null}</div>
 
       <Dialog open={isSaveOpen} onOpenChange={setIsSaveOpen}>
