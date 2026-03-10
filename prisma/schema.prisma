@@ -255,6 +255,13 @@ enum StripeAccountStatus {
   DEAUTHORIZED
 }
 
+enum ArtworkOrderStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REFUNDED
+}
+
 enum AnalyticsEntityType {
   ARTWORK
   ARTIST
@@ -311,6 +318,7 @@ model User {
   selectedHomepageImageCandidates VenueHomepageImageCandidate[]
   emailCampaignsCreated EmailCampaign[]
   registrations       Registration[]
+  artworkOrders      ArtworkOrder[]
 
   @@index([locationLat, locationLng])
 }
@@ -1449,6 +1457,7 @@ model Artwork {
   dimensions      String?
   priceAmount     Int?
   currency        String?
+  soldAt          DateTime?      @db.Timestamptz
   isPublished     Boolean        @default(false)
   status          ContentStatus  @default(DRAFT)
   featuredAssetId String?        @db.Uuid
@@ -1465,6 +1474,7 @@ model Artwork {
   featuredBy      ArtistFeaturedArtwork[]
   curatedItems    CuratedCollectionItem[]
   inquiries      ArtworkInquiry[]
+  orders         ArtworkOrder[]
   ingestCandidate IngestExtractedArtwork?  @relation("IngestExtractedArtworkCreated")
 
   @@index([artistId])
@@ -1473,6 +1483,30 @@ model Artwork {
   @@index([artistId, isPublished, updatedAt])
   @@index([featuredAssetId])
   @@index([deletedAt])
+}
+
+model ArtworkOrder {
+  id                    String             @id @default(uuid()) @db.Uuid
+  artworkId             String             @db.Uuid
+  buyerUserId           String?            @db.Uuid
+  buyerName             String
+  buyerEmail            String
+  amountPaid            Int
+  currency              String
+  platformFeeAmount     Int
+  stripePaymentIntentId String?
+  stripeSessionId       String?
+  status                ArtworkOrderStatus @default(PENDING)
+  confirmedAt           DateTime?          @db.Timestamptz
+  cancelledAt           DateTime?          @db.Timestamptz
+  createdAt             DateTime           @default(now()) @db.Timestamptz
+  updatedAt             DateTime           @updatedAt @db.Timestamptz
+  artwork               Artwork            @relation(fields: [artworkId], references: [id], onDelete: Restrict)
+  buyer                 User?              @relation(fields: [buyerUserId], references: [id], onDelete: SetNull)
+
+  @@index([artworkId])
+  @@index([status])
+  @@index([buyerEmail])
 }
 
 
