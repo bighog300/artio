@@ -1,4 +1,10 @@
 {
   "installCommand": "pnpm run vercel:install",
-  "buildCommand": "pnpm run vercel:build"
+  "buildCommand": "pnpm run vercel:build",
+  "crons": [
+    {
+      "path": "/api/cron/ingest/discovery",
+      "schedule": "0 * * * *"
+    }
+  ]
 }
