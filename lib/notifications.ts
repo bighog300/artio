@@ -9,6 +9,7 @@ type EnqueueNotificationParams = {
   toEmail: string;
   payload: Prisma.InputJsonValue;
   dedupeKey: string;
+  replyTo?: string;
   inApp?: {
     userId: string;
     title: string;
@@ -69,6 +70,7 @@ export async function enqueueNotificationWithDb(notificationDb: NotificationDb, 
       toEmail: params.toEmail.toLowerCase(),
       payload: params.payload,
       dedupeKey: params.dedupeKey,
+      replyTo: params.replyTo ?? null,
     },
     update: {},
   });

@@ -8,6 +8,7 @@ type OutboxRow = {
   id: string;
   type: NotificationType;
   toEmail: string;
+  replyTo: string | null;
   payload: Prisma.JsonValue;
   dedupeKey: string;
   attemptCount: number;
@@ -79,6 +80,7 @@ export type OutboxWorkerDb = {
         id: true;
         type: true;
         toEmail: true;
+        replyTo: true;
         payload: true;
         dedupeKey: true;
         attemptCount: true;
@@ -189,6 +191,7 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
       id: true,
       type: true,
       toEmail: true,
+      replyTo: true,
       payload: true,
       dedupeKey: true,
       attemptCount: true,
@@ -252,6 +255,7 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
           subject,
           html,
           text,
+          ...(notification.replyTo ? { replyTo: notification.replyTo } : {}),
           tags: [{ name: "type", value: notification.type }, ...(payload.tags ?? [])],
         });
 

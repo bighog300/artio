@@ -951,6 +951,7 @@ model NotificationOutbox {
   id           String             @id @default(uuid()) @db.Uuid
   type         NotificationType
   toEmail      String
+  replyTo      String?
   payload      Json
   dedupeKey    String             @unique
   status       NotificationStatus @default(PENDING)

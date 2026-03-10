@@ -63,6 +63,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ key: strin
           await enqueueNotification({
             type: "ARTWORK_INQUIRY_ARTIST",
             toEmail: deliveryEmail,
+            replyTo: buyerEmail,
             dedupeKey: `artwork-inquiry:${inquiryId}:artist`,
             payload: {
               type: "ARTWORK_INQUIRY_ARTIST",
