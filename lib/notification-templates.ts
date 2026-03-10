@@ -85,6 +85,24 @@ export type NotificationTemplatePayload =
       startAt: string;
       venueName: string;
       venueAddress?: string | null;
+    }
+  | {
+      type: "ARTWORK_INQUIRY_BUYER";
+      artworkTitle: string;
+      artworkSlug: string;
+      artistName: string;
+      priceFormatted?: string | null;
+      inquiryId: string;
+    }
+  | {
+      type: "ARTWORK_INQUIRY_ARTIST";
+      artworkTitle: string;
+      artworkSlug: string;
+      buyerName: string;
+      buyerEmail: string;
+      message?: string | null;
+      priceFormatted?: string | null;
+      inquiryId: string;
     };
 
 export function buildNotification({ type, payload }: { type: NotificationType; payload: NotificationTemplatePayload }) {
@@ -216,6 +234,25 @@ export function buildNotification({ type, payload }: { type: NotificationType; p
       body: `${payload.eventTitle} starts within 24 hours.`,
       href: `/events/${payload.eventSlug}`,
       dedupeKey: `event-reminder-24h:${payload.eventSlug}:${payload.startAt}`,
+    };
+  }
+
+
+  if (type === "ARTWORK_INQUIRY_BUYER" && payload.type === "ARTWORK_INQUIRY_BUYER") {
+    return {
+      title: "Artwork enquiry sent",
+      body: `Your enquiry for ${payload.artworkTitle} has been sent to ${payload.artistName}.`,
+      href: `/artwork/${payload.artworkSlug}`,
+      dedupeKey: `artwork-inquiry:${payload.inquiryId}:buyer`,
+    };
+  }
+
+  if (type === "ARTWORK_INQUIRY_ARTIST" && payload.type === "ARTWORK_INQUIRY_ARTIST") {
+    return {
+      title: `New enquiry for ${payload.artworkTitle}`,
+      body: `${payload.buyerName} is interested in ${payload.artworkTitle}.`,
+      href: `/artwork/${payload.artworkSlug}`,
+      dedupeKey: `artwork-inquiry:${payload.inquiryId}:artist`,
     };
   }
 

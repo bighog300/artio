@@ -86,6 +86,8 @@ enum NotificationType {
   EVENT_REMINDER_24H
   NEW_USER_WELCOME
   BROADCAST
+  ARTWORK_INQUIRY_BUYER
+  ARTWORK_INQUIRY_ARTIST
 }
 
 enum ArtistVenueAssociationStatus {
@@ -1262,6 +1264,7 @@ model Artwork {
   events          ArtworkEvent[]
   featuredBy      ArtistFeaturedArtwork[]
   curatedItems    CuratedCollectionItem[]
+  inquiries      ArtworkInquiry[]
 
   @@index([artistId])
   @@index([isPublished])
@@ -1271,6 +1274,19 @@ model Artwork {
   @@index([deletedAt])
 }
 
+
+model ArtworkInquiry {
+  id        String   @id @default(uuid()) @db.Uuid
+  artworkId String   @db.Uuid
+  buyerName String
+  buyerEmail String
+  message   String?
+  createdAt DateTime @default(now()) @db.Timestamptz
+  artwork   Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@index([artworkId])
+  @@index([createdAt])
+}
 model ArtistFeaturedArtwork {
   id        String   @id @default(uuid()) @db.Uuid
   artistId  String   @db.Uuid

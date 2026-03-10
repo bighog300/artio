@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { EntityPageViewTracker } from "@/components/analytics/entity-page-view-tracker";
+import { ArtworkEnquireCard } from "@/components/artwork/artwork-enquire-card";
 import { ArtworkRelatedSection } from "@/components/artwork/artwork-related-section";
 import { SaveArtworkButton } from "@/components/artwork/save-artwork-button";
 import { FollowButton } from "@/components/follows/follow-button";
@@ -76,7 +77,7 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
       currency: true,
       isPublished: true,
       deletedAt: true,
-      artist: { select: { id: true, name: true, slug: true } },
+      artist: { select: { id: true, name: true, slug: true, user: { select: { email: true } } } },
       featuredAsset: { select: { url: true } },
       images: {
         orderBy: { sortOrder: "asc" },
@@ -116,9 +117,6 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
     artwork.year ? String(artwork.year) : null,
     artwork.medium,
     artwork.dimensions,
-    artwork.priceAmount != null && artwork.currency
-      ? formatPrice(artwork.priceAmount, artwork.currency)
-      : null,
   ].filter(Boolean) as string[];
   const galleryImages = artwork.images
     .filter((image) => Boolean(image.asset?.url))
@@ -207,6 +205,16 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
             <div className="prose prose-sm max-w-none whitespace-pre-wrap text-foreground/90">{artwork.description}</div>
           </CardContent>
         </Card>
+      ) : null}
+
+
+      {artwork.priceAmount != null && artwork.currency ? (
+        <ArtworkEnquireCard
+          artworkKey={key}
+          artworkTitle={artwork.title}
+          priceFormatted={formatPrice(artwork.priceAmount, artwork.currency)}
+          artistName={artwork.artist.name}
+        />
       ) : null}
 
       {galleryImages.length > 0 ? <EventGalleryLightbox images={galleryImages} /> : null}

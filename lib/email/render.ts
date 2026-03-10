@@ -137,6 +137,24 @@ export async function renderEmailTemplate(type: NotificationType, payload: Notif
         text: await render(React.createElement(BroadcastEmail, payload as any), { plainText: true }),
       };
     }
+    case "ARTWORK_INQUIRY_BUYER": {
+      if (payload.type !== "ARTWORK_INQUIRY_BUYER") throw new Error("notification_template_payload_mismatch");
+      const { default: ArtworkInquiryBuyerEmail, getSubject } = await import("./templates/artwork-inquiry-buyer");
+      return {
+        subject: getSubject(payload as any),
+        html: await render(React.createElement(ArtworkInquiryBuyerEmail, payload as any)),
+        text: await render(React.createElement(ArtworkInquiryBuyerEmail, payload as any), { plainText: true }),
+      };
+    }
+    case "ARTWORK_INQUIRY_ARTIST": {
+      if (payload.type !== "ARTWORK_INQUIRY_ARTIST") throw new Error("notification_template_payload_mismatch");
+      const { default: ArtworkInquiryArtistEmail, getSubject } = await import("./templates/artwork-inquiry-artist");
+      return {
+        subject: getSubject(payload as any),
+        html: await render(React.createElement(ArtworkInquiryArtistEmail, payload as any)),
+        text: await render(React.createElement(ArtworkInquiryArtistEmail, payload as any), { plainText: true }),
+      };
+    }
     case "ARTWORK_VIEW_MILESTONE":
       throw new Error(`template not yet implemented: ${type}`);
     default: {
