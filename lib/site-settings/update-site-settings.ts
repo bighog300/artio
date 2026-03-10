@@ -27,6 +27,9 @@ export async function updateSiteSettings(data: {
   artistLookupProvider?: "openai" | "gemini" | "claude" | null;
   artistBioProvider?: "openai" | "gemini" | "claude" | null;
   artworkExtractionProvider?: "openai" | "gemini" | "claude" | null;
+  autoTagEnabled?: boolean;
+  autoTagProvider?: "openai" | "gemini" | "claude" | null;
+  autoTagModel?: string | null;
   ingestEnabled?: boolean;
   ingestMaxCandidatesPerVenueRun?: number | null;
   ingestDuplicateSimilarityThreshold?: number | null;
