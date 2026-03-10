@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ key: strin
   try {
     await enforceRateLimit({
       key: principalRateLimitKey(req, "public:artwork:enquire"),
-      ...RATE_LIMITS.publicRead,
+      ...RATE_LIMITS.publicWrite,
     });
 
     const { key } = await ctx.params;

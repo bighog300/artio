@@ -219,5 +219,9 @@ export const RATE_LIMITS = {
     limit: Number(process.env.RATE_LIMIT_PUBLIC_READ_PER_MINUTE ?? 120),
     windowMs: Number(process.env.RATE_LIMIT_PUBLIC_READ_WINDOW_MS ?? 60_000),
   },
+  publicWrite: {
+    limit: Number(process.env.RATE_LIMIT_PUBLIC_WRITE_PER_HOUR ?? 10),
+    windowMs: Number(process.env.RATE_LIMIT_PUBLIC_WRITE_WINDOW_MS ?? 3_600_000),
+  },
 
 } as const;

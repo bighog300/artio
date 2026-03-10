@@ -1,5 +1,3 @@
-const PRICE_FALLBACK_CURRENCY = "GBP";
-
 type ArtworkRow = {
   id: string;
   title: string;
@@ -39,16 +37,6 @@ type NotifyFn = (args: {
   inquiryId: string;
 }) => Promise<{ deliveredTo: string }>;
 
-function formatInquiryPrice(amount: number | null, currency: string | null) {
-  if (amount == null || !currency) return null;
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: currency.toUpperCase() || PRICE_FALLBACK_CURRENCY,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount / 100);
-}
-
 export async function createArtworkInquiry(args: {
   db: InquiryDb;
   artworkId: string;
@@ -87,7 +75,14 @@ export async function createArtworkInquiry(args: {
   });
 
   const artworkSlug = artwork.slug ?? artwork.id;
-  const priceFormatted = formatInquiryPrice(artwork.priceAmount, artwork.currency);
+  const priceFormatted =
+    artwork.priceAmount != null && artwork.currency
+      ? new Intl.NumberFormat("en-GB", {
+          style: "currency",
+          currency: artwork.currency,
+          maximumFractionDigits: 0,
+        }).format(artwork.priceAmount)
+      : null;
   const notified = await args.notify({
     buyerEmail: args.buyerEmail,
     artistEmail: artwork.artist.user?.email ?? null,
