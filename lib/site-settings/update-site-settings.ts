@@ -19,6 +19,8 @@ export async function updateSiteSettings(data: {
   openAiApiKey?: string | null;
   geminiApiKey?: string | null;
   anthropicApiKey?: string | null;
+  googlePseApiKey?: string | null;
+  googlePseCx?: string | null;
   eventExtractionProvider?: "openai" | "gemini" | "claude" | null;
   venueEnrichmentProvider?: "openai" | "gemini" | "claude" | null;
   artistLookupProvider?: "openai" | "gemini" | "claude" | null;

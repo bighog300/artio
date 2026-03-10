@@ -58,6 +58,8 @@ export default function SettingsShell({ initial }: { initial: Record<string, unk
           openAiApiKeySet: Boolean(initial.openAiApiKeySet),
           geminiApiKeySet: Boolean(initial.geminiApiKeySet),
           anthropicApiKeySet: Boolean(initial.anthropicApiKeySet),
+          googlePseApiKeySet: Boolean(initial.googlePseApiKeySet),
+          googlePseCx: (initial.googlePseCx as string | null) ?? null,
           eventExtractionProvider: (initial.eventExtractionProvider as string | null) ?? null,
           artworkExtractionProvider: (initial.artworkExtractionProvider as string | null) ?? null,
           artistLookupProvider: (initial.artistLookupProvider as string | null) ?? null,

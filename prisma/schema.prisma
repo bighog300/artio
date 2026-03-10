@@ -178,6 +178,13 @@ enum IngestExtractedEventStatus {
   DUPLICATE
 }
 
+enum IngestArtistStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DUPLICATE
+}
+
 enum FavoriteTargetType {
   EVENT
   VENUE
@@ -583,6 +590,8 @@ model Artist {
   featuredAssetId   String?                  @db.Uuid
   /// @deprecated Use `status` (ContentStatus) as canonical publish lifecycle state.
   isPublished       Boolean                  @default(false)
+  isAiDiscovered    Boolean                  @default(false)
+  extractionProvider String?
   status            ContentStatus            @default(DRAFT)
   submittedAt       DateTime?
   reviewedAt        DateTime?
@@ -601,6 +610,7 @@ model Artist {
   eventAssociations ArtistEventAssociation[]
   artworks          Artwork[]
   featuredArtworks  ArtistFeaturedArtwork[]
+  ingestCandidates  IngestExtractedArtist[]  @relation("IngestExtractedArtistCreated")
 
   @@index([isPublished])
   @@index([featuredAssetId])
@@ -695,6 +705,7 @@ model Event {
   registrations Registration[]
   promoCodes    PromoCode[]
   ingestExtractedCandidate IngestExtractedEvent? @relation("IngestExtractedEventCreatedEvent")
+  artistDiscoveryLinks IngestExtractedArtistEvent[]
 
   @@index([startAt])
   @@index([isPublished])
@@ -876,6 +887,59 @@ model IngestExtractedEvent {
   @@index([venueId, similarityKey])
   @@index([venueId, confidenceScore])
   @@index([duplicateOfId])
+}
+
+model IngestExtractedArtist {
+  id                 String                       @id @default(uuid()) @db.Uuid
+  name               String
+  normalizedName     String
+  bio                String?
+  mediums            String[]
+  websiteUrl         String?
+  instagramUrl       String?
+  twitterUrl         String?
+  nationality        String?
+  birthYear          Int?
+  sourceUrl          String
+  searchQuery        String
+  status             IngestArtistStatus           @default(PENDING)
+  fingerprint        String                       @unique
+  confidenceScore    Int                          @default(0)
+  confidenceBand     String                       @default("LOW")
+  confidenceReasons  Json?
+  createdArtistId    String?                      @db.Uuid
+  extractionProvider String
+  createdAt          DateTime                     @default(now()) @db.Timestamptz
+  updatedAt          DateTime                     @updatedAt @db.Timestamptz
+  createdArtist      Artist?                      @relation("IngestExtractedArtistCreated", fields: [createdArtistId], references: [id], onDelete: SetNull)
+  eventLinks         IngestExtractedArtistEvent[]
+  runs               IngestExtractedArtistRun[]
+
+  @@index([status, confidenceScore(sort: Desc)])
+  @@index([normalizedName])
+}
+
+model IngestExtractedArtistEvent {
+  id                String                @id @default(uuid()) @db.Uuid
+  artistCandidateId String                @db.Uuid
+  eventId           String                @db.Uuid
+  createdAt         DateTime              @default(now()) @db.Timestamptz
+  artistCandidate   IngestExtractedArtist @relation(fields: [artistCandidateId], references: [id], onDelete: Cascade)
+  event             Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([artistCandidateId, eventId])
+  @@index([artistCandidateId])
+  @@index([eventId])
+}
+
+model IngestExtractedArtistRun {
+  id                String                @id @default(uuid()) @db.Uuid
+  artistCandidateId String                @db.Uuid
+  searchResults     Json                  @default("{}")
+  model             String
+  usageTotalTokens  Int?
+  createdAt         DateTime              @default(now()) @db.Timestamptz
+  artistCandidate   IngestExtractedArtist @relation(fields: [artistCandidateId], references: [id], onDelete: Cascade)
 }
 
 model VenueMembership {
@@ -1228,6 +1292,8 @@ model SiteSettings {
   artworkExtractionProvider String?
   geminiApiKey String?
   anthropicApiKey String?
+  googlePseApiKey String?
+  googlePseCx String?
   ingestEnabled Boolean @default(false)
   ingestMaxCandidatesPerVenueRun Int?
   ingestDuplicateSimilarityThreshold Int?

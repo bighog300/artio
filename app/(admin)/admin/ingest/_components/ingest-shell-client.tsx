@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 type Props = {
-  stats: { high: number; medium: number; low: number; total: number; failedLast24h: number };
+  stats: { high: number; medium: number; low: number; total: number; failedLast24h: number; pendingArtists: number };
   children: React.ReactNode;
 };
 
@@ -67,6 +67,12 @@ export default function IngestShellClient({ stats, children }: Props) {
           className={`rounded-t-md px-3 py-2 text-sm ${pathname === "/admin/ingest" ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
           Event Queue
+        </Link>
+        <Link
+          href="/admin/ingest/artists"
+          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artists") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          Artists {stats.pendingArtists > 0 ? `(${stats.pendingArtists})` : ""}
         </Link>
         <Link
           href="/admin/ingest/runs"

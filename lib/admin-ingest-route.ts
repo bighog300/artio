@@ -11,6 +11,7 @@ import { getRequestId } from "@/lib/request-id";
 import { parseBody, zodDetails } from "@/lib/validators";
 import { inferTimezoneFromLatLng } from "@/lib/timezone";
 import { getAdminIngestHealthData } from "@/lib/ingest/health-query";
+import { discoverArtist } from "@/lib/ingest/artist-discovery";
 
 type AdminActor = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN" };
 
@@ -402,6 +403,52 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
             })),
             skipDuplicates: true,
           });
+        }
+      }
+
+      if (process.env.AI_ARTIST_INGEST_ENABLED === "1") {
+        const unmatchedNames = (candidate.artistNames ?? []).filter(
+          (name) => !matchedArtists.some(
+            (a) => a.name.toLowerCase() === name.toLowerCase(),
+          ),
+        );
+
+        if (unmatchedNames.length > 0) {
+          const settings = await tx.siteSettings.findUnique({
+            where: { id: "default" },
+            select: {
+              googlePseApiKey: true,
+              googlePseCx: true,
+              artistLookupProvider: true,
+              artistBioProvider: true,
+              geminiApiKey: true,
+              anthropicApiKey: true,
+              openAiApiKey: true,
+            },
+          });
+
+          const artistSettings = {
+            googlePseApiKey: settings?.googlePseApiKey ?? process.env.GOOGLE_PSE_API_KEY,
+            googlePseCx: settings?.googlePseCx ?? process.env.GOOGLE_PSE_CX,
+            artistLookupProvider: settings?.artistLookupProvider,
+            artistBioProvider: settings?.artistBioProvider,
+            geminiApiKey: settings?.geminiApiKey,
+            anthropicApiKey: settings?.anthropicApiKey,
+            openAiApiKey: settings?.openAiApiKey,
+          };
+
+          Promise.all(
+            unmatchedNames.map((name) =>
+              discoverArtist({
+                db: tx,
+                artistName: name,
+                eventId: createdEvent.id,
+                settings: artistSettings,
+              }).catch((err) =>
+                console.error("[artist-discovery] failed for", name, err),
+              ),
+            ),
+          ).catch(() => {});
         }
       }
 

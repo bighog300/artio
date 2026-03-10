@@ -13,6 +13,8 @@ type IngestSettingsProps = {
     openAiApiKeySet: boolean;
     geminiApiKeySet: boolean;
     anthropicApiKeySet: boolean;
+    googlePseApiKeySet: boolean;
+    googlePseCx: string | null;
     eventExtractionProvider: string | null;
     artworkExtractionProvider: string | null;
     artistLookupProvider: string | null;
@@ -36,6 +38,9 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
   const [showGeminiApiKey, setShowGeminiApiKey] = useState(false);
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [showAnthropicApiKey, setShowAnthropicApiKey] = useState(false);
+  const [googlePseApiKey, setGooglePseApiKey] = useState("");
+  const [showGooglePseApiKey, setShowGooglePseApiKey] = useState(false);
+  const [googlePseCx, setGooglePseCx] = useState(props.initial.googlePseCx ?? "");
   const [eventExtractionProvider, setEventExtractionProvider] = useState<ProviderName>((props.initial.eventExtractionProvider as ProviderName | null) ?? "openai");
   const [artworkExtractionProvider, setArtworkExtractionProvider] = useState<ProviderName>((props.initial.artworkExtractionProvider as ProviderName | null) ?? "claude");
   const [artistLookupProvider, setArtistLookupProvider] = useState<ProviderName>((props.initial.artistLookupProvider as ProviderName | null) ?? "gemini");
@@ -65,6 +70,8 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
         openAiApiKey: showOpenAiApiKey ? (openAiApiKey.trim() || null) : undefined,
         geminiApiKey: showGeminiApiKey ? (geminiApiKey.trim() || null) : undefined,
         anthropicApiKey: showAnthropicApiKey ? (anthropicApiKey.trim() || null) : undefined,
+        googlePseApiKey: showGooglePseApiKey ? (googlePseApiKey.trim() || null) : undefined,
+        googlePseCx: googlePseCx.trim() || null,
         eventExtractionProvider,
         artworkExtractionProvider,
         artistLookupProvider,
@@ -101,6 +108,8 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
       setShowGeminiApiKey(false);
       setAnthropicApiKey("");
       setShowAnthropicApiKey(false);
+      setGooglePseApiKey("");
+      setShowGooglePseApiKey(false);
     } finally {
       setSaving(false);
     }
@@ -139,6 +148,20 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
         ) : (
           <div className="text-xs text-muted-foreground">{props.initial.anthropicApiKeySet ? "API key is currently set." : "No API key set."} <button type="button" className="underline" onClick={() => setShowAnthropicApiKey(true)}>Change</button></div>
         )}
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium" htmlFor="google-pse-key">Google PSE API Key</label>
+        {showGooglePseApiKey ? (
+          <input id="google-pse-key" type="password" className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={googlePseApiKey} onChange={(e) => { setGooglePseApiKey(e.target.value); setStatus("idle"); }} placeholder={props.initial.googlePseApiKeySet ? "•••••••• (stored)" : "AIza..."} />
+        ) : (
+          <div className="text-xs text-muted-foreground">{props.initial.googlePseApiKeySet ? "API key is currently set." : "No API key set."} <button type="button" className="underline" onClick={() => setShowGooglePseApiKey(true)}>Change</button></div>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium" htmlFor="google-pse-cx">Google PSE Context ID (cx)</label>
+        <input id="google-pse-cx" type="text" className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={googlePseCx} onChange={(e) => { setGooglePseCx(e.target.value); setStatus("idle"); }} placeholder="Search engine cx" />
       </div>
 
       <div className="space-y-2">
