@@ -5,6 +5,16 @@ import { runSavedSearchEvents } from "@/lib/saved-searches";
 
 const MAX_CANDIDATES = 400;
 const SOURCE_CAPS = { follows: 200, saved: 100, nearby: 100, affinity: 150 } as const;
+const TAG_CATEGORY_WEIGHTS: Record<string, number> = {
+  medium: 4,
+  genre: 3,
+  movement: 3,
+  mood: 1,
+};
+
+function tagCategoryWeight(category: string | null | undefined): number {
+  return TAG_CATEGORY_WEIGHTS[category ?? ""] ?? 1;
+}
 
 type CandidateEvent = {
   id: string;
@@ -17,7 +27,7 @@ type CandidateEvent = {
   venue: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null;
   images: Array<{ url: string; asset: { url: string } | null }>;
   eventArtists: Array<{ artistId: string }>;
-  eventTags: Array<{ tagId: string; tag: { slug: string } }>;
+  eventTags: Array<{ tagId: string; tag: { slug: string; category: string } }>;
 };
 
 export type EventListItem = {
@@ -116,8 +126,11 @@ export function scoreForYouEvents(args: {
       score += 5;
       reasons.push("Similar to artists you clicked recently");
     }
-    if (event.eventTags.some((tag) => args.affinityTagIds.has(tag.tagId))) {
-      score += 3;
+    const affinityTagScore = event.eventTags.reduce((total, tag) => (
+      args.affinityTagIds.has(tag.tagId) ? total + tagCategoryWeight(tag.tag.category) : total
+    ), 0);
+    if (affinityTagScore > 0) {
+      score += affinityTagScore;
       reasons.push("Has tags you engage with");
     }
 
@@ -269,7 +282,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     const idsToLoad = Array.from(new Set([...clickedEventIds, ...likedEventIds, ...dislikedEventIds]));
     const clickedEvents = await db.event.findMany({
       where: { id: { in: idsToLoad } },
-      select: { id: true, venueId: true, eventArtists: { select: { artistId: true } }, eventTags: { select: { tagId: true } } },
+      select: { id: true, venueId: true, eventArtists: { select: { artistId: true } }, eventTags: { select: { tagId: true, tag: { select: { category: true } } } } },
     });
 
     const top = (counts: Map<string, number>) => new Set(Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 10).map(([id]) => id));
@@ -342,7 +355,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
       venue: { select: { name: true, slug: true, city: true, lat: true, lng: true } },
       images: { take: 1, orderBy: { sortOrder: "asc" }, select: { url: true, asset: { select: { url: true } } } },
       eventArtists: { select: { artistId: true } },
-      eventTags: { select: { tagId: true, tag: { select: { slug: true } } } },
+      eventTags: { select: { tagId: true, tag: { select: { slug: true, category: true } } } },
     },
   });
 
