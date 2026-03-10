@@ -13,6 +13,8 @@ type ArtistCardProps = {
   imageUrl?: string | null;
   bio?: string | null;
   tags?: string[];
+  artworkCount?: number;
+  forSaleCount?: number;
   isAuthenticated: boolean;
   initialFollowing?: boolean;
   artistId: string;
@@ -24,6 +26,8 @@ export function ArtistCard({
   imageUrl,
   bio,
   tags = [],
+  artworkCount,
+  forSaleCount,
   isAuthenticated,
   initialFollowing = false,
   artistId,
@@ -69,6 +73,17 @@ export function ArtistCard({
               #{tag}
             </button>
           ))}
+        </div>
+      ) : null}
+
+      {(artworkCount ?? 0) > 0 ? (
+        <div className="flex items-center gap-2 border-t px-3 py-2 text-xs text-muted-foreground">
+          <span>
+            {artworkCount} artwork{artworkCount === 1 ? "" : "s"}
+          </span>
+          {(forSaleCount ?? 0) > 0 ? (
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 text-xs">{forSaleCount} for sale</span>
+          ) : null}
         </div>
       ) : null}
     </article>

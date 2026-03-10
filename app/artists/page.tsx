@@ -11,6 +11,20 @@ import { resolveEntityPrimaryImage } from "@/lib/public-images";
 export const revalidate = 300;
 const fixturesEnabled = getUiFixturesEnabled();
 
+type ArtistListItem = {
+  id: string;
+  name: string;
+  slug: string;
+  bio: string | null;
+  avatarImageUrl: string | null;
+  imageAlt: string | null;
+  tags: string[];
+  followersCount: number;
+  isFollowing: boolean;
+  artworkCount: number;
+  forSaleCount: number;
+};
+
 export default async function ArtistsPage() {
   const user = await getSessionUser();
   let total = 0;
@@ -24,7 +38,7 @@ export default async function ArtistsPage() {
     );
   }
 
-  let artists: Array<{ id: string; name: string; slug: string; bio: string | null; avatarImageUrl: string | null; imageAlt: string | null; tags: string[]; followersCount: number; isFollowing: boolean; artworkCount: number }> = [];
+  let artists: ArtistListItem[] = [];
 
   if (hasDatabaseUrl()) {
     const dbArtists = await db.artist.findMany({
@@ -44,16 +58,29 @@ export default async function ArtistsPage() {
       },
     });
     const ids = dbArtists.map((artist) => artist.id);
-    const [followerCounts, userFollows, artworkCounts, artistCount] = await Promise.all([
+    const [followerCounts, userFollows, artworkCounts, forSaleCounts, artistCount] = await Promise.all([
       ids.length ? db.follow.groupBy({ by: ["targetId"], where: { targetType: "ARTIST", targetId: { in: ids } }, _count: { _all: true } }) : Promise.resolve([]),
       user && ids.length ? db.follow.findMany({ where: { userId: user.id, targetType: "ARTIST", targetId: { in: ids } }, select: { targetId: true } }) : Promise.resolve([]),
       ids.length ? db.artwork.groupBy({ by: ["artistId"], where: { isPublished: true, deletedAt: null, artistId: { in: ids } }, _count: { _all: true } }) : Promise.resolve([]),
+      ids.length
+        ? db.artwork.groupBy({
+            by: ["artistId"],
+            where: {
+              isPublished: true,
+              deletedAt: null,
+              artistId: { in: ids },
+              priceAmount: { not: null },
+            },
+            _count: { _all: true },
+          })
+        : Promise.resolve([]),
       db.artist.count({ where: { isPublished: true, deletedAt: null } }),
     ]);
     total = artistCount;
     const countById = new Map(followerCounts.map((entry) => [entry.targetId, entry._count._all]));
     const followedSet = new Set(userFollows.map((row) => row.targetId));
     const artworkCountByArtistId = new Map(artworkCounts.map((entry) => [entry.artistId, entry._count._all]));
+    const forSaleCountByArtistId = new Map(forSaleCounts.map((entry) => [entry.artistId, entry._count._all]));
     artists = dbArtists.map((artist) => ({
       id: artist.id,
       name: artist.name,
@@ -68,9 +95,10 @@ export default async function ArtistsPage() {
       followersCount: countById.get(artist.id) ?? 0,
       isFollowing: followedSet.has(artist.id),
       artworkCount: artworkCountByArtistId.get(artist.id) ?? 0,
+      forSaleCount: forSaleCountByArtistId.get(artist.id) ?? 0,
     }));
   } else {
-    artists = uiFixtureArtists.map((artist) => ({ ...artist, avatarImageUrl: resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl, imageAlt: resolveEntityPrimaryImage(artist)?.alt ?? artist.name, tags: artist.tags ?? [], followersCount: 0, isFollowing: false, artworkCount: 0 }));
+    artists = uiFixtureArtists.map((artist) => ({ ...artist, avatarImageUrl: resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl, imageAlt: resolveEntityPrimaryImage(artist)?.alt ?? artist.name, tags: artist.tags ?? [], followersCount: 0, isFollowing: false, artworkCount: 0, forSaleCount: 0 }));
     total = artists.length;
   }
 
