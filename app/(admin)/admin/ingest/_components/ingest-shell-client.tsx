@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 type Props = {
-  stats: { high: number; medium: number; low: number; total: number; failedLast24h: number; pendingArtists: number };
+  stats: { high: number; medium: number; low: number; total: number; failedLast24h: number; pendingArtists: number; pendingArtworks: number };
   children: React.ReactNode;
 };
 
@@ -73,6 +73,12 @@ export default function IngestShellClient({ stats, children }: Props) {
           className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artists") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
           Artists {stats.pendingArtists > 0 ? `(${stats.pendingArtists})` : ""}
+        </Link>
+        <Link
+          href="/admin/ingest/artworks"
+          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artworks") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          Artworks {stats.pendingArtworks > 0 ? `(${stats.pendingArtworks})` : ""}
         </Link>
         <Link
           href="/admin/ingest/runs"

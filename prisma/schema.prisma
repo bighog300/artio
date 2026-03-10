@@ -185,6 +185,13 @@ enum IngestArtistStatus {
   DUPLICATE
 }
 
+enum IngestArtworkStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DUPLICATE
+}
+
 enum FavoriteTargetType {
   EVENT
   VENUE
@@ -706,6 +713,7 @@ model Event {
   promoCodes    PromoCode[]
   ingestExtractedCandidate IngestExtractedEvent? @relation("IngestExtractedEventCreatedEvent")
   artistDiscoveryLinks IngestExtractedArtistEvent[]
+  extractedArtworks  IngestExtractedArtwork[] @relation("IngestExtractedArtworkSourceEvent")
 
   @@index([startAt])
   @@index([isPublished])
@@ -940,6 +948,33 @@ model IngestExtractedArtistRun {
   usageTotalTokens  Int?
   createdAt         DateTime              @default(now()) @db.Timestamptz
   artistCandidate   IngestExtractedArtist @relation(fields: [artistCandidateId], references: [id], onDelete: Cascade)
+}
+
+model IngestExtractedArtwork {
+  id                 String              @id @default(uuid()) @db.Uuid
+  title              String
+  medium             String?
+  year               Int?
+  dimensions         String?
+  description        String?
+  imageUrl           String?
+  artistName         String?
+  sourceEventId      String              @db.Uuid
+  sourceUrl          String
+  status             IngestArtworkStatus @default(PENDING)
+  fingerprint        String              @unique
+  confidenceScore    Int                 @default(0)
+  confidenceBand     String              @default("LOW")
+  confidenceReasons  Json?
+  createdArtworkId   String?             @unique @db.Uuid
+  extractionProvider String
+  createdAt          DateTime            @default(now()) @db.Timestamptz
+  updatedAt          DateTime            @updatedAt @db.Timestamptz
+  sourceEvent        Event               @relation("IngestExtractedArtworkSourceEvent", fields: [sourceEventId], references: [id], onDelete: Cascade)
+  createdArtwork     Artwork?            @relation("IngestExtractedArtworkCreated", fields: [createdArtworkId], references: [id], onDelete: SetNull)
+
+  @@index([status, confidenceScore(sort: Desc)])
+  @@index([sourceEventId])
 }
 
 model VenueMembership {
@@ -1357,6 +1392,7 @@ model Artwork {
   featuredBy      ArtistFeaturedArtwork[]
   curatedItems    CuratedCollectionItem[]
   inquiries      ArtworkInquiry[]
+  ingestCandidate IngestExtractedArtwork?  @relation("IngestExtractedArtworkCreated")
 
   @@index([artistId])
   @@index([isPublished])

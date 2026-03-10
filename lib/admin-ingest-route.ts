@@ -12,6 +12,7 @@ import { parseBody, zodDetails } from "@/lib/validators";
 import { inferTimezoneFromLatLng } from "@/lib/timezone";
 import { getAdminIngestHealthData } from "@/lib/ingest/health-query";
 import { discoverArtist } from "@/lib/ingest/artist-discovery";
+import { extractArtworksForEvent } from "@/lib/ingest/artwork-extraction";
 
 type AdminActor = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN" };
 
@@ -335,6 +336,13 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
             anthropicApiKey: string | null | undefined;
             openAiApiKey: string | null | undefined;
           } | null,
+          artworkSettings: null as {
+            artworkExtractionProvider: string | null | undefined;
+            anthropicApiKey: string | null | undefined;
+            geminiApiKey: string | null | undefined;
+            openAiApiKey: string | null | undefined;
+          } | null,
+          sourceUrl: candidate.sourceUrl,
           imageContext: {
             runId: candidate.runId,
             venueId: candidate.venueId,
@@ -427,6 +435,33 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         openAiApiKey: string | null | undefined;
       } | null = null;
 
+
+      let artworkSettings: {
+        artworkExtractionProvider: string | null | undefined;
+        anthropicApiKey: string | null | undefined;
+        geminiApiKey: string | null | undefined;
+        openAiApiKey: string | null | undefined;
+      } | null = null;
+
+      if (process.env.AI_ARTWORK_INGEST_ENABLED === "1") {
+        const settings = await tx.siteSettings.findUnique({
+          where: { id: "default" },
+          select: {
+            artworkExtractionProvider: true,
+            anthropicApiKey: true,
+            geminiApiKey: true,
+            openAiApiKey: true,
+          },
+        });
+
+        artworkSettings = {
+          artworkExtractionProvider: settings?.artworkExtractionProvider,
+          anthropicApiKey: settings?.anthropicApiKey,
+          geminiApiKey: settings?.geminiApiKey,
+          openAiApiKey: settings?.openAiApiKey,
+        };
+      }
+
       if (process.env.AI_ARTIST_INGEST_ENABLED === "1") {
         unmatchedNames = (candidate.artistNames ?? []).filter(
           (name) => !matchedArtists.some(
@@ -496,6 +531,8 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         createdEventId: createdEvent.id,
         unmatchedNames,
         artistSettings,
+        artworkSettings,
+        sourceUrl: candidate.sourceUrl,
         linkedArtistCount: matchedArtists.length,
         imageContext: {
           runId: candidate.runId,
@@ -528,6 +565,25 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
           ),
         ),
       ).catch(() => {});
+    }
+
+    if (
+      process.env.AI_ARTWORK_INGEST_ENABLED === "1" &&
+      approved.sourceUrl
+    ) {
+      extractArtworksForEvent({
+        db: resolved.appDb,
+        eventId: approved.createdEventId,
+        sourceUrl: approved.sourceUrl,
+        settings: {
+          artworkExtractionProvider: approved.artworkSettings?.artworkExtractionProvider,
+          claudeApiKey: approved.artworkSettings?.anthropicApiKey,
+          geminiApiKey: approved.artworkSettings?.geminiApiKey,
+          openAiApiKey: approved.artworkSettings?.openAiApiKey,
+        },
+      }).catch((err) =>
+        console.error("[artwork-extraction] failed for event", approved.createdEventId, err)
+      );
     }
 
     let imageWarning: string | null = null;
