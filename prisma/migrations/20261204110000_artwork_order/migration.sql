@@ -21,7 +21,7 @@ CREATE TABLE "ArtworkOrder" (
   CONSTRAINT "ArtworkOrder_artworkId_fkey"
     FOREIGN KEY ("artworkId") REFERENCES "Artwork"("id") ON DELETE RESTRICT,
   CONSTRAINT "ArtworkOrder_buyerUserId_fkey"
-    FOREIGN KEY ("buyerUserId") REFERENCES "User"("id") ON DELETE SetNull
+    FOREIGN KEY ("buyerUserId") REFERENCES "User"("id") ON DELETE SET NULL
 );
 
 CREATE INDEX "ArtworkOrder_artworkId_idx" ON "ArtworkOrder"("artworkId");
