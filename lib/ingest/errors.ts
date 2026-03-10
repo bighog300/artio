@@ -7,6 +7,8 @@ export const INGEST_ERROR_CODES = [
   "FETCH_FAILED",
   "UNSUPPORTED_CONTENT_TYPE",
   "BAD_MODEL_OUTPUT",
+  "CONFIG_ERROR",
+  "PROVIDER_ERROR",
 ] as const;
 
 export type IngestErrorCode = (typeof INGEST_ERROR_CODES)[number];

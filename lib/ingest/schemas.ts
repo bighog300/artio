@@ -1,6 +1,48 @@
 import { z } from "zod";
 import { IngestError } from "@/lib/ingest/errors";
 
+export type VenueSnapshot = {
+  venueDescription?: string | null;
+  venueCoverImageUrl?: string | null;
+  venueOpeningHours?: string | null;
+  venueContactEmail?: string | null;
+  venueInstagramUrl?: string | null;
+  venueFacebookUrl?: string | null;
+};
+
+export const extractionJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["events", "venueDescription", "venueCoverImageUrl", "venueOpeningHours", "venueContactEmail", "venueInstagramUrl", "venueFacebookUrl"],
+  properties: {
+    events: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "startAt", "endAt", "timezone", "locationText", "description", "sourceUrl", "artistNames", "imageUrl"],
+        properties: {
+          title: { type: "string", minLength: 1 },
+          startAt: { type: ["string", "null"] },
+          endAt: { type: ["string", "null"] },
+          timezone: { type: ["string", "null"] },
+          locationText: { type: ["string", "null"] },
+          description: { type: ["string", "null"] },
+          sourceUrl: { type: ["string", "null"] },
+          artistNames: { type: "array", items: { type: "string" } },
+          imageUrl: { type: ["string", "null"] },
+        },
+      },
+    },
+    venueDescription: { type: ["string", "null"] },
+    venueCoverImageUrl: { type: ["string", "null"] },
+    venueOpeningHours: { type: ["string", "null"] },
+    venueContactEmail: { type: ["string", "null"] },
+    venueInstagramUrl: { type: ["string", "null"] },
+    venueFacebookUrl: { type: ["string", "null"] },
+  },
+} as const;
+
 const extractedEventSchema = z.object({
   title: z.string().trim().min(1),
   startAt: z.string().nullable().optional(),

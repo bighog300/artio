@@ -3,17 +3,18 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { IngestError } from "@/lib/ingest/errors";
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
-import { extractEventsWithOpenAI, type ExtractUsage, type VenueSnapshot } from "@/lib/ingest/openai-extract";
+import { extractEventsWithOpenAI, type ExtractUsage } from "@/lib/ingest/openai-extract";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
 import { fetchImageWithGuards } from "@/lib/ingest/fetch-image";
 import { uploadCandidateImageToBlob } from "@/lib/blob/upload-image";
 import { computeConfidence, sanitizeReasons } from "@/lib/ingest/confidence";
 import { extractJsonLdEvents } from "@/lib/ingest/jsonld-extract";
-import { parseExtractedEventsFromModel, type NormalizedExtractedEvent } from "@/lib/ingest/schemas";
+import { extractionJsonSchema, parseExtractedEventsFromModel, type NormalizedExtractedEvent, type VenueSnapshot } from "@/lib/ingest/schemas";
 import { clusterCandidates, computeSimilarityKey, scoreSimilarity } from "@/lib/ingest/similarity";
 import { inferTimezoneFromLatLng } from "@/lib/timezone";
 import { detectPlatform, getPlatformPromptHint, isJsRenderedPlatform, type Platform } from "@/lib/ingest/detect-platform";
 import { enrichVenueFromSnapshot } from "@/lib/ingest/enrich-venue-from-snapshot";
+import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 
 
 function resolveRelativeImageUrl(imageUrl: string | null | undefined, baseUrl: string): string | null {
@@ -33,6 +34,95 @@ const DEFAULT_DUPLICATE_LOOKBACK_DAYS = 30;
 const DEFAULT_DURATION_MINUTES = 120;
 
 const CANDIDATE_CAP_STOP_REASON = "CANDIDATE_CAP_REACHED";
+
+const DEFAULT_SYSTEM_PROMPT_LINES = [
+  "You are extracting structured data from a venue website. Your output must contain",
+  "two things: a list of upcoming events, and venue profile data observed from the same page.",
+  "",
+  "EVENTS",
+  "Extract ONLY upcoming events (startAt in the future). Ignore navigation links,",
+  "past events, and page furniture. For artistNames return only names clearly",
+  "attributed to this event — do not include venue staff or sponsors.",
+  "For imageUrl: find the image specific to THIS event — look first in any",
+  "application/ld+json script blocks for an Event or ExhibitionEvent 'image'",
+  "property, then in <img> tags adjacent to the event title or description,",
+  "then in og:image meta tags only if the page covers a single event.",
+  "Do NOT return the venue's global hero, banner, or logo image.",
+  "If the src is relative, return it as-is — do not attempt to resolve it.",
+  "If no event-specific image is found, return null.",
+  "",
+  "VENUE PROFILE",
+  "Extract the following from the page. Only return values you are confident about —",
+  "if unsure, return null. Do not invent values.",
+  "venueDescription: A factual 1-3 sentence description of the venue. Null if insufficient.",
+  "venueCoverImageUrl: Primary image of the venue itself — exterior, interior, or official",
+  "venue image. Use og:image only if clearly a venue image not event-specific.",
+  "Do not return event artwork. Return relative src as-is. Null if not found.",
+  "venueOpeningHours: Opening hours as a plain string if present. Null if not found.",
+  "venueContactEmail: General contact email visible on the page. Null if not found.",
+  "venueInstagramUrl: Full https:// URL of the venue Instagram profile. Null if not found.",
+  "venueFacebookUrl: Full https:// URL of the venue Facebook page. Null if not found.",
+  "Return results in the provided schema.",
+] as const;
+
+function buildExtractionSystemPrompt(params: {
+  ingestSystemPrompt: string | null | undefined;
+  platformHint: string | null;
+  venueContext?: { name: string; address: string | null };
+}): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const venueLine = params.venueContext
+    ? `Venue name: ${params.venueContext.name}${params.venueContext.address ? `\nVenue address: ${params.venueContext.address}` : ""}`
+    : "";
+
+  const staticPromptLines = params.ingestSystemPrompt?.trim()
+    ? [params.ingestSystemPrompt.trim()]
+    : [...DEFAULT_SYSTEM_PROMPT_LINES];
+
+  return [
+    "You are extracting upcoming art events from a venue website.",
+    venueLine,
+    `Today's date: ${today}`,
+    params.platformHint,
+    "",
+    ...staticPromptLines,
+  ].filter(Boolean).join("\n");
+}
+
+function extractVenueSnapshot(raw: Record<string, unknown>): VenueSnapshot {
+  return {
+    venueDescription: typeof raw.venueDescription === "string" ? raw.venueDescription.trim() || null : null,
+    venueCoverImageUrl: typeof raw.venueCoverImageUrl === "string" ? raw.venueCoverImageUrl.trim() || null : null,
+    venueOpeningHours: typeof raw.venueOpeningHours === "string" ? raw.venueOpeningHours.trim() || null : null,
+    venueContactEmail: typeof raw.venueContactEmail === "string" ? raw.venueContactEmail.trim() || null : null,
+    venueInstagramUrl: typeof raw.venueInstagramUrl === "string" ? raw.venueInstagramUrl.trim() || null : null,
+    venueFacebookUrl: typeof raw.venueFacebookUrl === "string" ? raw.venueFacebookUrl.trim() || null : null,
+  };
+}
+
+function resolveProviderApiKey(
+  provider: "openai" | "gemini" | "claude",
+  settings: { openAiApiKey?: string | null; geminiApiKey?: string | null; anthropicApiKey?: string | null } | null,
+  env: NodeJS.ProcessEnv,
+): string {
+  switch (provider) {
+    case "gemini": {
+      const key = settings?.geminiApiKey ?? env.GEMINI_API_KEY;
+      if (!key) throw new IngestError("CONFIG_ERROR", "Gemini provider selected but GEMINI_API_KEY is not set");
+      return key;
+    }
+    case "claude": {
+      const key = settings?.anthropicApiKey ?? env.ANTHROPIC_API_KEY;
+      if (!key) throw new IngestError("CONFIG_ERROR", "Claude provider selected but ANTHROPIC_API_KEY is not set");
+      return key;
+    }
+    default: {
+      const key = settings?.openAiApiKey ?? env.OPENAI_API_KEY;
+      if (!key) throw new IngestError("CONFIG_ERROR", "OpenAI provider selected but OPENAI_API_KEY is not set");
+      return key;
+    }
+  }
+}
 
 type RunIngestParams = {
   venueId: string;
@@ -267,6 +357,9 @@ export async function runVenueIngestExtraction(
         ingestModel: true,
         ingestMaxOutputTokens: true,
         openAiApiKey: true,
+        geminiApiKey: true,
+        anthropicApiKey: true,
+        eventExtractionProvider: true,
         ingestEnabled: true,
         ingestMaxCandidatesPerVenueRun: true,
         ingestDuplicateSimilarityThreshold: true,
@@ -299,38 +392,78 @@ export async function runVenueIngestExtraction(
         return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
       }
 
-      const openAiApiKey = settings?.openAiApiKey ?? process.env.OPENAI_API_KEY;
-      if (!openAiApiKey) {
-        await markRunFailed(store, run.id, startedAtMs, "MISSING_OPENAI_KEY", "OPENAI_API_KEY is not configured");
-        return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
-      }
+      const platformHint = getPlatformPromptHint(detectedPlatform);
+      const venueContext = venue
+        ? {
+            name: venue.name,
+            address: [venue.addressLine1, venue.city].filter(Boolean).join(", ") || null,
+          }
+        : undefined;
 
-      const extracted = await extractWithOpenAI({
-        html: fetched.html,
-        sourceUrl: fetched.finalUrl,
-        model: params.model,
-        systemPromptOverride: settings?.ingestSystemPrompt ?? null,
-        modelOverride: settings?.ingestModel ?? null,
-        maxOutputTokensOverride: settings?.ingestMaxOutputTokens ?? null,
-        openAiApiKeyOverride: openAiApiKey,
-        platformHint: getPlatformPromptHint(detectedPlatform),
-        venueContext: venue
-          ? {
-              name: venue.name,
-              address: [venue.addressLine1, venue.city].filter(Boolean).join(", ") || null,
-            }
-          : undefined,
-      });
-      normalized = parseExtractedEventsFromModel(extracted.events).map((event) => normalizeSchedulingFields(event, {
-        fallbackSourceUrl: fetched.finalUrl,
-        venueCountry: venue?.country ?? null,
-        venueLat: venue?.lat ?? null,
-        venueLng: venue?.lng ?? null,
-      }));
-      extractionMethod = "openai";
-      extractedModel = extracted.model;
-      extractedUsage = extracted.usage;
-      extractedVenueSnapshot = extracted.venueSnapshot;
+      if (deps.extractWithOpenAI) {
+        const openAiApiKey = settings?.openAiApiKey ?? process.env.OPENAI_API_KEY;
+        if (!openAiApiKey) {
+          await markRunFailed(store, run.id, startedAtMs, "MISSING_OPENAI_KEY", "OPENAI_API_KEY is not configured");
+          return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
+        }
+
+        const extracted = await extractWithOpenAI({
+          html: fetched.html,
+          sourceUrl: fetched.finalUrl,
+          model: params.model,
+          systemPromptOverride: settings?.ingestSystemPrompt ?? null,
+          modelOverride: settings?.ingestModel ?? null,
+          maxOutputTokensOverride: settings?.ingestMaxOutputTokens ?? null,
+          openAiApiKeyOverride: openAiApiKey,
+          platformHint,
+          venueContext,
+        });
+        normalized = parseExtractedEventsFromModel(extracted.events).map((event) => normalizeSchedulingFields(event, {
+          fallbackSourceUrl: fetched.finalUrl,
+          venueCountry: venue?.country ?? null,
+          venueLat: venue?.lat ?? null,
+          venueLng: venue?.lng ?? null,
+        }));
+        extractionMethod = "openai";
+        extractedModel = extracted.model;
+        extractedUsage = extracted.usage;
+        extractedVenueSnapshot = extracted.venueSnapshot;
+      } else {
+        const provider = getProvider(settings?.eventExtractionProvider as ProviderName | null);
+        const providerApiKey = resolveProviderApiKey(provider.name, settings, process.env);
+        const systemPrompt = buildExtractionSystemPrompt({
+          ingestSystemPrompt: settings?.ingestSystemPrompt,
+          platformHint,
+          venueContext,
+        });
+
+        const extracted = await provider.extract({
+          html: fetched.html,
+          sourceUrl: fetched.finalUrl,
+          systemPrompt,
+          jsonSchema: extractionJsonSchema,
+          model: params.model?.trim() || settings?.ingestModel?.trim() || "",
+          apiKey: providerApiKey,
+          maxOutputTokens: settings?.ingestMaxOutputTokens ?? undefined,
+        });
+
+        if (!extracted.raw || typeof extracted.raw !== "object" || !Array.isArray((extracted.raw as { events?: unknown }).events)) {
+          throw new IngestError("BAD_MODEL_OUTPUT", "Model output did not match expected event schema");
+        }
+
+        const rawObject = extracted.raw as Record<string, unknown>;
+        const eventsRaw = rawObject.events;
+        normalized = parseExtractedEventsFromModel(eventsRaw).map((event) => normalizeSchedulingFields(event, {
+          fallbackSourceUrl: fetched.finalUrl,
+          venueCountry: venue?.country ?? null,
+          venueLat: venue?.lat ?? null,
+          venueLng: venue?.lng ?? null,
+        }));
+        extractionMethod = "openai";
+        extractedModel = extracted.model;
+        extractedUsage = extracted.usage;
+        extractedVenueSnapshot = extractVenueSnapshot(rawObject);
+      }
     }
     const totalCandidatesReturned = normalized.length;
     const maxCandidates = getMaxCandidatesPerVenueRun(settings?.ingestMaxCandidatesPerVenueRun);

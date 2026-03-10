@@ -17,6 +17,13 @@ export async function updateSiteSettings(data: {
   emailOutboxBatchSize?: number | null;
   analyticsSalt?: string | null;
   openAiApiKey?: string | null;
+  geminiApiKey?: string | null;
+  anthropicApiKey?: string | null;
+  eventExtractionProvider?: "openai" | "gemini" | "claude" | null;
+  venueEnrichmentProvider?: "openai" | "gemini" | "claude" | null;
+  artistLookupProvider?: "openai" | "gemini" | "claude" | null;
+  artistBioProvider?: "openai" | "gemini" | "claude" | null;
+  artworkExtractionProvider?: "openai" | "gemini" | "claude" | null;
   ingestEnabled?: boolean;
   ingestMaxCandidatesPerVenueRun?: number | null;
   ingestDuplicateSimilarityThreshold?: number | null;

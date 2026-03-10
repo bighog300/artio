@@ -3,12 +3,20 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
+type ProviderName = "openai" | "gemini" | "claude";
+
 type IngestSettingsProps = {
   initial: {
     ingestSystemPrompt: string | null;
     ingestModel: string | null;
     ingestMaxOutputTokens: number | null;
     openAiApiKeySet: boolean;
+    geminiApiKeySet: boolean;
+    anthropicApiKeySet: boolean;
+    eventExtractionProvider: string | null;
+    artworkExtractionProvider: string | null;
+    artistLookupProvider: string | null;
+    artistBioProvider: string | null;
     ingestEnabled: boolean;
     ingestImageEnabled: boolean;
     venueAutoPublish: boolean;
@@ -24,6 +32,14 @@ type IngestSettingsProps = {
 export default function IngestSettingsClient(props: IngestSettingsProps) {
   const [openAiApiKey, setOpenAiApiKey] = useState("");
   const [showOpenAiApiKey, setShowOpenAiApiKey] = useState(false);
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [showGeminiApiKey, setShowGeminiApiKey] = useState(false);
+  const [anthropicApiKey, setAnthropicApiKey] = useState("");
+  const [showAnthropicApiKey, setShowAnthropicApiKey] = useState(false);
+  const [eventExtractionProvider, setEventExtractionProvider] = useState<ProviderName>((props.initial.eventExtractionProvider as ProviderName | null) ?? "openai");
+  const [artworkExtractionProvider, setArtworkExtractionProvider] = useState<ProviderName>((props.initial.artworkExtractionProvider as ProviderName | null) ?? "claude");
+  const [artistLookupProvider, setArtistLookupProvider] = useState<ProviderName>((props.initial.artistLookupProvider as ProviderName | null) ?? "gemini");
+  const [artistBioProvider, setArtistBioProvider] = useState<ProviderName>((props.initial.artistBioProvider as ProviderName | null) ?? "claude");
   const [ingestEnabled, setIngestEnabled] = useState(props.initial.ingestEnabled);
   const [ingestImageEnabled, setIngestImageEnabled] = useState(props.initial.ingestImageEnabled);
   const [venueAutoPublish, setVenueAutoPublish] = useState(props.initial.venueAutoPublish);
@@ -47,6 +63,12 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
     try {
       const body = {
         openAiApiKey: showOpenAiApiKey ? (openAiApiKey.trim() || null) : undefined,
+        geminiApiKey: showGeminiApiKey ? (geminiApiKey.trim() || null) : undefined,
+        anthropicApiKey: showAnthropicApiKey ? (anthropicApiKey.trim() || null) : undefined,
+        eventExtractionProvider,
+        artworkExtractionProvider,
+        artistLookupProvider,
+        artistBioProvider,
         ingestEnabled,
         ingestImageEnabled,
         venueAutoPublish,
@@ -75,6 +97,10 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
       setStatus("saved");
       setOpenAiApiKey("");
       setShowOpenAiApiKey(false);
+      setGeminiApiKey("");
+      setShowGeminiApiKey(false);
+      setAnthropicApiKey("");
+      setShowAnthropicApiKey(false);
     } finally {
       setSaving(false);
     }
@@ -95,6 +121,62 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
         ) : (
           <div className="text-xs text-muted-foreground">{props.initial.openAiApiKeySet ? "API key is currently set." : "No API key set."} <button type="button" className="underline" onClick={() => setShowOpenAiApiKey(true)}>Change</button></div>
         )}
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium" htmlFor="gemini-key">Gemini API key</label>
+        {showGeminiApiKey ? (
+          <input id="gemini-key" type="password" className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={geminiApiKey} onChange={(e) => { setGeminiApiKey(e.target.value); setStatus("idle"); }} placeholder={props.initial.geminiApiKeySet ? "•••••••• (stored)" : "AIza..."} />
+        ) : (
+          <div className="text-xs text-muted-foreground">{props.initial.geminiApiKeySet ? "API key is currently set." : "No API key set."} <button type="button" className="underline" onClick={() => setShowGeminiApiKey(true)}>Change</button></div>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium" htmlFor="anthropic-key">Anthropic API key</label>
+        {showAnthropicApiKey ? (
+          <input id="anthropic-key" type="password" className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={anthropicApiKey} onChange={(e) => { setAnthropicApiKey(e.target.value); setStatus("idle"); }} placeholder={props.initial.anthropicApiKeySet ? "•••••••• (stored)" : "sk-ant-..."} />
+        ) : (
+          <div className="text-xs text-muted-foreground">{props.initial.anthropicApiKeySet ? "API key is currently set." : "No API key set."} <button type="button" className="underline" onClick={() => setShowAnthropicApiKey(true)}>Change</button></div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium">Extraction providers</h3>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-1 text-sm">
+            <span>Event extraction provider</span>
+            <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={eventExtractionProvider} onChange={(e) => { setEventExtractionProvider(e.target.value as ProviderName); setStatus("idle"); }}>
+              <option value="openai">OpenAI</option>
+              <option value="gemini">Gemini</option>
+              <option value="claude">Claude</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            <span>Artwork extraction provider</span>
+            <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={artworkExtractionProvider} onChange={(e) => { setArtworkExtractionProvider(e.target.value as ProviderName); setStatus("idle"); }}>
+              <option value="openai">OpenAI</option>
+              <option value="gemini">Gemini</option>
+              <option value="claude">Claude</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            <span>Artist lookup provider</span>
+            <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={artistLookupProvider} onChange={(e) => { setArtistLookupProvider(e.target.value as ProviderName); setStatus("idle"); }}>
+              <option value="openai">OpenAI</option>
+              <option value="gemini">Gemini</option>
+              <option value="claude">Claude</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            <span>Artist bio provider</span>
+            <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={artistBioProvider} onChange={(e) => { setArtistBioProvider(e.target.value as ProviderName); setStatus("idle"); }}>
+              <option value="openai">OpenAI</option>
+              <option value="gemini">Gemini</option>
+              <option value="claude">Claude</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

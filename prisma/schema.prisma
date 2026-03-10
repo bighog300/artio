@@ -1221,6 +1221,13 @@ model SiteSettings {
   ingestMaxOutputTokens Int?
   analyticsSalt String?
   openAiApiKey String?
+  eventExtractionProvider String?
+  venueEnrichmentProvider String?
+  artistLookupProvider String?
+  artistBioProvider String?
+  artworkExtractionProvider String?
+  geminiApiKey String?
+  anthropicApiKey String?
   ingestEnabled Boolean @default(false)
   ingestMaxCandidatesPerVenueRun Int?
   ingestDuplicateSimilarityThreshold Int?
