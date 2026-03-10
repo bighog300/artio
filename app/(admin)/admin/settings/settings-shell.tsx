@@ -59,6 +59,7 @@ export default function SettingsShell({ initial }: { initial: Record<string, unk
           geminiApiKeySet: Boolean(initial.geminiApiKeySet),
           anthropicApiKeySet: Boolean(initial.anthropicApiKeySet),
           googlePseApiKeySet: Boolean(initial.googlePseApiKeySet),
+          braveSearchApiKeySet: Boolean(initial.braveSearchApiKeySet),
           googlePseCx: (initial.googlePseCx as string | null) ?? null,
           eventExtractionProvider: (initial.eventExtractionProvider as string | null) ?? null,
           artworkExtractionProvider: (initial.artworkExtractionProvider as string | null) ?? null,

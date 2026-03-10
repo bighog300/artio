@@ -192,6 +192,26 @@ enum IngestArtworkStatus {
   DUPLICATE
 }
 
+enum DiscoveryEntityType {
+  VENUE
+  ARTIST
+  EVENT
+}
+
+enum DiscoveryJobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum DiscoveryCandidateStatus {
+  PENDING
+  QUEUED
+  DONE
+  SKIPPED
+}
+
 enum FavoriteTargetType {
   EVENT
   VENUE
@@ -977,6 +997,40 @@ model IngestExtractedArtwork {
   @@index([sourceEventId])
 }
 
+
+model IngestDiscoveryJob {
+  id             String                     @id @default(uuid()) @db.Uuid
+  entityType     DiscoveryEntityType
+  queryTemplate  String
+  region         String                     @default("")
+  searchProvider String                     @default("google_pse")
+  maxResults     Int                        @default(10)
+  status         DiscoveryJobStatus         @default(PENDING)
+  resultsCount   Int?
+  errorMessage   String?
+  createdAt      DateTime                   @default(now()) @db.Timestamptz
+  updatedAt      DateTime                   @updatedAt @db.Timestamptz
+  candidates     IngestDiscoveryCandidate[]
+
+  @@index([status, createdAt(sort: Desc)])
+}
+
+model IngestDiscoveryCandidate {
+  id         String                   @id @default(uuid()) @db.Uuid
+  jobId      String                   @db.Uuid
+  url        String
+  title      String?
+  snippet    String?
+  status     DiscoveryCandidateStatus @default(PENDING)
+  skipReason String?
+  createdAt  DateTime                 @default(now()) @db.Timestamptz
+  updatedAt  DateTime                 @updatedAt @db.Timestamptz
+  job        IngestDiscoveryJob       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, status])
+  @@index([status, createdAt])
+}
+
 model VenueMembership {
   id        String              @id @default(uuid()) @db.Uuid
   userId    String              @db.Uuid
@@ -1329,6 +1383,7 @@ model SiteSettings {
   anthropicApiKey String?
   googlePseApiKey String?
   googlePseCx String?
+  braveSearchApiKey String?
   ingestEnabled Boolean @default(false)
   ingestMaxCandidatesPerVenueRun Int?
   ingestDuplicateSimilarityThreshold Int?

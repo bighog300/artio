@@ -20,6 +20,7 @@ export async function updateSiteSettings(data: {
   geminiApiKey?: string | null;
   anthropicApiKey?: string | null;
   googlePseApiKey?: string | null;
+  braveSearchApiKey?: string | null;
   googlePseCx?: string | null;
   eventExtractionProvider?: "openai" | "gemini" | "claude" | null;
   venueEnrichmentProvider?: "openai" | "gemini" | "claude" | null;

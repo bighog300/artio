@@ -14,6 +14,7 @@ type IngestSettingsProps = {
     geminiApiKeySet: boolean;
     anthropicApiKeySet: boolean;
     googlePseApiKeySet: boolean;
+    braveSearchApiKeySet: boolean;
     googlePseCx: string | null;
     eventExtractionProvider: string | null;
     artworkExtractionProvider: string | null;
@@ -40,6 +41,8 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
   const [showAnthropicApiKey, setShowAnthropicApiKey] = useState(false);
   const [googlePseApiKey, setGooglePseApiKey] = useState("");
   const [showGooglePseApiKey, setShowGooglePseApiKey] = useState(false);
+  const [braveSearchApiKey, setBraveSearchApiKey] = useState("");
+  const [showBraveSearchApiKey, setShowBraveSearchApiKey] = useState(false);
   const [googlePseCx, setGooglePseCx] = useState(props.initial.googlePseCx ?? "");
   const [eventExtractionProvider, setEventExtractionProvider] = useState<ProviderName>((props.initial.eventExtractionProvider as ProviderName | null) ?? "openai");
   const [artworkExtractionProvider, setArtworkExtractionProvider] = useState<ProviderName>((props.initial.artworkExtractionProvider as ProviderName | null) ?? "claude");
@@ -71,6 +74,7 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
         geminiApiKey: showGeminiApiKey ? (geminiApiKey.trim() || null) : undefined,
         anthropicApiKey: showAnthropicApiKey ? (anthropicApiKey.trim() || null) : undefined,
         googlePseApiKey: showGooglePseApiKey ? (googlePseApiKey.trim() || null) : undefined,
+        braveSearchApiKey: showBraveSearchApiKey ? (braveSearchApiKey.trim() || null) : undefined,
         googlePseCx: googlePseCx.trim() || null,
         eventExtractionProvider,
         artworkExtractionProvider,
@@ -156,6 +160,16 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
           <input id="google-pse-key" type="password" className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={googlePseApiKey} onChange={(e) => { setGooglePseApiKey(e.target.value); setStatus("idle"); }} placeholder={props.initial.googlePseApiKeySet ? "•••••••• (stored)" : "AIza..."} />
         ) : (
           <div className="text-xs text-muted-foreground">{props.initial.googlePseApiKeySet ? "API key is currently set." : "No API key set."} <button type="button" className="underline" onClick={() => setShowGooglePseApiKey(true)}>Change</button></div>
+        )}
+      </div>
+
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium" htmlFor="brave-search-key">Brave Search API Key</label>
+        {showBraveSearchApiKey ? (
+          <input id="brave-search-key" type="password" className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={braveSearchApiKey} onChange={(e) => { setBraveSearchApiKey(e.target.value); setStatus("idle"); }} placeholder={props.initial.braveSearchApiKeySet ? "•••••••• (stored)" : "BSA..."} />
+        ) : (
+          <div className="text-xs text-muted-foreground">{props.initial.braveSearchApiKeySet ? "API key is currently set." : "No API key set."} <button type="button" className="underline" onClick={() => setShowBraveSearchApiKey(true)}>Change</button></div>
         )}
       </div>
 

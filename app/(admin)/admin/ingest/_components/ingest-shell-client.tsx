@@ -81,6 +81,12 @@ export default function IngestShellClient({ stats, children }: Props) {
           Artworks {stats.pendingArtworks > 0 ? `(${stats.pendingArtworks})` : ""}
         </Link>
         <Link
+          href="/admin/ingest/discovery"
+          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/discovery") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          Discovery
+        </Link>
+        <Link
           href="/admin/ingest/runs"
           className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/runs") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
