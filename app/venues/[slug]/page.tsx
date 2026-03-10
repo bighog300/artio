@@ -7,6 +7,7 @@ import { EventCard } from "@/components/events/event-card";
 import { FollowButton } from "@/components/follows/follow-button";
 import { VenueEventsGrid } from "@/components/venues/venue-events-grid";
 import { VenueUpcomingMap } from "@/components/venues/venue-upcoming-map";
+import { VenueArtistsSection } from "@/components/venues/venue-artists-section";
 import { ArtworkRelatedSection } from "@/components/artwork/artwork-related-section";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -23,6 +24,7 @@ import { getVenueDescriptionExcerpt } from "@/lib/venues";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
 import { shouldShowVenueClaimCta } from "@/lib/venue-claims/cta";
+import { dedupeAssociatedArtists } from "@/lib/venue-associated-artists";
 
 import Link from "next/link";
 import { countPublishedArtworksByVenue, listPublishedArtworksByVenue } from "@/lib/artworks";
@@ -76,6 +78,61 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
           endAt: true,
           images: { take: 4, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } },
           eventTags: { select: { tag: { select: { slug: true } } } },
+          eventArtists: {
+            select: {
+              artist: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  avatarImageUrl: true,
+                  featuredImageUrl: true,
+                  images: {
+                    take: 1,
+                    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+                    select: {
+                      url: true,
+                      alt: true,
+                      sortOrder: true,
+                      isPrimary: true,
+                      width: true,
+                      height: true,
+                      asset: { select: { url: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      artistAssociations: {
+        where: { status: "APPROVED" },
+        select: {
+          artistId: true,
+          role: true,
+          artist: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              avatarImageUrl: true,
+              featuredImageUrl: true,
+              images: {
+                take: 1,
+                orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+                select: {
+                  url: true,
+                  alt: true,
+                  sortOrder: true,
+                  isPrimary: true,
+                  width: true,
+                  height: true,
+                  asset: { select: { url: true } },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -134,6 +191,26 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
     tags: event.eventTags.map(({ tag }) => tag.slug),
   }));
 
+  const verifiedAssociations = venue.artistAssociations.map((a) => ({
+    artistId: a.artistId,
+    role: a.role,
+    artist: a.artist,
+  }));
+
+  const eventDerivedArtists = Array.from(
+    new Map(
+      venue.events
+        .flatMap((e) => e.eventArtists ?? [])
+        .filter((a) => a.artist != null)
+        .map((a) => [a.artist.id, { artistId: a.artist.id, role: null, artist: a.artist }]),
+    ).values(),
+  );
+
+  const { verifiedArtists, derivedArtists } = dedupeAssociatedArtists(
+    verifiedAssociations,
+    eventDerivedArtists,
+  );
+
   const showClaimCta = shouldShowVenueClaimCta({
     claimStatus: venue.claimStatus,
     aiGenerated: venue.aiGenerated,
@@ -169,7 +246,6 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
         upcoming={(
           <section className="space-y-3">
             <SectionHeader title="Upcoming events" subtitle="What’s happening at this venue next." />
-            <ArtworkRelatedSection title="Artworks shown here" subtitle="Published works linked to this venue." items={artworks} viewAllHref={artworkCount > 6 ? `/artwork?venueId=${venue.id}` : undefined} showArtistName />
             {venue.lat != null && venue.lng != null ? (
               <div className="space-y-3">
                 <div className="mb-6 overflow-hidden rounded-xl border" style={{ height: "12rem" }}>
@@ -185,6 +261,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
             {events.length === 0 ? <EmptyState title="No upcoming events" description="Follow this venue and check back soon." /> : (
               <VenueEventsGrid events={events} venueName={venue.name} />
             )}
+            <ArtworkRelatedSection title="Artworks shown here" subtitle="Published works linked to this venue." items={artworks} viewAllHref={artworkCount > 6 ? `/artwork?venueId=${venue.id}` : undefined} showArtistName />
           </section>
         )}
         past={(
@@ -197,6 +274,11 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
             )}
           </section>
         )}
+        artists={
+          verifiedArtists.length > 0 || derivedArtists.length > 0
+            ? <VenueArtistsSection verifiedArtists={verifiedArtists} derivedArtists={derivedArtists} />
+            : undefined
+        }
         about={<EntityAboutCard description={venue.description} websiteUrl={venue.websiteUrl} address={address || null} mapHref={mapHref} />}
       />
 
