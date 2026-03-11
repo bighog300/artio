@@ -30,10 +30,11 @@ async function seedUserSession(params: {
       email: user.email,
       name: user.name ?? '',
       role: user.role,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
     },
-    secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? 'ci-e2e-auth-secret',
+    secret:
+      process.env.AUTH_SECRET
+      ?? process.env.NEXTAUTH_SECRET
+      ?? 'ci-e2e-auth-secret',
   });
 
   const outputPath = resolve(params.outputFile);

@@ -14,7 +14,7 @@ test.describe('Auth & onboarding', () => {
     expect(response?.status()).toBe(200);
 
     const googleSignIn = page
-      .locator('a:has-text("Sign in with Google"), button:has-text("Sign in with Google")')
+      .locator('button:has-text("Continue with Google"), button:has-text("Sign in with Google"), a:has-text("Continue with Google"), a:has-text("Sign in with Google")')
       .first();
     await expect(googleSignIn).toBeVisible();
 

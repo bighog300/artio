@@ -22,6 +22,8 @@ async function createAuthedPage(browser: Browser, authPath: string) {
       value: auth.sessionToken,
       domain: 'localhost',
       path: '/',
+      httpOnly: true,
+      sameSite: 'Lax',
     },
   ]);
 

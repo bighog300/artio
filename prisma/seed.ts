@@ -97,6 +97,11 @@ async function run() {
     { slug: "amina-khan", name: "Amina Khan", bio: "Photographer focused on night scenes" },
   ];
 
+  const artworks = [
+    { slug: "jane-dawn-study", title: "Dawn Study", artistSlug: "jane-doe" },
+    { slug: "liam-reframed-steel", title: "Reframed Steel", artistSlug: "liam-ng" },
+  ];
+
   const tagBySlug = new Map<string, { id: string }>();
   for (const tag of TAXONOMY_TAGS) {
     const existing = await db.tag.findUnique({ where: { slug: tag.slug }, select: { id: true } });
@@ -129,12 +134,38 @@ async function run() {
     artistBySlug.set(artist.slug, { id: result.id });
   }
 
+  for (const artwork of artworks) {
+    const artistId = artistBySlug.get(artwork.artistSlug)?.id;
+    if (!artistId) continue;
+
+    await trackedUpsert(db.artwork, {
+      where: { slug: artwork.slug },
+      update: {
+        title: artwork.title,
+        artistId,
+        isPublished: true,
+        status: "PUBLISHED",
+      },
+      create: {
+        slug: artwork.slug,
+        title: artwork.title,
+        artistId,
+        isPublished: true,
+        status: "PUBLISHED",
+      },
+    });
+  }
+
+  const now = Date.now();
   const events = Array.from({ length: 10 }, (_, i) => {
     const day = i + 1;
+    const startAt = new Date(now + (7 + day) * 24 * 60 * 60 * 1000);
+    startAt.setUTCHours(18, 0, 0, 0);
+
     return {
       slug: `preview-event-${day}`,
       title: `Preview Event ${day}`,
-      startAt: new Date(`2026-03-${String(day).padStart(2, "0")}T18:00:00.000Z`),
+      startAt,
       venueSlug: i % 2 === 0 ? "modern-gallery" : "riverfront-arts",
       artistSlug: artists[i % artists.length].slug,
       tagSlugs: i % 2 === 0 ? ["photography", "free-entry"] : ["sculpture", "performance"],
