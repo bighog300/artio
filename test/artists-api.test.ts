@@ -19,9 +19,24 @@ test("artistListQuerySchema defaults page=1 and pageSize=48", () => {
 test("GET /api/artists returns { items, page, pageSize, total }", async () => {
   const originalFindMany = db.artist.findMany;
   const originalCount = db.artist.count;
+  const originalFollowGroupBy = db.follow.groupBy;
+  const originalArtworkGroupBy = db.artwork.groupBy;
+
+  db.follow.groupBy = (async () => []) as never;
+  db.artwork.groupBy = (async () => []) as never;
 
   db.artist.findMany = (async () => [
-    { id: "a1", slug: "artist-1", name: "Artist 1", bio: null, avatarImageUrl: null },
+    {
+      id: "a1",
+      slug: "artist-1",
+      name: "Artist 1",
+      bio: null,
+      avatarImageUrl: null,
+      featuredImageUrl: null,
+      mediums: [],
+      images: [],
+      eventArtists: [],
+    },
   ]) as never;
   db.artist.count = (async () => 17) as never;
 
@@ -38,5 +53,7 @@ test("GET /api/artists returns { items, page, pageSize, total }", async () => {
   } finally {
     db.artist.findMany = originalFindMany;
     db.artist.count = originalCount;
+    db.follow.groupBy = originalFollowGroupBy;
+    db.artwork.groupBy = originalArtworkGroupBy;
   }
 });
