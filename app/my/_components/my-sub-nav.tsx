@@ -11,6 +11,7 @@ const primaryTabs = [
 
 const secondaryTabs = [
   ["Artwork", "/my/artwork"],
+  ["Collection", "/my/collection"],
   ["Artist Profile", "/my/artist"],
   ["Team", "/my/team"],
   ["Analytics", "/my/analytics"],
