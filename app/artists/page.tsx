@@ -102,10 +102,12 @@ export default async function ArtistsPage() {
     total = artists.length;
   }
 
+  const hasMore = total > 48;
+
   return (
     <PageShell className="page-stack">
       <PageHeader title="Artists" subtitle="Discover artists and follow the creators you care about." />
-      <ArtistsClient artists={artists} total={total} isAuthenticated={Boolean(user)} />
+      <ArtistsClient artists={artists} total={total} nextPage={hasMore ? 2 : null} isAuthenticated={Boolean(user)} />
     </PageShell>
   );
 }

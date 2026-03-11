@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArtistCard } from "@/components/artists/artist-card";
 import { EntityListControls } from "@/components/entities/entity-list-controls";
@@ -20,17 +20,61 @@ type ArtistListItem = {
   forSaleCount: number;
 };
 
-export function ArtistsClient({ artists, total, isAuthenticated }: { artists: ArtistListItem[]; total: number; isAuthenticated: boolean }) {
+type ArtistListResponse = {
+  items: ArtistListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
+export function ArtistsClient({
+  artists: initialArtists,
+  total,
+  nextPage,
+  isAuthenticated,
+}: {
+  artists: ArtistListItem[];
+  total: number;
+  nextPage: number | null;
+  isAuthenticated: boolean;
+}) {
   const searchParams = useSearchParams();
-  const q = searchParams.get("q")?.toLowerCase() ?? "";
+  const q = searchParams.get("q") ?? "";
   const sort = searchParams.get("sort") ?? "az";
 
+  const [artists, setArtists] = useState(initialArtists);
+  const [currentPage, setCurrentPage] = useState<number>(nextPage ?? 2);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(total > initialArtists.length);
+
+  useEffect(() => {
+    setArtists(initialArtists);
+    setCurrentPage(nextPage ?? 2);
+    setHasMore(total > initialArtists.length);
+  }, [initialArtists, nextPage, total, q, sort]);
+
   const filtered = useMemo(() => {
-    const searched = artists.filter((artist) => !q || artist.name.toLowerCase().includes(q) || artist.tags.some((tag) => tag.toLowerCase().includes(q)));
-    if (sort === "followers") return [...searched].sort((a, b) => b.followersCount - a.followersCount || a.name.localeCompare(b.name));
-    if (sort === "forsale") return [...searched].sort((a, b) => (b.forSaleCount ?? 0) - (a.forSaleCount ?? 0) || a.name.localeCompare(b.name));
-    return [...searched].sort((a, b) => a.name.localeCompare(b.name));
-  }, [artists, q, sort]);
+    const qNormalized = q.toLowerCase();
+    return artists.filter((artist) => !qNormalized || artist.name.toLowerCase().includes(qNormalized) || artist.tags.some((tag) => tag.toLowerCase().includes(qNormalized)));
+  }, [artists, q]);
+
+  const loadMore = async () => {
+    if (isLoading || !hasMore) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/artists?page=${currentPage}&pageSize=48&query=${encodeURIComponent(q)}&sort=${encodeURIComponent(sort)}`);
+      if (!response.ok) return;
+      const payload: ArtistListResponse = await response.json();
+      setArtists((prev) => {
+        const nextArtists = [...prev, ...payload.items];
+        setHasMore(payload.total > nextArtists.length);
+        return nextArtists;
+      });
+      setCurrentPage((prev) => prev + 1);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -59,6 +103,17 @@ export function ArtistsClient({ artists, total, isAuthenticated }: { artists: Ar
           ))}
         </div>
       )}
+      {hasMore ? (
+        <div className="flex justify-center pt-4">
+          <button
+            onClick={loadMore}
+            disabled={isLoading}
+            className="rounded-md border px-4 py-2 text-sm hover:bg-muted disabled:opacity-50"
+          >
+            {isLoading ? "Loading…" : `Load more (${total - artists.length} remaining)`}
+          </button>
+        </div>
+      ) : null}
       {total > artists.length ? (
         <p className="text-sm text-muted-foreground text-center">
           Showing {artists.length} of {total} artists
