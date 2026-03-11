@@ -26,6 +26,8 @@ export function RsvpWidget({ eventSlug, initialAvailability }: { eventSlug: stri
   const [tierId, setTierId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState<string | null>(null);
+  const [isWaitlisted, setIsWaitlisted] = useState(false);
+  const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
 
   const activeTiers = useMemo(() => availability.tiers.filter((tier) => tier.available == null || tier.available > 0), [availability.tiers]);
 
@@ -57,7 +59,16 @@ export function RsvpWidget({ eventSlug, initialAvailability }: { eventSlug: stri
 
     const body = await res.json().catch(() => ({}));
     if (res.ok) {
-      setConfirmationCode(body.confirmationCode ?? null);
+      const status = typeof body.status === "string" ? body.status : null;
+      if (status === "WAITLISTED") {
+        setIsWaitlisted(true);
+        setWaitlistPosition(typeof body.waitlistPosition === "number" ? body.waitlistPosition : null);
+        setConfirmationCode(null);
+      } else {
+        setConfirmationCode(body.confirmationCode ?? null);
+        setIsWaitlisted(false);
+        setWaitlistPosition(null);
+      }
       setGuestName("");
       setGuestEmail("");
       setTierId("");
@@ -78,10 +89,21 @@ export function RsvpWidget({ eventSlug, initialAvailability }: { eventSlug: stri
     );
   }
 
+  if (isWaitlisted) {
+    return (
+      <div className="space-y-2 rounded border border-amber-300 bg-amber-50 p-4">
+        <p className="text-sm text-amber-900">You&apos;re on the waitlist. We&apos;ll email you if a spot opens up.</p>
+        {waitlistPosition ? <p className="text-sm text-amber-800">Current position: #{waitlistPosition}</p> : null}
+      </div>
+    );
+  }
+
+  const isJoiningWaitlist = availability.isSoldOut;
+
   return (
     <form onSubmit={onSubmit} className="space-y-3 rounded border p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium">Reserve your spot</p>
+        <p className="text-sm font-medium">{isJoiningWaitlist ? "Join the waitlist" : "Reserve your spot"}</p>
         <Badge variant={availability.isSoldOut ? "destructive" : "secondary"}>
           {availability.isSoldOut ? "Sold out" : `${availability.available ?? "Unlimited"} spots left`}
         </Badge>
@@ -97,9 +119,9 @@ export function RsvpWidget({ eventSlug, initialAvailability }: { eventSlug: stri
         </label>
       ) : null}
 
-      <label className="block text-sm">Name<input className="mt-1 w-full rounded border p-2" value={guestName} onChange={(e) => setGuestName(e.target.value)} required disabled={availability.isSoldOut} /></label>
-      <label className="block text-sm">Email<input className="mt-1 w-full rounded border p-2" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} required disabled={availability.isSoldOut} /></label>
-      <Button type="submit" disabled={availability.isSoldOut || isSubmitting}>{availability.isSoldOut ? "Sold out" : isSubmitting ? "Submitting..." : "RSVP"}</Button>
+      <label className="block text-sm">Name<input className="mt-1 w-full rounded border p-2" value={guestName} onChange={(e) => setGuestName(e.target.value)} required disabled={isSubmitting} /></label>
+      <label className="block text-sm">Email<input className="mt-1 w-full rounded border p-2" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} required disabled={isSubmitting} /></label>
+      <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Submitting..." : isJoiningWaitlist ? "Join waitlist" : "RSVP"}</Button>
     </form>
   );
 }

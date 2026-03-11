@@ -73,6 +73,13 @@ export type NotificationTemplatePayload =
       eventSlug?: string | null;
     }
   | {
+      type: "WAITLIST_PROMOTED";
+      eventTitle: string;
+      eventSlug: string;
+      guestName: string;
+      registrationId: string;
+    }
+  | {
       type: "EVENT_CHANGE_NOTIFY";
       eventTitle: string;
       eventSlug: string;
@@ -104,6 +111,8 @@ export type NotificationTemplatePayload =
       priceFormatted?: string | null;
       inquiryId: string;
     };
+
+const WAITLIST_PROMOTED_TYPE = "WAITLIST_PROMOTED" as NotificationType;
 
 export function buildNotification({ type, payload }: { type: NotificationType; payload: NotificationTemplatePayload }) {
   if (type === "INVITE_CREATED" && payload.type === "INVITE_CREATED") {
@@ -216,6 +225,15 @@ export function buildNotification({ type, payload }: { type: NotificationType; p
       body: payload.reason ?? `Your RSVP has been cancelled. Code: ${payload.confirmationCode}`,
       href: payload.eventSlug ? `/events/${payload.eventSlug}` : undefined,
       dedupeKey: `rsvp-cancelled:${payload.confirmationCode}`,
+    };
+  }
+
+  if (type === WAITLIST_PROMOTED_TYPE && payload.type === "WAITLIST_PROMOTED") {
+    return {
+      title: `Good news — a spot has opened up for ${payload.eventTitle}`,
+      body: `Great news, ${payload.guestName}. You've been promoted from the waitlist and your registration is now confirmed.`,
+      href: `/events/${payload.eventSlug}`,
+      dedupeKey: `waitlist-promoted:${payload.registrationId}`,
     };
   }
 

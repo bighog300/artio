@@ -4,6 +4,7 @@ type RegistrationRecord = {
   id: string;
   eventId: string;
   tierId: string | null;
+  guestName?: string;
   guestEmail: string;
   confirmationCode: string;
   status: RegistrationStatus;
@@ -11,6 +12,15 @@ type RegistrationRecord = {
 
 type CancelTransactionArgs = {
   registrationId: string;
+  eventTitle?: string;
+  eventSlug?: string;
+  enqueueWaitlistPromotionNotification?: (args: {
+    registrationId: string;
+    guestEmail: string;
+    guestName?: string;
+    eventTitle: string;
+    eventSlug: string;
+  }) => Promise<void>;
 };
 
 type CancelTransactionTx = {
@@ -102,6 +112,15 @@ export async function cancelRegistrationTransaction(tx: CancelTransactionTx, arg
     data: { status: "CONFIRMED" },
     select: { id: true, eventId: true, tierId: true, guestEmail: true, confirmationCode: true, status: true },
   });
+  if (args.enqueueWaitlistPromotionNotification && args.eventTitle && args.eventSlug) {
+    await args.enqueueWaitlistPromotionNotification({
+    registrationId: promoted.id,
+    guestEmail: promoted.guestEmail,
+    guestName: (promoted as { guestName?: string }).guestName ?? "there",
+    eventTitle: args.eventTitle,
+    eventSlug: args.eventSlug,
+    });
+  }
 
   return { cancelled, promoted };
 }
