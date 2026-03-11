@@ -119,7 +119,9 @@ export type NotificationTemplatePayload =
       inquiryId: string;
     };
 
+const WAITLIST_PROMOTED_TYPE = "WAITLIST_PROMOTED" as NotificationType;
 
+export function buildNotification({ type, payload }: { type: NotificationType | "TICKET_TRANSFERRED"; payload: NotificationTemplatePayload }) {
   if (type === "INVITE_CREATED" && payload.type === "INVITE_CREATED") {
     const href = payload.inviteToken ? `/invite/${payload.inviteToken}` : payload.venueId ? `/my/venues/${payload.venueId}` : undefined;
     return {
