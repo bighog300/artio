@@ -13,6 +13,7 @@ const fixturesEnabled = getUiFixturesEnabled();
 
 export default async function VenuesPage() {
   const user = await getSessionUser();
+  let cities: string[] = [];
 
   if (!hasDatabaseUrl() && !fixturesEnabled) {
     return (
@@ -31,6 +32,7 @@ export default async function VenuesPage() {
       orderBy: { name: "asc" },
       select: { id: true, slug: true, name: true, city: true, region: true, country: true, description: true, featuredImageUrl: true, images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } } },
     });
+    cities = Array.from(new Set(dbVenues.map((v) => v.city).filter(Boolean))).sort() as string[];
     const ids = dbVenues.map((venue) => venue.id);
     const [followerCounts, userFollows, artworkCounts] = await Promise.all([
       ids.length ? db.follow.groupBy({ by: ["targetId"], where: { targetType: "VENUE", targetId: { in: ids } }, _count: { _all: true } }) : Promise.resolve([]),
@@ -54,6 +56,7 @@ export default async function VenuesPage() {
       artworkCount: artworkCountByVenueId.get(venue.id) ?? 0,
     }));
   } else {
+    cities = Array.from(new Set(uiFixtureVenues.map((v) => v.city).filter(Boolean))).sort() as string[];
     venues = uiFixtureVenues.map((venue) => ({
       id: venue.id,
       slug: venue.slug,
@@ -71,7 +74,7 @@ export default async function VenuesPage() {
   return (
     <PageShell className="page-stack">
       <PageHeader title="Venues" subtitle="Find spaces for exhibitions, performances, and shows." />
-      <VenuesClient venues={venues} isAuthenticated={Boolean(user)} />
+      <VenuesClient venues={venues} cities={cities} isAuthenticated={Boolean(user)} />
     </PageShell>
   );
 }
