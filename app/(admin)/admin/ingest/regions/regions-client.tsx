@@ -100,6 +100,25 @@ export default function RegionsClient({
     }
   }
 
+  async function resumeRegion(id: string) {
+    setPausing((prev) => ({ ...prev, [id]: true }));
+    try {
+      const res = await fetch(`/api/admin/ingest/regions/${id}/run-now`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to resume region");
+      setRegions((prev) =>
+        prev.map((row) =>
+          row.id === id ? { ...row, status: "PENDING" } : row,
+        ),
+      );
+    } catch {
+      enqueueToast({ title: "Failed to resume region", variant: "error" });
+    } finally {
+      setPausing((prev) => ({ ...prev, [id]: false }));
+    }
+  }
+
   return (
     <div className="space-y-4">
       <section className="rounded-lg border bg-background p-4">
@@ -169,15 +188,27 @@ export default function RegionsClient({
                   {new Date(row.createdAt).toLocaleString()}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => pauseRegion(row.id)}
-                    disabled={pausing[row.id] || row.status === "PAUSED"}
-                  >
-                    Pause
-                  </Button>
+                  {row.status === "PAUSED" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => resumeRegion(row.id)}
+                      disabled={pausing[row.id]}
+                    >
+                      Resume
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => pauseRegion(row.id)}
+                      disabled={pausing[row.id]}
+                    >
+                      Pause
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
