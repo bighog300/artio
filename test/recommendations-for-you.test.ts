@@ -166,10 +166,15 @@ test("recommendations exclude explicitly disliked events for 30 days", async () 
     follow: { findMany: async () => [{ targetType: "VENUE", targetId: "v-1" }] },
     savedSearch: { findMany: async () => [] },
     engagementEvent: {
-      findMany: async () => [
-        { targetId: "event-hidden", metaJson: { feedback: "down" } },
-        { targetId: "event-visible", metaJson: { feedback: "up" } },
-      ],
+      findMany: async (args: any) => {
+        if (args?.where?.action === "HIDE") {
+          return [];
+        }
+        return [
+          { targetId: "event-hidden", metaJson: { feedback: "down" } },
+          { targetId: "event-visible", metaJson: { feedback: "up" } },
+        ];
+      },
     },
     event: {
       findMany: async (args: any) => {
