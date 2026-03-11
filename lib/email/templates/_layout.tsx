@@ -23,7 +23,7 @@ export function EmailLayout({
                   <tbody>
                     <tr>
                       <td style={{ backgroundColor: "#1A1A2E", padding: "20px 24px", color: "#ffffff", fontSize: "22px", fontWeight: "bold" }}>
-                        Artpulse
+                        Artio
                       </td>
                     </tr>
                     <tr>
@@ -31,7 +31,7 @@ export function EmailLayout({
                     </tr>
                     <tr>
                       <td style={{ borderTop: "1px solid #e5e7eb", padding: "16px 24px", color: "#9ca3af", fontSize: "12px" }}>
-                        <p style={{ margin: 0 }}>Artpulse · 123 Example Street, London, UK</p>
+                        <p style={{ margin: 0 }}>Artio · 123 Example Street, London, UK</p>
                         {unsubscribeUrl ? (
                           <p style={{ margin: "8px 0 0" }}>
                             <a href={unsubscribeUrl} style={{ color: "#9ca3af" }}>

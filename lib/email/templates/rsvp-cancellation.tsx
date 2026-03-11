@@ -3,7 +3,7 @@ import * as React from "react";
 import { EmailLayout } from "./_layout";
 
 const BRAND_RED = "#E63946";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artpulse.co";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artio.co";
 
 type RsvpCancellationPayload = {
   eventTitle: string;

@@ -54,7 +54,7 @@ export function buildIcalCalendar(calendarName: string, events: IcalEvent[]) {
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "CALSCALE:GREGORIAN",
-    "PRODID:-//Artpulse//Calendar Feed//EN",
+    "PRODID:-//Artio//Calendar Feed//EN",
     `X-WR-CALNAME:${escapeIcalText(calendarName)}`,
     ...events.flatMap((event) => eventToLines(event)),
     "END:VCALENDAR",

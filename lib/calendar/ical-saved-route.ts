@@ -31,7 +31,7 @@ export async function handleIcalSavedGet(
 
   const eventIds = favorites.map((favorite) => favorite.targetId);
   if (eventIds.length === 0) {
-    const emptyCalendar = buildIcalCalendar("Artpulse Saved Events", []);
+    const emptyCalendar = buildIcalCalendar("Artio Saved Events", []);
     return new NextResponse(emptyCalendar, { headers: { "content-type": "text/calendar; charset=utf-8" } });
   }
 
@@ -50,7 +50,7 @@ export async function handleIcalSavedGet(
   });
 
   const calendar = buildIcalCalendar(
-    "Artpulse Saved Events",
+    "Artio Saved Events",
     events.map((event) => ({
       uid: event.id,
       summary: event.title,

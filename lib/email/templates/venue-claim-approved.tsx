@@ -8,10 +8,10 @@ type VenueClaimApprovedPayload = {
 };
 
 const BRAND_RED = "#E63946";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artpulse.co";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artio.co";
 
 export function getSubject({ venueName }: VenueClaimApprovedPayload) {
-  return `You now manage ${venueName} on Artpulse`;
+  return `You now manage ${venueName} on Artio`;
 }
 
 export default function VenueClaimApprovedEmail({ venueName }: VenueClaimApprovedPayload) {
@@ -22,7 +22,7 @@ export default function VenueClaimApprovedEmail({ venueName }: VenueClaimApprove
       <Preview>{`Your claim for ${venueName} has been approved.`}</Preview>
       <table role="presentation" width="100%" cellPadding={0} cellSpacing={0}>
         <tbody>
-          <tr><td><p style={{ margin: "0 0 16px" }}>Great news — your claim has been approved. You can now manage <strong>{venueName}</strong> on Artpulse.</p></td></tr>
+          <tr><td><p style={{ margin: "0 0 16px" }}>Great news — your claim has been approved. You can now manage <strong>{venueName}</strong> on Artio.</p></td></tr>
           <tr>
             <td>
               <a href={dashboardUrl} style={{ backgroundColor: BRAND_RED, color: "#ffffff", textDecoration: "none", padding: "12px 20px", borderRadius: "4px", display: "inline-block", fontWeight: "bold" }}>Go to dashboard</a>

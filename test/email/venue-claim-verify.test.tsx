@@ -5,7 +5,7 @@ import EmailTemplate, { getSubject } from "@/lib/email/templates/venue-claim-ver
 import { renderAsync } from "./render-async";
 
 test("venue-claim-verify email snapshot", async (t) => {
-  const payload = { venueName: "Harbor Light Gallery", verifyUrl: "https://artpulse.co/claims/verify/abc" };
+  const payload = { venueName: "Harbor Light Gallery", verifyUrl: "https://artio.co/claims/verify/abc" };
   const subject = getSubject(payload as never);
   const { html, text } = await renderAsync(createElement(EmailTemplate, payload));
 

@@ -7,21 +7,21 @@ type NewUserWelcomePayload = {
 };
 
 const BRAND_RED = "#E63946";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artpulse.co";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artio.co";
 
 export function getSubject() {
-  return "Welcome to Artpulse";
+  return "Welcome to Artio";
 }
 
 export default function NewUserWelcomeEmail({ userName }: NewUserWelcomePayload) {
   const eventsUrl = `${APP_URL}/events`;
 
   return (
-    <EmailLayout preview="Welcome to Artpulse.">
-      <Preview>Welcome to Artpulse.</Preview>
+    <EmailLayout preview="Welcome to Artio.">
+      <Preview>Welcome to Artio.</Preview>
       <table role="presentation" width="100%" cellPadding={0} cellSpacing={0}>
         <tbody>
-          <tr><td><p style={{ margin: "0 0 16px" }}>Hi {userName?.trim() || "there"}, welcome to Artpulse.</p></td></tr>
+          <tr><td><p style={{ margin: "0 0 16px" }}>Hi {userName?.trim() || "there"}, welcome to Artio.</p></td></tr>
           <tr><td><p style={{ margin: "0 0 16px" }}>Discover events, follow artists, and stay in the loop with what is happening near you.</p></td></tr>
           <tr>
             <td>

@@ -12,7 +12,7 @@ type RsvpConfirmationPayload = {
 };
 
 const BRAND_RED = "#E63946";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artpulse.co";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artio.co";
 
 function generateQrCodeDataUri(value: string) {
   const payload = Buffer.from(value, "utf8").toString("base64");
@@ -27,9 +27,9 @@ function buildCalendarDataUri(payload: RsvpConfirmationPayload) {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Artpulse//RSVP//EN",
+    "PRODID:-//Artio//RSVP//EN",
     "BEGIN:VEVENT",
-    `UID:${payload.confirmationCode}@artpulse.co`,
+    `UID:${payload.confirmationCode}@artio.co`,
     `DTSTAMP:${fmt(new Date())}`,
     `DTSTART:${fmt(starts)}`,
     `DTEND:${fmt(ends)}`,

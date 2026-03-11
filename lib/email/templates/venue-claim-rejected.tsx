@@ -9,7 +9,7 @@ type VenueClaimRejectedPayload = {
 };
 
 const BRAND_RED = "#E63946";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artpulse.co";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artio.co";
 
 export function getSubject({ venueName }: VenueClaimRejectedPayload) {
   return `Your claim for ${venueName} was not approved`;

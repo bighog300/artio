@@ -9,7 +9,7 @@ test("new-user-welcome email snapshot", async (t) => {
   const subject = getSubject();
   const { html, text } = await renderAsync(createElement(EmailTemplate, { userName: payload.userName }));
 
-  assert.match(subject, /Welcome\ to\ Artpulse/i);
+  assert.match(subject, /Welcome\ to\ Artio/i);
   assert.match(html, /Explore\ events/i);
   assert.ok(typeof html === "string" && html.length > 100, "html should be a non-empty string");
   assert.ok(typeof text === "string" && text.length > 0, "text should be a non-empty string");

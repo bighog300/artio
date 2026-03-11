@@ -16,7 +16,7 @@ type WeeklyDigestPayload = {
 const BRAND_RED = "#E63946";
 
 export function getSubject() {
-  return "Your weekly Artpulse digest is ready";
+  return "Your weekly Artio digest is ready";
 }
 
 export default function WeeklyDigestEmail({ digestUrl, events }: WeeklyDigestPayload) {

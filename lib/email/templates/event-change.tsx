@@ -9,7 +9,7 @@ type EventChangePayload = {
 };
 
 const BRAND_RED = "#E63946";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artpulse.co";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artio.co";
 
 export function getSubject({ eventTitle }: EventChangePayload) {
   return `${eventTitle} has been updated — check the details`;

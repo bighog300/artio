@@ -64,7 +64,7 @@ export async function fetchImageWithGuards(url: string, opts: FetchImageOptions 
         method: "GET",
         redirect: "manual",
         headers: {
-          "user-agent": "ArtpulseIngestBot/1.0 (+https://artpulse.example)",
+          "user-agent": "ArtioIngestBot/1.0 (+https://artio.co)",
           accept: "image/*",
         },
         signal: abortController.signal,

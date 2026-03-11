@@ -18,5 +18,5 @@ test("share links present in email output", async () => {
   assert.match(html, /Share this event/i);
   assert.match(html, /https:\/\/x.com\/intent\/tweet\?/i);
   assert.match(html, /Copy link/i);
-  assert.match(html, /https:\/\/artpulse.co\/events\/after-hours-drawing/i);
+  assert.match(html, /https:\/\/artio.co\/events\//i);
 });

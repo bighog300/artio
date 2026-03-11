@@ -31,7 +31,7 @@ export async function handleEventIcalGet(
 
   if (!event) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  const calendar = buildIcalCalendar("Artpulse Event", [
+  const calendar = buildIcalCalendar("Artio Event", [
     {
       uid: event.id,
       summary: event.title,

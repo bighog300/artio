@@ -17,7 +17,7 @@ function createMemoryDb(seed: NotificationOutbox[]) {
             emailEnabled: true,
             emailFromAddress: null,
             resendApiKey: "test-resend-key",
-            resendFromAddress: "Artpulse <noreply@mail.artpulse.co>",
+            resendFromAddress: "Artio <noreply@mail.artio.co>",
           };
         },
       },

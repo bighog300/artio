@@ -65,7 +65,7 @@ export async function fetchHtmlWithGuards(url: string, opts: FetchHtmlOptions = 
         method: "GET",
         redirect: "manual",
         headers: {
-          "user-agent": "ArtpulseIngestBot/1.0 (+https://artpulse.example)",
+          "user-agent": "ArtioIngestBot/1.0 (+https://artio.co)",
           accept: "text/html,application/xhtml+xml",
         },
         signal: abortController.signal,
