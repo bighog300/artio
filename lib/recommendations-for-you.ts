@@ -28,6 +28,7 @@ type CandidateEvent = {
   images: Array<{ url: string; asset: { url: string } | null }>;
   eventArtists: Array<{ artistId: string }>;
   eventTags: Array<{ tagId: string; tag: { slug: string; category: string } }>;
+  feedbackMetaJson?: Prisma.JsonValue | null;
 };
 
 export type EventListItem = {
@@ -148,6 +149,10 @@ export function scoreForYouEvents(args: {
     if (event.eventArtists.some((artist) => args.dislikedArtistIds.has(artist.artistId))) score -= 4;
     if (event.eventTags.some((tag) => args.dislikedTagIds.has(tag.tagId))) score -= 4;
 
+    const feedback = feedbackFromMeta(event.feedbackMetaJson);
+    if (feedback === "up") score += 8;
+    if (feedback === "down") score = -999;
+
     score += freshnessPoints(args.now, event.startAt);
 
     if (reasons.length === 0) reasons.push(freshnessReason(args.now, event.startAt));
@@ -166,7 +171,7 @@ export function scoreForYouEvents(args: {
   }
 
   scored.sort((a, b) => b.score - a.score || a.event.startAt.getTime() - b.event.startAt.getTime() || a.event.id.localeCompare(b.event.id));
-  return scored;
+  return scored.filter((item) => item.score >= 0);
 }
 
 export async function getForYouRecommendations(db: Prisma.TransactionClient | Prisma.DefaultPrismaClient, args: { userId: string; days: 7 | 30; limit: number }) {
@@ -359,9 +364,31 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     },
   });
 
+  const candidateFeedbackEvents = await db.engagementEvent.findMany({
+    where: {
+      userId: args.userId,
+      action: "CLICK",
+      targetType: "EVENT",
+      targetId: { in: events.map((event) => event.id) },
+    },
+    select: { targetId: true, metaJson: true, createdAt: true },
+    orderBy: [{ targetId: "asc" }, { createdAt: "desc" }],
+  });
+
+  const feedbackMetaByEventId = new Map<string, Prisma.JsonValue | null>();
+  for (const feedbackEvent of candidateFeedbackEvents) {
+    if (feedbackMetaByEventId.has(feedbackEvent.targetId)) continue;
+    feedbackMetaByEventId.set(feedbackEvent.targetId, feedbackEvent.metaJson);
+  }
+
+  const eventsWithFeedback = events.map((event) => ({
+    ...event,
+    feedbackMetaJson: feedbackMetaByEventId.get(event.id) ?? null,
+  }));
+
   const scored = scoreForYouEvents({
     now,
-    events,
+    events: eventsWithFeedback,
     followedVenueIds,
     followedArtistIds,
     savedSearchMatches,

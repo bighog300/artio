@@ -14,6 +14,7 @@ import { getPreferenceSnapshot } from "@/lib/personalization/preferences";
 import { recordFeedback } from "@/lib/personalization/feedback";
 import { recordExposureBatch, recordOutcome } from "@/lib/personalization/measurement";
 import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/signals";
+import { trackEngagement } from "@/lib/engagement-client";
 
 type ForYouResponse = {
   windowDays: number;
@@ -74,6 +75,7 @@ export function ForYouClient() {
   const [showAuthFallback, setShowAuthFallback] = useState(false);
   const [lockedOut, setLockedOut] = useState(false);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  const [feedbackByEventId, setFeedbackByEventId] = useState<Record<string, "up" | "down" | null>>({});
   const [signals, setSignals] = useState<OnboardingSignals>(emptySignals);
   const attemptedRef = useRef(false);
 
@@ -136,17 +138,22 @@ export function ForYouClient() {
     const visible = data.items.filter((item) => !hiddenIds.includes(item.event.id));
     const seed = data.items.length + new Date().getDate();
     const ranked = rankItems(
-      visible.map((item) => ({
-        ...item,
-        id: item.event.id,
-        slug: item.event.slug,
-        title: item.event.title,
-        venueSlug: item.event.venue?.slug,
-        hasLocation: Boolean(item.event.venue?.city),
-        sourceCategory: item.event.venue?.city ? "nearby" as const : "trending" as const,
-        tags: item.reasons,
-        entityType: "event" as const,
-      })),
+      visible.map((item) => {
+        const feedback = feedbackByEventId[item.event.id];
+        const optimisticScore = feedback === "up" ? item.score + 8 : item.score;
+        return {
+          ...item,
+          score: optimisticScore,
+          id: item.event.id,
+          slug: item.event.slug,
+          title: item.event.title,
+          venueSlug: item.event.venue?.slug,
+          hasLocation: Boolean(item.event.venue?.city),
+          sourceCategory: item.event.venue?.city ? "nearby" as const : "trending" as const,
+          tags: item.reasons,
+          entityType: "event" as const,
+        };
+      }),
       {
         source: "for_you",
         signals: {
@@ -161,7 +168,21 @@ export function ForYouClient() {
     );
 
     return ranked;
-  }, [data.items, hiddenIds, signals]);
+  }, [data.items, feedbackByEventId, hiddenIds, signals]);
+
+  const handleFeedback = useCallback((eventId: string, feedback: "up" | "down") => {
+    setFeedbackByEventId((current) => ({ ...current, [eventId]: feedback }));
+    if (feedback === "down") {
+      setHiddenIds((current) => (current.includes(eventId) ? current : [...current, eventId]));
+    }
+    trackEngagement({
+      surface: "FOLLOWING",
+      action: "CLICK",
+      targetType: "EVENT",
+      targetId: eventId,
+      meta: { feedback },
+    });
+  }, []);
 
   useEffect(() => {
     if (!rankedItems.length) return;
@@ -245,7 +266,29 @@ export function ForYouClient() {
                     recordFeedback({ type: "click", source: "for_you", item: { type: "event", idOrSlug: item.event.id, tags: item.reasons, venueSlug: item.event.venue?.slug } });
                     recordOutcome({ action: "click", itemType: "event", itemKey: `event:${item.event.slug ?? item.event.id}`.toLowerCase(), sourceHint: "for_you" });
                   }}
-                  action={<ItemActionsMenu type="event" idOrSlug={item.event.slug} source="for_you" measurementSource="for_you" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.event.id])} />}
+                  action={(
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-gray-600" aria-label="Recommendation feedback">
+                        <button
+                          type="button"
+                          className={`rounded border px-2 py-1 hover:bg-gray-50 ${feedbackByEventId[item.event.id] === "up" ? "bg-gray-100" : ""}`}
+                          onClick={() => handleFeedback(item.event.id, "up")}
+                          aria-pressed={feedbackByEventId[item.event.id] === "up"}
+                        >
+                          👍 More like this
+                        </button>
+                        <button
+                          type="button"
+                          className={`rounded border px-2 py-1 hover:bg-gray-50 ${feedbackByEventId[item.event.id] === "down" ? "bg-gray-100" : ""}`}
+                          onClick={() => handleFeedback(item.event.id, "down")}
+                          aria-pressed={feedbackByEventId[item.event.id] === "down"}
+                        >
+                          👎 Less like this
+                        </button>
+                      </div>
+                      <ItemActionsMenu type="event" idOrSlug={item.event.slug} source="for_you" measurementSource="for_you" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.event.id])} />
+                    </div>
+                  )}
                 />
                 {explanation ? <WhyThis source="for_you" explanation={explanation} /> : null}
               </article>
