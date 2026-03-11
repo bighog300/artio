@@ -236,6 +236,7 @@ enum EngagementAction {
   CLICK
   FOLLOW
   SAVE_SEARCH
+  HIDE
 }
 
 enum AssetKind {

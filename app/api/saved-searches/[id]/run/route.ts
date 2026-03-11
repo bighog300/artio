@@ -37,8 +37,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const saved = await db.savedSearch.findFirst({ where: { id: parsedId.data.id, userId: user.id } });
     if (!saved) return apiError(404, "not_found", "Saved search not found");
 
+    const hiddenEventIds = (await db.engagementEvent.findMany({
+      where: { userId: user.id, action: "HIDE", targetType: "EVENT" },
+      select: { targetId: true },
+      distinct: ["targetId"],
+    })).map((item) => item.targetId);
+
     const decoded = parsedQuery.data.cursor ? decodeCursor(parsedQuery.data.cursor) : null;
-    const items = await runSavedSearchEvents({ eventDb: db as never, type: saved.type, paramsJson: saved.paramsJson, cursor: decoded, limit: parsedQuery.data.limit });
+    const items = await runSavedSearchEvents({ eventDb: db as never, type: saved.type, paramsJson: saved.paramsJson, cursor: decoded, limit: parsedQuery.data.limit, hiddenEventIds });
     const hasMore = items.length > parsedQuery.data.limit;
     const page = hasMore ? items.slice(0, parsedQuery.data.limit) : items;
     return NextResponse.json({ items: page, nextCursor: hasMore ? encodeCursor(page[page.length - 1]!) : null });

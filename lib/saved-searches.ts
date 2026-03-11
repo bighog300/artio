@@ -116,8 +116,10 @@ export async function runSavedSearchEvents(args: {
   paramsJson: Prisma.JsonValue;
   cursor?: StartAtIdCursor | null;
   limit: number;
+  hiddenEventIds?: string[];
 }) {
-  const { eventDb, type, paramsJson, cursor, limit } = args;
+  const { eventDb, type, paramsJson, cursor, limit, hiddenEventIds } = args;
+  const hiddenIds = hiddenEventIds?.filter((id) => id.length > 0) ?? [];
   if (type === "ARTWORK") return [];
   if (type === "NEARBY") {
     const params = normalizeNearby(paramsJson);
@@ -129,7 +131,7 @@ export async function runSavedSearchEvents(args: {
       return next;
     })();
     const box = getBoundingBox(params.lat, params.lng, params.radiusKm);
-    const nearbyFilters = buildNearbyEventsFilters({ cursor, from: fromDate, to: toDate });
+    const nearbyFilters = buildNearbyEventsFilters({ cursor, from: fromDate, to: toDate, hiddenEventIds: hiddenIds });
     const items = await eventDb.event.findMany({
       where: {
         isPublished: true,
@@ -137,7 +139,7 @@ export async function runSavedSearchEvents(args: {
         AND: [{ OR: [
           { lat: { gte: box.minLat, lte: box.maxLat }, lng: { gte: box.minLng, lte: box.maxLng } },
           { venue: { is: { lat: { gte: box.minLat, lte: box.maxLat }, lng: { gte: box.minLng, lte: box.maxLng } } } },
-        ] }, ...(params.q ? [{ OR: [{ title: { contains: params.q, mode: "insensitive" as const } }, { venue: { name: { contains: params.q, mode: "insensitive" as const } } }] }] : []), ...nearbyFilters.cursorFilters],
+        ] }, ...(params.q ? [{ OR: [{ title: { contains: params.q, mode: "insensitive" as const } }, { venue: { name: { contains: params.q, mode: "insensitive" as const } } }] }] : []), ...nearbyFilters.cursorFilters, ...nearbyFilters.hiddenFilters],
       },
       take: limit + 1,
       orderBy: START_AT_ID_ORDER_BY,
@@ -161,6 +163,7 @@ export async function runSavedSearchEvents(args: {
   if (params.venue) filters.push({ venue: { slug: params.venue } });
   if (params.artist) filters.push({ eventArtists: { some: { artist: { slug: params.artist, isPublished: true } } } });
   if (params.tags.length) filters.push({ eventTags: { some: { tag: { slug: { in: params.tags } } } } });
+  if (hiddenIds.length) filters.push({ id: { notIn: hiddenIds } });
   if (params.lat != null && params.lng != null && params.radiusKm != null) {
     const box = getBoundingBox(params.lat, params.lng, params.radiusKm);
     filters.push({ OR: [

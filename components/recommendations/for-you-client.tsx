@@ -184,6 +184,11 @@ export function ForYouClient() {
     });
   }, []);
 
+  const handleHide = useCallback((eventId: string) => {
+    setHiddenIds((current) => (current.includes(eventId) ? current : [...current, eventId]));
+    void fetch(`/api/events/by-id/${eventId}/hide`, { method: "POST" });
+  }, []);
+
   useEffect(() => {
     if (!rankedItems.length) return;
     track("personalization_rank_applied", { rankingSource: "for_you", rankedCount: rankedItems.length, version: RANKING_VERSION });
@@ -286,7 +291,7 @@ export function ForYouClient() {
                           👎 Less like this
                         </button>
                       </div>
-                      <ItemActionsMenu type="event" idOrSlug={item.event.slug} source="for_you" measurementSource="for_you" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.event.id])} />
+                      <ItemActionsMenu type="event" idOrSlug={item.event.id} source="for_you" measurementSource="for_you" explanation={explanation} onHidden={() => handleHide(item.event.id)} />
                     </div>
                   )}
                 />

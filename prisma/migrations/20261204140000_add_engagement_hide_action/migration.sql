@@ -1,0 +1,1 @@
+ALTER TYPE "EngagementAction" ADD VALUE IF NOT EXISTS 'HIDE';

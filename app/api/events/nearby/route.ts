@@ -9,6 +9,7 @@ import { buildNearbyEventsFilters } from "@/lib/nearby-events";
 import { decodeNearbyCursor, encodeNearbyCursor } from "@/lib/nearby-cursor";
 import { nearbyEventsQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
 import { publishedEventWhere } from "@/lib/publish-status";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -41,6 +42,14 @@ export async function GET(req: NextRequest) {
     return next;
   })();
   const box = getBoundingBox(lat, lng, radiusKm);
+  const user = await getSessionUser();
+  const hiddenEventIds = user
+    ? (await db.engagementEvent.findMany({
+        where: { userId: user.id, action: "HIDE", targetType: "EVENT" },
+        select: { targetId: true },
+        distinct: ["targetId"],
+      })).map((item) => item.targetId)
+    : [];
   let workingCursor = cursor ? decodeNearbyCursor(cursor) : null;
   const pageItems: NearbyEventWithJoin[] = [];
   const batchSize = Math.min(50, Math.max(limit * 3, limit + 1));
@@ -49,7 +58,7 @@ export async function GET(req: NextRequest) {
 
   while (pageItems.length < limit && dbHasMore && iterations < 5) {
     iterations += 1;
-    const nearbyFilters = buildNearbyEventsFilters({ cursor: workingCursor, from: dateFrom, to: dateTo });
+    const nearbyFilters = buildNearbyEventsFilters({ cursor: workingCursor, from: dateFrom, to: dateTo, hiddenEventIds });
     const dateWindowFilters: Prisma.EventWhereInput[] = [
       { startAt: { lte: dateTo } },
       {
@@ -68,6 +77,7 @@ export async function GET(req: NextRequest) {
         ],
       },
       ...nearbyFilters.cursorFilters,
+      ...nearbyFilters.hiddenFilters,
     ];
     if (q) andFilters.push({ OR: [{ title: { contains: q, mode: "insensitive" as const } }, { venue: { name: { contains: q, mode: "insensitive" as const } } }] });
     if (tags.length) andFilters.push({ eventTags: { some: { tag: { slug: { in: tags } } } } });

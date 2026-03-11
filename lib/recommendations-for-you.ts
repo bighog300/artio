@@ -187,6 +187,12 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
 
   const followedVenueIds = new Set(follows.filter((f) => f.targetType === "VENUE").map((f) => f.targetId));
   const followedArtistIds = new Set(follows.filter((f) => f.targetType === "ARTIST").map((f) => f.targetId));
+  const hiddenEventIds = new Set((await db.engagementEvent.findMany({
+    where: { userId: args.userId, action: "HIDE", targetType: "EVENT" },
+    select: { targetId: true },
+    distinct: ["targetId"],
+  })).map((item) => item.targetId));
+  const hiddenIds = Array.from(hiddenEventIds);
 
   const candidateIds: string[] = [];
   const seenIds = new Set<string>();
@@ -196,6 +202,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
       where: {
         isPublished: true,
         startAt: { gte: now, lte: to },
+        ...(hiddenIds.length ? { id: { notIn: hiddenIds } } : {}),
         OR: [
           followedVenueIds.size ? { venueId: { in: Array.from(followedVenueIds) } } : undefined,
           followedArtistIds.size ? { eventArtists: { some: { artistId: { in: Array.from(followedArtistIds) } } } } : undefined,
@@ -212,7 +219,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
   for (const search of searches) {
     let items: Array<{ id: string; startAt: Date }> = [];
     try {
-      items = await runSavedSearchEvents({ eventDb: db as never, type: search.type as SavedSearchType, paramsJson: search.paramsJson, limit: 50 });
+      items = await runSavedSearchEvents({ eventDb: db as never, type: search.type as SavedSearchType, paramsJson: search.paramsJson, limit: 50, hiddenEventIds: hiddenIds });
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       console.warn("recommendations.for_you.saved_search_skipped", {
@@ -239,6 +246,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
       where: {
         isPublished: true,
         startAt: { gte: now, lte: to },
+        ...(hiddenIds.length ? { id: { notIn: hiddenIds } } : {}),
         OR: [
           { lat: { gte: box.minLat, lte: box.maxLat }, lng: { gte: box.minLng, lte: box.maxLng } },
           { venue: { is: { lat: { gte: box.minLat, lte: box.maxLat }, lng: { gte: box.minLng, lte: box.maxLng } } } },
@@ -332,6 +340,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
         where: {
           isPublished: true,
           startAt: { gte: now, lte: to },
+          ...(hiddenIds.length ? { id: { notIn: hiddenIds } } : {}),
           OR: [
             affinityVenueIds.size ? { venueId: { in: Array.from(affinityVenueIds) } } : undefined,
             affinityArtistIds.size ? { eventArtists: { some: { artistId: { in: Array.from(affinityArtistIds) } } } } : undefined,
@@ -346,7 +355,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     }
   }
 
-  const trimmed = candidateIds.filter((id) => !dislikedEventIds.has(id)).slice(0, MAX_CANDIDATES);
+  const trimmed = candidateIds.filter((id) => !dislikedEventIds.has(id) && !hiddenEventIds.has(id)).slice(0, MAX_CANDIDATES);
   const events = await db.event.findMany({
     where: { id: { in: trimmed }, isPublished: true, startAt: { gte: now, lte: to } },
     select: {

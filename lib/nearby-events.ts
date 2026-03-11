@@ -1,11 +1,13 @@
 import { buildStartAtIdCursorPredicate, type StartAtIdCursor } from "@/lib/cursor-predicate";
 
-export type NearbyCursorInput = { cursor?: StartAtIdCursor | null; from: Date; to: Date };
+export type NearbyCursorInput = { cursor?: StartAtIdCursor | null; from: Date; to: Date; hiddenEventIds?: string[] };
 
-export function buildNearbyEventsFilters({ cursor, from, to }: NearbyCursorInput) {
+export function buildNearbyEventsFilters({ cursor, from, to, hiddenEventIds }: NearbyCursorInput) {
+  const hiddenIds = hiddenEventIds?.filter((id) => id.length > 0) ?? [];
   return {
     startAt: { gte: from, lte: to },
     cursorFilters: buildStartAtIdCursorPredicate(cursor),
+    hiddenFilters: hiddenIds.length ? [{ id: { notIn: hiddenIds } }] : [],
   };
 }
 
