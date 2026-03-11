@@ -27,6 +27,8 @@ type ArtistListResponse = {
   total: number;
 };
 
+type ArtistFilter = "all" | "artworks" | "forsale";
+
 export function ArtistsClient({
   artists: initialArtists,
   total,
@@ -43,9 +45,14 @@ export function ArtistsClient({
   const sort = searchParams.get("sort") ?? "az";
 
   const [artists, setArtists] = useState(initialArtists);
+  const [filter, setFilter] = useState<ArtistFilter>("all");
   const [currentPage, setCurrentPage] = useState<number>(nextPage ?? 2);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(total > initialArtists.length);
+
+  const artistsWithArtworksCount = useMemo(() => artists.filter((artist) => artist.artworkCount > 0).length, [artists]);
+  const artistsWithForSaleCount = useMemo(() => artists.filter((artist) => (artist.forSaleCount ?? 0) > 0).length, [artists]);
+  const showForSaleFilter = artistsWithForSaleCount > 0;
 
   useEffect(() => {
     setArtists(initialArtists);
@@ -55,8 +62,20 @@ export function ArtistsClient({
 
   const filtered = useMemo(() => {
     const qNormalized = q.toLowerCase();
-    return artists.filter((artist) => !qNormalized || artist.name.toLowerCase().includes(qNormalized) || artist.tags.some((tag) => tag.toLowerCase().includes(qNormalized)));
-  }, [artists, q]);
+    let filteredArtists = artists.filter(
+      (artist) => !qNormalized || artist.name.toLowerCase().includes(qNormalized) || artist.tags.some((tag) => tag.toLowerCase().includes(qNormalized)),
+    );
+
+    if (filter === "artworks") {
+      filteredArtists = filteredArtists.filter((artist) => artist.artworkCount > 0);
+    }
+
+    if (filter === "forsale") {
+      filteredArtists = filteredArtists.filter((artist) => (artist.forSaleCount ?? 0) > 0);
+    }
+
+    return filteredArtists;
+  }, [artists, q, filter]);
 
   const loadMore = async () => {
     if (isLoading || !hasMore) return;
@@ -82,6 +101,37 @@ export function ArtistsClient({
         searchPlaceholder="Search artists"
         sortOptions={[{ value: "az", label: "A–Z" }, { value: "followers", label: "Most Followed" }, { value: "forsale", label: "Most For Sale" }]}
       />
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setFilter("all")}
+          className={`rounded-full border px-3 py-1 text-sm ${
+            filter === "all" ? "bg-foreground text-background" : "bg-background text-foreground"
+          }`}
+        >
+          All artists
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter("artworks")}
+          className={`rounded-full border px-3 py-1 text-sm ${
+            filter === "artworks" ? "bg-foreground text-background" : "bg-background text-foreground"
+          }`}
+        >
+          Has artworks ({artistsWithArtworksCount})
+        </button>
+        {showForSaleFilter ? (
+          <button
+            type="button"
+            onClick={() => setFilter("forsale")}
+            className={`rounded-full border px-3 py-1 text-sm ${
+              filter === "forsale" ? "bg-foreground text-background" : "bg-background text-foreground"
+            }`}
+          >
+            Has works for sale ({artistsWithForSaleCount})
+          </button>
+        ) : null}
+      </div>
       {filtered.length === 0 ? (
         <EmptyState title="No artists match your search" description="Try a different artist name or clear filters." actions={[{ label: "Reset filters", href: "/artists" }]} />
       ) : (
