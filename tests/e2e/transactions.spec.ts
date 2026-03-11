@@ -1,8 +1,8 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type Response as PlaywrightResponse } from '@playwright/test';
 
 import { test } from './fixtures';
 
-async function isServerErrorResponse(response: Response | null) {
+async function isServerErrorResponse(response: PlaywrightResponse | null) {
   return response?.status() === 500;
 }
 
