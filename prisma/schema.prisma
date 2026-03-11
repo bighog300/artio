@@ -262,6 +262,14 @@ enum ArtworkOrderStatus {
   REFUNDED
 }
 
+enum ArtworkOfferStatus {
+  PENDING
+  ACCEPTED
+  COUNTERED
+  DECLINED
+  EXPIRED
+}
+
 enum AnalyticsEntityType {
   ARTWORK
   ARTIST
@@ -1481,6 +1489,7 @@ model Artwork {
   curatedItems    CuratedCollectionItem[]
   inquiries      ArtworkInquiry[]
   orders         ArtworkOrder[]
+  offers         ArtworkOffer[]
   ingestCandidate IngestExtractedArtwork?  @relation("IngestExtractedArtworkCreated")
 
   @@index([artistId])
@@ -1528,6 +1537,28 @@ model ArtworkInquiry {
   @@index([artworkId])
   @@index([createdAt])
 }
+
+model ArtworkOffer {
+  id             String             @id @default(uuid()) @db.Uuid
+  artworkId      String             @db.Uuid
+  buyerName      String
+  buyerEmail     String
+  offerAmount    Int
+  currency       String             @default("GBP")
+  message        String?
+  status         ArtworkOfferStatus @default(PENDING)
+  artistResponse String?
+  counterAmount  Int?
+  expiresAt      DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  artwork        Artwork            @relation(fields: [artworkId], references: [id])
+
+  @@index([artworkId])
+  @@index([buyerEmail])
+  @@index([status])
+}
+
 model ArtistFeaturedArtwork {
   id        String   @id @default(uuid()) @db.Uuid
   artistId  String   @db.Uuid

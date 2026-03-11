@@ -105,6 +105,12 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
       },
       venues: { select: { venue: { select: { id: true, name: true, slug: true } } } },
       events: { select: { event: { select: { id: true, title: true, slug: true, startAt: true } } } },
+      offers: {
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { offerAmount: true },
+      },
     },
   });
 
@@ -295,6 +301,9 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
             artwork.artist.stripeAccount?.chargesEnabled === true
           }
           isSold={artwork.soldAt !== null}
+          priceAmount={artwork.priceAmount}
+          currency={artwork.currency}
+          initialOfferAmountMajor={artwork.offers[0] ? artwork.offers[0].offerAmount / 100 : undefined}
         />
       ) : null}
 

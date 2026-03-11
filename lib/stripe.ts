@@ -9,7 +9,7 @@ export type StripeWebhookEvent = {
       payouts_enabled?: boolean;
       deleted?: boolean;
       payment_intent?: string | null;
-      metadata?: { registrationId?: string; artworkOrderId?: string };
+      metadata?: { registrationId?: string; artworkOrderId?: string; artworkOfferId?: string };
     };
   };
 };
@@ -36,7 +36,7 @@ type StripeClient = {
         application_fee_amount: number;
         transfer_data: { destination: string };
         customer_email: string;
-        metadata: { registrationId: string; confirmationCode: string } | { artworkOrderId: string };
+        metadata: { registrationId: string; confirmationCode: string } | { artworkOrderId: string } | { artworkOrderId: string; artworkOfferId: string };
         success_url: string;
         cancel_url: string;
         mode: "payment";
