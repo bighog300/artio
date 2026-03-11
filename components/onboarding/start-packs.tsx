@@ -204,7 +204,7 @@ export function StartPacks({ page, isAuthenticated }: { page: string; isAuthenti
       });
       if (!response.ok) return false;
       setFollowedIds((prev) => ({ ...prev, [candidate.id]: true }));
-      window.dispatchEvent(new CustomEvent("artpulse:follow_toggled", { detail: { nextState: "followed" } }));
+      window.dispatchEvent(new CustomEvent("artio:follow_toggled", { detail: { nextState: "followed" } }));
       return true;
     } catch {
       return false;

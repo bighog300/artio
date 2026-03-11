@@ -28,7 +28,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
       return Response.json({ ok: true, enqueued: 0 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://artpulse.co";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://artio.co";
 
     await db.notificationOutbox.createMany({
       data: audience.map((email) => {

@@ -33,11 +33,11 @@ export const revalidate = 300;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  if (!hasDatabaseUrl()) return { title: "Venue | Artpulse", description: "Discover venue details and upcoming events on Artpulse." };
+  if (!hasDatabaseUrl()) return { title: "Venue | Artio", description: "Discover venue details and upcoming events on Artio." };
   const venue = await db.venue.findFirst({ where: { slug, isPublished: true, deletedAt: null }, select: { name: true, description: true, featuredImageUrl: true, featuredAsset: { select: { url: true } } } });
-  if (!venue) return { title: "Venue | Artpulse", description: "Discover venue details and upcoming events on Artpulse." };
+  if (!venue) return { title: "Venue | Artio", description: "Discover venue details and upcoming events on Artio." };
   const imageUrl = resolveEntityPrimaryImage(venue)?.url ?? null;
-  return { title: `${venue.name} | Artpulse`, description: getVenueDescriptionExcerpt(venue.description, `Explore ${venue.name} on Artpulse.`), openGraph: { title: `${venue.name} | Artpulse`, description: getVenueDescriptionExcerpt(venue.description, `Explore ${venue.name} on Artpulse.`), images: imageUrl ? [{ url: imageUrl, alt: venue.name }] : undefined } };
+  return { title: `${venue.name} | Artio`, description: getVenueDescriptionExcerpt(venue.description, `Explore ${venue.name} on Artio.`), openGraph: { title: `${venue.name} | Artio`, description: getVenueDescriptionExcerpt(venue.description, `Explore ${venue.name} on Artio.`), images: imageUrl ? [{ url: imageUrl, alt: venue.name }] : undefined } };
 }
 
 export default async function VenueDetail({ params }: { params: Promise<{ slug: string }> }) {

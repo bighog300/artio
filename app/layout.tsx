@@ -15,10 +15,10 @@ import { getPublicBranding } from '@/lib/site-settings/get-public-branding';
 export const runtime = "nodejs";
 
 export const metadata: Metadata = {
-  title: { default: 'Artpulse', template: '%s | Artpulse' },
+  title: { default: 'Artio', template: '%s | Artio' },
   description: 'Discover art exhibitions, openings, talks, workshops, and fairs.',
-  openGraph: { title: 'Artpulse', description: 'Discover art events near you.', type: 'website' },
-  twitter: { card: 'summary_large_image', title: 'Artpulse', description: 'Discover art events near you.' },
+  openGraph: { title: 'Artio', description: 'Discover art events near you.', type: 'website' },
+  twitter: { card: 'summary_large_image', title: 'Artio', description: 'Discover art events near you.' },
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

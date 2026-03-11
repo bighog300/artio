@@ -55,17 +55,17 @@ type ArtworkJsonLdInput = {
 const FALLBACK_COPY: Record<DetailKind, { title: string; description: string; path: string }> = {
   event: {
     title: "Event details",
-    description: "Discover event details, schedule, and venue information on Artpulse.",
+    description: "Discover event details, schedule, and venue information on Artio.",
     path: "/events",
   },
   venue: {
     title: "Venue details",
-    description: "Explore venue profiles, upcoming events, and practical details on Artpulse.",
+    description: "Explore venue profiles, upcoming events, and practical details on Artio.",
     path: "/venues",
   },
   artist: {
     title: "Artist details",
-    description: "Browse artist profiles and related events on Artpulse.",
+    description: "Browse artist profiles and related events on Artio.",
     path: "/artists",
   },
 };
@@ -80,7 +80,7 @@ export function getDetailUrl(kind: DetailKind, slug: string) {
 
 export function buildDetailMetadata(input: MetadataInput): Metadata {
   const fallback = FALLBACK_COPY[input.kind];
-  const title = input.title?.trim() || `${fallback.title} | Artpulse`;
+  const title = input.title?.trim() || `${fallback.title} | Artio`;
   const description = input.description?.trim() || fallback.description;
   const url = getDetailUrl(input.kind, input.slug);
   const images = input.imageUrl ? [input.imageUrl] : undefined;

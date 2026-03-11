@@ -139,7 +139,7 @@ export async function runWeeklyDigests(headerSecret: string | null, dryRunRaw: s
             create: {
               userId: search.userId,
               type: "DIGEST_READY",
-              title: "Your weekly Artpulse digest",
+              title: "Your weekly Artio digest",
               body: `${page.length} upcoming events match '${search.name}'`,
               href: `/digests/${digestRun.id}`,
               dedupeKey,

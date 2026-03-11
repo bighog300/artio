@@ -245,7 +245,7 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
         const fromAddress =
           settings.resendFromAddress ??
           settings.emailFromAddress ??
-          "Artpulse <noreply@mail.artpulse.co>";
+          "Artio <noreply@mail.artio.co>";
 
         const resend = getResendClient(resendApiKey);
         const payload = notification.payload as { tags?: Array<{ name: string; value: string }> };

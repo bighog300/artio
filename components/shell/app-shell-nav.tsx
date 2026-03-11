@@ -110,7 +110,7 @@ export function AppShellNav({ user, isAdmin, logoUrl }: AppShellNavProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 md:px-6">
-        <Link href="/" className="text-lg font-semibold tracking-tight">{logoUrl ? <img src={logoUrl} alt="ArtPulse" className="h-8 w-auto" /> : "ArtPulse"}</Link>
+        <Link href="/" className="text-2xl font-semibold tracking-tight">{logoUrl ? <img src={logoUrl} alt="Artio" className="h-12 w-auto" /> : "Artio"}</Link>
 
         <nav className="hidden flex-1 items-center justify-center gap-1 md:flex" aria-label="Primary">
           {PRIMARY_LINKS.map((item) => <NavTextLink key={item.href} href={item.href} label={item.label} />)}

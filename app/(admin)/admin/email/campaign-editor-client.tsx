@@ -26,7 +26,7 @@ function toIsoOrNull(value: string): string | null {
 export default function CampaignEditorClient({ campaignId }: CampaignEditorClientProps) {
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
-  const [bodyHtml, setBodyHtml] = useState("<p>Hello from Artpulse.</p>");
+  const [bodyHtml, setBodyHtml] = useState("<p>Hello from Artio.</p>");
   const [audienceType, setAudienceType] = useState<CampaignAudience>("ALL_USERS");
   const [scheduledEnabled, setScheduledEnabled] = useState(false);
   const [scheduledFor, setScheduledFor] = useState("");

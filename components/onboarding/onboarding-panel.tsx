@@ -49,7 +49,7 @@ export function OnboardingPanel() {
   return (
     <aside className="rounded border bg-muted/50 p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="font-semibold">Get started on Artpulse</h2>
+        <h2 className="font-semibold">Get started on Artio</h2>
         <button
           type="button"
           className="text-sm underline"

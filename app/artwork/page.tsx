@@ -35,7 +35,7 @@ export default async function ArtworkPage({ searchParams }: ArtworkPageProps) {
 
   return (
     <PageShell className="page-stack">
-      <PageHeader title="Artwork" subtitle="Browse published works from artists across ArtPulse." />
+      <PageHeader title="Artwork" subtitle="Browse published works from artists across Artio." />
       <CuratedCollectionsRail surface="artwork" />
       {showTrendingRail ? <TrendingRail items={trending} /> : null}
       <ArtworkBrowser signedIn={Boolean(user)} mediumOptions={mediumOptions} />

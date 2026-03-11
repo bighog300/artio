@@ -23,7 +23,7 @@ export function AuthShellNav({ title }: AuthShellNavProps) {
 
         <div className="flex flex-col items-center">
           <Link href="/" className="text-base font-semibold tracking-tight">
-            ArtPulse
+            Artio
           </Link>
           <p className="text-xs text-muted-foreground">{title}</p>
         </div>

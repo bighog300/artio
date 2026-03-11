@@ -1,4 +1,4 @@
-const DISMISS_KEY = "artpulse:get-started-banner-dismissed";
+const DISMISS_KEY = "artio:get-started-banner-dismissed";
 
 export function isGetStartedBannerDismissed(): boolean {
   if (typeof window === "undefined") return false;

@@ -42,7 +42,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ key: string
 
   const settings = await getSiteSettings();
   const resendApiKey = settings.resendApiKey?.trim();
-  const fromAddress = settings.resendFromAddress ?? settings.emailFromAddress ?? "Artpulse <noreply@mail.artpulse.co>";
+  const fromAddress = settings.resendFromAddress ?? settings.emailFromAddress ?? "Artio <noreply@mail.artio.co>";
   if (resendApiKey) {
     const resend = getResendClient(resendApiKey);
     await resend.emails.send({

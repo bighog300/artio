@@ -25,7 +25,7 @@ import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
 import { countPublishedArtworksByArtist, listFeaturedArtworksByArtist, listPublishedArtworksByArtist } from "@/lib/artworks";
 import { deriveArtistTags, getArtistArtworks } from "@/lib/artists";
 
-const FALLBACK_METADATA = { title: "Artist | Artpulse", description: "Browse artist profiles and related events on Artpulse." };
+const FALLBACK_METADATA = { title: "Artist | Artio", description: "Browse artist profiles and related events on Artio." };
 
 export const revalidate = 300;
 
@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!artist) return FALLBACK_METADATA;
   const description = (artist.bio ?? "").trim().slice(0, 160) || FALLBACK_METADATA.description;
   const imageUrl = resolveEntityPrimaryImage(artist)?.url ?? null;
-  return { title: `${artist.name} | Artpulse`, description, openGraph: { title: `${artist.name} | Artpulse`, description, images: imageUrl ? [{ url: imageUrl, alt: artist.name }] : undefined } };
+  return { title: `${artist.name} | Artio`, description, openGraph: { title: `${artist.name} | Artio`, description, images: imageUrl ? [{ url: imageUrl, alt: artist.name }] : undefined } };
 }
 export default async function ArtistDetail({ params }: { params: Promise<{ slug: string }> }) {
   if (!hasDatabaseUrl()) return <main className="p-6">Set DATABASE_URL to view artists locally.</main>;

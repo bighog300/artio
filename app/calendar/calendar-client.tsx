@@ -80,11 +80,11 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
     const onSaveToggled = () => {
       if (scope === "saved") refetchEvents();
     };
-    window.addEventListener("artpulse:follow_toggled", onFollowToggled);
-    window.addEventListener("artpulse:event_saved_toggled", onSaveToggled);
+    window.addEventListener("artio:follow_toggled", onFollowToggled);
+    window.addEventListener("artio:event_saved_toggled", onSaveToggled);
     return () => {
-      window.removeEventListener("artpulse:follow_toggled", onFollowToggled);
-      window.removeEventListener("artpulse:event_saved_toggled", onSaveToggled);
+      window.removeEventListener("artio:follow_toggled", onFollowToggled);
+      window.removeEventListener("artio:event_saved_toggled", onSaveToggled);
     };
   }, [refetchEvents, scope]);
 

@@ -153,7 +153,7 @@ export default function EmailSettingsClient(props: EmailSettingsProps) {
             setFromAddress(e.target.value);
             setStatus("idle");
           }}
-          placeholder="Artpulse <noreply@mail.artpulse.co>"
+          placeholder="Artio <noreply@mail.artio.co>"
           disabled={saving}
         />
       </div>

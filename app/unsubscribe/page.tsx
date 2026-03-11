@@ -26,5 +26,5 @@ export default async function UnsubscribePage({
     update: {},
   });
 
-  return <p>You&apos;ve been unsubscribed. You won&apos;t receive further emails from Artpulse.</p>;
+  return <p>You&apos;ve been unsubscribed. You won&apos;t receive further emails from Artio.</p>;
 }

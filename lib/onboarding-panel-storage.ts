@@ -1,4 +1,4 @@
-const DISMISS_KEY = "artpulse:onboarding-panel-dismissed";
+const DISMISS_KEY = "artio:onboarding-panel-dismissed";
 
 export function isOnboardingPanelDismissed(): boolean {
   if (typeof window === "undefined") return false;

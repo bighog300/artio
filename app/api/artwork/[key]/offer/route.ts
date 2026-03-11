@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ key: strin
 
     const settings = await getSiteSettings();
     const resendApiKey = settings.resendApiKey?.trim();
-    const fromAddress = settings.resendFromAddress ?? settings.emailFromAddress ?? "Artpulse <noreply@mail.artpulse.co>";
+    const fromAddress = settings.resendFromAddress ?? settings.emailFromAddress ?? "Artio <noreply@mail.artio.co>";
     const artistEmail = artwork.artist.user?.email?.trim() || process.env.INQUIRY_FALLBACK_EMAIL?.trim() || null;
 
     if (resendApiKey && artistEmail) {

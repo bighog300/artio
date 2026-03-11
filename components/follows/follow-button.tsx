@@ -110,7 +110,7 @@ export function FollowButton({
         enqueueToast({ title: next ? "Following updated" : "Unfollowed" });
         onToggled?.(next ? "followed" : "unfollowed");
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("artpulse:follow_toggled", { detail: { nextState: next ? "followed" : "unfollowed" } }));
+          window.dispatchEvent(new CustomEvent("artio:follow_toggled", { detail: { nextState: next ? "followed" : "unfollowed" } }));
         }
         setShowSuccessHint(true);
       },

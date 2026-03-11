@@ -39,7 +39,7 @@ export default async function Home() {
   return (
     <PageShell className="page-stack">
       <div className="section-stack">
-        <h1 className="type-h1">Artpulse</h1>
+        <h1 className="type-h1">Artio</h1>
         <p className="type-caption">Discover art events and keep up with the scenes you care about.</p>
       </div>
 

@@ -75,7 +75,7 @@ export function SaveEventButton({ eventId, initialSaved, nextUrl, isAuthenticate
       }
       enqueueToast({ title: nextSaved ? "Saved" : "Removed from saved" });
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("artpulse:event_saved_toggled", { detail: { eventId, nextState: nextSaved ? "saved" : "unsaved" } }));
+        window.dispatchEvent(new CustomEvent("artio:event_saved_toggled", { detail: { eventId, nextState: nextSaved ? "saved" : "unsaved" } }));
       }
       if (nextSaved) setShowSavedHint(true);
     } catch {

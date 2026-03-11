@@ -33,7 +33,7 @@ export function OnboardingSheet({
       <DialogContent aria-describedby="onboarding-sheet-description" className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Set up your feed</DialogTitle>
-          <DialogDescription id="onboarding-sheet-description">Pick one step to personalize ArtPulse. Weekly digests and notifications become more relevant as you go.</DialogDescription>
+          <DialogDescription id="onboarding-sheet-description">Pick one step to personalize Artio. Weekly digests and notifications become more relevant as you go.</DialogDescription>
         </DialogHeader>
 
         <OnboardingProgress steps={steps} />

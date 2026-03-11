@@ -123,7 +123,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
     },
     organizer: {
       "@type": "Organization",
-      name: event.venue?.name ?? "Artpulse",
+      name: event.venue?.name ?? "Artio",
     },
     ...(offers.length > 0 ? { offers } : {}),
     ...(primaryImage?.url ? { image: [primaryImage.url] } : {}),

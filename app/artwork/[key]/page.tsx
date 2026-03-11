@@ -22,8 +22,8 @@ import { buildArtworkJsonLd, getSiteUrl } from "@/lib/seo.public-profiles";
 
 
 const FALLBACK_METADATA: Metadata = {
-  title: "Artwork | Artpulse",
-  description: "Discover original artworks by independent artists on Artpulse.",
+  title: "Artwork | Artio",
+  description: "Discover original artworks by independent artists on Artio.",
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ key: string }> }): Promise<Metadata> {
@@ -44,10 +44,10 @@ export async function generateMetadata({ params }: { params: Promise<{ key: stri
     },
   });
   if (!artwork) return FALLBACK_METADATA;
-  const title = `${artwork.title} by ${artwork.artist.name} | Artpulse`;
+  const title = `${artwork.title} by ${artwork.artist.name} | Artio`;
   const description =
     (artwork.description ?? "").trim().slice(0, 160) ||
-    `An artwork by ${artwork.artist.name} on Artpulse.`;
+    `An artwork by ${artwork.artist.name} on Artio.`;
   const imageUrl = artwork.featuredAsset?.url ?? artwork.images[0]?.asset?.url ?? null;
   const url = `${getSiteUrl()}/artwork/${artwork.slug ?? artwork.id}`;
   return {
