@@ -84,7 +84,10 @@ export function AccountPageTabs({
                   <p className="font-medium"><Link className="underline" href={`/events/${item.event.slug}`}>{item.event.title}</Link></p>
                   <p className="text-muted-foreground">{formatDate(item.event.startAt)} · {item.event.venue?.name ?? "Venue TBA"}</p>
                   <p className="text-muted-foreground">Code: {item.confirmationCode}</p>
-                  <Button type="button" variant="outline" size="sm" onClick={() => void cancelRegistration(item.confirmationCode, item.guestEmail)}>Cancel</Button>
+                  <div className="flex gap-2">
+                    <Button asChild type="button" variant="outline" size="sm"><Link href={`/my/registrations/${item.confirmationCode}/transfer`}>Transfer</Link></Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => void cancelRegistration(item.confirmationCode, item.guestEmail)}>Cancel</Button>
+                  </div>
                 </li>
               ))}
             </ul>
