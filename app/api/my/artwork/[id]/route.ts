@@ -1,15 +1,35 @@
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { isAuthError } from "@/lib/auth";
 import { logAdminAction } from "@/lib/admin-audit";
 import { ensureUniqueArtworkSlugWithDeps, slugifyArtworkTitle } from "@/lib/artwork-slug";
 import { requireMyArtworkAccess } from "@/lib/my-artwork-access";
-import { idParamSchema, myArtworkPatchSchema, parseBody, zodDetails } from "@/lib/validators";
+import { artworkSlugSchema, idParamSchema, parseBody, zodDetails } from "@/lib/validators";
 import { computeArtworkCompleteness } from "@/lib/artwork-completeness";
 
 export const runtime = "nodejs";
+
+const artworkPatchSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  slug: artworkSlugSchema.optional().nullable(),
+  description: z.string().trim().max(4000).optional().nullable(),
+  year: z.number().int().min(1000).max(3000).optional().nullable(),
+  medium: z.string().trim().max(200).optional().nullable(),
+  dimensions: z.string().trim().max(200).optional().nullable(),
+  priceAmount: z.number().int().min(0).optional().nullable(),
+  currency: z.string().trim().min(3).max(3).optional().nullable(),
+  condition: z.string().trim().max(100).optional().nullable(),
+  conditionNotes: z.string().trim().max(500).optional().nullable(),
+  provenance: z.string().trim().max(1000).optional().nullable(),
+  editionInfo: z.string().trim().max(100).optional().nullable(),
+  frameIncluded: z.boolean().optional().nullable(),
+  shippingNotes: z.string().trim().max(500).optional().nullable(),
+}).refine((value) => Object.keys(value).length > 0, {
+  message: "At least one field must be provided",
+});
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const parsedId = idParamSchema.safeParse(await params);
@@ -34,7 +54,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   try {
     const { user } = await requireMyArtworkAccess(parsedId.data.id);
-    const parsedBody = myArtworkPatchSchema.safeParse(await parseBody(req));
+    const body = await parseBody(req);
+    const parsedBody = artworkPatchSchema.safeParse(body);
     if (!parsedBody.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedBody.error));
 
     const before = await db.artwork.findUnique({ where: { id: parsedId.data.id } });

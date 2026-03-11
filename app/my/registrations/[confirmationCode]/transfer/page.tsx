@@ -1,16 +1,4 @@
-export default async function TransferTicketPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ confirmationCode: string }>;
-  searchParams?: Promise<{ email?: string }>;
-}) {
-  const { confirmationCode } = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const emailQuery = resolvedSearchParams?.email?.trim();
-  const endpoint = emailQuery
-    ? `/api/registrations/${confirmationCode}/transfer?email=${encodeURIComponent(emailQuery)}`
-    : `/api/registrations/${confirmationCode}/transfer`;
+
 
   return (
     <main className="mx-auto max-w-xl space-y-6">

@@ -20,6 +20,12 @@ type Artwork = {
   year: number | null;
   medium: string | null;
   dimensions: string | null;
+  condition?: string | null;
+  conditionNotes?: string | null;
+  provenance?: string | null;
+  editionInfo?: string | null;
+  frameIncluded?: boolean | null;
+  shippingNotes?: string | null;
   priceAmount: number | null;
   currency: string | null;
   featuredAssetId: string | null;
@@ -74,6 +80,12 @@ export function ArtworkDetailClient({
           dimensions: artwork.dimensions,
           priceAmount: artwork.priceAmount,
           currency: artwork.currency,
+          condition: artwork.condition,
+          conditionNotes: artwork.conditionNotes,
+          provenance: artwork.provenance,
+          editionInfo: artwork.editionInfo,
+          frameIncluded: artwork.frameIncluded,
+          shippingNotes: artwork.shippingNotes,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -155,6 +167,69 @@ export function ArtworkDetailClient({
               <option value="EUR">EUR</option>
             </select>
           </div>
+          <details className="rounded border p-3">
+            <summary className="cursor-pointer text-sm font-medium">Sale details</summary>
+            <div className="mt-3 space-y-3">
+              <label className="block space-y-1">
+                <span className="text-sm">Condition</span>
+                <select
+                  className="w-full rounded border px-2 py-1"
+                  value={artwork.condition ?? ""}
+                  onChange={(e) => setArtwork({ ...artwork, condition: e.target.value || null })}
+                >
+                  <option value="">Select condition</option>
+                  <option value="Excellent">Excellent</option>
+                  <option value="Good">Good</option>
+                  <option value="Fair">Fair</option>
+                  <option value="Poor">Poor</option>
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm">Condition notes</span>
+                <textarea
+                  className="w-full rounded border px-2 py-1"
+                  maxLength={500}
+                  value={artwork.conditionNotes ?? ""}
+                  onChange={(e) => setArtwork({ ...artwork, conditionNotes: e.target.value || null })}
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm">Provenance</span>
+                <textarea
+                  className="w-full rounded border px-2 py-1"
+                  maxLength={1000}
+                  value={artwork.provenance ?? ""}
+                  onChange={(e) => setArtwork({ ...artwork, provenance: e.target.value || null })}
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm">Edition info</span>
+                <input
+                  className="w-full rounded border px-2 py-1"
+                  maxLength={100}
+                  value={artwork.editionInfo ?? ""}
+                  onChange={(e) => setArtwork({ ...artwork, editionInfo: e.target.value || null })}
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(artwork.frameIncluded)}
+                  onChange={(e) => setArtwork({ ...artwork, frameIncluded: e.target.checked })}
+                />
+                Frame included
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm">Shipping notes</span>
+                <textarea
+                  className="w-full rounded border px-2 py-1"
+                  maxLength={500}
+                  value={artwork.shippingNotes ?? ""}
+                  onChange={(e) => setArtwork({ ...artwork, shippingNotes: e.target.value || null })}
+                />
+              </label>
+            </div>
+          </details>
           <div className="flex gap-2">
             <button className="rounded border px-2 py-1 disabled:opacity-60" disabled={saving} onClick={() => void onSave()}>
               {saving ? "Saving..." : "Save"}

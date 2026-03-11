@@ -73,6 +73,12 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
       year: true,
       medium: true,
       dimensions: true,
+      condition: true,
+      conditionNotes: true,
+      provenance: true,
+      editionInfo: true,
+      frameIncluded: true,
+      shippingNotes: true,
       priceAmount: true,
       currency: true,
       soldAt: true,
@@ -132,6 +138,15 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
     artwork.medium,
     artwork.dimensions,
   ].filter(Boolean) as string[];
+  const hasMarketplaceDetails = Boolean(
+    artwork.condition ||
+    artwork.conditionNotes ||
+    artwork.provenance ||
+    artwork.editionInfo ||
+    artwork.frameIncluded !== null ||
+    artwork.shippingNotes
+  );
+
   const galleryImages = artwork.images
     .filter((image) => Boolean(image.asset?.url))
     .map((image) => ({ id: image.id, src: image.asset.url ?? "", alt: image.alt ?? artwork.title }));
@@ -221,6 +236,53 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
         </Card>
       ) : null}
 
+      {hasMarketplaceDetails ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-3 text-sm">
+              {artwork.condition ? (
+                <div>
+                  <dt className="font-medium">Condition</dt>
+                  <dd className="text-muted-foreground">{artwork.condition}</dd>
+                </div>
+              ) : null}
+              {artwork.conditionNotes ? (
+                <div>
+                  <dt className="font-medium">Condition notes</dt>
+                  <dd className="whitespace-pre-wrap text-muted-foreground">{artwork.conditionNotes}</dd>
+                </div>
+              ) : null}
+              {artwork.provenance ? (
+                <div>
+                  <dt className="font-medium">Provenance</dt>
+                  <dd className="whitespace-pre-wrap text-muted-foreground">{artwork.provenance}</dd>
+                </div>
+              ) : null}
+              {artwork.editionInfo ? (
+                <div>
+                  <dt className="font-medium">Edition</dt>
+                  <dd className="text-muted-foreground">{artwork.editionInfo}</dd>
+                </div>
+              ) : null}
+              {artwork.frameIncluded !== null ? (
+                <div>
+                  <dt className="font-medium">Frame included</dt>
+                  <dd className="text-muted-foreground">{artwork.frameIncluded ? "Yes" : "No"}</dd>
+                </div>
+              ) : null}
+              {artwork.shippingNotes ? (
+                <div>
+                  <dt className="font-medium">Shipping notes</dt>
+                  <dd className="whitespace-pre-wrap text-muted-foreground">{artwork.shippingNotes}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {artwork.priceAmount != null && artwork.currency ? (
         <ArtworkPurchaseCard

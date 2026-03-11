@@ -1455,6 +1455,12 @@ model Artwork {
   year            Int?
   medium          String?
   dimensions      String?
+  condition       String?
+  conditionNotes  String?
+  provenance      String?
+  editionInfo     String?
+  frameIncluded   Boolean?
+  shippingNotes   String?
   priceAmount     Int?
   currency        String?
   soldAt          DateTime?      @db.Timestamptz

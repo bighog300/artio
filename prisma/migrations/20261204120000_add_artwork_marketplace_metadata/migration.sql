@@ -1,0 +1,7 @@
+ALTER TABLE "Artwork"
+  ADD COLUMN IF NOT EXISTS "condition" TEXT,
+  ADD COLUMN IF NOT EXISTS "conditionNotes" TEXT,
+  ADD COLUMN IF NOT EXISTS "provenance" TEXT,
+  ADD COLUMN IF NOT EXISTS "editionInfo" TEXT,
+  ADD COLUMN IF NOT EXISTS "frameIncluded" BOOLEAN,
+  ADD COLUMN IF NOT EXISTS "shippingNotes" TEXT;
