@@ -22,7 +22,7 @@ function noServerErrorLocator(page: Page) {
   return page.locator('text=/500|internal server error|application error|unhandled/i');
 }
 
-test.describe('Admin', () => {
+test.describe('Admin @slow', () => {
   test.beforeEach(async ({}) => {
     test.info().annotations.push({ type: 'tag', description: '@slow' });
   });

@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import crypto from 'node:crypto';
 
 import { PrismaClient } from '@prisma/client';
+import { encode } from 'next-auth/jwt';
 
 const prisma = new PrismaClient({
   datasources: {
@@ -24,13 +24,17 @@ async function seedUserSession(params: {
     create: { email: params.email, name: params.name, role: params.role },
   });
 
-  const sessionToken = crypto.randomUUID();
-  const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-  await prisma.$executeRaw`
-    INSERT INTO "Session" ("sessionToken", "userId", "expires")
-    VALUES (${sessionToken}, ${user.id}, ${expires})
-  `;
+  const sessionToken = await encode({
+    token: {
+      sub: user.id,
+      email: user.email,
+      name: user.name ?? '',
+      role: user.role,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
+    },
+    secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? 'ci-e2e-auth-secret',
+  });
 
   const outputPath = resolve(params.outputFile);
   await mkdir(dirname(outputPath), { recursive: true });
