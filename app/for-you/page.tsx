@@ -2,8 +2,10 @@ import { unstable_noStore as noStore } from "next/cache";
 import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
+import { db } from "@/lib/db";
 import { ForYouClient } from "@/components/recommendations/for-you-client";
 import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { GetStartedBanner } from "@/components/onboarding/get-started-banner";
 import { getAuthDebugRequestMeta, logAuthDebug } from "@/lib/auth-debug";
 
@@ -35,11 +37,27 @@ export default async function ForYouPage() {
     );
   }
 
+  const [followCount, savedSearchCount] = await Promise.all([
+    db.follow.count({ where: { userId: user.id } }),
+    db.savedSearch.count({ where: { userId: user.id } }),
+  ]);
+
+  const isFirstRun = followCount === 0 && savedSearchCount === 0;
+
   return (
     <main className="space-y-4 p-6">
       <PageHeader title="For You" subtitle="Personalized picks based on your follows and engagement." />
       <GetStartedBanner />
-      <ForYouClient />
+      {isFirstRun ? (
+        <EmptyState
+          title="Personalise your feed"
+          description="Follow artists and venues you love to see their events here."
+          actions={[
+            { label: "Discover artists", href: "/artists" },
+            { label: "Browse venues", href: "/venues" },
+          ]}
+        />
+      ) : <ForYouClient />}
     </main>
   );
 }

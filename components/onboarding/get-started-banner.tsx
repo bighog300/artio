@@ -15,9 +15,11 @@ export function GetStartedBanner() {
 
   if (dismissed || loading || !progress || progress.completedAll) return null;
 
+  const nextStep = progress.steps.find((step) => !step.done);
+
   return (
     <aside className="flex items-center justify-between gap-3 rounded border bg-muted/50 p-3">
-      <p className="text-sm">Finish setup ({progress.completedCount}/{progress.totalCount}) for better recommendations.</p>
+      <p className="text-sm">Next: {nextStep?.title ?? "Finish setup"} — Finish setup ({progress.completedCount}/{progress.totalCount}) →</p>
       <div className="flex items-center gap-3">
         <Link href="/get-started" className="text-sm underline">Finish setup →</Link>
         <button

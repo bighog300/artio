@@ -2,10 +2,11 @@ export type GetStartedSignals = {
   hasFollowed: boolean;
   hasLocation: boolean;
   hasSavedSearch: boolean;
+  hasVisitedFollowing?: boolean;
 };
 
 export type GetStartedStep = {
-  key: "follow" | "location" | "savedSearch";
+  key: "follow" | "hasSetLocation" | "savedSearch" | "browseNearby" | "visitFollowing";
   title: string;
   description: string;
   done: boolean;
@@ -24,23 +25,21 @@ export function computeGetStartedProgress(signals: GetStartedSignals): GetStarte
   const steps: GetStartedStep[] = [
     {
       key: "follow",
-      title: "Follow at least 1 venue or artist",
+      title: "Follow an artist or venue",
       description: "Follow artists or venues to personalize your feed.",
       done: signals.hasFollowed,
       ctas: [
         { label: "Browse venues", href: "/venues" },
         { label: "Browse artists", href: "/artists" },
-        { label: "View following", href: "/following" },
       ],
     },
     {
-      key: "location",
+      key: "hasSetLocation",
       title: "Set your location",
-      description: "Optional but recommended for nearby and local recommendations.",
+      description: "Add your location to unlock better nearby recommendations.",
       done: signals.hasLocation,
       ctas: [
-        { label: "Update location", href: "/account" },
-        { label: "Open nearby", href: "/nearby" },
+        { label: "Update location", href: "/account#location" },
       ],
     },
     {
@@ -51,6 +50,24 @@ export function computeGetStartedProgress(signals: GetStartedSignals): GetStarte
       ctas: [
         { label: "Search events", href: "/search" },
         { label: "Saved searches", href: "/saved-searches" },
+      ],
+    },
+    {
+      key: "browseNearby",
+      title: "Browse events near you",
+      description: "See local events and recommendations based on your location.",
+      done: signals.hasLocation,
+      ctas: [
+        { label: "Open nearby", href: "/nearby" },
+      ],
+    },
+    {
+      key: "visitFollowing",
+      title: "Visit your Following feed",
+      description: "Catch up on updates and events from artists and venues you follow.",
+      done: Boolean(signals.hasVisitedFollowing ?? signals.hasFollowed),
+      ctas: [
+        { label: "Go to Following", href: "/following" },
       ],
     },
   ];
