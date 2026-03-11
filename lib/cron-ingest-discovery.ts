@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { validateCronRequest } from "@/lib/cron-auth";
 import { runVenueIngestExtraction } from "@/lib/ingest/extraction-pipeline";
+import { createVenueStubFromCandidate } from "@/lib/ingest/create-venue-stub-from-candidate";
 
 function normalize(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
@@ -21,7 +22,7 @@ export async function runCronIngestDiscovery(
     where: { status: "PENDING" },
     orderBy: { createdAt: "asc" },
     take: 10,
-    include: { job: { select: { entityType: true } } },
+    include: { job: { select: { entityType: true, regionId: true } } },
   });
 
   let processed = 0;
@@ -34,6 +35,33 @@ export async function runCronIngestDiscovery(
       if (candidate.job.entityType === "VENUE") {
         const venue = await db.venue.findFirst({ where: { websiteUrl: candidate.url }, select: { id: true, websiteUrl: true, eventsPageUrl: true } });
         if (!venue) {
+          // If this candidate came from a region run, auto-create a venue stub
+          if (candidate.job.regionId) {
+            const region = await db.ingestRegion.findUnique({
+              where: { id: candidate.job.regionId },
+              select: { country: true, region: true },
+            });
+
+            const stub = await createVenueStubFromCandidate({
+              candidateUrl: candidate.url,
+              candidateTitle: candidate.title,
+              regionId: candidate.job.regionId,
+              country: region?.country ?? null,
+              region: region?.region ?? null,
+              db,
+            });
+
+            if (stub) {
+              await db.ingestDiscoveryCandidate.update({
+                where: { id: candidate.id },
+                data: { status: "DONE" },
+              });
+              processed += 1;
+              continue;
+            }
+          }
+
+          // No region context or stub creation failed — skip as before
           await db.ingestDiscoveryCandidate.update({ where: { id: candidate.id }, data: { status: "SKIPPED", skipReason: "no_venue_record" } });
           continue;
         }

@@ -1034,6 +1034,7 @@ model IngestDiscoveryJob {
   entityType     DiscoveryEntityType
   queryTemplate  String
   region         String                     @default("")
+  regionId       String?                    @db.Uuid
   searchProvider String                     @default("google_pse")
   maxResults     Int                        @default(10)
   status         DiscoveryJobStatus         @default(PENDING)
@@ -1042,6 +1043,7 @@ model IngestDiscoveryJob {
   createdAt      DateTime                   @default(now()) @db.Timestamptz
   updatedAt      DateTime                   @updatedAt @db.Timestamptz
   candidates     IngestDiscoveryCandidate[]
+  ingestRegion   IngestRegion?              @relation(fields: [regionId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt(sort: Desc)])
 }
@@ -1063,19 +1065,20 @@ model IngestDiscoveryCandidate {
 }
 
 model IngestRegion {
-  id             String             @id @default(uuid()) @db.Uuid
+  id             String               @id @default(uuid()) @db.Uuid
   country        String
   region         String
-  status         IngestRegionStatus @default(PENDING)
-  venueGenDone   Boolean            @default(false)
-  discoveryDone  Boolean            @default(false)
-  lastRunAt      DateTime?          @db.Timestamptz
-  nextRunAt      DateTime?          @db.Timestamptz
+  status         IngestRegionStatus   @default(PENDING)
+  venueGenDone   Boolean              @default(false)
+  discoveryDone  Boolean              @default(false)
+  lastRunAt      DateTime?            @db.Timestamptz
+  nextRunAt      DateTime?            @db.Timestamptz
   errorMessage   String?
-  triggeredById  String             @db.Uuid
-  triggeredBy    User               @relation(fields: [triggeredById], references: [id])
-  createdAt      DateTime           @default(now()) @db.Timestamptz
-  updatedAt      DateTime           @updatedAt @db.Timestamptz
+  triggeredById  String               @db.Uuid
+  triggeredBy    User                 @relation(fields: [triggeredById], references: [id])
+  discoveryJobs  IngestDiscoveryJob[]
+  createdAt      DateTime             @default(now()) @db.Timestamptz
+  updatedAt      DateTime             @updatedAt @db.Timestamptz
 
   @@index([status, nextRunAt])
 }
