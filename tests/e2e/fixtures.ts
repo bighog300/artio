@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-import { test as base, type Browser, type Page } from '@playwright/test';
+import { test as base, type Browser, type BrowserContext, type Page } from '@playwright/test';
 
 type AuthState = {
   sessionToken: string;
@@ -14,7 +14,7 @@ type Fixtures = {
 
 async function createAuthedPage(browser: Browser, authPath: string) {
   const auth = JSON.parse(await readFile(authPath, 'utf8')) as AuthState;
-  const context = await browser.newContext();
+  const context: BrowserContext = await browser.newContext();
 
   await context.addCookies([
     {
@@ -28,7 +28,7 @@ async function createAuthedPage(browser: Browser, authPath: string) {
   return context.newPage();
 }
 
-const test = (base as any).extend({
+const test = base.extend<Fixtures>({
   userPage: async ({ browser }: { browser: Browser }, use: (page: Page) => Promise<void>) => {
     const page = await createAuthedPage(browser, 'tests/e2e/.auth/user.json');
     await use(page);
