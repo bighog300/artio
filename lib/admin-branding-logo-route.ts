@@ -52,11 +52,14 @@ export async function handleAdminBrandingLogoUpload(req: NextRequest, deps: Bran
         const parsed = adminBrandingLogoUploadPayloadSchema.safeParse(clientPayload ? JSON.parse(clientPayload) : null);
         if (!parsed.success) throw new Error("invalid_upload_payload");
 
+        const rawFilename = parsed.data.filename;
+        const safeFilename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-{2,}/g, "-");
+
         return {
           allowedContentTypes: [parsed.data.contentType],
           maximumSizeInBytes: 2_000_000,
           addRandomSuffix: true,
-          tokenPayload: JSON.stringify(parsed.data),
+          tokenPayload: JSON.stringify({ ...parsed.data, filename: safeFilename }),
         };
       },
       onUploadCompleted: async () => {},

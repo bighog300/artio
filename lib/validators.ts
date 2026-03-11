@@ -76,7 +76,7 @@ export const artistUploadRequestSchema = z.object({
 });
 
 export const adminBrandingLogoUploadPayloadSchema = z.object({
-  filename: z.string().trim().min(1).max(200).regex(/^[a-zA-Z0-9._-]+$/, "Invalid filename"),
+  filename: z.string().trim().min(1).max(200),
   contentType: z.enum(["image/png", "image/webp"]),
   size: z.number().int().positive().max(2_000_000),
 });
