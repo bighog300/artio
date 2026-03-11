@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EntityAboutCard } from "@/components/entities/entity-about-card";
 import { EntityHeader } from "@/components/entities/entity-header";
@@ -49,6 +50,9 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
       id: true,
       slug: true,
       name: true,
+      status: true,
+      isAiDiscovered: true,
+      userId: true,
       bio: true,
       websiteUrl: true,
       instagramUrl: true,
@@ -188,6 +192,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
   const artistTags = deriveArtistTags(artist.mediums, events.map((event) => event.tags));
   const detailUrl = getDetailUrl("artist", slug);
   const jsonLd = buildArtistJsonLd({ name: artist.name, description: artist.bio, detailUrl, imageUrl, websiteUrl: artist.websiteUrl });
+  const showClaimCta = artist.isAiDiscovered && !artist.userId && artist.status !== "IN_REVIEW";
 
   return (
     <PageShell className="page-stack">
@@ -202,6 +207,11 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         primaryAction={<FollowButton targetType="ARTIST" targetId={artist.id} initialIsFollowing={Boolean(existingFollow)} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={artist.slug} />}
         meta={<div className="flex items-center gap-2"><ArtworkCountBadge count={artworkCount} href={`/artwork?artistId=${artist.id}`} /><span className="text-xs text-muted-foreground">{forSaleCount} for sale</span></div>}
       />
+      {showClaimCta ? (
+        <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+          <Link className="underline" href={`/artists/${artist.slug}/claim`}>Is this your profile? Claim it.</Link>
+        </div>
+      ) : null}
 
 
       {Boolean(user) ? <ContextualNudgeSlot page="artist_detail" type="entity_save_search" nudgeId="nudge_entity_save_search" title="Turn this into alerts" body="Save a search like this to get weekly updates." destination={`/search?q=${encodeURIComponent(artist.name)}`} /> : null}
