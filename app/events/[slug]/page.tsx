@@ -189,7 +189,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
           {event.ticketingMode === "RSVP" ? (
             <RsvpWidget eventSlug={event.slug} initialAvailability={{ available: null, isSoldOut: false, isRsvpClosed: false, tiers: [] }} />
           ) : event.ticketingMode === "PAID" ? (
-            <PaidTicketWidget eventSlug={event.slug} tiers={event.ticketTiers} />
+            <PaidTicketWidget eventSlug={event.slug} tiers={event.ticketTiers.map((tier) => ({ ...tier, registered: tier.registrations.reduce((sum, registration) => sum + registration.quantity, 0) }))} />
           ) : event.ticketUrl ? (
             <Link href={event.ticketUrl} className="text-sm underline" target="_blank" rel="noreferrer">Get tickets</Link>
           ) : null}
