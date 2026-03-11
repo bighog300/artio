@@ -130,9 +130,16 @@ export default async function MyVenueEditPage({
 
   if (!venue) notFound();
 
+  const venueEvents = await db.event.findMany({
+    where: { venueId: venue.id, deletedAt: null },
+    select: { id: true, title: true, slug: true, startAt: true, isPublished: true },
+    orderBy: { startAt: "asc" },
+  });
+
   const submission = venue.targetSubmissions[0] ?? null;
   const checks = getVenueCompletionChecks(venue);
   const isOwner = memberRole === "OWNER" || user.role === "ADMIN";
+  const checkinCutoff = new Date(Date.now() - 4 * 60 * 60 * 1000);
 
   const isCreatedFirstVisit = query.created === "1";
   const firstRequired = !checks.basicInfo ? "basic" : !checks.location ? "location" : !checks.images ? "images" : "basic";
@@ -161,6 +168,43 @@ export default async function MyVenueEditPage({
       {isCreatedFirstVisit ? <VenueCreatedDraftBanner venueId={venue.id} missingRequired={checks.missingRequired} /> : null}
 
       <VenueCompletionProgress checks={checks} />
+
+      {venueEvents.length > 0 ? (
+        <section className="rounded-md border p-4">
+          <div className="space-y-3">
+            <h2 className="text-base font-semibold">Venue events</h2>
+            <ul className="space-y-2">
+              {venueEvents.map((event) => {
+                const canCheckIn = event.isPublished && event.startAt >= checkinCutoff;
+
+                return (
+                  <li key={event.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-2 text-sm">
+                    <div>
+                      <p className="font-medium">{event.title}</p>
+                      <p className="text-xs text-muted-foreground">{event.startAt.toLocaleString()}</p>
+                    </div>
+                    <div className="space-x-2 text-right">
+                      <Link className="underline" href={`/my/events/${event.id}`}>
+                        Edit
+                      </Link>
+                      {event.isPublished && event.slug ? (
+                        <Link className="underline" href={`/events/${event.slug}`}>
+                          View Public
+                        </Link>
+                      ) : null}
+                      {canCheckIn ? (
+                        <Link className="underline" href={`/my/venues/${venueId}/checkin/${event.id}`}>
+                          Check in
+                        </Link>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </section>
+      ) : null}
 
       {checks.publishReady && submission?.status !== "IN_REVIEW" && !venue.isPublished ? (
         <div className="rounded-md border border-emerald-300 bg-emerald-50 p-4">
