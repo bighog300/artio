@@ -77,6 +77,10 @@ export function ForYouClient() {
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [feedbackByEventId, setFeedbackByEventId] = useState<Record<string, "up" | "down" | null>>({});
   const [signals, setSignals] = useState<OnboardingSignals>(emptySignals);
+  const [areSignalsLoaded, setAreSignalsLoaded] = useState(false);
+  const [locationPromptDismissed, setLocationPromptDismissed] = useState(false);
+  const [locationPromptError, setLocationPromptError] = useState<string | null>(null);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const attemptedRef = useRef(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -125,9 +129,18 @@ export function ForYouClient() {
 
   useEffect(() => {
     let cancelled = false;
-    void getOnboardingSignals().then((next) => {
-      if (!cancelled) setSignals(next);
-    });
+    void getOnboardingSignals()
+      .then((next) => {
+        if (!cancelled) {
+          setSignals(next);
+          setAreSignalsLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAreSignalsLoaded(true);
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -189,6 +202,55 @@ export function ForYouClient() {
     void fetch(`/api/events/by-id/${eventId}/hide`, { method: "POST" });
   }, []);
 
+  const useDeviceLocation = useCallback(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationPromptError("Could not detect location. Set it manually.");
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    setLocationPromptError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const payload = { lat: position.coords.latitude, lng: position.coords.longitude };
+
+        try {
+          let response = await fetch("/api/me/location", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok && response.status === 405) {
+            response = await fetch("/api/me/location", {
+              method: "PUT",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+          }
+
+          if (!response.ok) {
+            throw new Error("location_update_failed");
+          }
+
+          setSignals((current) => ({ ...current, hasLocation: true }));
+          setLocationPromptError(null);
+        } catch {
+          setLocationPromptError("Could not detect location. Set it manually.");
+        } finally {
+          setIsDetectingLocation(false);
+        }
+      },
+      () => {
+        setIsDetectingLocation(false);
+        setLocationPromptError("Could not detect location. Set it manually.");
+      },
+    );
+  }, []);
+
+  const shouldShowLocationPrompt = areSignalsLoaded && !signals.hasLocation && !locationPromptDismissed;
+
   useEffect(() => {
     if (!rankedItems.length) return;
     track("personalization_rank_applied", { rankingSource: "for_you", rankedCount: rankedItems.length, version: RANKING_VERSION });
@@ -242,6 +304,28 @@ export function ForYouClient() {
       ) : null}
       {!isLoading && !error && !showAuthFallback ? (
         <div className="space-y-3">
+          {shouldShowLocationPrompt ? (
+            <aside className="rounded-xl border border-dashed p-4 flex flex-col gap-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-2">
+                  <p className="font-medium text-sm">Set your location for nearby picks</p>
+                  <p className="text-sm text-muted-foreground">
+                    We&apos;ll show you events happening near you.
+                  </p>
+                </div>
+                <button type="button" onClick={() => setLocationPromptDismissed(true)} aria-label="Dismiss location prompt" className="text-sm text-muted-foreground hover:text-foreground">
+                  Dismiss
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={useDeviceLocation} className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50" disabled={isDetectingLocation}>
+                  {isDetectingLocation ? "Detecting..." : "Use my location"}
+                </button>
+                <a href="/account#location" className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50">Set manually</a>
+              </div>
+              {locationPromptError ? <p className="text-sm text-red-600">{locationPromptError}</p> : null}
+            </aside>
+          ) : null}
           {rankedItems.map((ranked) => {
             const item = ranked.item;
             const explanation = buildExplanation({
