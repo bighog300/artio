@@ -106,10 +106,36 @@ export default async function MyArtistPage() {
     select: { status: true, chargesEnabled: true, payoutsEnabled: true },
   });
 
+  const unpaidPricedArtworks = stripeAccount?.status !== "ACTIVE"
+    ? await db.artwork.count({
+        where: {
+          artistId: artist.id,
+          isPublished: true,
+          deletedAt: null,
+          priceAmount: { not: null },
+        },
+      })
+    : 0;
+
   const readiness = evaluateArtistReadiness({ name: artist.name, bio: artist.bio, featuredAssetId: artist.featuredAssetId, websiteUrl: artist.websiteUrl });
 
   return (
     <main className="space-y-6 p-6">
+      {unpaidPricedArtworks > 0 && stripeAccount?.status !== "ACTIVE" ? (
+        <details open>
+          <summary className="mb-2 cursor-pointer text-right text-xs font-medium text-amber-800">Dismiss</summary>
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-medium text-amber-900">
+              You have {unpaidPricedArtworks} priced artwork
+              {unpaidPricedArtworks === 1 ? "" : "s"} but haven&apos;t connected Stripe yet.
+              Buyers can enquire but can&apos;t purchase until you connect.
+            </p>
+            <div className="mt-2">
+              <ArtistStripeConnectButton>Connect Stripe</ArtistStripeConnectButton>
+            </div>
+          </div>
+        </details>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">My Artist Profile</h1>
@@ -118,6 +144,7 @@ export default async function MyArtistPage() {
         <Button asChild><Link href="/my/artwork/new">Add artwork</Link></Button>
       </div>
       <PublishReadinessChecklist title="Artist publish readiness" ready={readiness.ready} blocking={readiness.blocking} warnings={readiness.warnings} />
+      <ArtistStripePanel stripeAccount={stripeAccount} />
       <ArtistPublishPanel
         artistSlug={artist.slug}
         isPublished={artist.isPublished}
@@ -153,7 +180,6 @@ export default async function MyArtistPage() {
         initialFeatured={featuredArtworks.map((row) => ({ id: row.artwork.id, slug: row.artwork.slug, title: row.artwork.title, coverUrl: row.artwork.featuredAsset?.url ?? row.artwork.images[0]?.asset?.url ?? null, sortOrder: row.sortOrder }))}
         options={publishedArtworks.map((item) => ({ id: item.id, slug: item.slug, title: item.title, coverUrl: item.featuredAsset?.url ?? item.images[0]?.asset?.url ?? null, isPublished: item.isPublished }))}
       />
-      <ArtistStripePanel stripeAccount={stripeAccount} />
     </main>
   );
 }
