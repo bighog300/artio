@@ -17,6 +17,7 @@ function chunk<T>(items: T[], size: number) {
 
 export async function runVenueGenerationProcessRunJob(args: {
   runId: string;
+  autoPublishOverride?: boolean;
   concurrency?: number;
   db?: typeof db;
   geocodeFn?: typeof forwardGeocodeVenueAddressToLatLng;
@@ -31,7 +32,9 @@ export async function runVenueGenerationProcessRunJob(args: {
     where: { id: "default" },
     select: { venueAutoPublish: true },
   });
-  const autoPublish = settings?.venueAutoPublish ?? (process.env.VENUE_AUTO_PUBLISH === "1");
+  const autoPublish = args.autoPublishOverride !== undefined
+    ? args.autoPublishOverride
+    : (settings?.venueAutoPublish ?? (process.env.VENUE_AUTO_PUBLISH === "1"));
 
   const run = await appDb.venueGenerationRun.findUnique({ where: { id: args.runId }, select: { id: true } });
   if (!run) {
