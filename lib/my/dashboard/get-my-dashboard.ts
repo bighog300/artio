@@ -37,6 +37,7 @@ function withAttentionTimestamps(createdAt: Date, updatedAt?: Date) {
 }
 
 export async function getMyDashboard({ userId, venueId }: { userId: string; venueId?: string | null }): Promise<MyDashboardResponse> {
+  try {
   const memberships = await db.venueMembership.findMany({
     where: { userId, role: { in: ["OWNER", "EDITOR"] }, venue: { deletedAt: null } },
     select: { venueId: true, role: true, venue: { select: { name: true, city: true, country: true, featuredAssetId: true, updatedAt: true, isPublished: true, submissions: { where: { type: "VENUE" }, take: 1, orderBy: { updatedAt: "desc" }, select: { status: true } } } } },
@@ -235,4 +236,9 @@ export async function getMyDashboard({ userId, venueId }: { userId: string; venu
   };
 
   return MyDashboardResponseSchema.parse(payload);
+  } catch (err) {
+    console.error('[getMyDashboard] failed:', err);
+    throw err;
+  }
+
 }
