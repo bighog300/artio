@@ -1,0 +1,78 @@
+import type { PrismaClient } from "@prisma/client";
+
+export async function autoApproveArtworkCandidate(args: {
+  candidateId: string;
+  db: PrismaClient;
+  autoPublish: boolean;
+}): Promise<{ artworkId: string; published: boolean } | null> {
+  try {
+    const candidate = await args.db.ingestExtractedArtwork.findUnique({
+      where: { id: args.candidateId },
+      include: { sourceEvent: { select: { id: true, venueId: true } } },
+    });
+
+    if (!candidate || candidate.status !== "PENDING") return null;
+
+    let artistId: string | null = null;
+    if (candidate.artistName) {
+      const artist = await args.db.artist.findFirst({
+        where: {
+          name: { equals: candidate.artistName, mode: "insensitive" },
+          isPublished: true,
+        },
+        select: { id: true },
+      });
+      artistId = artist?.id ?? null;
+    }
+
+    if (!artistId) return null;
+
+    const newArtwork = await args.db.$transaction(async (tx) => {
+      const createdArtwork = await tx.artwork.create({
+        data: {
+          artistId,
+          title: candidate.title,
+          medium: candidate.medium ?? undefined,
+          year: candidate.year ?? undefined,
+          dimensions: candidate.dimensions ?? undefined,
+          description: candidate.description ?? undefined,
+          isPublished: false,
+          status: "IN_REVIEW",
+        },
+        select: { id: true },
+      });
+
+      await tx.artworkEvent.create({
+        data: { artworkId: createdArtwork.id, eventId: candidate.sourceEventId },
+      });
+
+      const eventVenueId = candidate.sourceEvent.venueId;
+      if (eventVenueId) {
+        await tx.artworkVenue.create({
+          data: { artworkId: createdArtwork.id, venueId: eventVenueId },
+        });
+      }
+
+      await tx.ingestExtractedArtwork.update({
+        where: { id: candidate.id },
+        data: { status: "APPROVED", createdArtworkId: createdArtwork.id },
+      });
+
+      return createdArtwork;
+    });
+
+    const canPublish = Boolean(args.autoPublish && candidate.title.trim().length > 0 && artistId !== null);
+    if (canPublish) {
+      await args.db.artwork.update({
+        where: { id: newArtwork.id },
+        data: { isPublished: true },
+      });
+      return { artworkId: newArtwork.id, published: true };
+    }
+
+    return { artworkId: newArtwork.id, published: false };
+  } catch (error) {
+    console.warn("auto_approve_artwork_failed", { candidateId: args.candidateId, error });
+    return null;
+  }
+}

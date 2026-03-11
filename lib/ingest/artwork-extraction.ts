@@ -6,6 +6,7 @@ import { preprocessHtml } from "@/lib/ingest/preprocess-html";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 import { scoreArtworkCandidate } from "@/lib/ingest/artwork-confidence";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
+import { autoApproveArtworkCandidate } from "@/lib/ingest/auto-approve-artwork-candidate";
 
 const artworkExtractionSchema = {
   type: "object",
@@ -114,6 +115,7 @@ export async function extractArtworksForEvent(args: {
 
     let created = 0;
     let duplicates = 0;
+    const createdArtworks: Array<{ id: string }> = [];
 
     for (const item of raw.artworks) {
       if (!item || typeof item !== "object") continue;
@@ -142,7 +144,7 @@ export async function extractArtworksForEvent(args: {
 
       const scored = scoreArtworkCandidate(candidate);
 
-      await args.db.ingestExtractedArtwork.create({
+      const createdArtwork = await args.db.ingestExtractedArtwork.create({
         data: {
           ...candidate,
           sourceEventId: args.eventId,
@@ -156,7 +158,22 @@ export async function extractArtworksForEvent(args: {
         },
       });
 
+      createdArtworks.push({ id: createdArtwork.id });
       created += 1;
+    }
+
+    const artworkSettings = await args.db.siteSettings.findUnique({
+      where: { id: "default" },
+      select: { regionAutoPublishArtworks: true },
+    });
+    if (artworkSettings?.regionAutoPublishArtworks) {
+      for (const artwork of createdArtworks) {
+        await autoApproveArtworkCandidate({
+          candidateId: artwork.id,
+          db: args.db,
+          autoPublish: true,
+        }).catch((err) => console.warn("auto_approve_artwork_post_extraction_failed", { err }));
+      }
     }
 
     return { created, duplicates, skipped: 0 };

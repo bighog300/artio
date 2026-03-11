@@ -1,10 +1,12 @@
 import { z } from "zod";
+import type { PrismaClient } from "@prisma/client";
 import { validateCronRequest } from "@/lib/cron-auth";
 import { createCronRunId, logCronSummary, shouldDryRun, tryAcquireCronLock } from "@/lib/cron-runtime";
 import { captureException, withSpan } from "@/lib/monitoring";
 import { sendAlert } from "@/lib/alerts";
 import { markCronFailure, markCronSuccess } from "@/lib/ops-metrics";
 import { runVenueIngestExtraction } from "@/lib/ingest/extraction-pipeline";
+import { autoApproveEventCandidate } from "@/lib/ingest/auto-approve-event-candidate";
 
 const CRON_NAME = "ingest_venues";
 const ROUTE = "/api/cron/ingest/venues";
@@ -55,12 +57,20 @@ type IngestVenueDb = {
       take?: number;
     }) => Promise<Array<{ status?: "RUNNING" | "SUCCEEDED" | "FAILED" | "PENDING"; errorCode?: string | null; createdAt?: Date }>>;
   };
+  ingestExtractedEvent: {
+    findMany: (args: {
+      where: { venueId: string; status: "PENDING"; confidenceBand: "HIGH"; duplicateOfId: null };
+      select: { id: true };
+      orderBy: { createdAt: "desc" };
+      take: number;
+    }) => Promise<Array<{ id: string }>>;
+  };
   $queryRaw?: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
   siteSettings?: {
     findUnique: (args: {
       where: { id: string };
-      select: { ingestEnabled: true; ingestImageEnabled: true };
-    }) => Promise<{ ingestEnabled: boolean; ingestImageEnabled: boolean } | null>;
+      select: { ingestEnabled: true; ingestImageEnabled: true; regionAutoPublishEvents: true };
+    }) => Promise<{ ingestEnabled: boolean; ingestImageEnabled: boolean; regionAutoPublishEvents: boolean } | null>;
   };
 };
 
@@ -160,7 +170,7 @@ export async function runCronIngestVenues(
   try {
     const settings = await cronDb.siteSettings?.findUnique({
       where: { id: "default" },
-      select: { ingestEnabled: true, ingestImageEnabled: true },
+      select: { ingestEnabled: true, ingestImageEnabled: true, regionAutoPublishEvents: true },
     });
 
     return await withSpan("cron:ingest_venues", async () => {
@@ -316,6 +326,30 @@ export async function runCronIngestVenues(
             continue;
           }
           const result = await runExtraction({ venueId: item.venue.id, sourceUrl });
+
+          const autoPublishEvents = settings?.regionAutoPublishEvents ?? false;
+          if (autoPublishEvents && result.createdCount > 0) {
+            const highCandidates = await cronDb.ingestExtractedEvent.findMany({
+              where: {
+                venueId: item.venue.id,
+                status: "PENDING",
+                confidenceBand: "HIGH",
+                duplicateOfId: null,
+              },
+              select: { id: true },
+              orderBy: { createdAt: "desc" },
+              take: 50,
+            });
+
+            for (const c of highCandidates) {
+              await autoApproveEventCandidate({
+                candidateId: c.id,
+                db: cronDb as unknown as PrismaClient,
+                autoPublish: true,
+              }).catch((err) => console.warn("auto_approve_event_cron_failed", { candidateId: c.id, err }));
+            }
+          }
+
           succeeded += 1;
           createdCandidates += result.createdCount;
           dedupedCandidates += result.dedupedCount;

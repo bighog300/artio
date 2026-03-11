@@ -1,10 +1,11 @@
 import { createHash } from "crypto";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 import { IngestError } from "@/lib/ingest/errors";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
 import { scoreArtistCandidate } from "@/lib/ingest/artist-confidence";
+import { autoApproveArtistCandidate } from "@/lib/ingest/auto-approve-artist-candidate";
 
 const artistExtractionSchema = {
   type: "object",
@@ -66,6 +67,12 @@ function asInteger(value: unknown): number | null {
 type SearchItem = { link: string; title: string; snippet: string };
 
 type ArtistDiscoveryDb = Pick<Prisma.TransactionClient, "artist" | "eventArtist" | "ingestExtractedArtist" | "ingestExtractedArtistEvent" | "ingestExtractedArtistRun"> & {
+  siteSettings?: {
+    findUnique: (args: {
+      where: { id: string };
+      select: { regionAutoPublishArtists: true };
+    }) => Promise<{ regionAutoPublishArtists: boolean } | null>;
+  };
   $transaction?: <T>(fn: (tx: Prisma.TransactionClient) => Promise<T>) => Promise<T>;
 };
 
@@ -304,6 +311,18 @@ export async function discoverArtist(args: {
   const created = args.db.$transaction
     ? await args.db.$transaction((tx) => createRows(tx))
     : await createRows(args.db);
+
+  const settings = await args.db.siteSettings?.findUnique({
+    where: { id: "default" },
+    select: { regionAutoPublishArtists: true },
+  });
+  if (settings?.regionAutoPublishArtists) {
+    await autoApproveArtistCandidate({
+      candidateId: created.id,
+      db: args.db as unknown as PrismaClient,
+      autoPublish: true,
+    }).catch((err) => console.warn("auto_approve_artist_post_discovery_failed", { err }));
+  }
 
   return { status: "created", candidateId: created.id };
 }
