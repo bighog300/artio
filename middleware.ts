@@ -1,12 +1,14 @@
+import NextAuth from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { getBetaConfig, isEmailAllowed } from "@/lib/beta/access";
 import { REQUEST_ID_HEADER } from "@/lib/request-id";
 import { isAdminEmail } from "@/lib/admin-email";
 import { hasSessionCookieFromHeader, isAuthDebugEnabled, logAuthDebug } from "@/lib/auth-debug";
 import { getCanonicalHost, shouldEnforceCanonicalHost } from "@/lib/canonical-host";
-import { auth } from "@/lib/auth";
 
 const PUBLIC_BETA_PATHS = new Set(["/beta", "/login"]);
+const middlewareAuthResult = NextAuth({ secret: process.env.AUTH_SECRET });
+const auth = "auth" in middlewareAuthResult ? middlewareAuthResult.auth : async () => null;
 
 export async function middleware(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
@@ -57,8 +59,8 @@ export async function middleware(req: NextRequest) {
 
 
   if (betaConfig.betaMode && !pathname.startsWith("/api") && !PUBLIC_BETA_PATHS.has(pathname)) {
-    const session = await auth();
-    const email = session?.user?.email ?? null;
+    const session = await auth(req);
+    const email = session?.user?.email;
 
     if (!email) {
       const url = new URL("/beta", req.url);
@@ -80,7 +82,7 @@ export async function middleware(req: NextRequest) {
   }
 
   if (pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/api/admin" || pathname.startsWith("/api/admin/")) {
-    const session = await auth();
+    const session = await auth(req);
     const email = session?.user?.email ?? null;
 
     if (!email) {
@@ -127,8 +129,6 @@ export async function middleware(req: NextRequest) {
   );
   return response;
 }
-
-export const runtime = "nodejs";
 
 export const config = {
   matcher: [

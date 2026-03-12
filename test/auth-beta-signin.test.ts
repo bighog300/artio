@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { authConfig } from "../lib/auth.ts";
+import { authOptions } from "../lib/auth.ts";
 import { db } from "../lib/db.ts";
 
 const originalUpsert = db.user.upsert;
@@ -14,7 +14,7 @@ test("auth signIn denies when beta mode enabled with empty allowlist", async () 
 
   db.user.upsert = (async () => ({ id: "user-1" })) as typeof db.user.upsert;
 
-  const result = await authConfig.callbacks!.signIn!({ user: { email: "blocked@example.com", name: null, image: null } as never, account: null as never, profile: undefined, email: undefined, credentials: undefined });
+  const result = await authOptions.callbacks!.signIn!({ user: { email: "blocked@example.com", name: null, image: null } as never, account: null as never, profile: undefined, email: undefined, credentials: undefined });
   assert.equal(result, false);
 });
 
@@ -30,7 +30,7 @@ test("auth signIn allows allowlisted email in beta mode", async () => {
     return { id: "user-1" };
   }) as typeof db.user.upsert;
 
-  const result = await authConfig.callbacks!.signIn!({ user: { email: "allow@example.com", name: null, image: null } as never, account: null as never, profile: undefined, email: undefined, credentials: undefined });
+  const result = await authOptions.callbacks!.signIn!({ user: { email: "allow@example.com", name: null, image: null } as never, account: null as never, profile: undefined, email: undefined, credentials: undefined });
   assert.equal(result, true);
   assert.equal(upsertCalled, true);
 });
@@ -47,7 +47,7 @@ test("auth signIn upgrades allowlisted admin user to ADMIN and normalizes email"
     return { id: "user-admin" };
   }) as typeof db.user.upsert;
 
-  const result = await authConfig.callbacks!.signIn!({ user: { email: "  ADMIN@Test.com ", name: "Admin", image: null } as never, account: null as never, profile: undefined, email: undefined, credentials: undefined });
+  const result = await authOptions.callbacks!.signIn!({ user: { email: "  ADMIN@Test.com ", name: "Admin", image: null } as never, account: null as never, profile: undefined, email: undefined, credentials: undefined });
   assert.equal(result, true);
   assert.equal(captured?.where.email, "admin@test.com");
   assert.equal(captured?.create.role, "ADMIN");
@@ -64,7 +64,7 @@ test("auth jwt applies ADMIN role for allowlisted emails even if db role is USER
     name: "Admin",
   })) as typeof db.user.findUnique;
 
-  const token = await authConfig.callbacks!.jwt!({ token: { email: "admin@test.com" } as never, trigger: "update", user: undefined, account: undefined, profile: undefined, session: undefined, isNewUser: false });
+  const token = await authOptions.callbacks!.jwt!({ token: { email: "admin@test.com" } as never, trigger: "update", user: undefined, account: undefined, profile: undefined, session: undefined, isNewUser: false });
   assert.equal(token.role, "ADMIN");
   assert.equal(token.sub, "user-1");
 });
