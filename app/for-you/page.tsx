@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { GetStartedBanner } from "@/components/onboarding/get-started-banner";
 import { getAuthDebugRequestMeta, logAuthDebug } from "@/lib/auth-debug";
 
-// Auth-gated page: keep Node runtime so `getSessionUser()` (NextAuth `getServerSession`) can
+// Auth-gated page: keep Node runtime so `getSessionUser()` can
 // reliably read session cookies in production deployments and avoid login redirect loops.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

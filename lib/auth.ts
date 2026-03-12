@@ -1,5 +1,7 @@
-import NextAuth, { getServerSession, type NextAuthConfig } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+import NextAuth from "next-auth";
+
+type NextAuthConfig = Parameters<typeof NextAuth>[0];
+import Google from "next-auth/providers/google";
 import { db } from "@/lib/db";
 import type { VenueMembershipRole } from "@prisma/client";
 import { hasMinimumVenueRole } from "@/lib/ownership";
@@ -27,43 +29,8 @@ export function isAuthError(err: unknown): err is AuthError {
   return err instanceof AuthError;
 }
 
-const googleClientId = process.env.AUTH_GOOGLE_ID;
-const googleClientSecret = process.env.AUTH_GOOGLE_SECRET;
-const isProdLikeEnv = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
-const isProductionBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
-
-let hasWarnedAboutMissingAuthSecret = false;
-let hasWarnedAboutEphemeralSecret = false;
-let ephemeralAuthSecret: string | null = null;
-
-export function getAuthSecret(): string {
-  const authSecret = process.env.AUTH_SECRET?.trim();
-  if (authSecret) return authSecret;
-
-  if (isProdLikeEnv && !isProductionBuildPhase) {
-    throw new Error("AUTH_SECRET is required in production/preview (set a secure random value, e.g. `openssl rand -base64 32`).");
-  }
-
-  if (!hasWarnedAboutMissingAuthSecret) {
-    hasWarnedAboutMissingAuthSecret = true;
-    console.warn("[auth] AUTH_SECRET is not set.");
-  }
-
-  if (!hasWarnedAboutEphemeralSecret) {
-    hasWarnedAboutEphemeralSecret = true;
-    console.warn("[auth] Generated an ephemeral AUTH_SECRET for this process. Set AUTH_SECRET to avoid sessions being invalidated on restart.");
-  }
-
-  if (!ephemeralAuthSecret) ephemeralAuthSecret = crypto.randomUUID();
-  return ephemeralAuthSecret;
-}
-
-const authSecret = getAuthSecret();
-const hasAuthConfig = Boolean(authSecret && googleClientId && googleClientSecret);
-
 const authFailureWindowMs = 60_000;
 const authFailureState = { windowStart: 0, count: 0 };
-let hasWarnedAboutEdgeRuntime = false;
 
 let hasWarnedAboutHostMismatch = false;
 
@@ -107,16 +74,13 @@ function logRateLimitedAuthFailure() {
   trackMetric("auth.failure", 1, { reason: "missing_session" });
 }
 
-export const authOptions = {
-  secret: authSecret,
-  providers: hasAuthConfig
-    ? [
-      GoogleProvider({
-        clientId: googleClientId!,
-        clientSecret: googleClientSecret!,
-      }),
-    ]
-    : [],
+export const authConfig: NextAuthConfig = {
+  providers: [
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID!,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+    }),
+  ],
   session: { strategy: "jwt" },
   cookies: {
     sessionToken: {
@@ -199,35 +163,11 @@ export const authOptions = {
     },
   },
   pages: { signIn: "/login" },
-} satisfies NextAuthConfig;
+};
 
-const nextAuthResult = NextAuth(authOptions);
-
-export const handlers = "handlers" in nextAuthResult
-  ? nextAuthResult.handlers
-  : { GET: nextAuthResult, POST: nextAuthResult };
-
-export const auth = "auth" in nextAuthResult
-  ? nextAuthResult.auth
-  : async () => getServerSession(authOptions as never);
-
-export const signIn = "signIn" in nextAuthResult
-  ? nextAuthResult.signIn
-  : (() => { throw new Error("signIn is only available in Auth.js v5 runtime"); });
-
-export const signOut = "signOut" in nextAuthResult
-  ? nextAuthResult.signOut
-  : (() => { throw new Error("signOut is only available in Auth.js v5 runtime"); });
+export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
 
 export async function getSessionUser(): Promise<SessionUser | null> {
-  if (process.env.NODE_ENV !== "production" && !hasWarnedAboutEdgeRuntime) {
-    const isEdgeRuntime = process.env.NEXT_RUNTIME === "edge" || typeof (globalThis as { EdgeRuntime?: string }).EdgeRuntime !== "undefined";
-    if (isEdgeRuntime) {
-      hasWarnedAboutEdgeRuntime = true;
-      console.warn("[auth] getSessionUser() is running in Edge runtime; use `export const runtime = \"nodejs\"` on auth-gated routes.");
-    }
-  }
-
   const session = await auth();
   const user = !session?.user?.id || !session.user.email
     ? null
@@ -235,18 +175,13 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       id: session.user.id,
       email: session.user.email,
       name: session.user.name ?? null,
-      role: session.user.role || "USER",
+      role: (session.user.role as SessionUser["role"]) || "USER",
       isTrustedPublisher: session.user.isTrustedPublisher === true,
     };
 
   const requestMeta = await getAuthDebugRequestMeta();
   warnAuthEnvRisks(requestMeta.host);
-  logAuthDebug("getSessionUser", {
-    ...requestMeta,
-    userExists: Boolean(user),
-    redirectTarget: null,
-  });
-
+  logAuthDebug("getSessionUser", { ...requestMeta, userExists: Boolean(user), redirectTarget: null });
   return user;
 }
 
@@ -302,8 +237,4 @@ export async function requireAdmin() {
   const user = await requireAuth();
   if (user.role !== "ADMIN") throw new ForbiddenError();
   return user;
-}
-
-export function assertAuthConfig() {
-  return hasAuthConfig;
 }
