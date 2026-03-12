@@ -773,6 +773,7 @@ export async function runVenueIngestExtraction(
         db,
         venueId: params.venueId,
         runId: run.id,
+        sourceDomain: fetched.finalUrl ?? params.sourceUrl,
         snapshot: extractedVenueSnapshot,
       }).catch((err) => console.error("[venue-enrichment] failed", err));
     }

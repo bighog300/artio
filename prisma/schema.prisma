@@ -897,7 +897,9 @@ model VenueEnrichmentLog {
   id            String    @id @default(uuid()) @db.Uuid
   venueId       String    @db.Uuid
   runId         String    @db.Uuid
+  sourceDomain  String?
   changedFields String[]
+  fieldConfidence Json?
   before        Json      @default("{}")
   after         Json      @default("{}")
   createdAt     DateTime  @default(now()) @db.Timestamptz

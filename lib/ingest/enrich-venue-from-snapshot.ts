@@ -15,10 +15,30 @@ function isStringImprovement(current: string | null | undefined, incoming: strin
   return incoming.length > currentValue.length;
 }
 
+
+function computeConfidence(field: string, value: string | null): number {
+  if (!value) return 0.5;
+
+  if (field === "description") {
+    return value.length > 100 ? 0.9 : 0.6;
+  }
+
+  if (field === "openingHours") {
+    return value.length > 30 ? 0.85 : 0.65;
+  }
+
+  if (field === "contactEmail") {
+    return value.includes("@") ? 0.9 : 0.5;
+  }
+
+  return value.length > 24 ? 0.8 : 0.7;
+}
+
 export async function enrichVenueFromSnapshot(args: {
   db: PrismaClient;
   venueId: string;
   runId: string;
+  sourceDomain: string | null;
   snapshot: VenueSnapshot;
 }): Promise<{ enriched: boolean; changedFields: string[] }> {
   const venue = await args.db.venue.findUnique({
@@ -41,6 +61,16 @@ export async function enrichVenueFromSnapshot(args: {
   const changedFields: string[] = [];
   const before: Prisma.JsonObject = {};
   const after: Prisma.JsonObject = {};
+  const fieldConfidence: Record<string, number> = {};
+  const sourceDomain = args.sourceDomain
+    ? (() => {
+        try {
+          return new URL(args.sourceDomain).hostname;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
   const venueUpdateData: Prisma.VenueUpdateInput = {
     lastEnrichedAt: new Date(),
     enrichmentSource: "ingest_snapshot",
@@ -52,6 +82,7 @@ export async function enrichVenueFromSnapshot(args: {
     before.description = venue.description;
     after.description = description;
     venueUpdateData.description = description;
+    fieldConfidence.description = computeConfidence("description", description);
   }
 
   const openingHours = parseOpeningHours(toNonEmptyString(args.snapshot.venueOpeningHours));
@@ -66,6 +97,7 @@ export async function enrichVenueFromSnapshot(args: {
     const nextOpeningHours = openingHours;
     after.openingHours = nextOpeningHours;
     venueUpdateData.openingHours = nextOpeningHours;
+    fieldConfidence.openingHours = computeConfidence("openingHours", nextOpeningHours?.raw ?? null);
   }
 
   const contactEmail = validateEmail(toNonEmptyString(args.snapshot.venueContactEmail));
@@ -74,6 +106,7 @@ export async function enrichVenueFromSnapshot(args: {
     before.contactEmail = venue.contactEmail;
     after.contactEmail = contactEmail;
     venueUpdateData.contactEmail = contactEmail;
+    fieldConfidence.contactEmail = computeConfidence("contactEmail", contactEmail);
   }
 
   const instagramUrl = validateSocialUrl(toNonEmptyString(args.snapshot.venueInstagramUrl), "instagram.com");
@@ -82,6 +115,7 @@ export async function enrichVenueFromSnapshot(args: {
     before.instagramUrl = venue.instagramUrl;
     after.instagramUrl = instagramUrl;
     venueUpdateData.instagramUrl = instagramUrl;
+    fieldConfidence.instagramUrl = computeConfidence("instagramUrl", instagramUrl);
   }
 
   const facebookUrl = validateSocialUrl(toNonEmptyString(args.snapshot.venueFacebookUrl), "facebook.com");
@@ -90,6 +124,7 @@ export async function enrichVenueFromSnapshot(args: {
     before.facebookUrl = venue.facebookUrl;
     after.facebookUrl = facebookUrl;
     venueUpdateData.facebookUrl = facebookUrl;
+    fieldConfidence.facebookUrl = computeConfidence("facebookUrl", facebookUrl);
   }
 
   if (changedFields.length === 0) {
@@ -106,7 +141,9 @@ export async function enrichVenueFromSnapshot(args: {
       data: {
         venueId: args.venueId,
         runId: args.runId,
+        sourceDomain,
         changedFields,
+        fieldConfidence,
         before,
         after,
       },

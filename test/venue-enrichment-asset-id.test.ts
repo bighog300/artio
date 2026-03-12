@@ -41,6 +41,7 @@ test("enrichVenueFromSnapshot sets featuredAssetId from venueImage.assetId", asy
     db,
     venueId: "venue-1",
     runId: "run-1",
+    sourceDomain: "https://example.org/snapshot",
     snapshot: {
       venueDescription: "A much richer description",
       venueOpeningHours: null,
@@ -82,6 +83,7 @@ test("enrichVenueFromSnapshot does not update featuredAssetId when venueImage lo
     db,
     venueId: "venue-1",
     runId: "run-1",
+    sourceDomain: "https://example.org/snapshot",
     snapshot: {
       venueDescription: "A much richer description",
       venueOpeningHours: null,
