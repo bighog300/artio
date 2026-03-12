@@ -19,7 +19,15 @@ export async function runCronIngestDiscovery(
   }
 
   const candidates = await db.ingestDiscoveryCandidate.findMany({
-    where: { status: "PENDING" },
+    where: {
+      OR: [
+        { status: "PENDING" },
+        {
+          status: "QUEUED",
+          updatedAt: { lte: new Date(Date.now() - 10 * 60 * 1000) },
+        },
+      ],
+    },
     orderBy: { createdAt: "asc" },
     take: 10,
     include: { job: { select: { entityType: true, regionId: true } } },
