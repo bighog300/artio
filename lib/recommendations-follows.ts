@@ -54,6 +54,7 @@ export async function getFollowRecommendations(args: { userId?: string | null; l
   const follows = await db.follow.findMany({
     where: { userId: args.userId },
     select: { targetType: true, targetId: true },
+    take: CANDIDATE_LIMIT,
   });
 
   const followedVenueIds = new Set(follows.filter((follow) => follow.targetType === "VENUE").map((follow) => follow.targetId));
@@ -162,10 +163,10 @@ async function getPublicRecommendations(args: { now: Date; limit: number }): Pro
 
   const [artists, venues, artistEventRows, venueEventRows] = await Promise.all([
     artistIds.length
-      ? db.artist.findMany({ where: { id: { in: artistIds }, isPublished: true }, select: { id: true, slug: true, name: true } })
+      ? db.artist.findMany({ where: { id: { in: artistIds }, isPublished: true }, select: { id: true, slug: true, name: true }, take: CANDIDATE_LIMIT })
       : Promise.resolve([]),
     venueIds.length
-      ? db.venue.findMany({ where: { id: { in: venueIds }, isPublished: true }, select: { id: true, slug: true, name: true } })
+      ? db.venue.findMany({ where: { id: { in: venueIds }, isPublished: true }, select: { id: true, slug: true, name: true }, take: CANDIDATE_LIMIT })
       : Promise.resolve([]),
     artistIds.length
       ? db.eventArtist.groupBy({

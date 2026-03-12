@@ -17,7 +17,7 @@ const claimSchema = z.object({
 const TTL_MS = 60 * 60 * 1000;
 
 function getSecret() {
-  return process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "artist-claim-dev-secret";
+  return process.env.AUTH_SECRET ?? "artist-claim-dev-secret";
 }
 
 function signToken(payload: object) {

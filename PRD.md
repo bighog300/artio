@@ -23,8 +23,8 @@ Become the default place to answer: *“What art exhibitions, openings, and even
 - Deploy cleanly on Vercel with minimal ops overhead
 
 ### Non-goals (MVP)
+- Core commerce platform beyond event ticketing/RSVP checkout integrations
 
-- Ticket sales or payments
 - Messaging or social feeds
 - Recommendation algorithms beyond basic filters
 
@@ -104,6 +104,7 @@ Become the default place to answer: *“What art exhibitions, openings, and even
   - Tags / categories
 
 ### 5.2 Event Pages
+- Ticketing / RSVP flows (Stripe-backed where enabled)
 
 - Title, description
 - Date/time range

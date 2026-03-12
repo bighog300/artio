@@ -69,6 +69,20 @@ test("middleware skips canonical-host redirects for /api routes", async () => {
   assert.equal(res.headers.get("location"), null);
 });
 
+
+test("middleware CSP uses nonce-based script-src without unsafe-inline", async () => {
+  process.env.NODE_ENV = "production";
+  process.env.BETA_MODE = "0";
+
+  const req = new NextRequest("https://artpulse-demo.vercel.app/events");
+  const res = await middleware(req);
+
+  const csp = res.headers.get("content-security-policy") || "";
+  assert.doesNotMatch(csp, /script-src[^;]*unsafe-inline/);
+  assert.match(csp, /script-src[^;]*nonce-/);
+  assert.equal(Boolean(res.headers.get("x-nonce")), true);
+});
+
 test.after(() => {
   process.env.NEXTAUTH_URL = originalNextAuthUrl;
   process.env.NODE_ENV = originalNodeEnv;
