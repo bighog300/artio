@@ -35,6 +35,60 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
   const [candidates, setCandidates] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
+  const [mergeOpenById, setMergeOpenById] = useState<Record<string, boolean>>({});
+  const [mergeQueryById, setMergeQueryById] = useState<Record<string, string>>({});
+  const [mergeOptionsById, setMergeOptionsById] = useState<Record<string, Array<{ id: string; title: string; slug: string; artistName: string }>>>({});
+
+  async function searchExistingArtworks(candidateId: string) {
+    const query = mergeQueryById[candidateId]?.trim();
+    if (!query) {
+      setMergeOptionsById((prev) => ({ ...prev, [candidateId]: [] }));
+      return;
+    }
+
+    setWorkingId(candidateId);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ query, pageSize: "8", page: "1", sort: "RECENT" });
+      const res = await fetch(`/api/admin/artwork?${params.toString()}`, { method: "GET" });
+      if (!res.ok) {
+        setError("Failed to search for existing artworks.");
+        return;
+      }
+      const data = await res.json() as {
+        items: Array<{ id: string; title: string; slug: string; artist: { name: string } }>;
+      };
+      setMergeOptionsById((prev) => ({
+        ...prev,
+        [candidateId]: data.items.map((item) => ({ id: item.id, title: item.title, slug: item.slug, artistName: item.artist.name })),
+      }));
+    } catch {
+      setError("Failed to search for existing artworks.");
+    } finally {
+      setWorkingId(null);
+    }
+  }
+
+  async function merge(id: string, existingArtworkId: string) {
+    setWorkingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/ingest/artworks/${id}/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ existingArtworkId }),
+      });
+      if (!res.ok) {
+        setError("Failed to link artwork candidate to existing artwork.");
+        return;
+      }
+      setCandidates((prev) => prev.filter((item) => item.id !== id));
+    } catch {
+      setError("Failed to link artwork candidate to existing artwork.");
+    } finally {
+      setWorkingId(null);
+    }
+  }
 
   async function approve(id: string) {
     setWorkingId(id);
@@ -109,9 +163,46 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
                 </td>
                 <td className="px-3 py-2">{candidate.extractionProvider}</td>
                 <td className="px-3 py-2">
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
                     <button className="rounded border px-2 py-1 text-xs" disabled={workingId === candidate.id} onClick={() => approve(candidate.id)}>Approve</button>
                     <button className="rounded border px-2 py-1 text-xs" disabled={workingId === candidate.id} onClick={() => reject(candidate.id)}>Reject</button>
+                      <button
+                        className="rounded border px-2 py-1 text-xs"
+                        disabled={workingId === candidate.id}
+                        onClick={() => setMergeOpenById((prev) => ({ ...prev, [candidate.id]: !prev[candidate.id] }))}
+                      >
+                        Link to existing artwork
+                      </button>
+                    </div>
+                    {mergeOpenById[candidate.id] ? (
+                      <div className="space-y-2 rounded border p-2">
+                        <div className="flex gap-2">
+                          <input
+                            className="w-full rounded border px-2 py-1 text-xs"
+                            placeholder="Search by title or slug"
+                            value={mergeQueryById[candidate.id] ?? ""}
+                            onChange={(event) => setMergeQueryById((prev) => ({ ...prev, [candidate.id]: event.target.value }))}
+                          />
+                          <button className="rounded border px-2 py-1 text-xs" disabled={workingId === candidate.id} onClick={() => searchExistingArtworks(candidate.id)}>Search</button>
+                        </div>
+                        <div className="space-y-1">
+                          {(mergeOptionsById[candidate.id] ?? []).map((option) => (
+                            <button
+                              key={option.id}
+                              className="block w-full rounded border px-2 py-1 text-left text-xs"
+                              disabled={workingId === candidate.id}
+                              onClick={() => merge(candidate.id, option.id)}
+                            >
+                              {option.title} ({option.slug}) — {option.artistName}
+                            </button>
+                          ))}
+                          {mergeQueryById[candidate.id] && (mergeOptionsById[candidate.id] ?? []).length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No results yet. Try another query.</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </td>
               </tr>
