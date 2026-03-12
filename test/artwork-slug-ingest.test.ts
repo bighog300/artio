@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { autoApproveArtworkCandidate } from "../lib/ingest/auto-approve-artwork-candidate";
-import { handleAdminIngestArtworkApprove } from "../app/api/admin/ingest/artworks/[id]/approve/route";
+import { handleAdminIngestArtworkApprove } from "../lib/admin-ingest-artwork-approve-route";
 
 type ArtworkCandidate = {
   id: string;
