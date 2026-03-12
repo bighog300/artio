@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 const RESOLVABLE_FAILED_MIGRATIONS = new Set([
   "20260706120000_unified_content_status",
   "20261206110000_add_region_id_to_discovery_job",
+  "20260312_enrichment_provenance",
 ]);
 const DEPLOY_MAX_ATTEMPTS = 2;
 const DEPLOY_RETRY_DELAY_MS = 2_000;
