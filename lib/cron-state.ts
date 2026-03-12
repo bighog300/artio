@@ -15,7 +15,14 @@ export type CronRuntimeState = {
   lastErrorSummary?: string;
 };
 
-export const MONITORED_CRONS = ["outbox_send", "digests_weekly", "retention_engagement"] as const;
+export const MONITORED_CRONS = [
+  "outbox_send",
+  "digests_weekly",
+  "retention_engagement",
+  "ingest_regions",
+  "ingest_venues",
+  "ingest_discovery",
+] as const;
 
 const CRON_STATE_PREFIX = "ops:cron_state:";
 
@@ -66,5 +73,8 @@ export async function getCronStatusSnapshot(): Promise<Record<(typeof MONITORED_
     outbox_send: byName.get(markerName("outbox_send")) ?? {},
     digests_weekly: byName.get(markerName("digests_weekly")) ?? {},
     retention_engagement: byName.get(markerName("retention_engagement")) ?? {},
+    ingest_regions: byName.get(markerName("ingest_regions")) ?? {},
+    ingest_venues: byName.get(markerName("ingest_venues")) ?? {},
+    ingest_discovery: byName.get(markerName("ingest_discovery")) ?? {},
   };
 }

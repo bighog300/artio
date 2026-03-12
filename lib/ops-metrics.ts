@@ -16,6 +16,9 @@ async function safeCronSnapshot() {
       outbox_send: {},
       digests_weekly: {},
       retention_engagement: {},
+      ingest_regions: {},
+      ingest_venues: {},
+      ingest_discovery: {},
     };
   }
   try {
@@ -25,6 +28,9 @@ async function safeCronSnapshot() {
       outbox_send: {},
       digests_weekly: {},
       retention_engagement: {},
+      ingest_regions: {},
+      ingest_venues: {},
+      ingest_discovery: {},
     };
   }
 }

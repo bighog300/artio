@@ -157,6 +157,12 @@ export default function IngestShellClient({ stats, children }: Props) {
           Runs
         </Link>
         <Link
+          href="/admin/ingest/logs"
+          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/logs") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          Logs
+        </Link>
+        <Link
           href="/admin/ingest/health"
           className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/health") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
