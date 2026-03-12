@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { VenueSnapshot } from "@/lib/ingest/openai-extract";
+import { parseOpeningHours, validateEmail, validateSocialUrl } from "@/lib/ingest/enrichment-validators";
 
 function toNonEmptyString(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
@@ -53,21 +54,21 @@ export async function enrichVenueFromSnapshot(args: {
     venueUpdateData.description = description;
   }
 
-  const openingHoursRaw = toNonEmptyString(args.snapshot.venueOpeningHours);
+  const openingHours = parseOpeningHours(toNonEmptyString(args.snapshot.venueOpeningHours));
   const currentOpeningHoursRaw = (() => {
     if (!venue.openingHours || typeof venue.openingHours !== "object" || Array.isArray(venue.openingHours)) return null;
     const maybeRaw = (venue.openingHours as Record<string, unknown>).raw;
     return typeof maybeRaw === "string" ? maybeRaw : null;
   })();
-  if (isStringImprovement(currentOpeningHoursRaw, openingHoursRaw)) {
+  if (isStringImprovement(currentOpeningHoursRaw, openingHours?.raw ?? null)) {
     changedFields.push("openingHours");
     before.openingHours = venue.openingHours as Prisma.JsonValue;
-    const nextOpeningHours = { raw: openingHoursRaw };
+    const nextOpeningHours = openingHours;
     after.openingHours = nextOpeningHours;
     venueUpdateData.openingHours = nextOpeningHours;
   }
 
-  const contactEmail = toNonEmptyString(args.snapshot.venueContactEmail);
+  const contactEmail = validateEmail(toNonEmptyString(args.snapshot.venueContactEmail));
   if (isStringImprovement(venue.contactEmail, contactEmail)) {
     changedFields.push("contactEmail");
     before.contactEmail = venue.contactEmail;
@@ -75,7 +76,7 @@ export async function enrichVenueFromSnapshot(args: {
     venueUpdateData.contactEmail = contactEmail;
   }
 
-  const instagramUrl = toNonEmptyString(args.snapshot.venueInstagramUrl);
+  const instagramUrl = validateSocialUrl(toNonEmptyString(args.snapshot.venueInstagramUrl), "instagram.com");
   if (isStringImprovement(venue.instagramUrl, instagramUrl)) {
     changedFields.push("instagramUrl");
     before.instagramUrl = venue.instagramUrl;
@@ -83,7 +84,7 @@ export async function enrichVenueFromSnapshot(args: {
     venueUpdateData.instagramUrl = instagramUrl;
   }
 
-  const facebookUrl = toNonEmptyString(args.snapshot.venueFacebookUrl);
+  const facebookUrl = validateSocialUrl(toNonEmptyString(args.snapshot.venueFacebookUrl), "facebook.com");
   if (isStringImprovement(venue.facebookUrl, facebookUrl)) {
     changedFields.push("facebookUrl");
     before.facebookUrl = venue.facebookUrl;
