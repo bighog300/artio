@@ -27,6 +27,7 @@ export async function runRegionDiscovery(args: {
     ];
 
     const jobIds: string[] = [];
+    let queryFailCount = 0;
 
     for (const template of templates) {
       const job = await args.db.ingestDiscoveryJob.create({
@@ -42,8 +43,24 @@ export async function runRegionDiscovery(args: {
         select: { id: true },
       });
 
-      await runDiscoveryJob({ db: args.db, jobId: job.id, env: args.env });
-      jobIds.push(job.id);
+      try {
+        await runDiscoveryJob({ db: args.db, jobId: job.id, env: args.env });
+        jobIds.push(job.id);
+      } catch (queryError) {
+        queryFailCount += 1;
+        console.warn("region_discovery_query_failed", {
+          regionId: args.regionId,
+          template,
+          jobId: job.id,
+          error: queryError instanceof Error ? queryError.message : String(queryError),
+        });
+      }
+    }
+
+    if (queryFailCount === templates.length) {
+      throw new Error(
+        `All ${templates.length} discovery queries failed for region ${args.regionId}`,
+      );
     }
 
     const totalQueued = await args.db.ingestDiscoveryCandidate.count({
