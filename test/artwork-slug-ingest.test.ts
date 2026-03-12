@@ -10,6 +10,9 @@ type ArtworkCandidate = {
   artistName: string | null;
   sourceEventId: string;
   sourceEvent: { id: string; venueId: string | null };
+  sourceUrl: string;
+  imageUrl: string | null;
+  runId: string;
   medium?: string | null;
   year?: number | null;
   dimensions?: string | null;
@@ -27,6 +30,9 @@ const baseCandidate: ArtworkCandidate = {
   year: 2024,
   dimensions: "20x30",
   description: "desc",
+  sourceUrl: "https://example.com/events/1",
+  imageUrl: null,
+  runId: "run-1",
 };
 
 function createAutoApproveDb({

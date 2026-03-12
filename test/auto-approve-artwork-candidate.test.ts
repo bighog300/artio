@@ -9,6 +9,9 @@ type Candidate = {
   artistName: string | null;
   sourceEventId: string;
   sourceEvent: { id: string; venueId: string | null } | null;
+  sourceUrl: string;
+  imageUrl: string | null;
+  runId: string;
   medium?: string | null;
   year?: number | null;
   dimensions?: string | null;
@@ -23,6 +26,7 @@ function createDb(args: { candidate: Candidate; artistId: string | null }) {
 
   const tx = {
     artwork: {
+      findUnique: async () => null,
       create: async () => ({ id: "artwork-1" }),
     },
     artworkEvent: {
@@ -69,6 +73,9 @@ const baseCandidate: Candidate = {
   year: 2024,
   dimensions: "20x30",
   description: "desc",
+  sourceUrl: "https://example.com/events/1",
+  imageUrl: null,
+  runId: "run-1",
 };
 
 test("autoApproveArtworkCandidate sets both isPublished and status=PUBLISHED when autoPublish=true", async () => {

@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { ensureUniqueArtworkSlugWithDeps, slugifyArtworkTitle } from "@/lib/artwork-slug";
+import { importApprovedArtworkImage } from "@/lib/ingest/import-approved-artwork-image";
 
 export async function autoApproveArtworkCandidate(args: {
   candidateId: string;
@@ -69,6 +70,17 @@ export async function autoApproveArtworkCandidate(args: {
 
       return createdArtwork;
     });
+
+    await importApprovedArtworkImage({
+      appDb: args.db,
+      candidateId: candidate.id,
+      runId: candidate.id,
+      artworkId: newArtwork.id,
+      title: candidate.title,
+      sourceUrl: candidate.sourceUrl,
+      candidateImageUrl: candidate.imageUrl,
+      requestId: `auto-approve-artwork-${candidate.id}`,
+    }).catch((err) => console.warn("auto_approve_artwork_image_import_failed", { candidateId: candidate.id, err }));
 
     const canPublish = Boolean(args.autoPublish && candidate.title.trim().length > 0 && artistId !== null);
     if (canPublish) {
