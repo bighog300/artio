@@ -6,7 +6,9 @@ import { subscribeToasts, type ToastItem } from "@/lib/toast";
 const baseToastClasses = "rounded border bg-card px-3 py-2 text-card-foreground shadow";
 
 function toastVariantClasses(variant: ToastItem["variant"]) {
-  return variant === "error" ? "border-destructive/40" : "border-emerald-500/40";
+  if (variant === "error") return "border-destructive/40";
+  if (variant === "success") return "border-emerald-500/40";
+  return "border-border";
 }
 
 export function ToastCard({ item }: { item: ToastItem }) {
