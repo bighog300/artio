@@ -2,13 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { __resetRateLimitWarningsForTests, enforceRateLimit } from "@/lib/rate-limit";
 
-test("rate limit throws loud error in production-like env when Upstash env vars are missing", async () => {
+test("rate limit warns once in production-like env when using memory fallback", async () => {
   const prevNodeEnv = process.env.NODE_ENV;
   const prevVercel = process.env.VERCEL;
   const prevUrl = process.env.UPSTASH_REDIS_REST_URL;
   const prevToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-  const originalError = console.error;
-  const errors: string[] = [];
+  const originalWarn = console.warn;
+  const warnings: string[] = [];
 
   try {
     process.env.NODE_ENV = "production";
@@ -16,19 +16,17 @@ test("rate limit throws loud error in production-like env when Upstash env vars 
     delete process.env.UPSTASH_REDIS_REST_URL;
     delete process.env.UPSTASH_REDIS_REST_TOKEN;
     __resetRateLimitWarningsForTests();
-    console.error = ((message?: unknown) => {
-      errors.push(String(message ?? ""));
-    }) as typeof console.error;
+    console.warn = ((message?: unknown) => {
+      warnings.push(String(message ?? ""));
+    }) as typeof console.warn;
 
-    await assert.rejects(
-      enforceRateLimit({ key: "missing-upstash", limit: 10, windowMs: 1000 }),
-      /UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required/,
-    );
+    await enforceRateLimit({ key: "warn-once-a", limit: 10, windowMs: 1000 });
+    await enforceRateLimit({ key: "warn-once-b", limit: 10, windowMs: 1000 });
 
-    assert.equal(errors.length >= 1, true);
-    assert.match(errors[0], /UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required/);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /Upstash Redis is not configured or unavailable/);
   } finally {
-    console.error = originalError;
+    console.warn = originalWarn;
     if (prevNodeEnv == null) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = prevNodeEnv;
     if (prevVercel == null) delete process.env.VERCEL;

@@ -1,4 +1,4 @@
-import NextAuth, { getServerSession, type NextAuthConfig } from "next-auth";
+import { getServerSession, type NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { db } from "@/lib/db";
 import type { VenueMembershipRole } from "@prisma/client";
@@ -33,33 +33,35 @@ const isProdLikeEnv = process.env.VERCEL === "1" || process.env.NODE_ENV === "pr
 const isProductionBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
 
 let hasWarnedAboutMissingAuthSecret = false;
-let hasWarnedAboutEphemeralSecret = false;
-let ephemeralAuthSecret: string | null = null;
+let hasWarnedAboutSecretMismatch = false;
 
 export function getAuthSecret(): string {
-  const authSecret = process.env.AUTH_SECRET?.trim();
-  if (authSecret) return authSecret;
+  const nextAuthSecret = process.env.NEXTAUTH_SECRET;
+  const authSecret = process.env.AUTH_SECRET;
 
-  if (isProdLikeEnv && !isProductionBuildPhase) {
-    throw new Error("AUTH_SECRET is required in production/preview (set a secure random value, e.g. `openssl rand -base64 32`).");
+  if (isProdLikeEnv && !isProductionBuildPhase && !nextAuthSecret && !authSecret) {
+    throw new Error("NEXTAUTH_SECRET (or AUTH_SECRET) is required in production/preview (set a secure random value, e.g. `openssl rand -base64 32`).");
   }
 
-  if (!hasWarnedAboutMissingAuthSecret) {
-    hasWarnedAboutMissingAuthSecret = true;
-    console.warn("[auth] AUTH_SECRET is not set.");
+  if (process.env.NODE_ENV !== "production") {
+    if (!nextAuthSecret && !authSecret && !hasWarnedAboutMissingAuthSecret) {
+      hasWarnedAboutMissingAuthSecret = true;
+      console.warn("[auth] NEXTAUTH_SECRET/AUTH_SECRET is not set. Session decryption can fail across environments without a shared secret.");
+    }
+
+    if (nextAuthSecret && authSecret && nextAuthSecret !== authSecret && !hasWarnedAboutSecretMismatch) {
+      hasWarnedAboutSecretMismatch = true;
+      console.warn("[auth] NEXTAUTH_SECRET and AUTH_SECRET differ. Using NEXTAUTH_SECRET; align both values to avoid session decryption issues.");
+    }
   }
 
-  if (!hasWarnedAboutEphemeralSecret) {
-    hasWarnedAboutEphemeralSecret = true;
-    console.warn("[auth] Generated an ephemeral AUTH_SECRET for this process. Set AUTH_SECRET to avoid sessions being invalidated on restart.");
-  }
-
-  if (!ephemeralAuthSecret) ephemeralAuthSecret = crypto.randomUUID();
-  return ephemeralAuthSecret;
+  return nextAuthSecret ?? authSecret ?? "";
 }
 
 const authSecret = getAuthSecret();
+
 const hasAuthConfig = Boolean(authSecret && googleClientId && googleClientSecret);
+
 
 const authFailureWindowMs = 60_000;
 const authFailureState = { windowStart: 0, count: 0 };
@@ -107,15 +109,16 @@ function logRateLimitedAuthFailure() {
   trackMetric("auth.failure", 1, { reason: "missing_session" });
 }
 
-export const authOptions = {
+
+export const authOptions: NextAuthOptions = {
   secret: authSecret,
   providers: hasAuthConfig
     ? [
-      GoogleProvider({
-        clientId: googleClientId!,
-        clientSecret: googleClientSecret!,
-      }),
-    ]
+        GoogleProvider({
+          clientId: googleClientId!,
+          clientSecret: googleClientSecret!,
+        }),
+      ]
     : [],
   session: { strategy: "jwt" },
   cookies: {
@@ -199,25 +202,7 @@ export const authOptions = {
     },
   },
   pages: { signIn: "/login" },
-} satisfies NextAuthConfig;
-
-const nextAuthResult = NextAuth(authOptions);
-
-export const handlers = "handlers" in nextAuthResult
-  ? nextAuthResult.handlers
-  : { GET: nextAuthResult, POST: nextAuthResult };
-
-export const auth = "auth" in nextAuthResult
-  ? nextAuthResult.auth
-  : async () => getServerSession(authOptions as never);
-
-export const signIn = "signIn" in nextAuthResult
-  ? nextAuthResult.signIn
-  : (() => { throw new Error("signIn is only available in Auth.js v5 runtime"); });
-
-export const signOut = "signOut" in nextAuthResult
-  ? nextAuthResult.signOut
-  : (() => { throw new Error("signOut is only available in Auth.js v5 runtime"); });
+};
 
 export async function getSessionUser(): Promise<SessionUser | null> {
   if (process.env.NODE_ENV !== "production" && !hasWarnedAboutEdgeRuntime) {
@@ -228,16 +213,16 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     }
   }
 
-  const session = await auth();
+  const session = await getServerSession(authOptions);
   const user = !session?.user?.id || !session.user.email
     ? null
     : {
-      id: session.user.id,
-      email: session.user.email,
-      name: session.user.name ?? null,
-      role: session.user.role || "USER",
-      isTrustedPublisher: session.user.isTrustedPublisher === true,
-    };
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name ?? null,
+        role: session.user.role || "USER",
+        isTrustedPublisher: session.user.isTrustedPublisher === true,
+      };
 
   const requestMeta = await getAuthDebugRequestMeta();
   warnAuthEnvRisks(requestMeta.host);

@@ -28,8 +28,7 @@ export async function computeEngagementBoosts(db: RankingDb, userId: string, can
   const clicks = await db.engagementEvent.findMany({
     where: { userId, action: "CLICK", targetType: "EVENT", createdAt: { gte: since } },
     select: { targetId: true },
-    // Keep engagement scan bounded for predictable latency on large histories.
-    take: 1000,
+    take: 500,
     orderBy: { createdAt: "desc" },
   });
   const clickedIds = Array.from(new Set(clicks.map((item) => item.targetId)));
@@ -38,8 +37,6 @@ export async function computeEngagementBoosts(db: RankingDb, userId: string, can
   const clickedEvents = await db.event.findMany({
     where: { id: { in: clickedIds } },
     select: { id: true, venueId: true, eventArtists: { select: { artistId: true } }, eventTags: { include: { tag: { select: { slug: true } } } } },
-    // Cap historical lookup to keep recommendation ranking bounded as engagement history grows.
-    take: 1000,
   });
 
   const clickedVenues = new Set(clickedEvents.map((event) => event.venueId).filter((value): value is string => Boolean(value)));

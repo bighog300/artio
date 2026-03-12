@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { captureException } from "@/lib/telemetry";
 
 type WindowState = { windowStart: number; count: number };
 
@@ -7,26 +6,9 @@ const memoryStore = new Map<string, WindowState>();
 
 
 let hasWarnedAboutMemoryFallback = false;
-let hasEmittedMissingRedisError = false;
 
 function isProductionLikeEnv() {
   return process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
-}
-
-
-function ensureRedisConfiguredForProduction() {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  if (!isProductionLikeEnv() || (url && token)) return;
-
-  const error = new Error("[rate-limit] UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required in production-like runtime.");
-  if (!hasEmittedMissingRedisError) {
-    hasEmittedMissingRedisError = true;
-    console.error(error.message);
-    captureException(error, { scope: "rate_limit", userScope: false });
-  }
-  throw error;
 }
 
 function warnRateLimitMemoryFallbackOnce() {
@@ -37,7 +19,6 @@ function warnRateLimitMemoryFallbackOnce() {
 
 export function __resetRateLimitWarningsForTests() {
   hasWarnedAboutMemoryFallback = false;
-  hasEmittedMissingRedisError = false;
 }
 
 type RateLimitOptions = {
@@ -110,7 +91,6 @@ function memoryIncr(key: string, windowMs: number) {
 }
 
 async function consumeRateLimit(options: RateLimitOptions) {
-  ensureRedisConfiguredForProduction();
   const redisResult = await redisIncr(options.key, options.windowMs).catch(() => null);
   if (redisResult) return redisResult;
   warnRateLimitMemoryFallbackOnce();

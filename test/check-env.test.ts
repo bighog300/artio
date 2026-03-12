@@ -28,7 +28,7 @@ test("check-env skips strict checks outside deploy context", () => {
 });
 
 test("check-env requires CRON_SECRET in deploy context", () => {
-  const result = runCheckEnv({ CI: "true", AUTH_SECRET: "a", DATABASE_URL: "postgres://db", UPSTASH_REDIS_REST_URL: "https://upstash.example", UPSTASH_REDIS_REST_TOKEN: "token" });
+  const result = runCheckEnv({ CI: "true", AUTH_SECRET: "a", DATABASE_URL: "postgres://db" });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /CRON_SECRET/);
 });
@@ -39,8 +39,6 @@ test("check-env accepts either mapbox token variable", () => {
     AUTH_SECRET: "a",
     DATABASE_URL: "postgres://db",
     CRON_SECRET: "cron",
-    UPSTASH_REDIS_REST_URL: "https://upstash.example",
-    UPSTASH_REDIS_REST_TOKEN: "token",
     NEXT_PUBLIC_MAPBOX_TOKEN: "token",
   });
   assert.equal(withCanonical.status, 0);
@@ -50,8 +48,6 @@ test("check-env accepts either mapbox token variable", () => {
     AUTH_SECRET: "a",
     DATABASE_URL: "postgres://db",
     CRON_SECRET: "cron",
-    UPSTASH_REDIS_REST_URL: "https://upstash.example",
-    UPSTASH_REDIS_REST_TOKEN: "token",
     NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: "token",
   });
   assert.equal(withAccessToken.status, 0);

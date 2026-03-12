@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import { getToken } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
 import { getBetaConfig, isEmailAllowed } from "@/lib/beta/access";
 import { REQUEST_ID_HEADER } from "@/lib/request-id";
@@ -7,16 +7,12 @@ import { hasSessionCookieFromHeader, isAuthDebugEnabled, logAuthDebug } from "@/
 import { getCanonicalHost, shouldEnforceCanonicalHost } from "@/lib/canonical-host";
 
 const PUBLIC_BETA_PATHS = new Set(["/beta", "/login"]);
-const middlewareAuthResult = NextAuth({ secret: process.env.AUTH_SECRET });
-const auth = "auth" in middlewareAuthResult ? middlewareAuthResult.auth : async () => null;
 
 export async function middleware(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   const requestId = requestHeaders.get(REQUEST_ID_HEADER) || crypto.randomUUID();
   const authDebugEnabled = isAuthDebugEnabled();
-  const nonce = crypto.randomUUID().replace(/-/g, "");
   requestHeaders.set(REQUEST_ID_HEADER, requestId);
-  requestHeaders.set("x-nonce", nonce);
   if (authDebugEnabled) {
     requestHeaders.set("x-pathname", req.nextUrl.pathname);
   }
@@ -26,10 +22,10 @@ export async function middleware(req: NextRequest) {
   const reqHost = req.nextUrl.host;
 
   if (
-    canonicalHost
-    && !pathname.startsWith("/api")
-    && shouldEnforceCanonicalHost(reqHost)
-    && reqHost !== canonicalHost
+    canonicalHost &&
+    !pathname.startsWith("/api") &&
+    shouldEnforceCanonicalHost(reqHost) &&
+    reqHost !== canonicalHost
   ) {
     const forwardedProto = req.headers.get("x-forwarded-proto");
     const reqProto = req.nextUrl.protocol?.replace(":", "");
@@ -59,8 +55,8 @@ export async function middleware(req: NextRequest) {
 
 
   if (betaConfig.betaMode && !pathname.startsWith("/api") && !PUBLIC_BETA_PATHS.has(pathname)) {
-    const session = await auth(req);
-    const email = session?.user?.email;
+    const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+    const email = token?.email;
 
     if (!email) {
       const url = new URL("/beta", req.url);
@@ -82,8 +78,8 @@ export async function middleware(req: NextRequest) {
   }
 
   if (pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/api/admin" || pathname.startsWith("/api/admin/")) {
-    const session = await auth(req);
-    const email = session?.user?.email ?? null;
+    const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+    const email = token?.email ?? null;
 
     if (!email) {
       if (pathname.startsWith("/api/admin")) {
@@ -117,7 +113,6 @@ export async function middleware(req: NextRequest) {
   });
 
   response.headers.set(REQUEST_ID_HEADER, requestId);
-  response.headers.set("x-nonce", nonce);
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)");
@@ -125,7 +120,7 @@ export async function middleware(req: NextRequest) {
   response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   response.headers.set(
     "Content-Security-Policy",
-    `default-src 'self'; base-uri 'self'; frame-ancestors 'none'; child-src 'self' blob:; img-src 'self' data: blob: https:; font-src 'self' data: https:; worker-src 'self' blob:; script-src 'self' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https:;`,
+    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; child-src 'self' blob:; img-src 'self' data: blob: https:; font-src 'self' data: https:; worker-src 'self' blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https:;",
   );
   return response;
 }

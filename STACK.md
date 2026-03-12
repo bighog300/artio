@@ -10,16 +10,10 @@
 ## UI
 - shadcn/ui
 - FullCalendar
-- Leaflet + OpenStreetMap (runtime map), optional Mapbox/Google geocoding integrations
-- QRCode (ticket/check-in codes)
+- Mapbox GL (default) or Google Maps
 
 ## Auth
-- Auth.js v5 (next-auth beta) + Google OAuth
-
-## Integrations
-- Stripe (payments/ticketing + checkout)
-- Resend + React Email (transactional email)
-- Google APIs (`googleapis`) for calendar/event sync
+- Auth.js / NextAuth (Google OAuth)
 
 ## CI/CD
 - GitHub Actions + Vercel Git integration

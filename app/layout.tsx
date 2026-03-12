@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import './globals.css';
 import { MobileBottomNav } from '@/components/navigation/mobile-bottom-nav';
 import { ToastViewport } from '@/components/ui/toast';
@@ -23,14 +22,13 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const user = await getSessionUser();
   const isAdmin = isAdminEmail(user?.email);
   const branding = await getPublicBranding();
 
   return (
     <html lang="en">
-      <body className="min-h-screen bg-background font-sans text-foreground" data-nonce={nonce}>
+      <body className="min-h-screen bg-background font-sans text-foreground">
         <Providers>
           <a
             href="#main"

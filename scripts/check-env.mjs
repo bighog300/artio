@@ -15,7 +15,7 @@ if (!shouldEnforce) {
   process.exit(0);
 }
 
-const requiredInDeploy = ["AUTH_SECRET", "DATABASE_URL", "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"];
+const requiredInDeploy = ["AUTH_SECRET", "DATABASE_URL"];
 const optional = ["DIRECT_URL"];
 requiredInDeploy.push("CRON_SECRET");
 

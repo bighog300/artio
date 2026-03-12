@@ -63,8 +63,6 @@ Minimum required:
 - `AUTH_GOOGLE_SECRET`
 - `RESEND_WEBHOOK_SECRET`
 - `UNSUBSCRIBE_TOKEN_SECRET`
-- `UPSTASH_REDIS_REST_URL`
-- `UPSTASH_REDIS_REST_TOKEN`
 - `ADMIN_EMAILS` (required for admin panel access control, comma-separated email allowlist)
 - `ADMIN_EMAIL_DOMAINS` (optional, comma-separated admin email domains)
 - `ADMIN_IMAGE_ALT_REQUIRED` (optional; defaults to `false`, when `true` admin image alt text is required before setting an image as featured/primary)
@@ -102,7 +100,7 @@ Optional:
 - `BLOB_READ_WRITE_TOKEN` (required for Blob image uploads)
 - `RATE_LIMIT_VENUE_IMAGES_WRITE_PER_MINUTE` (defaults to `60`)
 - `RATE_LIMIT_VENUE_IMAGES_WRITE_WINDOW_MS` (defaults to `60000`)
-- `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (required in production-like runtimes; app rate limiting now fails fast without these)
+- `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (strongly recommended in production — without these, rate limiting is in-memory and not shared across instances)
 
 ---
 
@@ -114,7 +112,7 @@ Optional:
   - `pnpm run vercel:build`
 - `vercel:build` runs `scripts/check-env.mjs --mode=vercel-build` before `next build`.
 - The check prints only variable names with set status (`true` / `false`), never secret values.
-- Required at build/deploy time: `AUTH_SECRET`, `DATABASE_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and `CRON_SECRET` (when cron jobs are configured in `vercel.json`).
+- Required at build/deploy time: `AUTH_SECRET`, `DATABASE_URL`, and `CRON_SECRET` (when cron jobs are configured in `vercel.json`).
 - Also required at build/deploy time when `GEOCODER_PROVIDER=google`: `GOOGLE_MAPS_API_KEY`.
 - Optional at build/deploy time: `DIRECT_URL` (reported for parity visibility, not required).
 
@@ -163,7 +161,7 @@ Recommended scripts:
 
 ## NextAuth production start requirement
 
-- `AUTH_SECRET` must be set for `pnpm start` in production mode.
+- `NEXTAUTH_SECRET` / `AUTH_SECRET` must be set for `pnpm start` in production mode.
 
 
 ## 7. Admin Jobs Panel

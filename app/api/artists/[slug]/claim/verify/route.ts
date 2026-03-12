@@ -8,7 +8,7 @@ import { enqueueNotification } from "@/lib/notifications";
 export const runtime = "nodejs";
 
 function getSecret() {
-  return process.env.AUTH_SECRET ?? "artist-claim-dev-secret";
+  return process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "artist-claim-dev-secret";
 }
 
 function verifyToken(rawToken: string) {

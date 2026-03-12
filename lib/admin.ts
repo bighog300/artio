@@ -1,5 +1,6 @@
+import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authOptions } from "@/lib/auth";
 import { isAdminEmail } from "@/lib/admin-email";
 
 export { isAdminEmail } from "@/lib/admin-email";
@@ -14,7 +15,7 @@ export class AdminAccessError extends Error {
 }
 
 export async function requireAdmin(options?: { redirectOnFail?: boolean }): Promise<{ email: string }> {
-  const session = await auth();
+  const session = await getServerSession(authOptions);
   const email = session?.user?.email ?? null;
 
   if (!email) {
