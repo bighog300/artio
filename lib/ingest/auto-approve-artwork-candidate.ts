@@ -66,7 +66,7 @@ export async function autoApproveArtworkCandidate(args: {
     if (canPublish) {
       await args.db.artwork.update({
         where: { id: newArtwork.id },
-        data: { isPublished: true },
+        data: { isPublished: true, status: "PUBLISHED" },
       });
       return { artworkId: newArtwork.id, published: true };
     }
