@@ -174,7 +174,7 @@ export default function RegionsClient({
       if (triggerRes.ok) {
         enqueueToast({ title: "Region run triggered successfully", variant: "success" });
       } else {
-        enqueueToast({ title: "Region queued — will run at next scheduled time" });
+        enqueueToast({ title: "Region queued — will run at next scheduled time", variant: "default" });
       }
     } catch {
       enqueueToast({ title: "Failed to trigger run", variant: "error" });

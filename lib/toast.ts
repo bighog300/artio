@@ -1,4 +1,4 @@
-export type ToastVariant = "success" | "error";
+export type ToastVariant = "success" | "error" | "default";
 
 export type ToastInput = {
   title: string;
@@ -17,7 +17,7 @@ export function enqueueToast(input: ToastInput) {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     title: input.title,
     message: input.message,
-    variant: input.variant ?? "success",
+    variant: input.variant ?? "default",
   };
   listeners.forEach((listener) => listener(toast));
   return toast;
