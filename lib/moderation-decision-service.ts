@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
+import { publishedStateAt } from "@/lib/publish-helpers";
 
 type DbClient = Pick<typeof db, "$transaction">;
 
@@ -70,19 +71,19 @@ export async function decideSubmission(input: DecideSubmissionInput, dbClient: D
 
     if (isApprove) {
       if (submission.type === "ARTIST" && submission.targetArtistId) {
-        await tx.artist.update({ where: { id: submission.targetArtistId }, data: { isPublished: true } });
+        await tx.artist.update({ where: { id: submission.targetArtistId }, data: { ...publishedStateAt(decidedAt) } });
       }
       if (submission.type === "VENUE" && submission.targetVenueId) {
-        await tx.venue.update({ where: { id: submission.targetVenueId }, data: { isPublished: true, status: "PUBLISHED" } });
+        await tx.venue.update({ where: { id: submission.targetVenueId }, data: { ...publishedStateAt(decidedAt) } });
       }
       if (submission.type === "EVENT" && submission.targetEventId) {
-        await tx.event.update({ where: { id: submission.targetEventId }, data: { isPublished: true, status: "PUBLISHED", publishedAt: decidedAt } });
+        await tx.event.update({ where: { id: submission.targetEventId }, data: { ...publishedStateAt(decidedAt) } });
       }
       if (submission.type === "ARTWORK" && submission.note?.startsWith("artworkId:")) {
         const artworkId = submission.note.replace("artworkId:", "").trim();
         await tx.artwork.update({
           where: { id: artworkId },
-          data: { isPublished: true, status: "PUBLISHED" },
+          data: { ...publishedStateAt(decidedAt) },
         });
       }
     }
