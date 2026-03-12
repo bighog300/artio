@@ -18,7 +18,7 @@ export async function autoApproveArtworkCandidate(args: {
       const artist = await args.db.artist.findFirst({
         where: {
           name: { equals: candidate.artistName, mode: "insensitive" },
-          isPublished: true,
+          status: { in: ["PUBLISHED", "IN_REVIEW"] },
         },
         select: { id: true },
       });
