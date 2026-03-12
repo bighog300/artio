@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { getSearchProvider } from "@/lib/ingest/search";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
 import { canonicalizeUrl } from "@/lib/ingest/canonical-url";
+import { resolveArtistCandidate } from "@/lib/ingest/artist-resolution";
 
 function buildQuery(queryTemplate: string, region: string): string {
   const trimmedRegion = region.trim();
@@ -79,14 +80,24 @@ export async function runDiscoveryJob(args: {
         }),
       );
     } else if (job.entityType === "ARTIST") {
-      known = Boolean(
-        await args.db.artist.findFirst({
-          where: canonical
-            ? { OR: [{ canonicalUrl: canonical }, { websiteUrl: result.url }] }
-            : { websiteUrl: result.url },
-          select: { id: true },
-        }),
-      );
+      const resolved = await resolveArtistCandidate({
+        db: args.db,
+        name: result.title,
+        websiteUrl: result.url,
+      });
+
+      if (!resolved) {
+        known = Boolean(
+          await args.db.artist.findFirst({
+            where: canonical
+              ? { OR: [{ canonicalUrl: canonical }, { websiteUrl: result.url }] }
+              : { websiteUrl: result.url },
+            select: { id: true },
+          }),
+        );
+      } else {
+        known = true;
+      }
     }
 
     if (known) {

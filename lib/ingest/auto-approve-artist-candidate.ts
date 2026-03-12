@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { slugifyArtistName, ensureUniqueArtistSlugWithDeps } from "@/lib/artist-slug";
+import { resolveArtistCandidate } from "@/lib/ingest/artist-resolution";
 
 export async function autoApproveArtistCandidate(args: {
   candidateId: string;
@@ -15,39 +16,55 @@ export async function autoApproveArtistCandidate(args: {
     if (!candidate || candidate.status !== "PENDING") return null;
 
     const newArtist = await args.db.$transaction(async (tx) => {
-      const baseSlug = slugifyArtistName(candidate.name);
-      const slug = await ensureUniqueArtistSlugWithDeps(
-        { findBySlug: (value) => tx.artist.findUnique({ where: { slug: value }, select: { id: true } }) },
-        baseSlug,
-      );
-
-      const createdArtist = await tx.artist.create({
-        data: {
-          name: candidate.name,
-          slug: slug ?? candidate.id,
-          bio: candidate.bio,
-          mediums: candidate.mediums,
-          websiteUrl: candidate.websiteUrl,
-          instagramUrl: candidate.instagramUrl,
-          twitterUrl: candidate.twitterUrl,
-          isAiDiscovered: true,
-          extractionProvider: candidate.extractionProvider,
-          status: "IN_REVIEW",
-        },
-        select: { id: true },
+      const resolvedArtist = await resolveArtistCandidate({
+        db: tx as PrismaClient,
+        name: candidate.name,
+        websiteUrl: candidate.websiteUrl,
+        instagramUrl: candidate.instagramUrl,
+        twitterUrl: candidate.twitterUrl,
       });
+
+      let artistId = resolvedArtist?.artistId;
+      let createdNewArtist = false;
+
+      if (!artistId) {
+        const baseSlug = slugifyArtistName(candidate.name);
+        const slug = await ensureUniqueArtistSlugWithDeps(
+          { findBySlug: (value) => tx.artist.findUnique({ where: { slug: value }, select: { id: true } }) },
+          baseSlug,
+        );
+
+        const createdArtist = await tx.artist.create({
+          data: {
+            name: candidate.name,
+            slug: slug ?? candidate.id,
+            bio: candidate.bio,
+            mediums: candidate.mediums,
+            websiteUrl: candidate.websiteUrl,
+            instagramUrl: candidate.instagramUrl,
+            twitterUrl: candidate.twitterUrl,
+            isAiDiscovered: true,
+            extractionProvider: candidate.extractionProvider,
+            status: "IN_REVIEW",
+          },
+          select: { id: true },
+        });
+
+        artistId = createdArtist.id;
+        createdNewArtist = true;
+      }
 
       for (const link of candidate.eventLinks) {
         await tx.eventArtist.upsert({
           where: {
             eventId_artistId: {
               eventId: link.eventId,
-              artistId: createdArtist.id,
+              artistId,
             },
           },
           create: {
             eventId: link.eventId,
-            artistId: createdArtist.id,
+            artistId,
           },
           update: {},
         });
@@ -55,10 +72,10 @@ export async function autoApproveArtistCandidate(args: {
 
       await tx.ingestExtractedArtist.update({
         where: { id: candidate.id },
-        data: { status: "APPROVED", createdArtistId: createdArtist.id },
+        data: { status: "APPROVED", createdArtistId: artistId },
       });
 
-      return createdArtist;
+      return { id: artistId, createdNewArtist };
     });
 
     const canPublish = Boolean(
@@ -68,7 +85,7 @@ export async function autoApproveArtistCandidate(args: {
       && candidate.mediums.length > 0,
     );
 
-    if (canPublish) {
+    if (canPublish && newArtist.createdNewArtist) {
       await args.db.artist.update({
         where: { id: newArtist.id },
         data: { status: "PUBLISHED", isPublished: true },
