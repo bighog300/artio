@@ -26,6 +26,7 @@ export async function autoApproveArtworkCandidate(args: {
     }
 
     if (!artistId) return null;
+    if (!candidate.sourceEvent) return null;
 
     const newArtwork = await args.db.$transaction(async (tx) => {
       const createdArtwork = await tx.artwork.create({
@@ -72,7 +73,12 @@ export async function autoApproveArtworkCandidate(args: {
 
     return { artworkId: newArtwork.id, published: false };
   } catch (error) {
-    console.warn("auto_approve_artwork_failed", { candidateId: args.candidateId, error });
+    console.warn("auto_approve_artwork_failed", {
+      candidateId: args.candidateId,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorCode: (error as Record<string, unknown>)?.code ?? null,
+      stack: error instanceof Error ? error.stack?.slice(0, 500) : null,
+    });
     return null;
   }
 }
