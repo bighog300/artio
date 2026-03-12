@@ -1,4 +1,4 @@
 -- AlterTable
 ALTER TABLE "VenueEnrichmentLog"
-ADD COLUMN "sourceDomain" TEXT,
-ADD COLUMN "fieldConfidence" JSONB;
+ADD COLUMN IF NOT EXISTS "sourceDomain" TEXT,
+ADD COLUMN IF NOT EXISTS "fieldConfidence" JSONB;

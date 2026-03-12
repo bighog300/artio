@@ -1,9 +1,15 @@
 import { spawnSync } from "node:child_process";
 
-const RESOLVABLE_FAILED_MIGRATIONS = new Set([
+const RESOLVABLE_AS_ROLLED_BACK = new Set([
   "20260706120000_unified_content_status",
   "20261206110000_add_region_id_to_discovery_job",
-  "20261203105000_enrichment_provenance",
+]);
+
+const RESOLVABLE_AS_APPLIED = new Set(["20261203105000_enrichment_provenance"]);
+
+const RESOLVABLE_FAILED_MIGRATIONS = new Set([
+  ...RESOLVABLE_AS_ROLLED_BACK,
+  ...RESOLVABLE_AS_APPLIED,
 ]);
 const DEPLOY_MAX_ATTEMPTS = 2;
 const DEPLOY_RETRY_DELAY_MS = 2_000;
@@ -30,9 +36,13 @@ function sleep(ms: number) {
 
 function runPrisma(
   args: string[],
-  options: { allowFailure?: boolean; step: string } = { step: "Prisma command" },
+  options: { allowFailure?: boolean; step: string } = {
+    step: "Prisma command",
+  },
 ): PrismaResult {
-  console.log(`\n[prisma-safe-deploy] [step=${options.step}] pnpm prisma ${args.join(" ")}`);
+  console.log(
+    `\n[prisma-safe-deploy] [step=${options.step}] pnpm prisma ${args.join(" ")}`,
+  );
 
   const result = spawnSync("pnpm", ["prisma", ...args], {
     env: process.env,
@@ -71,10 +81,16 @@ function parseFailedMigrations(statusOutput: string): string[] {
 }
 
 function parsePendingMigrations(statusOutput: string): string[] {
-  return parseMigrationList(statusOutput, /Following migrations have not yet been applied:/i);
+  return parseMigrationList(
+    statusOutput,
+    /Following migrations have not yet been applied:/i,
+  );
 }
 
-function parseMigrationList(statusOutput: string, headerPattern: RegExp): string[] {
+function parseMigrationList(
+  statusOutput: string,
+  headerPattern: RegExp,
+): string[] {
   const lines = statusOutput.split(/\r?\n/);
   const migrations = new Set<string>();
   let collecting = false;
@@ -117,7 +133,9 @@ function parseStatusSummary(statusOutput: string): StatusSummary {
     failedMigrations,
     pendingMigrations,
     failedDetected: /Following migration have failed:/i.test(statusOutput),
-    pendingDetected: /Following migrations have not yet been applied:/i.test(statusOutput),
+    pendingDetected: /Following migrations have not yet been applied:/i.test(
+      statusOutput,
+    ),
     uninitializedDetected:
       /relation\s+"_prisma_migrations"\s+does not exist/i.test(statusOutput) ||
       /The table `?_prisma_migrations`? does not exist/i.test(statusOutput),
@@ -136,7 +154,9 @@ async function runDeployWithRetry() {
       runPrisma(["migrate", "deploy"], {
         step: `Running migrate deploy (attempt ${attempt}/${DEPLOY_MAX_ATTEMPTS})`,
       });
-      console.log(`[prisma-safe-deploy] [deploy] migrate deploy succeeded on attempt ${attempt}.`);
+      console.log(
+        `[prisma-safe-deploy] [deploy] migrate deploy succeeded on attempt ${attempt}.`,
+      );
       return;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
@@ -145,7 +165,9 @@ async function runDeployWithRetry() {
       );
 
       if (attempt < DEPLOY_MAX_ATTEMPTS) {
-        console.log(`[prisma-safe-deploy] [deploy] Retrying in ${DEPLOY_RETRY_DELAY_MS}ms...`);
+        console.log(
+          `[prisma-safe-deploy] [deploy] Retrying in ${DEPLOY_RETRY_DELAY_MS}ms...`,
+        );
         await sleep(DEPLOY_RETRY_DELAY_MS);
       }
     }
@@ -155,7 +177,9 @@ async function runDeployWithRetry() {
 }
 
 async function main() {
-  console.log("[prisma-safe-deploy] Starting safe Prisma migration deploy flow.");
+  console.log(
+    "[prisma-safe-deploy] Starting safe Prisma migration deploy flow.",
+  );
 
   const statusResult = runPrisma(["migrate", "status"], {
     allowFailure: true,
@@ -169,7 +193,10 @@ async function main() {
   );
 
   const recognizedStateCount =
-    Number(status.failedDetected) + Number(status.pendingDetected) + Number(status.uninitializedDetected) + Number(status.upToDate);
+    Number(status.failedDetected) +
+    Number(status.pendingDetected) +
+    Number(status.uninitializedDetected) +
+    Number(status.upToDate);
 
   if (recognizedStateCount === 0) {
     console.warn(
@@ -179,7 +206,9 @@ async function main() {
     runPrisma(["migrate", "status"], {
       step: "Verifying migration status after deploy",
     });
-    console.log("[prisma-safe-deploy] [final] ✅ Safe deploy completed successfully.");
+    console.log(
+      "[prisma-safe-deploy] [final] ✅ Safe deploy completed successfully.",
+    );
     return;
   }
 
@@ -188,7 +217,10 @@ async function main() {
       (migrationName) => !RESOLVABLE_FAILED_MIGRATIONS.has(migrationName),
     );
 
-    if (unknownFailedMigrations.length > 0 || status.failedMigrations.length === 0) {
+    if (
+      unknownFailedMigrations.length > 0 ||
+      status.failedMigrations.length === 0
+    ) {
       throw new Error(
         `[prisma-safe-deploy] Found unsupported failed migration(s): [${
           status.failedMigrations.join(", ") || "unknown"
@@ -196,14 +228,19 @@ async function main() {
       );
     }
 
-    const toResolve = status.failedMigrations.filter((m) => RESOLVABLE_FAILED_MIGRATIONS.has(m));
+    const toResolve = status.failedMigrations.filter((m) =>
+      RESOLVABLE_FAILED_MIGRATIONS.has(m),
+    );
 
     console.log(
       `[prisma-safe-deploy] [resolve] Auto-resolving known failed migration(s): ${toResolve.join(", ")}`,
     );
 
     for (const migration of toResolve) {
-      runPrisma(["migrate", "resolve", "--rolled-back", migration], {
+      const flag = RESOLVABLE_AS_APPLIED.has(migration)
+        ? "--applied"
+        : "--rolled-back";
+      runPrisma(["migrate", "resolve", flag, migration], {
         step: `Resolving failed migration ${migration}`,
       });
     }
@@ -214,19 +251,31 @@ async function main() {
 
     console.log("[prisma-safe-deploy] [action] running migrate deploy");
     await runDeployWithRetry();
-    console.log("[prisma-safe-deploy] [result] migrations applied successfully");
+    console.log(
+      "[prisma-safe-deploy] [result] migrations applied successfully",
+    );
   } else if (status.pendingDetected || status.uninitializedDetected) {
     if (status.uninitializedDetected) {
-      console.log("[prisma-safe-deploy] [status] Migration table missing; treating database as uninitialized.");
+      console.log(
+        "[prisma-safe-deploy] [status] Migration table missing; treating database as uninitialized.",
+      );
     }
-    console.log("[prisma-safe-deploy] [resolve] No failed migration detected. Resolve skipped.");
+    console.log(
+      "[prisma-safe-deploy] [resolve] No failed migration detected. Resolve skipped.",
+    );
     console.log("[prisma-safe-deploy] [action] running migrate deploy");
     await runDeployWithRetry();
-    console.log("[prisma-safe-deploy] [result] migrations applied successfully");
+    console.log(
+      "[prisma-safe-deploy] [result] migrations applied successfully",
+    );
   } else if (status.upToDate) {
-    console.log("[prisma-safe-deploy] [action] database already up to date; skipping migrate deploy");
+    console.log(
+      "[prisma-safe-deploy] [action] database already up to date; skipping migrate deploy",
+    );
     console.log("[prisma-safe-deploy] [result] no migrations needed");
-    console.log("[prisma-safe-deploy] [final] ✅ Safe deploy completed successfully.");
+    console.log(
+      "[prisma-safe-deploy] [final] ✅ Safe deploy completed successfully.",
+    );
     return;
   }
 
@@ -234,7 +283,9 @@ async function main() {
     step: "Verifying migration status after deploy",
   });
 
-  console.log("[prisma-safe-deploy] [final] ✅ Safe deploy completed successfully.");
+  console.log(
+    "[prisma-safe-deploy] [final] ✅ Safe deploy completed successfully.",
+  );
 }
 
 main().catch((error) => {
