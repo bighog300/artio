@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api";
 import { isAuthError, requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ensureUniqueArtworkSlugWithDeps, slugifyArtworkTitle } from "@/lib/artwork-slug";
+import { importApprovedArtworkImage } from "@/lib/ingest/import-approved-artwork-image";
 
 export const runtime = "nodejs";
 
@@ -83,7 +84,29 @@ export async function handleAdminIngestArtworkApprove(
       return { artworkId: newArtwork.id };
     });
 
-    return NextResponse.json({ artworkId: result.artworkId, artistId, eventId: candidate.sourceEventId }, { headers: { "Cache-Control": "no-store" } });
+    const imageImportResult = await importApprovedArtworkImage({
+      appDb: deps.db,
+      candidateId: candidate.id,
+      runId: candidate.id,
+      artworkId: result.artworkId,
+      title: candidate.title,
+      sourceUrl: candidate.sourceUrl,
+      candidateImageUrl: candidate.imageUrl,
+      requestId: `admin-approve-artwork-${candidate.id}`,
+    }).catch((err) => {
+      const warning = `image-import failed: ${err instanceof Error ? err.message : String(err)}`;
+      console.warn("admin_approve_artwork_image_import_failed", { candidateId: candidate.id, warning });
+      return { attached: false, warning, imageUrl: null };
+    });
+
+    return NextResponse.json({
+      artworkId: result.artworkId,
+      artistId,
+      eventId: candidate.sourceEventId,
+      imageImportWarning: imageImportResult.warning,
+      imageImported: imageImportResult.attached,
+      imageUrl: imageImportResult.imageUrl,
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Forbidden");
