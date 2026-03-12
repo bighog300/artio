@@ -20,6 +20,7 @@ DATABASE_URL=postgresql://artpulse:artpulse@localhost:5432/artpulse
 AUTH_SECRET=replace-with-long-random-string
 AUTH_GOOGLE_ID=
 AUTH_GOOGLE_SECRET=
+# Auth.js v5 — `AUTH_SECRET` is the only required auth secret variable.
 
 # Admin access control (required for /admin + /api/admin/*)
 ADMIN_EMAILS=admin@example.com
@@ -161,7 +162,7 @@ Recommended scripts:
 - Client uploads use token exchange route handlers (`handleUpload`), then browser uploads directly to Blob.
 - Do not expose `BLOB_READ_WRITE_TOKEN` in browser bundles.
 
-## NextAuth production start requirement
+## Auth.js production start requirement
 
 - `AUTH_SECRET` must be set for `pnpm start` in production mode.
 
