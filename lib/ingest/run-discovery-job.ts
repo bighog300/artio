@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { getSearchProvider } from "@/lib/ingest/search";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
+import { canonicalizeUrl } from "@/lib/ingest/canonical-url";
 
 function buildQuery(queryTemplate: string, region: string): string {
   const trimmedRegion = region.trim();
@@ -54,6 +55,7 @@ export async function runDiscoveryJob(args: {
         data: {
           jobId: job.id,
           url: result.url,
+          canonicalUrl: canonicalizeUrl(result.url),
           title: result.title,
           snippet: result.snippet,
           status: "SKIPPED",
@@ -64,11 +66,27 @@ export async function runDiscoveryJob(args: {
       continue;
     }
 
+    const canonical = canonicalizeUrl(result.url);
+
     let known = false;
     if (job.entityType === "VENUE") {
-      known = Boolean(await args.db.venue.findFirst({ where: { websiteUrl: result.url }, select: { id: true } }));
+      known = Boolean(
+        await args.db.venue.findFirst({
+          where: canonical
+            ? { OR: [{ canonicalUrl: canonical }, { websiteUrl: result.url }] }
+            : { websiteUrl: result.url },
+          select: { id: true },
+        }),
+      );
     } else if (job.entityType === "ARTIST") {
-      known = Boolean(await args.db.artist.findFirst({ where: { websiteUrl: result.url }, select: { id: true } }));
+      known = Boolean(
+        await args.db.artist.findFirst({
+          where: canonical
+            ? { OR: [{ canonicalUrl: canonical }, { websiteUrl: result.url }] }
+            : { websiteUrl: result.url },
+          select: { id: true },
+        }),
+      );
     }
 
     if (known) {
@@ -76,6 +94,7 @@ export async function runDiscoveryJob(args: {
         data: {
           jobId: job.id,
           url: result.url,
+          canonicalUrl: canonical,
           title: result.title,
           snippet: result.snippet,
           status: "SKIPPED",
@@ -86,13 +105,19 @@ export async function runDiscoveryJob(args: {
       continue;
     }
 
-    const existing = await args.db.ingestDiscoveryCandidate.findFirst({ where: { jobId: job.id, url: result.url }, select: { id: true } });
+    const existing = await args.db.ingestDiscoveryCandidate.findFirst({
+      where: canonical
+        ? { jobId: job.id, OR: [{ canonicalUrl: canonical }, { url: result.url }] }
+        : { jobId: job.id, url: result.url },
+      select: { id: true },
+    });
     if (existing) continue;
 
     await args.db.ingestDiscoveryCandidate.create({
       data: {
         jobId: job.id,
         url: result.url,
+        canonicalUrl: canonical,
         title: result.title,
         snippet: result.snippet,
         status: "PENDING",

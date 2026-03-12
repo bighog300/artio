@@ -466,6 +466,7 @@ model Venue {
   lng                Float?
   timezone           String?
   websiteUrl         String?
+  canonicalUrl       String?
   eventsPageUrl      String?                   @map("eventsPageUrl")
   instagramUrl       String?
   facebookUrl        String?
@@ -513,6 +514,7 @@ model Venue {
   @@index([featuredAssetId])
   @@index([deletedAt])
   @@index([timezone])
+  @@index([canonicalUrl])
 }
 
 model EventSeries {
@@ -636,6 +638,7 @@ model Artist {
   slug              String                   @unique
   bio               String?
   websiteUrl        String?
+  canonicalUrl      String?
   instagramUrl      String?
   twitterUrl        String?
   linkedinUrl       String?
@@ -673,6 +676,7 @@ model Artist {
   @@index([isPublished])
   @@index([featuredAssetId])
   @@index([deletedAt])
+  @@index([canonicalUrl])
 }
 
 model ArtistVenueAssociation {
@@ -1052,6 +1056,7 @@ model IngestDiscoveryCandidate {
   id         String                   @id @default(uuid()) @db.Uuid
   jobId      String                   @db.Uuid
   url        String
+  canonicalUrl String?
   title      String?
   snippet    String?
   status     DiscoveryCandidateStatus @default(PENDING)
@@ -1062,6 +1067,7 @@ model IngestDiscoveryCandidate {
 
   @@index([jobId, status])
   @@index([status, createdAt])
+  @@index([jobId, canonicalUrl])
 }
 
 model IngestRegion {
