@@ -22,6 +22,9 @@ export type RegionListResponse = {
     venueGenDone: boolean;
     discoveryDone: boolean;
     createdAt: string;
+    lastRunAt: string | null;
+    nextRunAt: string | null;
+    errorMessage: string | null;
   }>;
   total: number;
   page: number;
@@ -38,6 +41,34 @@ function statusClassName(status: string): string {
   if (status === "PAUSED")
     return "bg-secondary text-secondary-foreground hover:bg-secondary";
   return "bg-muted text-muted-foreground hover:bg-muted";
+}
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return "—";
+  const diff = Date.now() - new Date(iso).getTime();
+  const abs = Math.abs(diff);
+  const future = diff < 0;
+  if (abs < 60_000) return future ? "in <1 min" : "just now";
+  if (abs < 3_600_000)
+    return (
+      (future ? "in " : "") +
+      Math.round(abs / 60_000) +
+      " min" +
+      (future ? "" : " ago")
+    );
+  if (abs < 86_400_000)
+    return (
+      (future ? "in " : "") +
+      Math.round(abs / 3_600_000) +
+      " hr" +
+      (future ? "" : " ago")
+    );
+  return (
+    (future ? "in " : "") +
+    Math.round(abs / 86_400_000) +
+    " day" +
+    (future ? "" : " ago")
+  );
 }
 
 export default function RegionsClient({
@@ -71,6 +102,9 @@ export default function RegionsClient({
           venueGenDone: false,
           discoveryDone: false,
           createdAt: new Date().toISOString(),
+          lastRunAt: null,
+          nextRunAt: null,
+          errorMessage: null,
         },
         ...prev,
       ]);
@@ -157,6 +191,9 @@ export default function RegionsClient({
               <TableHead>Venue Gen</TableHead>
               <TableHead>Discovery</TableHead>
               <TableHead>Created</TableHead>
+              <TableHead>Last Run</TableHead>
+              <TableHead>Next Run</TableHead>
+              <TableHead>Error</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -187,6 +224,25 @@ export default function RegionsClient({
                 <TableCell>
                   {new Date(row.createdAt).toLocaleString()}
                 </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {relativeTime(row.lastRunAt)}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {row.status === "PAUSED" || row.status === "FAILED"
+                    ? "—"
+                    : relativeTime(row.nextRunAt)}
+                </TableCell>
+                <TableCell>
+                  {row.errorMessage ? (
+                    <span
+                      className="text-xs text-destructive"
+                      title={row.errorMessage}
+                    >
+                      {row.errorMessage.slice(0, 48)}
+                      {row.errorMessage.length > 48 ? "…" : ""}
+                    </span>
+                  ) : null}
+                </TableCell>
                 <TableCell>
                   {row.status === "PAUSED" ? (
                     <Button
@@ -214,7 +270,7 @@ export default function RegionsClient({
             ))}
             {regions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-muted-foreground">
+                <TableCell colSpan={10} className="text-muted-foreground">
                   No regions queued yet.
                 </TableCell>
               </TableRow>
