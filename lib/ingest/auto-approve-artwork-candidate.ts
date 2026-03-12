@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { ensureUniqueArtworkSlugWithDeps, slugifyArtworkTitle } from "@/lib/artwork-slug";
 
 export async function autoApproveArtworkCandidate(args: {
   candidateId: string;
@@ -29,10 +30,17 @@ export async function autoApproveArtworkCandidate(args: {
     if (!candidate.sourceEvent) return null;
 
     const newArtwork = await args.db.$transaction(async (tx) => {
+      const baseSlug = slugifyArtworkTitle(candidate.title);
+      const slug = await ensureUniqueArtworkSlugWithDeps(
+        { findBySlug: (value) => tx.artwork.findUnique({ where: { slug: value }, select: { id: true } }) },
+        baseSlug,
+      );
+
       const createdArtwork = await tx.artwork.create({
         data: {
           artistId,
           title: candidate.title,
+          slug,
           medium: candidate.medium ?? undefined,
           year: candidate.year ?? undefined,
           dimensions: candidate.dimensions ?? undefined,
