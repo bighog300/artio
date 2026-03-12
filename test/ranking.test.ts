@@ -19,3 +19,30 @@ test("ranking helper applies conservative boosts within day buckets", async () =
   const ranked = applyConservativeRanking(candidates, boosts);
   assert.deepEqual(ranked.map((item) => item.id), ["b", "a", "c"]);
 });
+
+test("computeEngagementBoosts applies findMany caps", async () => {
+  let engagementTake: number | undefined;
+  let eventsTake: number | undefined;
+
+  await computeEngagementBoosts(
+    {
+      engagementEvent: {
+        findMany: async (args) => {
+          engagementTake = args.take;
+          return [{ targetId: "clicked" }];
+        },
+      },
+      event: {
+        findMany: async (args) => {
+          eventsTake = args.take;
+          return [{ id: "clicked", venueId: null, eventArtists: [], eventTags: [] }];
+        },
+      },
+    },
+    "user-1",
+    [{ id: "c1", startAt: new Date(), venueId: null, eventArtists: [], eventTags: [] }],
+  );
+
+  assert.equal(engagementTake, 1000);
+  assert.equal(eventsTake, 1000);
+});

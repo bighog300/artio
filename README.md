@@ -23,7 +23,7 @@ Artpulse is an art community web app focused on discovering, publishing, and fol
 - Next.js (App Router)
 - TypeScript
 - Postgres + Prisma
-- Auth.js / NextAuth
+- Auth.js v5 (next-auth beta)
 - Deployed on Vercel
 
 ## Repo Expectations
