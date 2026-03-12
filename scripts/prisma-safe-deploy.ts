@@ -1,6 +1,9 @@
 import { spawnSync } from "node:child_process";
 
-const TARGET_FAILED_MIGRATION = "20260706120000_unified_content_status";
+const RESOLVABLE_FAILED_MIGRATIONS = new Set([
+  "20260706120000_unified_content_status",
+  "20261206110000_add_region_id_to_discovery_job",
+]);
 const DEPLOY_MAX_ATTEMPTS = 2;
 const DEPLOY_RETRY_DELAY_MS = 2_000;
 
@@ -181,27 +184,31 @@ async function main() {
 
   if (status.failedDetected) {
     const unknownFailedMigrations = status.failedMigrations.filter(
-      (migrationName) => migrationName !== TARGET_FAILED_MIGRATION,
+      (migrationName) => !RESOLVABLE_FAILED_MIGRATIONS.has(migrationName),
     );
 
     if (unknownFailedMigrations.length > 0 || status.failedMigrations.length === 0) {
       throw new Error(
         `[prisma-safe-deploy] Found unsupported failed migration(s): [${
           status.failedMigrations.join(", ") || "unknown"
-        }]. Only '${TARGET_FAILED_MIGRATION}' can be auto-resolved.`,
+        }]. Only [${[...RESOLVABLE_FAILED_MIGRATIONS].join(", ")}] can be auto-resolved.`,
       );
     }
 
+    const toResolve = status.failedMigrations.filter((m) => RESOLVABLE_FAILED_MIGRATIONS.has(m));
+
     console.log(
-      `[prisma-safe-deploy] [resolve] Auto-resolving known failed migration '${TARGET_FAILED_MIGRATION}' as rolled back.`,
+      `[prisma-safe-deploy] [resolve] Auto-resolving known failed migration(s): ${toResolve.join(", ")}`,
     );
 
-    runPrisma(["migrate", "resolve", "--rolled-back", TARGET_FAILED_MIGRATION], {
-      step: `Resolving failed migration ${TARGET_FAILED_MIGRATION}`,
-    });
+    for (const migration of toResolve) {
+      runPrisma(["migrate", "resolve", "--rolled-back", migration], {
+        step: `Resolving failed migration ${migration}`,
+      });
+    }
 
     console.log(
-      `[prisma-safe-deploy] [resolve] resolved_migrations=${TARGET_FAILED_MIGRATION} status=completed`,
+      `[prisma-safe-deploy] [resolve] resolved_migrations=${toResolve.join(",")} status=completed`,
     );
 
     console.log("[prisma-safe-deploy] [action] running migrate deploy");
