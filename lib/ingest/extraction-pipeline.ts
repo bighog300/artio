@@ -171,6 +171,14 @@ function fingerprintForCandidate(params: { venueId: string; title: string; start
   return createHash("sha256").update(signature).digest("hex");
 }
 
+function scoreCandidateForCap(event: NormalizedExtractedEvent): number {
+  let score = 0;
+  if (event.startAt) score += 1;
+  if (normalizeText(event.title)) score += 1;
+  if (normalizeText(event.locationText)) score += 1;
+  return score;
+}
+
 function envInt(name: string, fallback: number) {
   const parsed = Number.parseInt(process.env[name] ?? "", 10);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
@@ -471,7 +479,11 @@ export async function runVenueIngestExtraction(
     }
     const totalCandidatesReturned = normalized.length;
     const maxCandidates = getMaxCandidatesPerVenueRun(settings?.ingestMaxCandidatesPerVenueRun);
-    const cappedCandidates = normalized.slice(0, maxCandidates);
+    const rankedCandidates = normalized
+      .map((event, index) => ({ event, index, score: scoreCandidateForCap(event) }))
+      .sort((left, right) => right.score - left.score || left.index - right.index)
+      .map((entry) => entry.event);
+    const cappedCandidates = rankedCandidates.slice(0, maxCandidates);
     const stopReason = totalCandidatesReturned > maxCandidates ? CANDIDATE_CAP_STOP_REASON : null;
 
     let dedupedCount = 0;
