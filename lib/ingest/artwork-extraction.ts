@@ -43,6 +43,33 @@ function asInteger(value: unknown): number | null {
   return typeof value === "number" && Number.isInteger(value) ? value : null;
 }
 
+export function normalizeFingerprintField(v: string | number | null | undefined): string {
+  if (v === null || v === undefined) return "";
+  return String(v).trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function computeArtworkFingerprint(args: {
+  eventId: string;
+  sourceUrl: string;
+  artwork: {
+    title: string | null;
+    artistName: string | null;
+    year: number | null;
+    dimensions: string | null;
+  };
+}): string {
+  const fingerprintParts = [
+    args.eventId,
+    normalizeFingerprintField(args.artwork.title),
+    normalizeFingerprintField(args.artwork.artistName),
+    normalizeFingerprintField(args.artwork.year),
+    normalizeFingerprintField(args.artwork.dimensions),
+    normalizeFingerprintField(args.sourceUrl),
+  ].join("|");
+
+  return createHash("sha256").update(fingerprintParts).digest("hex");
+}
+
 function resolveProviderApiKey(
   provider: "openai" | "gemini" | "claude",
   settings: {
@@ -123,8 +150,17 @@ export async function extractArtworksForEvent(args: {
       const title = asString(artwork.title);
       if (!title) continue;
 
-      const normalizedTitle = title.trim().toLowerCase().replace(/\s+/g, " ");
-      const fingerprint = createHash("sha256").update(`${args.eventId}:${normalizedTitle}`).digest("hex");
+      // NOTE: fingerprint formula changed — existing rows from before this deploy may re-ingest as new candidates on next run.
+      const fingerprint = computeArtworkFingerprint({
+        eventId: args.eventId,
+        sourceUrl: args.sourceUrl,
+        artwork: {
+          title,
+          artistName: asString(artwork.artistName),
+          year: asInteger(artwork.year),
+          dimensions: asString(artwork.dimensions),
+        },
+      });
 
       const existing = await args.db.ingestExtractedArtwork.findUnique({ where: { fingerprint }, select: { id: true } });
       if (existing) {
