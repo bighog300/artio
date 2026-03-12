@@ -143,7 +143,7 @@ export async function enrichVenueFromSnapshot(args: {
         runId: args.runId,
         sourceDomain,
         changedFields,
-        fieldConfidence,
+        fieldConfidence: fieldConfidence as Prisma.InputJsonValue,
         before,
         after,
       },
