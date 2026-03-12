@@ -62,7 +62,12 @@ export async function runJobWithStore(name: string, options: RunJobOptions, stor
       startedAt,
       metadata: options.params ? { params: options.params } : undefined,
     },
+    select: { id: true },
   });
+
+  if (!created?.id) {
+    throw new RunJobError(500, "job_record_not_created");
+  }
 
   try {
     const result = await definition.run({ params: options.params, actorEmail: options.actorEmail ?? null });

@@ -42,13 +42,10 @@ export async function handleVenueGenerationPost(req: NextRequest, deps?: Partial
       openai,
     });
 
-    // TODO: Replace with a proper queue when function timeout becomes a problem at scale.
-    void runJobFn("venue.generation.process-run", {
+    await runJobFn("venue.generation.process-run", {
       trigger: "admin",
       actorEmail: admin.email,
       params: { runId: result.runId },
-    }).catch((err) => {
-      console.error("venue_generation_job_dispatch_failed", { runId: result.runId, error: String(err) });
     });
 
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });

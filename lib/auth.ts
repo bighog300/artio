@@ -165,15 +165,22 @@ export const authOptions: NextAuthOptions = {
 
       const isFirstSignIn = dbUser.createdAt instanceof Date && dbUser.updatedAt instanceof Date && dbUser.createdAt.getTime() === dbUser.updatedAt.getTime();
       if (isFirstSignIn) {
-        void enqueueNotification({
-          type: "NEW_USER_WELCOME",
-          toEmail: normalizedEmail,
-          dedupeKey: `welcome:${dbUser.id}`,
-          payload: {
+        try {
+          await enqueueNotification({
             type: "NEW_USER_WELCOME",
-            userName: user.name ?? null,
-          },
-        }).catch(() => undefined);
+            toEmail: normalizedEmail,
+            dedupeKey: `welcome:${dbUser.id}`,
+            payload: {
+              type: "NEW_USER_WELCOME",
+              userName: user.name ?? null,
+            },
+          });
+        } catch (err) {
+          console.error("[auth] welcome notification enqueue failed", {
+            userId: dbUser.id,
+            error: String(err),
+          });
+        }
       }
       return true;
     },
