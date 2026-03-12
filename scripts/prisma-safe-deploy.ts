@@ -240,9 +240,22 @@ async function main() {
       const flag = RESOLVABLE_AS_APPLIED.has(migration)
         ? "--applied"
         : "--rolled-back";
-      runPrisma(["migrate", "resolve", flag, migration], {
+      const result = runPrisma(["migrate", "resolve", flag, migration], {
+        allowFailure: true,
         step: `Resolving failed migration ${migration}`,
       });
+
+      if (result.status !== 0) {
+        if (result.output.includes("P3008")) {
+          console.warn(
+            `[prisma-safe-deploy] [resolve] Migration ${migration} already recorded as applied, skipping.`,
+          );
+        } else {
+          throw new Error(
+            `[prisma-safe-deploy] Failed to resolve migration ${migration}`,
+          );
+        }
+      }
     }
 
     console.log(
