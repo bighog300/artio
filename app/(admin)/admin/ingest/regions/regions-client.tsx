@@ -79,6 +79,7 @@ export default function RegionsClient({
   const [regions, setRegions] = useState(initial.regions);
   const [submitting, setSubmitting] = useState(false);
   const [pausing, setPausing] = useState<Record<string, boolean>>({});
+  const [running, setRunning] = useState<Record<string, boolean>>({});
   const [country, setCountry] = useState("");
   const [region, setRegion] = useState("");
 
@@ -150,6 +151,35 @@ export default function RegionsClient({
       enqueueToast({ title: "Failed to resume region", variant: "error" });
     } finally {
       setPausing((prev) => ({ ...prev, [id]: false }));
+    }
+  }
+
+
+  async function runNow(id: string) {
+    setRunning((prev) => ({ ...prev, [id]: true }));
+    try {
+      const resetRes = await fetch(`/api/admin/ingest/regions/${id}/run-now`, {
+        method: "POST",
+      });
+      if (!resetRes.ok) throw new Error("Failed to reset region");
+
+      setRegions((prev) =>
+        prev.map((row) => (row.id === id ? { ...row, status: "PENDING" } : row)),
+      );
+
+      const triggerRes = await fetch("/api/admin/cron/ingest_regions/run-now", {
+        method: "POST",
+      });
+
+      if (triggerRes.ok) {
+        enqueueToast({ title: "Region run triggered successfully", variant: "success" });
+      } else {
+        enqueueToast({ title: "Region queued — will run at next scheduled time" });
+      }
+    } catch {
+      enqueueToast({ title: "Failed to trigger run", variant: "error" });
+    } finally {
+      setRunning((prev) => ({ ...prev, [id]: false }));
     }
   }
 
@@ -244,27 +274,40 @@ export default function RegionsClient({
                   ) : null}
                 </TableCell>
                 <TableCell>
-                  {row.status === "PAUSED" ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => resumeRegion(row.id)}
-                      disabled={pausing[row.id]}
-                    >
-                      Resume
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => pauseRegion(row.id)}
-                      disabled={pausing[row.id]}
-                    >
-                      Pause
-                    </Button>
-                  )}
+                  <div className="flex gap-2">
+                    {row.status !== "RUNNING" && (
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        onClick={() => runNow(row.id)}
+                        disabled={running[row.id]}
+                      >
+                        {running[row.id] ? "Running…" : "Run Now"}
+                      </Button>
+                    )}
+                    {row.status === "PAUSED" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => resumeRegion(row.id)}
+                        disabled={pausing[row.id]}
+                      >
+                        Resume
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => pauseRegion(row.id)}
+                        disabled={pausing[row.id]}
+                      >
+                        Pause
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

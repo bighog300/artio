@@ -15,6 +15,7 @@ export const DEFAULT_CRON_JOBS: CronJobCreateInput[] = [
   { name: "retention_engagement", displayName: "Retention & Engagement", endpoint: "/api/cron/retention/engagement", schedule: "35 2 * * *", enabled: true },
   { name: "editorial_notifications", displayName: "Editorial Notifications", endpoint: "/api/cron/editorial-notifications", schedule: "0 9 * * *", enabled: true },
   { name: "ingest_venues", displayName: "Venue Ingest", endpoint: "/api/cron/ingest/venues", schedule: "50 2 * * *", enabled: true },
+  { name: "ingest_regions", displayName: "Region Ingest", endpoint: "/api/cron/ingest/regions", schedule: "0 2 * * *", enabled: true },
   { name: "ingest_discovery", displayName: "Ingest Discovery", endpoint: "/api/cron/ingest/discovery", schedule: "0 * * * *", enabled: false },
   { name: "sync_google_events", displayName: "Google Event Sync", endpoint: "/api/cron/sync-google-events", schedule: "0 3 * * *", enabled: false },
   { name: "geocode_venues", displayName: "Geocode Venues", endpoint: "/api/cron/geocode-venues", schedule: "0 4 * * *", enabled: false },
