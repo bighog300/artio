@@ -94,10 +94,10 @@ export async function enrichVenueFromSnapshot(args: {
   if (isStringImprovement(currentOpeningHoursRaw, openingHours?.raw ?? null)) {
     changedFields.push("openingHours");
     before.openingHours = venue.openingHours as Prisma.JsonValue;
-    const nextOpeningHours = openingHours;
-    after.openingHours = nextOpeningHours;
-    venueUpdateData.openingHours = nextOpeningHours;
-    fieldConfidence.openingHours = computeConfidence("openingHours", nextOpeningHours?.raw ?? null);
+    const nextOpeningHours = openingHours!;
+    after.openingHours = nextOpeningHours as Prisma.JsonObject;
+    venueUpdateData.openingHours = nextOpeningHours as Prisma.JsonObject;
+    fieldConfidence.openingHours = computeConfidence("openingHours", nextOpeningHours.raw);
   }
 
   const contactEmail = validateEmail(toNonEmptyString(args.snapshot.venueContactEmail));
