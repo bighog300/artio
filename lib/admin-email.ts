@@ -5,6 +5,9 @@ function parseCsvEnv(value: string | undefined) {
     .filter(Boolean);
 }
 
+// These sets are built once at module load time from process.env.
+// In development, changing ADMIN_EMAILS or ADMIN_EMAIL_DOMAINS in .env.local
+// requires a full dev server restart to take effect.
 const ADMIN_EMAIL_SET = new Set(parseCsvEnv(process.env.ADMIN_EMAILS));
 const ADMIN_DOMAIN_SET = new Set(parseCsvEnv(process.env.ADMIN_EMAIL_DOMAINS));
 

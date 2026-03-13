@@ -2,6 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { enqueueToast } from "@/lib/toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Role = "USER" | "EDITOR" | "ADMIN";
 
@@ -42,6 +52,7 @@ export function UsersManagerClient() {
   const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(null);
   const [inviteNotice, setInviteNotice] = useState<string | null>(null);
   const [invites, setInvites] = useState<AdminInvite[]>([]);
+  const [adminInviteDialogOpen, setAdminInviteDialogOpen] = useState(false);
 
   async function loadUsers(nextQuery: string) {
     setBusy(true);
@@ -140,12 +151,9 @@ export function UsersManagerClient() {
     }
   }
 
-  async function createInvite() {
+  async function doCreateInvite(role: Role) {
     const normalized = inviteEmail.trim().toLowerCase();
     if (!normalized) return;
-    if (inviteRole === "ADMIN" && !window.confirm("Create an ADMIN invite? This grants full admin access upon acceptance.")) {
-      return;
-    }
 
     setCreatingInvite(true);
     setInviteNotice(null);
@@ -157,7 +165,7 @@ export function UsersManagerClient() {
       const res = await fetch("/api/admin/invites", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: normalized, role: inviteRole }),
+        body: JSON.stringify({ email: normalized, role }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error?.message ?? "Failed to create invite");
@@ -176,6 +184,15 @@ export function UsersManagerClient() {
     } finally {
       setCreatingInvite(false);
     }
+  }
+
+  async function createInvite() {
+    if (inviteRole === "ADMIN") {
+      setAdminInviteDialogOpen(true);
+      return;
+    }
+
+    await doCreateInvite(inviteRole);
   }
 
   async function revokeInvite(inviteId: string) {
@@ -338,6 +355,33 @@ export function UsersManagerClient() {
           </tbody>
         </table>
       </div>
+
+      <AlertDialog open={adminInviteDialogOpen} onOpenChange={setAdminInviteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create admin invite?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The recipient will receive full admin access upon accepting this invite.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAdminInviteDialogOpen(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              type="button"
+              className="rounded border px-3 py-1 text-sm"
+              disabled={creatingInvite}
+              onClick={() => {
+                setAdminInviteDialogOpen(false);
+                void doCreateInvite("ADMIN");
+              }}
+            >
+              {creatingInvite ? "Creating…" : "Create invite"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { computeReadiness } from "@/lib/publish-readiness";
+import { evaluateEventReadiness, evaluateVenueReadiness } from "@/lib/publish-readiness";
 import { db } from "@/lib/db";
 import ModerationDetailClient from "./moderation-detail-client";
 
@@ -51,7 +51,8 @@ export default async function ModerationDetailPage({ params }: { params: Promise
       },
     });
     if (!venue) notFound();
-    const readiness = computeReadiness(venue);
+    const readiness = evaluateVenueReadiness(venue);
+    const blockers = readiness.blocking.map((blocker) => blocker.label);
     const owner = venue.targetSubmissions[0]?.submitter;
 
     return (
@@ -76,11 +77,11 @@ export default async function ModerationDetailPage({ params }: { params: Promise
             <h2 className="font-semibold">Publish Readiness Card</h2>
             <p className="text-sm">{readiness.ready ? "Ready to publish" : "Blocked"}</p>
             <ul className="list-disc pl-5 text-sm">
-              {readiness.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+              {blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
             </ul>
           </section>
 
-          <ModerationDetailClient type="venue" id={venue.id} status={venue.status as never} blockers={readiness.blockers} />
+          <ModerationDetailClient type="venue" id={venue.id} status={venue.status as never} blockers={blockers} />
         </section>
       </main>
     );
@@ -209,7 +210,8 @@ export default async function ModerationDetailPage({ params }: { params: Promise
     },
   });
   if (!event) notFound();
-  const readiness = computeReadiness({ startAt: event.startAt, timezone: event.timezone, venue: event.venue });
+  const readiness = evaluateEventReadiness(event, event.venue ?? null);
+  const blockers = readiness.blocking.map((blocker) => blocker.label);
   const owner = event.submissions[0]?.submitter;
 
   return (
@@ -235,7 +237,7 @@ export default async function ModerationDetailPage({ params }: { params: Promise
           <h2 className="font-semibold">Publish Readiness Card</h2>
           <p className="text-sm">{readiness.ready ? "Ready to publish" : "Blocked"}</p>
           <ul className="list-disc pl-5 text-sm">
-            {readiness.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+            {blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
           </ul>
         </section>
 
@@ -260,7 +262,7 @@ export default async function ModerationDetailPage({ params }: { params: Promise
           ) : <p className="text-sm">Venue is published.</p>}
         </section>
 
-        <ModerationDetailClient type="event" id={event.id} status={event.status as never} blockers={readiness.blockers} />
+        <ModerationDetailClient type="event" id={event.id} status={event.status as never} blockers={blockers} />
       </section>
     </main>
   );
