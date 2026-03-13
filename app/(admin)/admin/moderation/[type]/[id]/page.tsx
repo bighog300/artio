@@ -87,37 +87,36 @@ export default async function ModerationDetailPage({ params }: { params: Promise
   }
 
   if (type === "artwork") {
-    const artwork = await db.artwork.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        medium: true,
-        year: true,
-        description: true,
-        isPublished: true,
-        deletedAt: true,
-        createdAt: true,
-        updatedAt: true,
-        featuredAssetId: true,
-        images: {
-          take: 4,
-          orderBy: { sortOrder: "asc" },
-          select: { id: true, alt: true, asset: { select: { url: true } } },
+    const [artwork, targetSubmission] = await Promise.all([
+      db.artwork.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          medium: true,
+          year: true,
+          description: true,
+          isPublished: true,
+          deletedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          featuredAssetId: true,
+          images: {
+            take: 4,
+            orderBy: { sortOrder: "asc" },
+            select: { id: true, alt: true, asset: { select: { url: true } } },
+          },
         },
-      },
-    });
+      }),
+      db.submission.findFirst({
+        where: { type: "ARTWORK", note: `artworkId:${id}` },
+        orderBy: { createdAt: "desc" },
+        select: { submitter: { select: { id: true, email: true, name: true } } },
+      }),
+    ]);
     if (!artwork) notFound();
-
-    const latestSubmission = await db.submission.findFirst({
-      where: { type: "ARTWORK", note: `artworkId:${artwork.id}` },
-      orderBy: { createdAt: "desc" },
-      select: {
-        submitter: { select: { id: true, email: true, name: true } },
-      },
-    });
-    const owner = latestSubmission?.submitter;
+    const owner = targetSubmission?.submitter;
 
     return (
       <main className="grid gap-6 lg:grid-cols-2">
