@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const allowedStatuses = ["IN_REVIEW", "APPROVED", "REJECTED"] as const;
 type StatusFilter = (typeof allowedStatuses)[number];
-const allowedTypes = ["EVENT", "VENUE", "ARTIST"] as const;
+const allowedTypes = ["EVENT", "VENUE", "ARTIST", "ARTWORK"] as const;
 type TypeFilter = (typeof allowedTypes)[number] | "ALL";
 
 export default async function AdminSubmissionsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

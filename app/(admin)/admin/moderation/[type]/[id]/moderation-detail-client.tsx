@@ -24,7 +24,7 @@ export default function ModerationDetailClient({
   status,
   blockers,
 }: {
-  type: "venue" | "event" | "artist";
+  type: "venue" | "event" | "artist" | "artwork";
   id: string;
   status: ModerationStatus;
   blockers: string[];
@@ -40,7 +40,11 @@ export default function ModerationDetailClient({
     if (!pendingAction) return;
     setBusy(true);
     try {
-      const entitySegment = type === "venue" ? "venues" : type === "event" ? "events" : "artists";
+      const entitySegment =
+        type === "venue" ? "venues"
+        : type === "event" ? "events"
+        : type === "artwork" ? "artwork"
+        : "artists";
       const res = await fetch(`/api/admin/${entitySegment}/${id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },

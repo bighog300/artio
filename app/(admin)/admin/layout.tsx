@@ -17,6 +17,7 @@ const ADMIN_LINKS = [
   { href: "/admin/artwork-inquiries", label: "Enquiries" },
   { href: "/admin/ingest", label: "Ingest" },
   { href: "/admin/submissions", label: "Submissions" },
+  { href: "/admin/email", label: "Email" },
   { href: "/admin/perf", label: "Performance" },
   { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/beta", label: "Beta" },

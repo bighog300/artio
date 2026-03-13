@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireEditor, isAuthError } from "@/lib/auth";
+import { requireAdmin, isAuthError } from "@/lib/auth";
 import { idParamSchema, parseBody, zodDetails } from "@/lib/validators";
 import { submissionDecisionDedupeKey } from "@/lib/notification-keys";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
@@ -19,9 +19,10 @@ function isSubmissionDecisionStatus(status: string): status is "APPROVED" | "REJ
   return status === "APPROVED" || status === "REJECTED";
 }
 
+// ADMIN-only moderation decisions are required because approving/rejecting submissions can publish content.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await requireEditor();
+    const user = await requireAdmin();
 
     await enforceRateLimit({
       key: `submissions:decision:user:${user.id}`,

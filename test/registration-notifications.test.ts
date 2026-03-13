@@ -105,7 +105,7 @@ test("event change notify enqueue on revision approval", async () => {
   const sent: Array<{ email: string; dedupeKey: string }> = [];
 
   const res = await handleApproveSubmission(Promise.resolve({ id: "11111111-1111-4111-8111-111111111111" }), {
-    requireEditor: async () => ({ id: "editor-1" }),
+    requireAdmin: async () => ({ id: "admin-1" }),
     findSubmission: async () => ({
       id: "11111111-1111-4111-8111-111111111111",
       type: "EVENT",

@@ -18,9 +18,6 @@ type AdminSidebarNavProps = {
 export default function AdminSidebarNav({ userLinks, adminLinks }: AdminSidebarNavProps) {
   const pathname = usePathname();
 
-  const normalizedAdminLinks = adminLinks.some((item) => item.href === "/admin/email")
-    ? adminLinks
-    : [...adminLinks, { href: "/admin/email", label: "Email" }];
 
   return (
     <nav className="space-y-1" aria-label="Admin navigation">
@@ -44,7 +41,7 @@ export default function AdminSidebarNav({ userLinks, adminLinks }: AdminSidebarN
         );
       })}
       <div className="my-2 border-t" />
-      {normalizedAdminLinks.map((item) => {
+      {adminLinks.map((item) => {
         const isActive = isRouteActive(pathname, item.href);
         return (
           <Link

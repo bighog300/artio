@@ -4,8 +4,10 @@ import { adminSubmissionRequestChangesSchema, idParamSchema, parseBody, zodDetai
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
 import { submissionDecisionDedupeKey } from "@/lib/notification-keys";
 import { applyEventRevision } from "@/lib/event-revision";
+import { isAuthError } from "@/lib/auth";
+import { ForbiddenError } from "@/lib/http-errors";
 
-type EditorUser = { id: string };
+type AdminUser = { id: string };
 
 type SubmissionDetail = {
   id: string;
@@ -22,7 +24,7 @@ type SubmissionDetail = {
 };
 
 type ReviewDeps = {
-  requireEditor: () => Promise<EditorUser>;
+  requireAdmin: () => Promise<AdminUser>;
   findSubmission: (id: string) => Promise<SubmissionDetail | null>;
   publishVenue: (venueId: string) => Promise<void>;
   setVenueDraft: (venueId: string) => Promise<void>;
@@ -52,7 +54,7 @@ export async function handleApproveSubmission(params: Promise<{ id: string }>, d
     const parsedId = await parseSubmissionId(params);
     if ("error" in parsedId) return parsedId.error;
 
-    const editor = await deps.requireEditor();
+    const admin = await deps.requireAdmin();
     const submission = await deps.findSubmission(parsedId.submissionId);
     if (!submission) return apiError(400, "invalid_request", "Submission not found");
     if (submission.status !== "IN_REVIEW") return apiError(400, "invalid_request", "Submission is not pending review");
@@ -105,7 +107,7 @@ export async function handleApproveSubmission(params: Promise<{ id: string }>, d
       }
     }
 
-    await deps.markApproved(submission.id, editor.id);
+    await deps.markApproved(submission.id, admin.id);
 
     if (deps.notifyApproved) {
       await deps.notifyApproved(submission);
@@ -127,8 +129,8 @@ export async function handleApproveSubmission(params: Promise<{ id: string }>, d
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required");
-    if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Editor role required");
+    if (isAuthError(error) || (error instanceof Error && error.message === "unauthorized")) return apiError(401, "unauthorized", "Authentication required");
+    if (error instanceof ForbiddenError || (error instanceof Error && error.message === "forbidden")) return apiError(403, "forbidden", "Admin role required");
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }
@@ -141,7 +143,7 @@ export async function handleRequestChangesSubmission(req: NextRequest, params: P
     const parsedBody = adminSubmissionRequestChangesSchema.safeParse(await parseBody(req));
     if (!parsedBody.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedBody.error));
 
-    const editor = await deps.requireEditor();
+    const admin = await deps.requireAdmin();
     const submission = await deps.findSubmission(parsedId.submissionId);
     if (!submission) return apiError(400, "invalid_request", "Submission not found");
     if (submission.status !== "IN_REVIEW") return apiError(400, "invalid_request", "Submission is not pending review");
@@ -157,7 +159,7 @@ export async function handleRequestChangesSubmission(req: NextRequest, params: P
       await deps.setEventDraft(submission.targetEventId);
     }
 
-    await deps.markNeedsChanges(submission.id, editor.id, parsedBody.data.message);
+    await deps.markNeedsChanges(submission.id, admin.id, parsedBody.data.message);
 
     if (deps.notifyNeedsChanges) {
       await deps.notifyNeedsChanges(submission, parsedBody.data.message);
@@ -180,8 +182,8 @@ export async function handleRequestChangesSubmission(req: NextRequest, params: P
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required");
-    if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Editor role required");
+    if (isAuthError(error) || (error instanceof Error && error.message === "unauthorized")) return apiError(401, "unauthorized", "Authentication required");
+    if (error instanceof ForbiddenError || (error instanceof Error && error.message === "forbidden")) return apiError(403, "forbidden", "Admin role required");
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }

@@ -36,7 +36,7 @@ const baseDeps = {
 
 test("handleApproveSubmission returns unauthorized for anonymous users", async () => {
   const res = await handleApproveSubmission(Promise.resolve({ id: submissionId }), {
-    requireEditor: async () => { throw new Error("unauthorized"); },
+    requireAdmin: async () => { throw new Error("unauthorized"); },
     findSubmission: async () => baseSubmission,
     ...baseDeps,
   });
@@ -46,7 +46,7 @@ test("handleApproveSubmission returns unauthorized for anonymous users", async (
 test("handleApproveSubmission publishes event for EVENT submissions", async () => {
   let eventPublished = false;
   const res = await handleApproveSubmission(Promise.resolve({ id: submissionId }), {
-    requireEditor: async () => ({ id: "editor-1" }),
+    requireAdmin: async () => ({ id: "admin-1" }),
     findSubmission: async () => ({ ...baseSubmission, type: "EVENT", targetEventId: "33333333-3333-4333-8333-333333333333", targetVenueId: null }),
     ...baseDeps,
     publishEvent: async () => { eventPublished = true; },
@@ -57,7 +57,7 @@ test("handleApproveSubmission publishes event for EVENT submissions", async () =
 
 test("handleApproveSubmission rejects revision without proposed details", async () => {
   const res = await handleApproveSubmission(Promise.resolve({ id: submissionId }), {
-    requireEditor: async () => ({ id: "editor-1" }),
+    requireAdmin: async () => ({ id: "admin-1" }),
     findSubmission: async () => ({ ...baseSubmission, type: "EVENT", kind: "REVISION", targetEventId: "33333333-3333-4333-8333-333333333333", targetVenueId: null, details: null }),
     ...baseDeps,
   });
@@ -68,7 +68,7 @@ test("handleApproveSubmission rejects revision without proposed details", async 
 
 test("handleApproveSubmission rejects revision when event has changed", async () => {
   const res = await handleApproveSubmission(Promise.resolve({ id: submissionId }), {
-    requireEditor: async () => ({ id: "editor-1" }),
+    requireAdmin: async () => ({ id: "admin-1" }),
     findSubmission: async () => ({
       ...baseSubmission,
       type: "EVENT",
@@ -87,7 +87,7 @@ test("handleApproveSubmission applies revision and marks approved", async () => 
   let applied = false;
   let approved = false;
   const res = await handleApproveSubmission(Promise.resolve({ id: submissionId }), {
-    requireEditor: async () => ({ id: "editor-1" }),
+    requireAdmin: async () => ({ id: "admin-1" }),
     findSubmission: async () => ({
       ...baseSubmission,
       type: "EVENT",
@@ -112,7 +112,7 @@ test("handleRequestChangesSubmission requires message", async () => {
     body: JSON.stringify({ message: "short" }),
   });
   const res = await handleRequestChangesSubmission(req, Promise.resolve({ id: submissionId }), {
-    requireEditor: async () => ({ id: "editor-1" }),
+    requireAdmin: async () => ({ id: "admin-1" }),
     findSubmission: async () => baseSubmission,
     ...baseDeps,
   });
@@ -127,7 +127,7 @@ test("handleRequestChangesSubmission does not update event for revision", async 
     body: JSON.stringify({ message: "Please adjust the title and description details." }),
   });
   const res = await handleRequestChangesSubmission(req, Promise.resolve({ id: submissionId }), {
-    requireEditor: async () => ({ id: "editor-1" }),
+    requireAdmin: async () => ({ id: "admin-1" }),
     findSubmission: async () => ({ ...baseSubmission, type: "EVENT", kind: "REVISION", targetEventId: "33333333-3333-4333-8333-333333333333", targetVenueId: null }),
     ...baseDeps,
     setEventDraft: async () => { drafted = true; },
@@ -139,7 +139,7 @@ test("handleRequestChangesSubmission does not update event for revision", async 
 
 test("handleApproveSubmission returns invalid_request for artist revision submission", async () => {
   const res = await handleApproveSubmission(Promise.resolve({ id: submissionId }), {
-    requireEditor: async () => ({ id: "editor-1" }),
+    requireAdmin: async () => ({ id: "admin-1" }),
     findSubmission: async () => ({ ...baseSubmission, type: "ARTIST", kind: "REVISION", targetVenueId: null, targetArtistId: "44444444-4444-4444-8444-444444444444" }),
     ...baseDeps,
   });
@@ -150,7 +150,7 @@ test("handleApproveSubmission publishes artist and marks approved", async () => 
   let artistPublished = false;
   let approved = false;
   const res = await handleApproveSubmission(Promise.resolve({ id: submissionId }), {
-    requireEditor: async () => ({ id: "editor-1" }),
+    requireAdmin: async () => ({ id: "admin-1" }),
     findSubmission: async () => ({ ...baseSubmission, type: "ARTIST", kind: "PUBLISH", targetVenueId: null, targetArtistId: "44444444-4444-4444-8444-444444444444", targetArtist: { slug: "ari-chen" } }),
     ...baseDeps,
     publishArtist: async () => { artistPublished = true; },
@@ -169,7 +169,7 @@ test("handleRequestChangesSubmission keeps artist unpublished and marks needs ch
     body: JSON.stringify({ message: "Please add a longer statement and stronger cover image." }),
   });
   const res = await handleRequestChangesSubmission(req, Promise.resolve({ id: submissionId }), {
-    requireEditor: async () => ({ id: "editor-1" }),
+    requireAdmin: async () => ({ id: "admin-1" }),
     findSubmission: async () => ({ ...baseSubmission, type: "ARTIST", kind: "PUBLISH", targetVenueId: null, targetArtistId: "44444444-4444-4444-8444-444444444444", targetArtist: { slug: "ari-chen" } }),
     ...baseDeps,
     setArtistDraft: async () => { setDraft = true; },

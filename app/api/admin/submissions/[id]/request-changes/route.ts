@@ -1,13 +1,14 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { requireEditor } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { handleRequestChangesSubmission } from "@/lib/admin-submission-review-route";
 
 export const runtime = "nodejs";
 
+// ADMIN-only moderation decisions are required because approving/rejecting submissions can publish content.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return handleRequestChangesSubmission(req, params, {
-    requireEditor,
+    requireAdmin,
     findSubmission: async (id) => db.submission.findUnique({
       where: { id },
       select: {

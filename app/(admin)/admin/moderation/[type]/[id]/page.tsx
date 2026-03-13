@@ -1,10 +1,11 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { computeReadiness } from "@/lib/publish-readiness";
 import { db } from "@/lib/db";
 import ModerationDetailClient from "./moderation-detail-client";
 
-type Params = { type: "venue" | "event" | "artist"; id: string };
+type Params = { type: "venue" | "event" | "artist" | "artwork"; id: string };
 
 function formatDuration(startAt: Date | null, endAt: Date | null) {
   if (!startAt || !endAt) return "—";
@@ -34,10 +35,9 @@ function formatLocalTime(value: Date | null, timezone: string | null) {
   }
 }
 
-
 export default async function ModerationDetailPage({ params }: { params: Promise<Params> }) {
   const { type, id } = await params;
-  if (type !== "venue" && type !== "event" && type !== "artist") notFound();
+  if (type !== "venue" && type !== "event" && type !== "artist" && type !== "artwork") notFound();
 
   if (type === "venue") {
     const venue = await db.venue.findUnique({
@@ -86,6 +86,70 @@ export default async function ModerationDetailPage({ params }: { params: Promise
     );
   }
 
+  if (type === "artwork") {
+    const artwork = await db.artwork.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        medium: true,
+        year: true,
+        description: true,
+        isPublished: true,
+        deletedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        featuredAssetId: true,
+        images: {
+          take: 4,
+          orderBy: { sortOrder: "asc" },
+          select: { id: true, alt: true, asset: { select: { url: true } } },
+        },
+      },
+    });
+    if (!artwork) notFound();
+
+    const latestSubmission = await db.submission.findFirst({
+      where: { type: "ARTWORK", note: `artworkId:${artwork.id}` },
+      orderBy: { createdAt: "desc" },
+      select: {
+        submitter: { select: { id: true, email: true, name: true } },
+      },
+    });
+    const owner = latestSubmission?.submitter;
+
+    return (
+      <main className="grid gap-6 lg:grid-cols-2">
+        <section className="rounded border p-4 space-y-2">
+          <h1 className="text-xl font-semibold">{artwork.title}</h1>
+          <p className="text-sm text-muted-foreground">/{artwork.slug ?? "—"}</p>
+          <p className="text-sm">Medium: {artwork.medium ?? "—"}</p>
+          <p className="text-sm">Year: {artwork.year ?? "—"}</p>
+          <p className="text-sm">{artwork.description ?? "No description"}</p>
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            {artwork.images.map((image) => (
+              <div key={image.id} className="relative aspect-square overflow-hidden rounded border">
+                <Image src={image.asset.url} alt={image.alt ?? artwork.title} fill className="object-cover" sizes="(min-width: 1024px) 25vw, 45vw" />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <section className="rounded border p-4 space-y-2">
+            <h2 className="font-semibold">Status Card</h2>
+            <p className="text-sm">Current status: <strong>{artwork.isPublished ? "PUBLISHED" : "DRAFT"}</strong></p>
+            <p className="text-sm">Created: {artwork.createdAt.toISOString()}</p>
+            <p className="text-sm">Updated: {artwork.updatedAt.toISOString()}</p>
+            <p className="text-sm">Owner: {owner?.name ?? owner?.email ?? "Unknown"}</p>
+          </section>
+
+          <ModerationDetailClient type="artwork" id={artwork.id} status={artwork.isPublished ? "PUBLISHED" : "DRAFT"} blockers={[]} />
+        </section>
+      </main>
+    );
+  }
 
   if (type === "artist") {
     const artist = await db.artist.findUnique({

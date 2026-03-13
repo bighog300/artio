@@ -92,6 +92,7 @@ export default function ModerationClient({
   }
 
   async function bulkApprovePublish() {
+    // ARTWORK entries are intentionally included here; only ARTIST requires per-submission review from Submissions.
     const rows = selectedItems.filter((row) => row.entityType !== "ARTIST");
     const skippedArtists = selectedItems.filter((row) => row.entityType === "ARTIST").length;
 

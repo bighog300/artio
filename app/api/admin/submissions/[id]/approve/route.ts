@@ -1,14 +1,15 @@
 import { db } from "@/lib/db";
-import { requireEditor } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { handleApproveSubmission } from "@/lib/admin-submission-review-route";
 import { notifySavedSearchMatches } from "@/lib/saved-searches/notify-saved-search-matches";
 import { enqueueNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
+// ADMIN-only moderation decisions are required because approving/rejecting submissions can publish content.
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   return handleApproveSubmission(params, {
-    requireEditor,
+    requireAdmin,
     findSubmission: async (id) => db.submission.findUnique({
       where: { id },
       select: {
