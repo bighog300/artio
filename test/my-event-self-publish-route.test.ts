@@ -107,11 +107,11 @@ test("blocked publish when startAt is missing", async () => {
   const { deps, audits } = createDeps({ trusted: true, event: buildEvent({ startAt: null }) });
 
   const res = await handleEventSelfPublish(req, { eventId, isPublished: true }, deps);
-  assert.ok(res.status === 400 || res.status === 409);
+  assert.equal(res.status, 409);
   const body = await res.json();
-  assert.equal(body.error, "NOT_READY");
-  assert.equal(Array.isArray(body.blocking), true);
-  assert.equal(body.blocking.some((item: { id: string }) => item.id === "event-start"), true);
+  assert.equal(body.error, "publish_blocked");
+  assert.equal(Array.isArray(body.blockers), true);
+  assert.equal(body.blockers.some((item: { id: string }) => item.id === "event-start"), true);
   assert.equal(audits.length, 0);
 });
 

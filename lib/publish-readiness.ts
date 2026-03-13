@@ -35,7 +35,7 @@ export function evaluateArtistReadiness(artist: { name: string | null; bio: stri
   return { ready: blocking.length === 0, blocking, warnings };
 }
 
-export function evaluateVenueReadiness(venue: { name: string | null; city: string | null; country: string | null; featuredAssetId: string | null; websiteUrl?: string | null }): ReadinessResult {
+export function evaluateVenueReadiness(venue: { name: string | null; city: string | null; country: string | null; featuredAssetId: string | null; websiteUrl?: string | null; lat?: number | null; lng?: number | null }): ReadinessResult {
   const blocking: CheckItem[] = [];
   const warnings: CheckItem[] = [];
 
@@ -43,6 +43,7 @@ export function evaluateVenueReadiness(venue: { name: string | null; city: strin
   if (!hasText(venue.city)) blocking.push({ id: "venue-city", label: "Add city.", severity: "block", href: "#city" });
   if (!hasText(venue.country)) blocking.push({ id: "venue-country", label: "Add country.", severity: "block", href: "#country" });
   if (!venue.featuredAssetId) blocking.push({ id: "venue-cover", label: "Add venue cover image.", severity: "block", href: "#images" });
+  if (venue.lat == null || venue.lng == null) blocking.push({ id: "coordinates", label: "Add venue coordinates.", severity: "block", href: "#location" });
   if (!hasText(venue.websiteUrl)) warnings.push({ id: "venue-website", label: "Add venue website URL (recommended).", severity: "warn", href: "#websiteUrl" });
 
   return { ready: blocking.length === 0, blocking, warnings };

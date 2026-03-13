@@ -39,7 +39,13 @@ export async function handleVenueSelfPublish(req: NextRequest, input: { venueId:
     if (input.isPublished) {
       const readiness = evaluateVenueReadiness(venue);
       if (!readiness.ready) {
-        return NextResponse.json({ error: "NOT_READY", message: "Complete required fields before publishing.", blocking: readiness.blocking, warnings: readiness.warnings }, { status: 400 });
+        return NextResponse.json(
+          {
+            error: "publish_blocked",
+            blockers: readiness.blocking.map((blocker) => ({ id: blocker.id, message: blocker.label })),
+          },
+          { status: 409 },
+        );
       }
     }
 
