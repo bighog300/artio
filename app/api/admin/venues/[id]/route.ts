@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
-import { requireAdmin, isAuthError } from "@/lib/auth";
+import { isAuthError } from "@/lib/auth";
 import { idParamSchema, zodDetails } from "@/lib/validators";
 import { handleAdminEntityGet, handleAdminEntityPatch } from "@/lib/admin-entities-route";
+import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
 

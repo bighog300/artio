@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { apiError } from "@/lib/api";
-import { requireAdmin } from "@/lib/auth";
+
 import { db } from "@/lib/db";
 import { resolveAudience } from "@/lib/email/audience";
 import { generateUnsubscribeToken } from "@/lib/email/unsubscribe-token";
+import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
-
 
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
