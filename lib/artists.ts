@@ -1,4 +1,5 @@
 import { resolveImageUrl } from "@/lib/assets";
+import { DEFAULT_CURRENCY } from "@/lib/format";
 import { db } from "@/lib/db";
 import {
   buildUpdatedAtIdCursorPredicate,
@@ -138,7 +139,7 @@ export async function getArtistArtworks(
     medium: item.medium,
     dimensions: item.dimensions,
     forSale: item.priceAmount != null,
-    price: item.priceAmount != null ? { amount: item.priceAmount, currency: item.currency ?? "USD" } : null,
+    price: item.priceAmount != null ? { amount: item.priceAmount, currency: item.currency ?? DEFAULT_CURRENCY } : null,
     description: item.description,
     tags: [],
     featured: featuredIds.has(item.id),
