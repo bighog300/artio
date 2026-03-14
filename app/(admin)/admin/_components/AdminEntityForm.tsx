@@ -33,6 +33,13 @@ export default function AdminEntityForm({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState<Set<string>>(new Set());
 
+  function toInputValue(name: string, value: unknown) {
+    if (name === "mediums" && Array.isArray(value)) {
+      return value.join(", ");
+    }
+    return String(value ?? "");
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -43,7 +50,13 @@ export default function AdminEntityForm({
     }
 
     const payload = Object.fromEntries(
-      [...dirty].map((key) => [key, form[key]])
+      [...dirty].map((key) => {
+        const rawValue = form[key];
+        if (Array.isArray(initial[key]) && typeof rawValue === "string") {
+          return [key, rawValue.split(",").map((s) => s.trim()).filter(Boolean)];
+        }
+        return [key, rawValue];
+      })
     );
 
     const res = await fetch(endpoint, {
@@ -90,7 +103,7 @@ export default function AdminEntityForm({
             <span className="text-sm">{field.label}</span>
             <input
               type={field.type || "text"}
-              value={String(form[field.name] ?? "")}
+              value={toInputValue(field.name, form[field.name])}
               onChange={(ev) => {
                 setForm((prev) => ({ ...prev, [field.name]: ev.target.value }));
                 setDirty((prev) => new Set(prev).add(field.name));
