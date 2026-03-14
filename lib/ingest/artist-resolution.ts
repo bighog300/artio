@@ -62,27 +62,45 @@ export async function resolveArtistCandidate(args: {
   twitterUrl?: string | null;
 }): Promise<{ artistId: string; matchType: MatchType } | null> {
   const normalizedCandidateName = normalizeName(args.name);
-  const candidateInstagramHandle = extractSocialHandle(args.instagramUrl, "instagram");
-  const candidateTwitterHandle = extractSocialHandle(args.twitterUrl, "twitter");
-  const candidateWebsiteHost = normalizeHostname(args.websiteUrl);
-
-  const artists = await args.db.artist.findMany({
-    select: {
-      id: true,
-      name: true,
-      websiteUrl: true,
-      instagramUrl: true,
-      twitterUrl: true,
+  const nameMatch = await args.db.artist.findFirst({
+    where: {
+      name: { equals: args.name.trim(), mode: "insensitive" },
+      deletedAt: null,
     },
+    select: { id: true },
   });
+  if (nameMatch) return { artistId: nameMatch.id, matchType: "exact_name" };
 
-  const exactNameMatch = artists.find((artist) => normalizeName(artist.name) === normalizedCandidateName);
-  if (exactNameMatch) {
-    return { artistId: exactNameMatch.id, matchType: "exact_name" };
+  const nameTokens = normalizedCandidateName.split(" ").filter(Boolean);
+  if (nameTokens.length > 0) {
+    const normalizedNameCandidates = await args.db.artist.findMany({
+      where: {
+        deletedAt: null,
+        AND: nameTokens.map((token) => ({ name: { contains: token, mode: "insensitive" } })),
+      },
+      select: { id: true, name: true },
+    });
+
+    const normalizedNameMatch = normalizedNameCandidates.find((artist) => normalizeName(artist.name) === normalizedCandidateName);
+    if (normalizedNameMatch) return { artistId: normalizedNameMatch.id, matchType: "exact_name" };
   }
 
+  const candidateInstagramHandle = extractSocialHandle(args.instagramUrl, "instagram");
+  const candidateTwitterHandle = extractSocialHandle(args.twitterUrl, "twitter");
+
   if (candidateInstagramHandle || candidateTwitterHandle) {
-    const socialHandleMatch = artists.find((artist) => {
+    const socialCandidates = await args.db.artist.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          ...(candidateInstagramHandle ? [{ instagramUrl: { not: null } }] : []),
+          ...(candidateTwitterHandle ? [{ twitterUrl: { not: null } }] : []),
+        ],
+      },
+      select: { id: true, instagramUrl: true, twitterUrl: true },
+    });
+
+    const socialMatch = socialCandidates.find((artist) => {
       const artistInstagramHandle = extractSocialHandle(artist.instagramUrl, "instagram");
       const artistTwitterHandle = extractSocialHandle(artist.twitterUrl, "twitter");
 
@@ -92,16 +110,18 @@ export async function resolveArtistCandidate(args: {
       );
     });
 
-    if (socialHandleMatch) {
-      return { artistId: socialHandleMatch.id, matchType: "social_handle" };
-    }
+    if (socialMatch) return { artistId: socialMatch.id, matchType: "social_handle" };
   }
 
+  const candidateWebsiteHost = normalizeHostname(args.websiteUrl);
   if (candidateWebsiteHost) {
-    const websiteHostMatch = artists.find((artist) => normalizeHostname(artist.websiteUrl) === candidateWebsiteHost);
-    if (websiteHostMatch) {
-      return { artistId: websiteHostMatch.id, matchType: "website_host" };
-    }
+    const websiteCandidates = await args.db.artist.findMany({
+      where: { deletedAt: null, websiteUrl: { not: null } },
+      select: { id: true, websiteUrl: true },
+    });
+
+    const websiteMatch = websiteCandidates.find((artist) => normalizeHostname(artist.websiteUrl) === candidateWebsiteHost);
+    if (websiteMatch) return { artistId: websiteMatch.id, matchType: "website_host" };
   }
 
   return null;
