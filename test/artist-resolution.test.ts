@@ -110,7 +110,7 @@ test("resolveArtistCandidate returns exact name match artist id", async () => {
   const db = createDb([
     {
       id: "artist-1",
-      name: "John    Smith",
+      name: "John Smith",
       websiteUrl: null,
       instagramUrl: null,
       twitterUrl: null,

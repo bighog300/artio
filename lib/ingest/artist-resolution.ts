@@ -61,65 +61,45 @@ export async function resolveArtistCandidate(args: {
   instagramUrl?: string | null;
   twitterUrl?: string | null;
 }): Promise<{ artistId: string; matchType: MatchType } | null> {
-  const normalizedCandidateName = normalizeName(args.name);
-  const nameTokens = normalizedCandidateName.split(" ").filter(Boolean);
-
-  const nameCandidates = await args.db.artist.findMany({
-    where: {
-      deletedAt: null,
-      OR: [
-        { name: { equals: args.name.trim(), mode: "insensitive" as const } },
-        ...(nameTokens.length > 0
-          ? [{ AND: nameTokens.map((token) => ({ name: { contains: token, mode: "insensitive" as const } })) }]
-          : []),
-      ],
-    },
-    select: { id: true, name: true },
+  const nameMatch = await args.db.artist.findFirst({
+    where: { name: { equals: args.name.trim(), mode: "insensitive" as const }, deletedAt: null },
+    select: { id: true },
   });
+  if (nameMatch) return { artistId: nameMatch.id, matchType: "exact_name" };
 
-  const exactNameMatch = nameCandidates.find((artist) => artist.name.trim().toLowerCase() === args.name.trim().toLowerCase());
-  if (exactNameMatch) return { artistId: exactNameMatch.id, matchType: "exact_name" };
+  const candidateInstagram = extractSocialHandle(args.instagramUrl, "instagram");
+  const candidateTwitter = extractSocialHandle(args.twitterUrl, "twitter");
 
-  const normalizedNameMatch = nameCandidates.find((artist) => normalizeName(artist.name) === normalizedCandidateName);
-  if (normalizedNameMatch) return { artistId: normalizedNameMatch.id, matchType: "exact_name" };
-
-  const candidateInstagramHandle = extractSocialHandle(args.instagramUrl, "instagram");
-  const candidateTwitterHandle = extractSocialHandle(args.twitterUrl, "twitter");
-
-  if (candidateInstagramHandle || candidateTwitterHandle) {
+  if (candidateInstagram || candidateTwitter) {
     const socialCandidates = await args.db.artist.findMany({
       where: {
         deletedAt: null,
         OR: [
-          ...(candidateInstagramHandle ? [{ instagramUrl: { not: null } }] : []),
-          ...(candidateTwitterHandle ? [{ twitterUrl: { not: null } }] : []),
+          ...(candidateInstagram ? [{ instagramUrl: { not: null } }] : []),
+          ...(candidateTwitter ? [{ twitterUrl: { not: null } }] : []),
         ],
       },
       select: { id: true, instagramUrl: true, twitterUrl: true },
     });
 
-    const socialMatch = socialCandidates.find((artist) => {
-      const artistInstagramHandle = extractSocialHandle(artist.instagramUrl, "instagram");
-      const artistTwitterHandle = extractSocialHandle(artist.twitterUrl, "twitter");
+    const socialMatch = socialCandidates.find((a) => {
+      const ig = extractSocialHandle(a.instagramUrl, "instagram");
+      const tw = extractSocialHandle(a.twitterUrl, "twitter");
 
-      return (
-        (candidateInstagramHandle && artistInstagramHandle === candidateInstagramHandle)
-        || (candidateTwitterHandle && artistTwitterHandle === candidateTwitterHandle)
-      );
+      return (candidateInstagram && ig === candidateInstagram)
+        || (candidateTwitter && tw === candidateTwitter);
     });
-
     if (socialMatch) return { artistId: socialMatch.id, matchType: "social_handle" };
   }
 
-  const candidateWebsiteHost = normalizeHostname(args.websiteUrl);
-  if (candidateWebsiteHost) {
-    const websiteCandidates = await args.db.artist.findMany({
+  const candidateHost = normalizeHostname(args.websiteUrl);
+  if (candidateHost) {
+    const webCandidates = await args.db.artist.findMany({
       where: { deletedAt: null, websiteUrl: { not: null } },
       select: { id: true, websiteUrl: true },
     });
-
-    const websiteMatch = websiteCandidates.find((artist) => normalizeHostname(artist.websiteUrl) === candidateWebsiteHost);
-    if (websiteMatch) return { artistId: websiteMatch.id, matchType: "website_host" };
+    const webMatch = webCandidates.find((a) => normalizeHostname(a.websiteUrl) === candidateHost);
+    if (webMatch) return { artistId: webMatch.id, matchType: "website_host" };
   }
 
   return null;
