@@ -22,7 +22,7 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { buildArtistJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
-import { countPublishedArtworksByArtist, listFeaturedArtworksByArtist, listPublishedArtworksByArtist } from "@/lib/artworks";
+import { countPublishedArtworksByArtist, listFeaturedArtworksByArtist } from "@/lib/artworks";
 import { deriveArtistTags, getArtistArtworks } from "@/lib/artists";
 
 const FALLBACK_METADATA = { title: "Artist | Artio", description: "Browse artist profiles and related events on Artio." };
@@ -125,13 +125,12 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
     _count: { _all: true },
   }));
 
-  const [followersCount, existingFollow, artworks, artworkCount, featuredArtworks, showcaseResult, forSaleCount, pastEventArtists, artworkCountsByEvent] = await Promise.all([
+  const [followersCount, existingFollow, artworkCount, featuredArtworks, showcaseResult, forSaleCount, pastEventArtists, artworkCountsByEvent] = await Promise.all([
     db.follow.count({ where: { targetType: "ARTIST", targetId: artist.id } }),
     user ? db.follow.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "ARTIST", targetId: artist.id } }, select: { id: true } }) : Promise.resolve(null),
-    listPublishedArtworksByArtist(artist.id, 6),
     countPublishedArtworksByArtist(artist.id),
     listFeaturedArtworksByArtist(artist.id, 6),
-    getArtistArtworks(slug, { limit: 24, sort: "newest" }),
+    getArtistArtworks(slug, { limit: 24, sort: "newest", resolvedArtistId: artist.id }),
     db.artwork.count({ where: { artistId: artist.id, isPublished: true, deletedAt: null, priceAmount: { not: null } } }),
     pastEventArtistsPromise,
     artworkCountsByEventPromise,
@@ -227,7 +226,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
               </div>
             )}
             {featuredArtworks.length > 0 ? <ArtworkRelatedSection title="Featured artworks" subtitle="Selected by the artist." items={featuredArtworks} viewAllHref={artworkCount > 6 ? `/artwork?artistId=${artist.id}` : undefined} /> : null}
-            <ArtworkRelatedSection title={`Artworks by ${artist.name}`} subtitle="Published works from this artist." items={artworks} viewAllHref={artworkCount > 6 ? `/artwork?artistId=${artist.id}` : undefined} />
+            <ArtworkRelatedSection title={`Artworks by ${artist.name}`} subtitle="Published works from this artist." items={showcaseResult.artworks} viewAllHref={artworkCount > 6 ? `/artwork?artistId=${artist.id}` : undefined} />
           </section>
         )}
         past={(

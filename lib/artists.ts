@@ -53,16 +53,22 @@ type GetArtistArtworksOptions = {
   sort?: "newest" | "oldest" | "az";
   limit?: number;
   cursor?: string;
+  resolvedArtistId?: string;
 };
 
 export async function getArtistArtworks(
   slug: string,
   opts: GetArtistArtworksOptions = {},
 ): Promise<{ artworks: ArtworkSummary[]; nextCursor: string | null; total: number }> {
-  const artist = await db.artist.findFirst({
-    where: { slug, isPublished: true, deletedAt: null },
-    select: { id: true, slug: true, name: true, websiteUrl: true },
-  });
+  const artist = opts.resolvedArtistId
+    ? await db.artist.findFirst({
+        where: { id: opts.resolvedArtistId },
+        select: { id: true, slug: true, name: true, websiteUrl: true },
+      })
+    : await db.artist.findFirst({
+        where: { slug, isPublished: true, deletedAt: null },
+        select: { id: true, slug: true, name: true, websiteUrl: true },
+      });
   if (!artist) return { artworks: [], nextCursor: null, total: 0 };
 
   const tag = opts.tag?.trim();
