@@ -452,7 +452,9 @@ function editableFieldsForEntity(entity: EntityName): EditableField[] {
       { key: "title", label: "Title", type: "text" },
       { key: "startAt", label: "Start at", type: "datetime" },
       { key: "endAt", label: "End at", type: "datetime" },
-          ] as const;
+      { key: "venueId", label: "Venue ID (UUID)", type: "text" },
+      { key: "timezone", label: "Timezone (IANA)", type: "text" },
+    ] as const;
   }
   if (entity === "venues") {
     return [
