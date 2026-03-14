@@ -78,7 +78,7 @@ const baseCandidate: Candidate = {
   runId: "run-1",
 };
 
-test("autoApproveArtworkCandidate sets both isPublished and status=PUBLISHED when autoPublish=true", async () => {
+test("autoApproveArtworkCandidate does not publish when image is missing", async () => {
   const { db, calls } = createDb({ candidate: baseCandidate, artistId: "artist-1" });
 
   const result = await autoApproveArtworkCandidate({
@@ -87,12 +87,23 @@ test("autoApproveArtworkCandidate sets both isPublished and status=PUBLISHED whe
     autoPublish: true,
   });
 
-  assert.deepEqual(result, { artworkId: "artwork-1", published: true });
-  assert.equal(calls.artworkUpdate.length, 1);
-  assert.deepEqual(calls.artworkUpdate[0], {
-    where: { id: "artwork-1" },
-    data: { isPublished: true, status: "PUBLISHED" },
+  assert.deepEqual(result, { artworkId: "artwork-1", published: false });
+  assert.equal(calls.artworkUpdate.length, 0);
+});
+
+
+test("autoApproveArtworkCandidate does not publish when image import fails", async () => {
+  const candidateWithImageUrl = { ...baseCandidate, imageUrl: "https://example.com/image.jpg" };
+  const { db, calls } = createDb({ candidate: candidateWithImageUrl, artistId: "artist-1" });
+
+  const result = await autoApproveArtworkCandidate({
+    candidateId: baseCandidate.id,
+    db: db as never,
+    autoPublish: true,
   });
+
+  assert.deepEqual(result, { artworkId: "artwork-1", published: false });
+  assert.equal(calls.artworkUpdate.length, 0);
 });
 
 test("autoApproveArtworkCandidate does not publish artwork when autoPublish=false", async () => {
@@ -109,7 +120,8 @@ test("autoApproveArtworkCandidate does not publish artwork when autoPublish=fals
 });
 
 test("autoApproveArtworkCandidate returns null when artist cannot be resolved", async () => {
-  const { db, calls } = createDb({ candidate: baseCandidate, artistId: null });
+  const candidateWithoutArtist = { ...baseCandidate, artistName: null };
+  const { db, calls } = createDb({ candidate: candidateWithoutArtist, artistId: null });
 
   const result = await autoApproveArtworkCandidate({
     candidateId: baseCandidate.id,

@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { ensureUniqueArtworkSlugWithDeps, slugifyArtworkTitle } from "@/lib/artwork-slug";
 import { ensureUniqueArtistSlugWithDeps, slugifyArtistName } from "@/lib/artist-slug";
 import { importApprovedArtworkImage } from "@/lib/ingest/import-approved-artwork-image";
+import { evaluateArtworkReadiness } from "@/lib/publish-readiness";
 
 export async function autoApproveArtworkCandidate(args: {
   candidateId: string;
@@ -87,7 +88,7 @@ export async function autoApproveArtworkCandidate(args: {
       return createdArtwork;
     });
 
-    await importApprovedArtworkImage({
+    const imageResult = await importApprovedArtworkImage({
       appDb: args.db,
       candidateId: candidate.id,
       runId: candidate.id,
@@ -96,9 +97,19 @@ export async function autoApproveArtworkCandidate(args: {
       sourceUrl: candidate.sourceUrl,
       candidateImageUrl: candidate.imageUrl,
       requestId: `auto-approve-artwork-${candidate.id}`,
-    }).catch((err) => console.warn("auto_approve_artwork_image_import_failed", { candidateId: candidate.id, err }));
+    }).catch((err) => {
+      console.warn("auto_approve_artwork_image_import_failed", { candidateId: candidate.id, err });
+      return { attached: false, warning: String(err), imageUrl: null };
+    });
 
-    const canPublish = Boolean(args.autoPublish && candidate.title.trim().length > 0 && artistId !== null);
+    const hasImage = imageResult.attached;
+    const images = hasImage ? [{ id: "imported", assetId: "imported" }] : [];
+    const readiness = evaluateArtworkReadiness(
+      { title: candidate.title, featuredAssetId: hasImage ? "set" : null },
+      images,
+    );
+
+    const canPublish = Boolean(args.autoPublish && readiness.ready);
     if (canPublish) {
       await args.db.artwork.update({
         where: { id: newArtwork.id },
