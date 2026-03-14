@@ -413,9 +413,12 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
                       isEditing={isEditing}
                       status={typeof item.status === "string" ? item.status : undefined}
                       publishBlockers={Array.isArray(item.publishBlockers) ? item.publishBlockers.filter((entry): entry is string => typeof entry === "string") : []}
-                      detailHref={entity === "venues" || entity === "events"
-                        ? `/admin/${entity === "venues" ? "venues" : "events"}/${String(item.id)}`
-                        : undefined}
+                      detailHref={
+                        entity === "venues" ? `/admin/venues/${String(item.id)}`
+                        : entity === "events" ? `/admin/events/${String(item.id)}`
+                        : entity === "artists" ? `/admin/artists/${String(item.id)}`
+                        : undefined
+                      }
                       onStartEdit={() => startEdit(item)}
                       onCancelEdit={() => setEditingId(null)}
                       onSaveSuccess={() => setEditingId(null)}
