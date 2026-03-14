@@ -2,10 +2,6 @@ import type { PrismaClient } from "@prisma/client";
 
 type MatchType = "exact_name" | "social_handle" | "website_host";
 
-function normalizeName(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
 function normalizeHostname(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
 

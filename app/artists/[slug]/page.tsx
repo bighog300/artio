@@ -226,7 +226,18 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
               </div>
             )}
             {featuredArtworks.length > 0 ? <ArtworkRelatedSection title="Featured artworks" subtitle="Selected by the artist." items={featuredArtworks} viewAllHref={artworkCount > 6 ? `/artwork?artistId=${artist.id}` : undefined} /> : null}
-            <ArtworkRelatedSection title={`Artworks by ${artist.name}`} subtitle="Published works from this artist." items={showcaseResult.artworks} viewAllHref={artworkCount > 6 ? `/artwork?artistId=${artist.id}` : undefined} />
+            <ArtworkRelatedSection
+              title={`Artworks by ${artist.name}`}
+              subtitle="Published works from this artist."
+              items={showcaseResult.artworks.map((a) => ({
+                id: a.id,
+                slug: a.key,
+                title: a.title,
+                coverUrl: a.images[0]?.url ?? null,
+                artist: { id: artist.id, name: a.artist.name },
+              }))}
+              viewAllHref={artworkCount > 6 ? `/artwork?artistId=${artist.id}` : undefined}
+            />
           </section>
         )}
         past={(
