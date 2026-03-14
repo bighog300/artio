@@ -228,7 +228,7 @@ test("approve matches existing artists case-insensitively", async () => {
     locationText: "Main Hall",
     description: "Test description",
     sourceUrl: "https://venue.example/events",
-    artistNames: ["sarah lucas"],
+    artistNames: ["SaRaH LuCaS"],
     createdEventId: null,
     rejectionReason: null,
   };
@@ -285,7 +285,7 @@ test("approve matches existing artists case-insensitively", async () => {
     isPublished: true,
     deletedAt: null,
     OR: [{
-      name: { equals: "sarah lucas", mode: "insensitive" },
+      name: { equals: "SaRaH LuCaS", mode: "insensitive" },
     }],
   });
   assert.deepEqual(linkedArtists, [{ eventId: "event-1", artistId: "artist-1" }]);
