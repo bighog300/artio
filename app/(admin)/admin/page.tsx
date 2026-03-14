@@ -28,13 +28,15 @@ async function getCounts() {
 
 async function getPendingCounts() {
   try {
-    const [moderationQueue, ingestQueue] = await Promise.all([
+    const [moderationQueue, ingestQueue, ingestArtistQueue, artworks] = await Promise.all([
       db.submission.count({ where: { status: "IN_REVIEW" } }),
       db.ingestExtractedEvent.count({ where: { status: "PENDING", duplicateOfId: null } }),
+      db.ingestExtractedArtist.count({ where: { status: "PENDING" } }),
+      db.artwork.count({ where: { isPublished: true, deletedAt: null } }),
     ]);
-    return { moderationQueue, ingestQueue };
+    return { moderationQueue, ingestQueue, ingestArtistQueue, artworks };
   } catch {
-    return { moderationQueue: null, ingestQueue: null };
+    return { moderationQueue: null, ingestQueue: null, ingestArtistQueue: null, artworks: null };
   }
 }
 
@@ -57,17 +59,21 @@ export default async function AdminHomePage() {
   return (
     <main className="space-y-6">
       <AdminPageHeader title="Dashboard" description="Operational overview for administrators." />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-9">
         <StatCard label="DB health" value={dbHealth} />
         <StatCard label="Users" value={counts.users} />
         <StatCard label="Artists" value={counts.artists} />
         <StatCard label="Venues" value={counts.venues} />
         <StatCard label="Events" value={counts.events} />
+        <StatCard label="Published artworks" value={pending.artworks} />
         <Link href="/admin/moderation">
           <StatCard label="Moderation queue" value={pending.moderationQueue} />
         </Link>
         <Link href="/admin/ingest">
           <StatCard label="Ingest pending" value={pending.ingestQueue} />
+        </Link>
+        <Link href="/admin/ingest/artists">
+          <StatCard label="Artist candidates" value={pending.ingestArtistQueue} />
         </Link>
       </div>
     </main>
