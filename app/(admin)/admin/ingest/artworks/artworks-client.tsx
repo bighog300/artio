@@ -41,17 +41,6 @@ function getConfidenceReasons(value: unknown): string[] {
   return value.filter((entry): entry is string => typeof entry === "string");
 }
 
-function getInitialDraft(candidate: Candidate): EditDraft {
-  return {
-    title: candidate.title,
-    artistName: candidate.artistName ?? "",
-    medium: candidate.medium ?? "",
-    year: candidate.year == null ? "" : String(candidate.year),
-    dimensions: candidate.dimensions ?? "",
-    description: candidate.description ?? "",
-  };
-}
-
 export default function ArtworksClient({ candidates: initial }: { candidates: Candidate[] }) {
   const [candidates, setCandidates] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -79,17 +68,19 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
     }));
   }
 
-  function toggleEdit(candidate: Candidate) {
-    setEditOpenById((prev) => {
-      const nextOpen = !prev[candidate.id];
-      if (nextOpen) {
-        setEditDraftById((draftPrev) => ({
-          ...draftPrev,
-          [candidate.id]: draftPrev[candidate.id] ?? getInitialDraft(candidate),
-        }));
-      }
-      return { ...prev, [candidate.id]: nextOpen };
-    });
+  function openEdit(candidate: Candidate) {
+    setEditOpenById((prev) => ({ ...prev, [candidate.id]: true }));
+    setEditDraftById((prev) => ({
+      ...prev,
+      [candidate.id]: {
+        title: candidate.title,
+        artistName: candidate.artistName ?? "",
+        medium: candidate.medium ?? "",
+        year: candidate.year != null ? String(candidate.year) : "",
+        dimensions: candidate.dimensions ?? "",
+        description: candidate.description ?? "",
+      },
+    }));
   }
 
   async function searchExistingArtworks(candidateId: string) {
@@ -167,15 +158,15 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
       return;
     }
 
-    const payload: Record<string, string | number | null> = {};
-    if (draft.title.trim()) payload.title = draft.title;
-    if (draft.artistName.trim()) payload.artistName = draft.artistName;
-    if (draft.medium.trim()) payload.medium = draft.medium;
-    if (draft.dimensions.trim()) payload.dimensions = draft.dimensions;
-    if (draft.description.trim()) payload.description = draft.description;
-
-    const parsedYear = Number.parseInt(draft.year, 10);
-    payload.year = Number.isNaN(parsedYear) ? null : parsedYear;
+    const year = draft.year ? Number.parseInt(draft.year, 10) : null;
+    const payload = {
+      ...(draft.title ? { title: draft.title } : {}),
+      ...(draft.artistName ? { artistName: draft.artistName } : {}),
+      ...(draft.medium ? { medium: draft.medium } : {}),
+      ...(Number.isFinite(year) ? { year } : {}),
+      ...(draft.dimensions ? { dimensions: draft.dimensions } : {}),
+      ...(draft.description ? { description: draft.description } : {}),
+    };
 
     setWorkingId(id);
     setError(null);
@@ -279,9 +270,9 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
                         <button
                           className="rounded border px-2 py-1 text-xs"
                           disabled={workingId === candidate.id}
-                          onClick={() => toggleEdit(candidate)}
+                          onClick={() => openEdit(candidate)}
                         >
-                          Edit before approving
+                          Edit
                         </button>
                         <button
                           className="rounded border px-2 py-1 text-xs"
@@ -337,7 +328,7 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
                         <label className="flex flex-col gap-1">
                           Artist name
                           <input
-                            className="rounded border px-2 py-1 text-sm"
+                            className={`rounded border px-2 py-1 text-sm ${candidate.artistName == null ? "border-amber-400" : ""}`}
                             value={editDraftById[candidate.id]?.artistName ?? ""}
                             onChange={(e) => updateDraft(candidate.id, "artistName", e.target.value)}
                           />
