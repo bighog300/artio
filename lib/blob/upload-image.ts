@@ -87,6 +87,32 @@ export async function uploadArtworkImageToBlob(params: {
   return { url: blob.url, path };
 }
 
+export async function uploadArtistImageToBlob(params: {
+  artistId: string;
+  candidateId: string;
+  sourceUrl: string;
+  contentType: string;
+  bytes: Uint8Array;
+  uploadToBlob?: typeof put;
+}) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
+    throw new Error("missing_blob_read_write_token");
+  }
+
+  const uploadToBlob = params.uploadToBlob ?? put;
+  const hash = createHash("sha256").update(params.bytes).update("|").update(params.sourceUrl).digest("hex");
+  const extension = extensionForContentType(params.contentType);
+  const path = `artists/ingest/${params.artistId}/${params.candidateId}/${hash}.${extension}`;
+  const blob = await uploadToBlob(path, Buffer.from(params.bytes), {
+    access: "public",
+    contentType: params.contentType,
+    cacheControlMaxAge: 31536000,
+    addRandomSuffix: false,
+  });
+
+  return { url: blob.url, path };
+}
+
 export async function uploadVenueImageToBlob(params: {
   venueId: string;
   sourceUrl: string;

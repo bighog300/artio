@@ -6,6 +6,7 @@ import { ensureUniqueArtistSlugWithDeps, slugifyArtistName } from "@/lib/artist-
 import { requireAdmin } from "@/lib/admin";
 import { parseBody, zodDetails } from "@/lib/validators";
 import { z } from "zod";
+import { importApprovedArtistImage } from "@/lib/ingest/import-approved-artist-image";
 
 export const runtime = "nodejs";
 
@@ -102,10 +103,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         data: { status: "APPROVED", createdArtistId: newArtist.id },
       });
 
-      return { artistId: newArtist.id, linkedEventCount: candidate.eventLinks.length };
+      return {
+        artistId: newArtist.id,
+        linkedEventCount: candidate.eventLinks.length,
+        name,
+        websiteUrl,
+        instagramUrl,
+        sourceUrl: candidate.sourceUrl,
+        candidateId: candidate.id,
+      };
     });
 
-    return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
+    await importApprovedArtistImage({
+      appDb: db,
+      artistId: result.artistId,
+      candidateId: result.candidateId,
+      name: result.name,
+      websiteUrl: result.websiteUrl,
+      instagramUrl: result.instagramUrl,
+      sourceUrl: result.sourceUrl,
+      requestId: `manual-approve-artist-${result.candidateId}`,
+    }).catch((err) => console.warn("manual_approve_artist_image_import_failed", { candidateId: result.candidateId, err }));
+
+    return NextResponse.json({ artistId: result.artistId, linkedEventCount: result.linkedEventCount }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Forbidden");
