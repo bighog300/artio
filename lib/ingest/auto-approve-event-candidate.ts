@@ -80,22 +80,24 @@ export async function autoApproveEventCandidate(args: {
       });
 
       let matchedArtists: Array<{ id: string; name: string }> = [];
-      if (candidate.artistNames && candidate.artistNames.length > 0) {
-        matchedArtists = await tx.artist.findMany({
+      matchedArtists = candidate.artistNames.length > 0
+        ? await tx.artist.findMany({
           where: {
-            name: { in: candidate.artistNames, mode: "insensitive" },
             isPublished: true,
             deletedAt: null,
+            OR: candidate.artistNames.map((name) => ({
+              name: { equals: name, mode: "insensitive" as const },
+            })),
           },
           select: { id: true, name: true },
-        });
+        })
+        : [];
 
-        if (matchedArtists.length > 0) {
-          await tx.eventArtist.createMany({
-            data: matchedArtists.map((artist) => ({ eventId: createdEvent.id, artistId: artist.id })),
-            skipDuplicates: true,
-          });
-        }
+      if (matchedArtists.length > 0) {
+        await tx.eventArtist.createMany({
+          data: matchedArtists.map((artist) => ({ eventId: createdEvent.id, artistId: artist.id })),
+          skipDuplicates: true,
+        });
       }
 
       const unmatchedNames = (candidate.artistNames ?? []).filter(
