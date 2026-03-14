@@ -19,6 +19,8 @@ export const DEFAULT_CRON_JOBS: CronJobCreateInput[] = [
   { name: "ingest_discovery", displayName: "Ingest Discovery", endpoint: "/api/cron/ingest/discovery", schedule: "0 * * * *", enabled: false },
   { name: "sync_google_events", displayName: "Google Event Sync", endpoint: "/api/cron/sync-google-events", schedule: "0 3 * * *", enabled: false },
   { name: "geocode_venues", displayName: "Geocode Venues", endpoint: "/api/cron/geocode-venues", schedule: "0 4 * * *", enabled: false },
+  { name: "ingest_backfill_artists", displayName: "Backfill Event Artists", endpoint: "/api/cron/ingest/backfill-artists", schedule: "20 4 * * *", enabled: true },
+  { name: "ingest_backfill_artworks", displayName: "Backfill Event Artworks", endpoint: "/api/cron/ingest/backfill-artworks", schedule: "40 4 * * *", enabled: true },
   { name: "health", displayName: "Health Check", endpoint: "/api/cron/health", schedule: "*/15 * * * *", enabled: true },
 ];
 
