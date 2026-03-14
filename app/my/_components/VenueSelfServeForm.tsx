@@ -67,6 +67,7 @@ export default function VenueSelfServeForm({
   });
   const [error, setError] = useState<string | null>(null);
   const descriptionLength = form.description.trim().length;
+  void submissionStatus;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

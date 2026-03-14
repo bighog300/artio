@@ -176,6 +176,7 @@ export function VenueImagesClient(props: VenueImagesClientProps) {
                   return (
                     <div key={candidate.id} className="w-36 space-y-1">
                       <div className="group relative h-24 w-36 overflow-hidden rounded-lg border">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={candidate.url}
                           alt="Homepage candidate"

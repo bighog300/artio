@@ -16,7 +16,6 @@ export default function BroadcastEmail({ subject, bodyHtml, unsubscribeUrl }: Br
   return (
     <EmailLayout preview={subject} unsubscribeUrl={unsubscribeUrl}>
       <Preview>{subject}</Preview>
-      {/* eslint-disable-next-line react/no-danger */}
       <div dangerouslySetInnerHTML={{ __html: bodyHtml }} />
     </EmailLayout>
   );

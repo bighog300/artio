@@ -110,6 +110,7 @@ export function AppShellNav({ user, isAdmin, logoUrl }: AppShellNavProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 md:px-6">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
         <Link href="/" className="text-2xl font-semibold tracking-tight">{logoUrl ? <img src={logoUrl} alt="Artio" className="h-12 w-auto" /> : "Artio"}</Link>
 
         <nav className="hidden flex-1 items-center justify-center gap-1 md:flex" aria-label="Primary">

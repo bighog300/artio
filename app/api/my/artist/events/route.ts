@@ -13,7 +13,7 @@ const requestSchema = z.object({
   message: z.string().trim().max(500).optional(),
 });
 
-export async function GET(_: NextRequest) {
+export async function GET() {
   try {
     const user = await requireAuth();
     const artist = await db.artist.findUnique({ where: { userId: user.id }, select: { id: true } });

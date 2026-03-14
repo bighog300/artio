@@ -238,6 +238,7 @@ export default function VenueImagePicker(props: VenueImagePickerProps) {
                 const isLoading = candidateLoadingId === candidate.id;
                 return (
                   <div key={candidate.id} className="group relative h-24 w-36 overflow-hidden rounded-lg border-2 border-transparent">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={candidate.url}
                       alt="Homepage candidate"

@@ -70,6 +70,7 @@ export default function BrandingClient({ initialLogo }: Props) {
     <div className="space-y-4 rounded-lg border bg-background p-4">
       <h2 className="text-base font-medium">Site logo</h2>
       <p className="text-sm text-muted-foreground">Upload a site-wide logo (PNG or WEBP, max 2MB).</p>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       {logo ? <img src={logo.url} alt="Current site logo" className="max-h-20 w-auto rounded border p-2" /> : <p className="text-sm text-muted-foreground">No logo set.</p>}
       <input
         type="file"

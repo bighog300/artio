@@ -34,7 +34,6 @@ export async function POST(_: Request, { params }: { params: Promise<{ eventId: 
     const readiness = evaluateEventReadiness(event, event.venueId ? { id: event.venueId } : null);
     if (!readiness.ready) return NextResponse.json({ error: "NOT_READY", message: "Complete required fields before submitting.", blocking: readiness.blocking, warnings: readiness.warnings }, { status: 400 });
 
-    const latest = await db.submission.findFirst({ where: { targetEventId: event.id, type: "EVENT", OR: [{ kind: "PUBLISH" }, { kind: null }] }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { status: true } });
     if (event.status === "IN_REVIEW") return NextResponse.json({ error: "ALREADY_SUBMITTED", message: "Submission is already pending review." }, { status: 409 });
     if (event.status === "PUBLISHED") return NextResponse.json({ error: "ALREADY_APPROVED", message: "Event is already approved and published." }, { status: 409 });
 

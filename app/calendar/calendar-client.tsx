@@ -390,6 +390,7 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
               <div className="mt-2 flex flex-col gap-3">
                 {selectedEvent.featuredImageUrl ? (
                   <div className="relative h-36 w-full overflow-hidden rounded-lg bg-muted">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={selectedEvent.featuredImageUrl}
                       alt={selectedEvent.title}

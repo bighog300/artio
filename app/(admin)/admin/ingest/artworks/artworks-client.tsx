@@ -160,6 +160,7 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
                 <td className="px-3 py-2">{candidate.artistName ?? "—"}</td>
                 <td className="px-3 py-2">{candidate.medium ?? "—"}</td>
                 <td className="px-3 py-2">{candidate.year ?? "—"}</td>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
                 <td className="px-3 py-2">{candidate.imageUrl ? <img src={candidate.imageUrl} alt={candidate.title} className="h-12 w-12 rounded object-cover" /> : "—"}</td>
                 <td className="px-3 py-2">
                   <Link className="underline" href={`/events/${candidate.sourceEvent.slug}`}>{candidate.sourceEvent.title}</Link>

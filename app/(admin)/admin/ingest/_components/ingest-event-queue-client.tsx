@@ -106,6 +106,7 @@ export default function IngestEventQueueClient({ candidates }: { candidates: Que
                   {candidate.imageUrl
                     ? (
                       <div className="group relative h-10 w-16">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={candidate.blobImageUrl ?? candidate.imageUrl} alt={candidate.title} className="h-10 w-16 rounded object-cover" />
                         {candidate.status !== "DUPLICATE" ? (
                           <div className="absolute inset-0 hidden flex-col items-center justify-center gap-0.5 rounded bg-black/60 group-hover:flex">

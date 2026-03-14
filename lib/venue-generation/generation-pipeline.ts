@@ -1,16 +1,13 @@
 import { type Prisma, type PrismaClient } from "@prisma/client";
 import { ZodError } from "zod";
 import { ForwardGeocodeError, type ForwardGeocodeErrorCode, forwardGeocodeVenueAddressToLatLng } from "@/lib/geocode/forward";
-import tzLookup from "tz-lookup";
 import { buildVenueGeocodeQueries, normalizeCountryCode } from "@/lib/venues/format-venue-address";
-import { ensureUniqueVenueSlugWithDeps, slugifyVenueName } from "@/lib/venue-slug";
 import { generatedVenuesResponseSchema, type GeneratedVenue, type VenueGenerationInput } from "@/lib/venue-generation/schemas";
 import { normalizeEmail, normalizeFacebookUrl, normalizeInstagramUrl } from "@/lib/venues/normalize-social";
 import { extractHomepageImagesFromHtml, fetchHomepage } from "@/lib/venue-generation/extract-homepage-images";
 import { extractHomepageDetails, type HomepageDetails } from "@/lib/venue-generation/extract-homepage-details";
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
-import { computeVenuePublishBlockers } from "@/lib/publish-readiness";
 import { autoSelectVenueCover, type AutoSelectDb, type AutoSelectDeps } from "@/lib/venue-generation/auto-select-venue-cover";
 
 type ResponseOutputContentItem = {

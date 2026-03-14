@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -83,16 +83,16 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
     void loadSeries();
   }, [venueId]);
 
-  async function loadTiers() {
+  const loadTiers = useCallback(async () => {
     const res = await fetch(`/api/my/events/${event.id}/ticket-tiers`, { cache: "no-store" });
     const body = await res.json().catch(() => ({}));
     if (res.ok) setTiers(Array.isArray(body.tiers) ? body.tiers : []);
-  }
+  }, [event.id]);
 
   useEffect(() => {
     if (ticketingMode !== "RSVP") return;
     void loadTiers();
-  }, [event.id, ticketingMode]);
+  }, [event.id, ticketingMode, loadTiers]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {

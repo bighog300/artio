@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { enqueueToast } from "@/lib/toast";
@@ -21,7 +21,7 @@ export function AttendeesClient({ eventId }: { eventId: string }) {
   const [partialById, setPartialById] = useState<Record<string, string>>({});
   const [openRefund, setOpenRefund] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     const res = await fetch(`/api/my/events/${eventId}/registrations`, { cache: "no-store" });
     const body = await res.json().catch(() => ({}));
@@ -32,11 +32,11 @@ export function AttendeesClient({ eventId }: { eventId: string }) {
     }
     setItems(Array.isArray(body.items) ? body.items : []);
     setLoading(false);
-  }
+  }, [eventId]);
 
   useEffect(() => {
     void load();
-  }, [eventId]);
+  }, [eventId, load]);
 
   async function cancelRegistration(id: string) {
     const res = await fetch(`/api/my/events/${eventId}/registrations/${id}/cancel`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });

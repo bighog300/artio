@@ -189,6 +189,7 @@ export async function resendClaimToken(args: { db: ClaimsDb; slug: string; userI
 
 
 export async function revokeClaim(db: ClaimsDb, claimId: string, now: Date) {
+  void now;
   return db.$transaction(async (tx) => {
     const lookup = tx.venueClaimRequest.findUnique ?? tx.venueClaimRequest.findFirst;
     const claim = await lookup({
@@ -218,6 +219,7 @@ export async function revokeClaim(db: ClaimsDb, claimId: string, now: Date) {
 }
 
 export async function rejectClaim(db: ClaimsDb, claimId: string, rejectionReason: string | null, now: Date) {
+  void now;
   return db.$transaction(async (tx) => {
     const lookup = tx.venueClaimRequest.findUnique ?? tx.venueClaimRequest.findFirst;
     const claim = await lookup({

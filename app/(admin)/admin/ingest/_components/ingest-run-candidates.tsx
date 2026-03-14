@@ -171,6 +171,7 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
                         ? (
                           <>
                             <div className="group relative h-10 w-16">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={candidate.blobImageUrl ?? candidate.imageUrl} alt={candidate.title} className="h-10 w-16 rounded object-cover" />
                             {candidate.status !== "DUPLICATE" ? (
                               <div className="absolute inset-0 hidden flex-col items-center justify-center gap-0.5 rounded bg-black/60 group-hover:flex">
@@ -231,7 +232,12 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
                       <td className="px-3 py-2">{duplicate.locationText ?? "—"}</td>
                       <td className="px-3 py-2">
                         {duplicate.imageUrl
-                          ? <img src={duplicate.blobImageUrl ?? duplicate.imageUrl} alt={duplicate.title} className="h-10 w-16 rounded object-cover" />
+                          ? (
+                            <>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={duplicate.blobImageUrl ?? duplicate.imageUrl} alt={duplicate.title} className="h-10 w-16 rounded object-cover" />
+                            </>
+                          )
                           : "—"}
                       </td>
                       <td className="px-3 py-2">

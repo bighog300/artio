@@ -68,9 +68,9 @@ export async function resolveArtistCandidate(args: {
     where: {
       deletedAt: null,
       OR: [
-        { name: { equals: args.name.trim(), mode: "insensitive" } },
+        { name: { equals: args.name.trim(), mode: "insensitive" as const } },
         ...(nameTokens.length > 0
-          ? [{ AND: nameTokens.map((token) => ({ name: { contains: token, mode: "insensitive" } })) }]
+          ? [{ AND: nameTokens.map((token) => ({ name: { contains: token, mode: "insensitive" as const } })) }]
           : []),
       ],
     },

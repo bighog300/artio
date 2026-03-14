@@ -107,8 +107,9 @@ export function isJsonLdEvent(value: unknown): boolean {
   return false;
 }
 
-export function mapJsonLdEventToNormalized(raw: unknown, _baseUrl: string): NormalizedExtractedEvent | null {
+export function mapJsonLdEventToNormalized(raw: unknown, baseUrl: string): NormalizedExtractedEvent | null {
   if (!isObject(raw)) return null;
+  void baseUrl;
 
   const title = typeof raw.name === "string" ? raw.name.trim() : "";
   if (!title) return null;

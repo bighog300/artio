@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { enqueueToast } from "@/lib/toast";
 
@@ -22,15 +22,15 @@ export default function VenueStripeConnectSection({ venueId }: { venueId: string
   const [status, setStatus] = useState<StripeStatus | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function loadStatus() {
+  const loadStatus = useCallback(async () => {
     const res = await fetch(`/api/my/venues/${venueId}/stripe/status`, { cache: "no-store" });
     if (!res.ok) return;
     setStatus(await res.json());
-  }
+  }, [venueId]);
 
   useEffect(() => {
     void loadStatus();
-  }, [venueId]);
+  }, [loadStatus]);
 
   async function startConnect() {
     setLoading(true);
