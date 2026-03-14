@@ -188,7 +188,7 @@ export default function AdminArtworkListClient({ pricedCount: initialPricedCount
                 onClick={() => setSelectedIds(items.filter((item) => item.priceAmount == null).map((item) => item.id))}
                 disabled={items.length === 0}
               >
-                Select all unprice
+                Select all unpriced
               </Button>
             </div>
             {bulkError ? <p className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700">{bulkError}</p> : null}

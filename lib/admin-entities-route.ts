@@ -110,7 +110,7 @@ const defaultFields = {
   venues: ["id", "name", "slug", "addressLine1", "addressLine2", "city", "postcode", "country", "lat", "lng", "timezone", "websiteUrl", "eventsPageUrl", "isPublished", "status", "description", "featuredAssetId", "deletedAt"] as const,
   events: ["id", "title", "startAt", "endAt", "timezone", "venueId", "ticketUrl", "isPublished", "status", "deletedAt"] as const,
   artists: ["id", "name", "websiteUrl", "bio", "featuredAssetId", "isPublished", "deletedAt"] as const,
-  artwork: ["id", "title", "slug", "artistId", "isPublished", "deletedAt"] as const,
+  artwork: ["id", "title", "slug", "artistId", "isPublished", "deletedAt", "priceAmount", "currency"] as const,
 };
 
 function parseCsv(text: string): { headers: string[]; rows: string[][] } {
