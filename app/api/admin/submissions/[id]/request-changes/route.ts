@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+
 import { handleRequestChangesSubmission } from "@/lib/admin-submission-review-route";
+import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
 

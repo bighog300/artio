@@ -1,8 +1,9 @@
-import { requireAdmin } from "@/lib/auth";
+
 import { db } from "@/lib/db";
 import { handleEventModerationIntent } from "@/lib/admin-events-moderation-intent-route";
 import { notifySavedSearchMatches } from "@/lib/saved-searches/notify-saved-search-matches";
 import { notifyGoogleIndexing } from "@/lib/google-event-indexing";
+import { requireAdmin } from "@/lib/admin";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const parsedParams = await params;

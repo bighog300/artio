@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { unstable_noStore as noStore } from "next/cache";
 import { apiError } from "@/lib/api";
-import { requireAdmin, isAuthError } from "@/lib/auth";
+import { isAuthError } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
 

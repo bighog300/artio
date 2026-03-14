@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+
 import { db } from "@/lib/db";
 import { handleAdminIngestArtworkMerge } from "@/lib/admin-ingest-artwork-merge-route";
+import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
 

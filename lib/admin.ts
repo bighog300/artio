@@ -12,10 +12,9 @@ export class AdminAccessError extends Error {
   }
 }
 
-export async function requireAdmin(options?: { redirectOnFail?: boolean }): Promise<{ email: string }> {
+export async function requireAdmin(options?: { redirectOnFail?: boolean }) {
   try {
-    const user = await requireAdminDB();
-    return { email: user.email };
+    return await requireAdminDB();
   } catch (err) {
     const status = (err as { status?: number })?.status === 403 ? 403 : 401;
     if (options?.redirectOnFail !== false) {

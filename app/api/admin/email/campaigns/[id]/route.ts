@@ -3,12 +3,12 @@ import { CAMPAIGN_AUDIENCES, CAMPAIGN_STATUSES } from "@/lib/email/campaign-enum
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireAdmin } from "@/lib/auth";
+
 import { db } from "@/lib/db";
 import { parseBody, zodDetails } from "@/lib/validators";
+import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
-
 
 const campaignUpdateSchema = z.object({
   name: z.string().trim().min(1).optional(),

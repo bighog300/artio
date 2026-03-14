@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireAdmin, isAuthError } from "@/lib/auth";
+import { isAuthError } from "@/lib/auth";
 import { idParamSchema, parseBody, zodDetails } from "@/lib/validators";
 import { submissionDecisionDedupeKey } from "@/lib/notification-keys";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { decideSubmission, ModerationDecisionError } from "@/lib/moderation-decision-service";
+import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
 

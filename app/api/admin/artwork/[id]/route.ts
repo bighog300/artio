@@ -2,7 +2,8 @@ import { Prisma } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
-import { requireAdmin, isAuthError } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin";
+import { isAuthError } from "@/lib/auth";
 import { idParamSchema, zodDetails } from "@/lib/validators";
 import { handleAdminEntityPatch } from "@/lib/admin-entities-route";
 

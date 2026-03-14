@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+
 import { db } from "@/lib/db";
 import { handleAdminTrustedPublisherUpdate } from "@/lib/admin-users-route";
+import { requireAdmin } from "@/lib/admin";
 
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const params = await context.params;

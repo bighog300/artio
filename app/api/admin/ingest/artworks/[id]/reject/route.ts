@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { apiError } from "@/lib/api";
-import { isAuthError, requireAdmin } from "@/lib/auth";
+import { isAuthError } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
 

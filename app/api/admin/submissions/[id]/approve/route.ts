@@ -1,8 +1,9 @@
 import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+
 import { handleApproveSubmission } from "@/lib/admin-submission-review-route";
 import { notifySavedSearchMatches } from "@/lib/saved-searches/notify-saved-search-matches";
 import { enqueueNotification } from "@/lib/notifications";
+import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
 
