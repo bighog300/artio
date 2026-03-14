@@ -4,13 +4,27 @@ import { isAuthError } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ensureUniqueArtistSlugWithDeps, slugifyArtistName } from "@/lib/artist-slug";
 import { requireAdmin } from "@/lib/admin";
+import { parseBody, zodDetails } from "@/lib/validators";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+const artistApprovePatchSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  bio: z.string().trim().max(5000).nullable().optional(),
+  mediums: z.array(z.string().trim().min(1)).max(20).optional(),
+  websiteUrl: z.string().trim().url().nullable().optional(),
+  instagramUrl: z.string().trim().nullable().optional(),
+  twitterUrl: z.string().trim().nullable().optional(),
+}).strict();
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const admin = await requireAdmin();
     const { id } = await params;
+    const parsedPatch = artistApprovePatchSchema.safeParse(await parseBody(req));
+    if (!parsedPatch.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedPatch.error));
+    const patch = parsedPatch.data;
 
     const candidate = await db.ingestExtractedArtist.findUnique({
       where: { id },
@@ -20,8 +34,15 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     if (!candidate) return apiError(404, "not_found", "Candidate not found");
     if (candidate.status !== "PENDING") return apiError(409, "invalid_state", "Already processed");
 
+    const name = patch.name ?? candidate.name;
+    const bio = "bio" in patch ? patch.bio : candidate.bio;
+    const mediums = patch.mediums ?? candidate.mediums;
+    const websiteUrl = "websiteUrl" in patch ? patch.websiteUrl : candidate.websiteUrl;
+    const instagramUrl = "instagramUrl" in patch ? patch.instagramUrl : candidate.instagramUrl;
+    const twitterUrl = "twitterUrl" in patch ? patch.twitterUrl : candidate.twitterUrl;
+
     const result = await db.$transaction(async (tx) => {
-      const baseSlug = slugifyArtistName(candidate.name);
+      const baseSlug = slugifyArtistName(name);
       const slug = await ensureUniqueArtistSlugWithDeps(
         { findBySlug: (value) => tx.artist.findUnique({ where: { slug: value }, select: { id: true } }) },
         baseSlug,
@@ -29,13 +50,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
       const newArtist = await tx.artist.create({
         data: {
-          name: candidate.name,
+          name,
           slug: slug ?? candidate.id,
-          bio: candidate.bio,
-          mediums: candidate.mediums,
-          websiteUrl: candidate.websiteUrl,
-          instagramUrl: candidate.instagramUrl,
-          twitterUrl: candidate.twitterUrl,
+          bio,
+          mediums,
+          websiteUrl,
+          instagramUrl,
+          twitterUrl,
           isAiDiscovered: true,
           extractionProvider: candidate.extractionProvider,
           status: "IN_REVIEW",
