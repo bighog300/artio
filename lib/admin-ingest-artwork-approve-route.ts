@@ -4,9 +4,9 @@ import { db } from "@/lib/db";
 import { ensureUniqueArtworkSlugWithDeps, slugifyArtworkTitle } from "@/lib/artwork-slug";
 import { ensureUniqueArtistSlugWithDeps, slugifyArtistName } from "@/lib/artist-slug";
 import { importApprovedArtworkImage } from "@/lib/ingest/import-approved-artwork-image";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { isAuthError } from "@/lib/auth";
-import { parseBody, zodDetails } from "@/lib/validators";
+import { parseBody } from "@/lib/validators";
 import { z } from "zod";
 
 type ApproveArtworkDeps = {
@@ -26,16 +26,15 @@ const approvePatchSchema = z.object({
 }).strict();
 
 export async function handleAdminIngestArtworkApprove(
-  req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
   deps: ApproveArtworkDeps = defaultDeps,
 ) {
   try {
     await deps.requireAdmin();
     const { id } = await params;
-    const parsedPatch = approvePatchSchema.safeParse(await parseBody(req));
-    if (!parsedPatch.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedPatch.error));
-    const patch = parsedPatch.data;
+    const body = await parseBody(req).catch(() => ({}));
+    const patch = approvePatchSchema.safeParse(body).data ?? {};
 
     const candidate = await deps.db.ingestExtractedArtwork.findUnique({
       where: { id },
@@ -45,31 +44,35 @@ export async function handleAdminIngestArtworkApprove(
     if (!candidate) return apiError(404, "not_found", "Candidate not found");
     if (candidate.status !== "PENDING") return apiError(409, "invalid_state", `Candidate has already been processed (status: ${candidate.status})`);
 
-    const title = patch.title ?? candidate.title;
-    const artistName = patch.artistName ?? candidate.artistName;
-    const medium = "medium" in patch ? patch.medium : candidate.medium;
-    const year = "year" in patch ? patch.year : candidate.year;
-    const dimensions = "dimensions" in patch ? patch.dimensions : candidate.dimensions;
-    const description = "description" in patch ? patch.description : candidate.description;
+    const effectiveTitle = patch.title ?? candidate.title;
+    const effectiveArtistName = patch.artistName ?? candidate.artistName;
+    const effectiveMedium = "medium" in patch ? patch.medium : candidate.medium;
+    const effectiveYear = "year" in patch ? patch.year : candidate.year;
+    const effectiveDimensions = "dimensions" in patch ? patch.dimensions : candidate.dimensions;
+    const effectiveDescription = "description" in patch ? patch.description : candidate.description;
 
     let artistId: string | null = null;
-    if (artistName) {
+    if (effectiveArtistName) {
       const artist = await deps.db.artist.findFirst({
-        where: { name: { equals: artistName, mode: "insensitive" } },
+        where: { name: { equals: effectiveArtistName, mode: "insensitive" } },
         select: { id: true },
       });
       artistId = artist?.id ?? null;
     }
 
-    if (!artistId && artistName) {
-      const baseSlug = slugifyArtistName(artistName);
+    if (!artistId && !effectiveArtistName) {
+      return apiError(409, "artist_name_missing", "This artwork candidate has no artist name. Provide one using the edit panel before approving.");
+    }
+
+    if (!artistId && effectiveArtistName) {
+      const baseSlug = slugifyArtistName(effectiveArtistName);
       const slug = await ensureUniqueArtistSlugWithDeps(
         { findBySlug: (value) => deps.db.artist.findUnique({ where: { slug: value }, select: { id: true } }) },
         baseSlug,
       );
       const stub = await deps.db.artist.create({
         data: {
-          name: artistName,
+          name: effectiveArtistName,
           slug: slug ?? candidate.id,
           isAiDiscovered: true,
           status: "IN_REVIEW",
@@ -80,11 +83,11 @@ export async function handleAdminIngestArtworkApprove(
     }
 
     if (!artistId) {
-      return apiError(409, "artist_name_missing", "This artwork candidate has no artist name. Set an artist name before approving.");
+      return apiError(500, "internal_error", "Unable to resolve artist during approval");
     }
 
     const result = await deps.db.$transaction(async (tx) => {
-      const baseSlug = slugifyArtworkTitle(candidate.title);
+      const baseSlug = slugifyArtworkTitle(effectiveTitle);
       const slug = await ensureUniqueArtworkSlugWithDeps(
         { findBySlug: (value) => tx.artwork.findUnique({ where: { slug: value }, select: { id: true } }) },
         baseSlug,
@@ -93,12 +96,12 @@ export async function handleAdminIngestArtworkApprove(
       const newArtwork = await tx.artwork.create({
         data: {
           artistId,
-          title,
+          title: effectiveTitle,
           slug,
-          medium: medium ?? undefined,
-          year: year ?? undefined,
-          dimensions: dimensions ?? undefined,
-          description: description ?? undefined,
+          medium: effectiveMedium ?? undefined,
+          year: effectiveYear ?? undefined,
+          dimensions: effectiveDimensions ?? undefined,
+          description: effectiveDescription ?? undefined,
           isPublished: false,
           status: "IN_REVIEW",
         },
@@ -129,7 +132,7 @@ export async function handleAdminIngestArtworkApprove(
       candidateId: candidate.id,
       runId: candidate.id,
       artworkId: result.artworkId,
-      title,
+      title: effectiveTitle,
       sourceUrl: candidate.sourceUrl,
       candidateImageUrl: candidate.imageUrl,
       requestId: `admin-approve-artwork-${candidate.id}`,
