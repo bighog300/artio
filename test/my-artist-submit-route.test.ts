@@ -105,6 +105,29 @@ test("handleMyArtistSubmit falls back to featuredImageUrl when featuredAsset is 
   });
 });
 
+test("handleMyArtistSubmit prefers featuredAsset url over featuredImageUrl when both exist", async () => {
+  const req = new NextRequest("http://localhost/api/my/artist/submit", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message: "Ready for review" }),
+  });
+
+  await handleMyArtistSubmit(req, {
+    requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
+    findOwnedArtistByUserId: async () => ({
+      ...completeArtist,
+      featuredAsset: { url: "https://cdn.example/preferred-cover.jpg" },
+      featuredImageUrl: "https://legacy.example/fallback-cover.jpg",
+    }),
+    getLatestSubmissionStatus: async () => null,
+    createSubmission: async (input) => {
+      assert.equal(input.snapshot.coverUrl, "https://cdn.example/preferred-cover.jpg");
+      return { id: "sub-1", status: "IN_REVIEW", createdAt: new Date("2026-01-01T00:00:00.000Z"), submittedAt: new Date() };
+    },
+    enqueueSubmissionNotification: async () => undefined,
+  });
+});
+
 test("handleMyArtistSubmit stores null coverUrl when no asset or legacy image exists", async () => {
   const req = new NextRequest("http://localhost/api/my/artist/submit", {
     method: "POST",
