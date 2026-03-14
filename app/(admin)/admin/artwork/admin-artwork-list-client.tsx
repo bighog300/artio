@@ -37,7 +37,7 @@ function normalizeItem(item: ArtworkListItem): ArtworkListItem {
 
 function formatPrice(priceAmount: number | null | undefined, currency: string | null | undefined): string {
   if (priceAmount == null) return "—";
-  // Default matches DEFAULT_CURRENCY in lib/format.ts — keep in sync
+  // Keep in sync with DEFAULT_CURRENCY in lib/format.ts
   const resolvedCurrency = currency && CURRENCIES.includes(currency as (typeof CURRENCIES)[number]) ? currency : "GBP";
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
