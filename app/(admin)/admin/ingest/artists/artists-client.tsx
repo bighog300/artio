@@ -11,6 +11,8 @@ type Candidate = {
   mediums: string[];
   websiteUrl: string | null;
   instagramUrl: string | null;
+  nationality: string | null;
+  birthYear: number | null;
   sourceUrl: string;
   confidenceScore: number;
   confidenceBand: string | null;
@@ -26,6 +28,25 @@ type EditDraft = {
   websiteUrl: string;
   instagramUrl: string;
 };
+
+function computeArtistCandidateCompleteness(candidate: Candidate): {
+  score: number;
+  present: string[];
+  missing: string[];
+} {
+  const checks = [
+    { key: "bio", label: "bio", has: Boolean(candidate.bio?.trim()) },
+    { key: "mediums", label: "mediums", has: candidate.mediums.length > 0 },
+    { key: "website", label: "website", has: Boolean(candidate.websiteUrl?.trim()) },
+    { key: "instagram", label: "instagram", has: Boolean(candidate.instagramUrl?.trim()) },
+    { key: "nationality", label: "nationality", has: Boolean(candidate.nationality) },
+    { key: "birthYear", label: "birth year", has: candidate.birthYear != null },
+  ];
+  const present = checks.filter((c) => c.has).map((c) => c.label);
+  const missing = checks.filter((c) => !c.has).map((c) => c.label);
+  const score = Math.round((present.length / checks.length) * 100);
+  return { score, present, missing };
+}
 
 function getConfidenceBand(band: string | null): "HIGH" | "MEDIUM" | "LOW" {
   if (band === "HIGH" || band === "MEDIUM" || band === "LOW") return band;
@@ -157,13 +178,14 @@ export default function ArtistsClient({ candidates: initial }: { candidates: Can
     <section className="rounded-lg border bg-background p-4">
       {error ? <div className="mb-3 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700">{error}</div> : null}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1200px] text-sm">
+        <table className="w-full min-w-[1380px] text-sm">
           <thead>
             <tr className="border-b text-left">
               <th className="px-3 py-2">Confidence</th>
               <th className="px-3 py-2">Name</th>
               <th className="px-3 py-2">Bio</th>
               <th className="px-3 py-2">Mediums</th>
+              <th className="px-3 py-2">Completeness</th>
               <th className="px-3 py-2">Source</th>
               <th className="px-3 py-2">Provider</th>
               <th className="px-3 py-2">Events waiting</th>
@@ -185,6 +207,27 @@ export default function ArtistsClient({ candidates: initial }: { candidates: Can
                   <td className="px-3 py-2 font-medium">{candidate.name}</td>
                   <td className="max-w-[280px] px-3 py-2">{candidate.bio ? `${candidate.bio.slice(0, 100)}${candidate.bio.length > 100 ? "…" : ""}` : "—"}</td>
                   <td className="px-3 py-2">{candidate.mediums.length > 0 ? candidate.mediums.join(", ") : "—"}</td>
+                  <td className="px-3 py-2">
+                    {(() => {
+                      const { score, missing } = computeArtistCandidateCompleteness(candidate);
+                      return (
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <div className="h-1.5 w-20 overflow-hidden rounded bg-muted">
+                              <div
+                                className={`h-full ${score >= 70 ? "bg-emerald-500" : score >= 40 ? "bg-amber-500" : "bg-red-400"}`}
+                                style={{ width: `${score}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-muted-foreground">{score}%</span>
+                          </div>
+                          {missing.length > 0 && (
+                            <p className="text-xs text-muted-foreground">Missing: {missing.join(", ")}</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td className="max-w-[280px] px-3 py-2">
                     <a href={candidate.sourceUrl} target="_blank" rel="noreferrer" className="underline">Source</a>
                   </td>
@@ -200,7 +243,7 @@ export default function ArtistsClient({ candidates: initial }: { candidates: Can
                 </tr>
                 {editOpenById[candidate.id] ? (
                   <tr className="border-b">
-                    <td colSpan={8} className="px-3 pb-3">
+                    <td colSpan={9} className="px-3 pb-3">
                       <div className="grid grid-cols-2 gap-2 rounded border bg-muted/30 p-3 text-sm">
                         <label className="flex flex-col gap-1">
                           Name
@@ -258,7 +301,7 @@ export default function ArtistsClient({ candidates: initial }: { candidates: Can
             ))}
             {candidates.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-muted-foreground" colSpan={8}>No artist candidates.</td>
+                <td className="px-3 py-6 text-muted-foreground" colSpan={9}>No artist candidates.</td>
               </tr>
             ) : null}
           </tbody>
