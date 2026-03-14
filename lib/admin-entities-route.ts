@@ -86,6 +86,13 @@ const artistPatchSchema = z.object({
   bio: z.string().trim().max(5000).nullable().optional(),
   featuredAssetId: z.string().uuid().nullable().optional(),
   isPublished: z.boolean().optional(),
+  twitterUrl: z.string().trim().nullable().optional(),
+  linkedinUrl: z.string().trim().nullable().optional(),
+  tiktokUrl: z.string().trim().nullable().optional(),
+  youtubeUrl: z.string().trim().nullable().optional(),
+  nationality: z.string().trim().max(100).nullable().optional(),
+  birthYear: z.coerce.number().int().min(1850).max(2010).nullable().optional(),
+  mediums: z.array(z.string().trim().min(1)).max(20).optional(),
 }).strict();
 
 const artworkPatchSchema = z.object({
