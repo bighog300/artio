@@ -138,6 +138,7 @@ test("admin approval route also generates artwork slug", async () => {
   };
 
   const response = await handleAdminIngestArtworkApprove(
+    new Request("http://localhost/api/admin/ingest/artworks/candidate-2/approve", { method: "POST" }),
     { params: Promise.resolve({ id: candidate.id }) },
     {
       requireAdmin: async () => ({ id: "admin-1", role: "ADMIN" } as never),

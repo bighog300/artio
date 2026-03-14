@@ -6,6 +6,8 @@ import { ensureUniqueArtistSlugWithDeps, slugifyArtistName } from "@/lib/artist-
 import { importApprovedArtworkImage } from "@/lib/ingest/import-approved-artwork-image";
 import { NextResponse } from "next/server";
 import { isAuthError } from "@/lib/auth";
+import { parseBody, zodDetails } from "@/lib/validators";
+import { z } from "zod";
 
 type ApproveArtworkDeps = {
   requireAdmin: typeof requireAdmin;
@@ -14,13 +16,26 @@ type ApproveArtworkDeps = {
 
 const defaultDeps: ApproveArtworkDeps = { requireAdmin, db };
 
+const approvePatchSchema = z.object({
+  title: z.string().trim().min(1).max(300).optional(),
+  artistName: z.string().trim().min(1).max(200).optional(),
+  medium: z.string().trim().max(200).nullable().optional(),
+  year: z.number().int().min(1800).max(2100).nullable().optional(),
+  dimensions: z.string().trim().max(200).nullable().optional(),
+  description: z.string().trim().max(5000).nullable().optional(),
+}).strict();
+
 export async function handleAdminIngestArtworkApprove(
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
   deps: ApproveArtworkDeps = defaultDeps,
 ) {
   try {
     await deps.requireAdmin();
     const { id } = await params;
+    const parsedPatch = approvePatchSchema.safeParse(await parseBody(req));
+    if (!parsedPatch.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedPatch.error));
+    const patch = parsedPatch.data;
 
     const candidate = await deps.db.ingestExtractedArtwork.findUnique({
       where: { id },
@@ -30,24 +45,31 @@ export async function handleAdminIngestArtworkApprove(
     if (!candidate) return apiError(404, "not_found", "Candidate not found");
     if (candidate.status !== "PENDING") return apiError(409, "invalid_state", `Candidate has already been processed (status: ${candidate.status})`);
 
+    const title = patch.title ?? candidate.title;
+    const artistName = patch.artistName ?? candidate.artistName;
+    const medium = "medium" in patch ? patch.medium : candidate.medium;
+    const year = "year" in patch ? patch.year : candidate.year;
+    const dimensions = "dimensions" in patch ? patch.dimensions : candidate.dimensions;
+    const description = "description" in patch ? patch.description : candidate.description;
+
     let artistId: string | null = null;
-    if (candidate.artistName) {
+    if (artistName) {
       const artist = await deps.db.artist.findFirst({
-        where: { name: { equals: candidate.artistName, mode: "insensitive" } },
+        where: { name: { equals: artistName, mode: "insensitive" } },
         select: { id: true },
       });
       artistId = artist?.id ?? null;
     }
 
-    if (!artistId && candidate.artistName) {
-      const baseSlug = slugifyArtistName(candidate.artistName);
+    if (!artistId && artistName) {
+      const baseSlug = slugifyArtistName(artistName);
       const slug = await ensureUniqueArtistSlugWithDeps(
         { findBySlug: (value) => deps.db.artist.findUnique({ where: { slug: value }, select: { id: true } }) },
         baseSlug,
       );
       const stub = await deps.db.artist.create({
         data: {
-          name: candidate.artistName,
+          name: artistName,
           slug: slug ?? candidate.id,
           isAiDiscovered: true,
           status: "IN_REVIEW",
@@ -71,12 +93,12 @@ export async function handleAdminIngestArtworkApprove(
       const newArtwork = await tx.artwork.create({
         data: {
           artistId,
-          title: candidate.title,
+          title,
           slug,
-          medium: candidate.medium ?? undefined,
-          year: candidate.year ?? undefined,
-          dimensions: candidate.dimensions ?? undefined,
-          description: candidate.description ?? undefined,
+          medium: medium ?? undefined,
+          year: year ?? undefined,
+          dimensions: dimensions ?? undefined,
+          description: description ?? undefined,
           isPublished: false,
           status: "IN_REVIEW",
         },
@@ -107,7 +129,7 @@ export async function handleAdminIngestArtworkApprove(
       candidateId: candidate.id,
       runId: candidate.id,
       artworkId: result.artworkId,
-      title: candidate.title,
+      title,
       sourceUrl: candidate.sourceUrl,
       candidateImageUrl: candidate.imageUrl,
       requestId: `admin-approve-artwork-${candidate.id}`,
