@@ -30,7 +30,8 @@ export async function POST(req: NextRequest) {
         bio: artist.bio,
         websiteUrl: artist.websiteUrl,
         featuredAssetId: artist.featuredAssetId,
-        featuredImageUrl: artist.featuredAsset?.url ?? artist.featuredImageUrl,
+        featuredImageUrl: artist.featuredImageUrl,
+        featuredAsset: artist.featuredAsset,
         images: artist.images,
       };
     }),

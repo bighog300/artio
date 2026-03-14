@@ -10,7 +10,7 @@ import type { ContentStatus } from "@prisma/client";
 type SessionUser = { id: string; email: string };
 type SubmissionStatus = ContentStatus | null;
 
-type ArtistRecord = { id: string; slug: string; name: string; bio: string | null; websiteUrl: string | null; featuredAssetId: string | null; featuredImageUrl: string | null; images: Array<{ id: string }>; isPublished?: boolean };
+type ArtistRecord = { id: string; slug: string; name: string; bio: string | null; websiteUrl: string | null; featuredAssetId: string | null; featuredImageUrl: string | null; featuredAsset?: { url: string | null } | null; images: Array<{ id: string }>; isPublished?: boolean };
 type SubmissionRecord = { id: string; status: string; createdAt: Date; submittedAt: Date | null };
 
 type SubmitArtistDeps = {
@@ -42,7 +42,7 @@ export async function handleMyArtistSubmit(req: NextRequest, deps: SubmitArtistD
       return NextResponse.json({ error: "NOT_READY", message: "Complete required fields before submitting.", blocking: readiness.blocking, warnings: readiness.warnings }, { status: 400 });
     }
 
-    const submission = await deps.createSubmission({ artistId: artist.id, userId: user.id, message: parsedBody.data.message, snapshot: { name: artist.name, bioExcerpt: (artist.bio ?? "").slice(0, 160), coverUrl: artist.featuredImageUrl, websiteUrl: artist.websiteUrl, slug: artist.slug } });
+    const submission = await deps.createSubmission({ artistId: artist.id, userId: user.id, message: parsedBody.data.message, snapshot: { name: artist.name, bioExcerpt: (artist.bio ?? "").slice(0, 160), coverUrl: artist.featuredAsset?.url ?? artist.featuredImageUrl ?? null, websiteUrl: artist.websiteUrl, slug: artist.slug } });
     if (deps.enqueueSubmissionNotification) await deps.enqueueSubmissionNotification({ userId: user.id, email: user.email, submissionId: submission.id, status: submission.status, submittedAt: submission.submittedAt, artistId: artist.id });
     else await enqueueNotification({ type: "SUBMISSION_SUBMITTED", toEmail: user.email, dedupeKey: submissionSubmittedDedupeKey(submission.id), payload: { submissionId: submission.id, status: submission.status, submittedAt: submission.submittedAt?.toISOString() ?? null }, inApp: buildInAppFromTemplate(user.id, "SUBMISSION_SUBMITTED", { type: "SUBMISSION_SUBMITTED", submissionId: submission.id, submissionType: "ARTIST", targetArtistId: artist.id }) });
 
