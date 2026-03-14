@@ -108,8 +108,6 @@ export default function AdminArtworkListClient({ pricedCount: initialPricedCount
     setDrafts((current) => ({ ...current, [item.id]: buildEditableDraft(item, editableFields) }));
   }
 
-  const progressPct = Math.min(100, Math.round((pricedCount / 200) * 100));
-  const progressColor = pricedCount >= 200 ? "bg-emerald-500" : pricedCount >= 100 ? "bg-amber-500" : "bg-gray-400";
   const allVisibleSelected = items.length > 0 && items.every((item) => selectedIds.includes(item.id));
 
   const parsedBulkPrice = bulkPrice === "" ? null : Number.parseInt(bulkPrice, 10);
@@ -150,13 +148,9 @@ export default function AdminArtworkListClient({ pricedCount: initialPricedCount
   return (
     <section className="space-y-4">
       <div className="rounded border bg-background p-4">
-        <div className="mb-2 text-sm font-medium">B4 Progress: {pricedCount} / 200 priced published artworks</div>
-        <div className="h-2 w-full overflow-hidden rounded bg-muted">
-          <div className={`h-full ${progressColor}`} style={{ width: `${progressPct}%` }} />
-        </div>
-      </div>
-
-      <div className="rounded border bg-background p-4">
+        <p className="text-sm text-muted-foreground">
+          {pricedCount} priced published {pricedCount === 1 ? "artwork" : "artworks"}
+        </p>
         <button type="button" className="flex w-full items-center justify-between text-left text-sm font-semibold" onClick={() => setIsBulkOpen((current) => !current)}>
           <span>Bulk price panel</span>
           <span>{isBulkOpen ? "Hide" : "Show"}</span>
