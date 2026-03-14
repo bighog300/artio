@@ -27,7 +27,7 @@ export async function handleAdminIngestArtworkApprove(
     });
 
     if (!candidate) return apiError(404, "not_found", "Candidate not found");
-    if (candidate.status !== "PENDING") return apiError(409, "invalid_state", "Already processed");
+    if (candidate.status !== "PENDING") return apiError(409, "invalid_state", `Candidate has already been processed (status: ${candidate.status})`);
 
     let artistId: string | null = null;
     if (candidate.artistName) {
@@ -39,7 +39,7 @@ export async function handleAdminIngestArtworkApprove(
     }
 
     if (!artistId) {
-      return apiError(409, "invalid_state", "Unable to resolve artist for artwork candidate");
+      return apiError(409, "artist_not_found", `Artist "${candidate.artistName}" does not exist. Create the artist record first, then approve this artwork.`);
     }
 
     const result = await deps.db.$transaction(async (tx) => {

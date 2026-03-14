@@ -96,7 +96,9 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
     try {
       const res = await fetch(`/api/admin/ingest/artworks/${id}/approve`, { method: "POST" });
       if (!res.ok) {
-        setError("Failed to approve artwork candidate.");
+        const body = await res.json().catch(() => null) as { error?: { message?: string }; message?: string } | null;
+        const message = body?.error?.message ?? body?.message ?? "Failed to approve artwork candidate.";
+        setError(message);
         return;
       }
       setCandidates((prev) => prev.filter((item) => item.id !== id));
@@ -153,7 +155,10 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
                     showReasons
                   />
                 </td>
-                <td className="px-3 py-2 font-medium">{candidate.title}</td>
+                <td className="px-3 py-2 font-medium">
+                  <div>{candidate.title}</div>
+                  <div className="text-xs font-normal text-muted-foreground">Artist: {candidate.artistName ?? "—"}</div>
+                </td>
                 <td className="px-3 py-2">{candidate.artistName ?? "—"}</td>
                 <td className="px-3 py-2">{candidate.medium ?? "—"}</td>
                 <td className="px-3 py-2">{candidate.year ?? "—"}</td>
