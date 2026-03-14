@@ -352,7 +352,6 @@ export async function handleAdminEntityList(req: NextRequest, entity: EntityName
             artist: { select: { name: true } },
             images: {
               select: {
-                url: true,
                 asset: { select: { url: true } },
               },
               orderBy: { sortOrder: "asc" },
@@ -394,7 +393,8 @@ export async function handleAdminEntityList(req: NextRequest, entity: EntityName
   } catch (error) {
     if (isRedirectError(error)) throw error;
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
-    return apiError(401, "unauthorized", "Authentication required");
+    if (error instanceof Error && (error.message === "unauthorized" || error.name === "AuthError")) return apiError(401, "unauthorized", "Authentication required");
+    return apiError(500, "internal_error", "Unexpected server error");
   }
 }
 
@@ -503,7 +503,8 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
     if (error instanceof Error && "status" in error && "code" in error && (error as { code?: string }).code === "invalid_transition") {
       return apiError(400, "invalid_transition", error.message);
     }
-    return apiError(401, "unauthorized", "Authentication required");
+    if (error instanceof Error && (error.message === "unauthorized" || error.name === "AuthError")) return apiError(401, "unauthorized", "Authentication required");
+    return apiError(500, "internal_error", "Unexpected server error");
   }
 }
 
@@ -527,7 +528,8 @@ export async function handleAdminEntityGet(_req: NextRequest, entity: EntityName
   } catch (error) {
     if (isRedirectError(error)) throw error;
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
-    return apiError(401, "unauthorized", "Authentication required");
+    if (error instanceof Error && (error.message === "unauthorized" || error.name === "AuthError")) return apiError(401, "unauthorized", "Authentication required");
+    return apiError(500, "internal_error", "Unexpected server error");
   }
 }
 
@@ -747,7 +749,8 @@ export async function handleAdminEntityArchive(req: NextRequest, entity: EntityN
   } catch (error) {
     if (isRedirectError(error)) throw error;
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
-    return apiError(401, "unauthorized", "Authentication required");
+    if (error instanceof Error && (error.message === "unauthorized" || error.name === "AuthError")) return apiError(401, "unauthorized", "Authentication required");
+    return apiError(500, "internal_error", "Unexpected server error");
   }
 }
 
@@ -785,6 +788,7 @@ export async function handleAdminEntityRestore(_req: NextRequest, entity: Entity
   } catch (error) {
     if (isRedirectError(error)) throw error;
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
-    return apiError(401, "unauthorized", "Authentication required");
+    if (error instanceof Error && (error.message === "unauthorized" || error.name === "AuthError")) return apiError(401, "unauthorized", "Authentication required");
+    return apiError(500, "internal_error", "Unexpected server error");
   }
 }
