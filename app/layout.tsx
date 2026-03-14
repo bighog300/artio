@@ -8,6 +8,7 @@ import { AppShell } from '@/components/shell/app-shell';
 import { isAdminEmail } from '@/lib/admin';
 import { Providers } from './providers';
 import { getPublicBranding } from '@/lib/site-settings/get-public-branding';
+import { ChunkErrorRecovery } from '@/lib/chunk-error-recovery';
 
 
 // Root layout reads NextAuth session on every request; keep Node runtime to avoid
@@ -29,6 +30,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="en">
       <body className="min-h-screen bg-background font-sans text-foreground">
+        <ChunkErrorRecovery />
         <Providers>
           <a
             href="#main"
