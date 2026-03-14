@@ -47,6 +47,7 @@ export async function importApprovedArtistImage(params: {
         data: {
           artistId: string;
           assetId: string;
+          url: string;
           alt: string;
           sortOrder: number;
         };
@@ -158,6 +159,7 @@ export async function importApprovedArtistImage(params: {
       data: {
         artistId: params.artistId,
         assetId: asset.id,
+        url: asset.url,
         alt: params.name,
         sortOrder: 0,
       },
