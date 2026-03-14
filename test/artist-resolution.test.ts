@@ -45,7 +45,11 @@ function createDb(artists: ArtistRecord[]) {
           deletedAt?: null;
           websiteUrl?: { not: null };
           AND?: Array<{ name?: { contains?: string; mode?: "insensitive" | "default" } }>;
-          OR?: Array<{ instagramUrl?: { not: null }; twitterUrl?: { not: null } }>;
+          OR?: Array<
+            { instagramUrl?: { not: null }; twitterUrl?: { not: null } }
+            | { name?: { equals?: string; mode?: "insensitive" | "default" } }
+            | { AND?: Array<{ name?: { contains?: string; mode?: "insensitive" | "default" } }> }
+          >;
         };
       }) => {
         const where = args?.where;
@@ -71,8 +75,26 @@ function createDb(artists: ArtistRecord[]) {
 
           if (where?.OR && where.OR.length > 0) {
             return where.OR.some((clause) => {
-              if (clause.instagramUrl?.not === null) return artist.instagramUrl !== null;
-              if (clause.twitterUrl?.not === null) return artist.twitterUrl !== null;
+              if ("instagramUrl" in clause && clause.instagramUrl?.not === null) return artist.instagramUrl !== null;
+              if ("twitterUrl" in clause && clause.twitterUrl?.not === null) return artist.twitterUrl !== null;
+              if ("name" in clause && clause.name?.equals) {
+                if (clause.name.mode === "insensitive") {
+                  return artist.name.toLowerCase() === clause.name.equals.toLowerCase();
+                }
+                return artist.name === clause.name.equals;
+              }
+              if ("AND" in clause && clause.AND && clause.AND.length > 0) {
+                return clause.AND.every((andClause) => {
+                  const contains = andClause.name?.contains;
+                  if (!contains) return true;
+
+                  if (andClause.name?.mode === "insensitive") {
+                    return artist.name.toLowerCase().includes(contains.toLowerCase());
+                  }
+
+                  return artist.name.includes(contains);
+                });
+              }
               return false;
             });
           }

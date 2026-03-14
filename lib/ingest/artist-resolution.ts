@@ -62,28 +62,26 @@ export async function resolveArtistCandidate(args: {
   twitterUrl?: string | null;
 }): Promise<{ artistId: string; matchType: MatchType } | null> {
   const normalizedCandidateName = normalizeName(args.name);
-  const nameMatch = await args.db.artist.findFirst({
-    where: {
-      name: { equals: args.name.trim(), mode: "insensitive" },
-      deletedAt: null,
-    },
-    select: { id: true },
-  });
-  if (nameMatch) return { artistId: nameMatch.id, matchType: "exact_name" };
-
   const nameTokens = normalizedCandidateName.split(" ").filter(Boolean);
-  if (nameTokens.length > 0) {
-    const normalizedNameCandidates = await args.db.artist.findMany({
-      where: {
-        deletedAt: null,
-        AND: nameTokens.map((token) => ({ name: { contains: token, mode: "insensitive" } })),
-      },
-      select: { id: true, name: true },
-    });
 
-    const normalizedNameMatch = normalizedNameCandidates.find((artist) => normalizeName(artist.name) === normalizedCandidateName);
-    if (normalizedNameMatch) return { artistId: normalizedNameMatch.id, matchType: "exact_name" };
-  }
+  const nameCandidates = await args.db.artist.findMany({
+    where: {
+      deletedAt: null,
+      OR: [
+        { name: { equals: args.name.trim(), mode: "insensitive" } },
+        ...(nameTokens.length > 0
+          ? [{ AND: nameTokens.map((token) => ({ name: { contains: token, mode: "insensitive" } })) }]
+          : []),
+      ],
+    },
+    select: { id: true, name: true },
+  });
+
+  const exactNameMatch = nameCandidates.find((artist) => artist.name.trim().toLowerCase() === args.name.trim().toLowerCase());
+  if (exactNameMatch) return { artistId: exactNameMatch.id, matchType: "exact_name" };
+
+  const normalizedNameMatch = nameCandidates.find((artist) => normalizeName(artist.name) === normalizedCandidateName);
+  if (normalizedNameMatch) return { artistId: normalizedNameMatch.id, matchType: "exact_name" };
 
   const candidateInstagramHandle = extractSocialHandle(args.instagramUrl, "instagram");
   const candidateTwitterHandle = extractSocialHandle(args.twitterUrl, "twitter");
