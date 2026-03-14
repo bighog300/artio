@@ -236,7 +236,9 @@ export default function ArtistsClient({ candidates: initial }: { candidates: Can
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" disabled={workingId === candidate.id} onClick={() => approve(candidate.id)}>Approve</Button>
-                      <Button size="sm" variant="outline" disabled={workingId === candidate.id} onClick={() => toggleEdit(candidate)}>Edit before approving</Button>
+                      <Button size="sm" variant="outline" disabled={workingId === candidate.id} onClick={() => toggleEdit(candidate)}>
+                        {editOpenById[candidate.id] ? "Close edit" : "Edit"}
+                      </Button>
                       <Button size="sm" variant="outline" disabled={workingId === candidate.id} onClick={() => reject(candidate.id)}>Reject</Button>
                     </div>
                   </td>
@@ -264,6 +266,7 @@ export default function ArtistsClient({ candidates: initial }: { candidates: Can
                         <label className="col-span-2 flex flex-col gap-1">
                           Bio
                           <textarea
+                            rows={4}
                             className="rounded border px-2 py-1 text-sm"
                             value={editDraftById[candidate.id]?.bio ?? ""}
                             onChange={(e) => updateDraft(candidate.id, "bio", e.target.value)}
