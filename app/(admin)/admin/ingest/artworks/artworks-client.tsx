@@ -218,7 +218,6 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
               <th className="px-3 py-2">Artist</th>
               <th className="px-3 py-2">Medium</th>
               <th className="px-3 py-2">Year</th>
-              <th className="px-3 py-2">Image</th>
               <th className="px-3 py-2">Source event</th>
               <th className="px-3 py-2">Provider</th>
               <th className="px-3 py-2">Actions</th>
@@ -256,8 +255,6 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
                   <td className="px-3 py-2">{candidate.artistName ?? "—"}</td>
                   <td className="px-3 py-2">{candidate.medium ?? "—"}</td>
                   <td className="px-3 py-2">{candidate.year ?? "—"}</td>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <td className="px-3 py-2">{candidate.imageUrl ? <img src={candidate.imageUrl} alt={candidate.title} className="h-12 w-12 rounded object-cover" /> : "—"}</td>
                   <td className="px-3 py-2">
                     <Link className="underline" href={`/events/${candidate.sourceEvent.slug}`}>{candidate.sourceEvent.title}</Link>
                   </td>
@@ -315,7 +312,7 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
                 </tr>
                 {editOpenById[candidate.id] ? (
                   <tr className="border-b">
-                    <td colSpan={10} className="px-3 pb-3">
+                    <td colSpan={9} className="px-3 pb-3">
                       <div className="grid grid-cols-2 gap-2 rounded border bg-muted/30 p-3 text-sm">
                         <label className="flex flex-col gap-1">
                           Title
