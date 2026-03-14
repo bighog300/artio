@@ -105,6 +105,25 @@ test("handleMyArtistSubmit falls back to featuredImageUrl when featuredAsset is 
   });
 });
 
+test("handleMyArtistSubmit stores null coverUrl when no asset or legacy image exists", async () => {
+  const req = new NextRequest("http://localhost/api/my/artist/submit", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message: "Ready for review" }),
+  });
+
+  await handleMyArtistSubmit(req, {
+    requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
+    findOwnedArtistByUserId: async () => ({ ...completeArtist, featuredAsset: null, featuredImageUrl: null }),
+    getLatestSubmissionStatus: async () => null,
+    createSubmission: async (input) => {
+      assert.equal(input.snapshot.coverUrl, null);
+      return { id: "sub-1", status: "IN_REVIEW", createdAt: new Date("2026-01-01T00:00:00.000Z"), submittedAt: new Date() };
+    },
+    enqueueSubmissionNotification: async () => undefined,
+  });
+});
+
 test("handleMyArtistSubmit returns 409 when already submitted", async () => {
   const req = new NextRequest("http://localhost/api/my/artist/submit", { method: "POST" });
   const res = await handleMyArtistSubmit(req, {
