@@ -128,9 +128,10 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
     <section className="rounded-lg border bg-background p-4">
       {error ? <div className="mb-3 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700">{error}</div> : null}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1200px] text-sm">
+        <table className="w-full min-w-[1300px] text-sm">
           <thead>
             <tr className="border-b text-left">
+              <th className="px-3 py-2">img</th>
               <th className="px-3 py-2">Confidence</th>
               <th className="px-3 py-2">Title</th>
               <th className="px-3 py-2">Artist</th>
@@ -145,6 +146,19 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
           <tbody>
             {candidates.map((candidate) => (
               <tr key={candidate.id} className="border-b align-top">
+                <td className="px-3 py-2">
+                  {candidate.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={candidate.imageUrl}
+                      alt={candidate.title}
+                      className="h-14 w-20 rounded object-cover bg-muted"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  ) : (
+                    <div className="h-14 w-20 rounded bg-muted" />
+                  )}
+                </td>
                 <td className="px-3 py-2">
                   <IngestConfidenceBadge
                     score={candidate.confidenceScore}
@@ -213,7 +227,7 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
             ))}
             {candidates.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-muted-foreground" colSpan={9}>No artwork candidates.</td>
+                <td className="px-3 py-6 text-muted-foreground" colSpan={10}>No artwork candidates.</td>
               </tr>
             ) : null}
           </tbody>
