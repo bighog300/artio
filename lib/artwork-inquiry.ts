@@ -81,7 +81,7 @@ export async function createArtworkInquiry(args: {
           style: "currency",
           currency: artwork.currency,
           maximumFractionDigits: 0,
-        }).format(artwork.priceAmount)
+        }).format(artwork.priceAmount / 100)
       : null;
   const notified = await args.notify({
     buyerEmail: args.buyerEmail,

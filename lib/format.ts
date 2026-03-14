@@ -3,5 +3,5 @@ export function formatPrice(amount: number, currency: string): string {
     style: "currency",
     currency,
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(amount / 100);
 }
