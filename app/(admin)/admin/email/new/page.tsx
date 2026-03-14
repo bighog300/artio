@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/admin";
 import CampaignEditorClient from "../campaign-editor-client";
 
 export default async function NewCampaignPage() {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
 
   return (
     <main className="space-y-4 p-6">

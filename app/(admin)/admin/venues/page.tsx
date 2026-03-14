@@ -5,7 +5,7 @@ import AdminPageHeader from "../_components/AdminPageHeader";
 export const dynamic = "force-dynamic";
 
 export default async function AdminVenues() {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
   return (
     <main className="space-y-6">
       <AdminPageHeader title="Venues" description="Manage venue records and publishing metadata." />

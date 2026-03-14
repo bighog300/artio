@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/admin";
 import CampaignEditorClient from "../campaign-editor-client";
 
 export default async function EditCampaignPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
   const { id } = await params;
 
   return (

@@ -17,7 +17,7 @@ export async function requireAdmin(options?: { redirectOnFail?: boolean }) {
     return await requireAdminDB();
   } catch (err) {
     const status = (err as { status?: number })?.status === 403 ? 403 : 401;
-    if (options?.redirectOnFail !== false) {
+    if (options?.redirectOnFail === true) {
       redirect(status === 401 ? "/login" : "/");
     }
     throw new AdminAccessError(status);

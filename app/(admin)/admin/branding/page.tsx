@@ -3,7 +3,7 @@ import { getSiteSettings } from "@/lib/site-settings/get-site-settings";
 import BrandingClient from "./branding-client";
 
 export default async function AdminBrandingPage() {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
   const settings = await getSiteSettings();
 
   return (

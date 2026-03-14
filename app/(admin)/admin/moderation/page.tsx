@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 const PAGE_SIZE = 30;
 
 export default async function AdminModerationPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
   const params = await searchParams;
   const tab = typeof params.tab === "string" ? params.tab : "needs-review";
   const type = typeof params.type === "string" ? params.type : "all";

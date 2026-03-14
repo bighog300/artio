@@ -18,7 +18,7 @@ function toPage(input: string): number {
 }
 
 export default async function AdminAuditPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
   const params = await searchParams;
 
   const actorEmail = asSingle(params.actorEmail).trim();

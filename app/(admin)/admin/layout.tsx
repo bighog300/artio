@@ -28,7 +28,7 @@ const ADMIN_LINKS = [
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const admin = await requireAdmin();
+  const admin = await requireAdmin({ redirectOnFail: true });
 
   return (
     <div className="min-h-screen bg-muted/20">

@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 
 export default async function AdminAnalyticsPage() {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
 
   return (
     <main className="space-y-4 p-6">

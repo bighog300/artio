@@ -44,7 +44,7 @@ async function fetchInquiries(): Promise<{ inquiries: InquiryRow[]; thirtyDayCou
 export const dynamic = "force-dynamic";
 
 export default async function AdminArtworkInquiriesPage() {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
   const data = await fetchInquiries();
 
   return (

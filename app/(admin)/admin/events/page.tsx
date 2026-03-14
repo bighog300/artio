@@ -5,7 +5,7 @@ import AdminPageHeader from "../_components/AdminPageHeader";
 export const dynamic = "force-dynamic";
 
 export default async function AdminEvents() {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
   return (
     <main className="space-y-6">
       <AdminPageHeader title="Events" description="Manage events across the platform." />

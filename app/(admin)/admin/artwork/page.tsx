@@ -6,7 +6,7 @@ import AdminArtworkListClient from "./admin-artwork-list-client";
 export const dynamic = "force-dynamic";
 
 export default async function AdminArtworkPage() {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
 
   const pricedCount = await db.artwork.count({
     where: { priceAmount: { not: null }, isPublished: true, deletedAt: null },

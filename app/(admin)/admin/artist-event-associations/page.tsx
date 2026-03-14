@@ -11,7 +11,7 @@ export default async function AdminArtistEventAssociationsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
   const params = await searchParams;
   const statusFilter =
     typeof params.status === "string" &&

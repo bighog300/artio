@@ -6,7 +6,7 @@ import { JobsPanelClient } from "./jobs-panel-client";
 export const dynamic = "force-dynamic";
 
 export default async function AdminJobsPage() {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
 
   const runs = await db.jobRun.findMany({
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],

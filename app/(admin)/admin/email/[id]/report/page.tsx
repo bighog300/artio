@@ -24,7 +24,7 @@ function statTile(label: string, value: number) {
 }
 
 export default async function CampaignReportPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
   const { id } = await params;
   const campaign = await fetchCampaign(id);
 

@@ -3,7 +3,7 @@ import PerfAdminClient from "@/app/(admin)/admin/perf/perf-admin-client";
 import { requireAdmin } from "@/lib/admin";
 
 export default async function AdminPerfPage() {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
 
   return (
     <main className="p-6 space-y-4">

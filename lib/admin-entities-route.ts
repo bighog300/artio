@@ -1,4 +1,5 @@
 import type { Artist, ContentStatus, Event, Prisma, Venue } from "@prisma/client";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError } from "@/lib/api";
@@ -391,6 +392,7 @@ export async function handleAdminEntityList(req: NextRequest, entity: EntityName
     }));
     return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE });
   } catch (error) {
+    if (isRedirectError(error)) throw error;
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
     return apiError(401, "unauthorized", "Authentication required");
   }
@@ -492,6 +494,7 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
 
     return NextResponse.json({ item: updated });
   } catch (error) {
+    if (isRedirectError(error)) throw error;
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
     if (error instanceof Error && error.message === "not_found") return apiError(404, "not_found", "Entity not found");
     if (error instanceof PublishBlockedError) {
@@ -522,6 +525,7 @@ export async function handleAdminEntityGet(_req: NextRequest, entity: EntityName
     if (!item) return apiError(404, "not_found", "Entity not found");
     return NextResponse.json({ item });
   } catch (error) {
+    if (isRedirectError(error)) throw error;
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
     return apiError(401, "unauthorized", "Authentication required");
   }
@@ -601,6 +605,7 @@ export async function handleAdminEntityImportPreview(req: NextRequest, entity: E
       sampleRows: rows.slice(0, 20),
     });
   } catch (error) {
+    if (isRedirectError(error)) throw error;
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
     if (error instanceof Error && (error.message === "invalid_body" || error.message === "missing_file")) return apiError(400, "invalid_body", "Invalid import payload");
     return apiError(401, "unauthorized", "Authentication required");
@@ -694,6 +699,7 @@ export async function handleAdminEntityImportApply(req: NextRequest, entity: Ent
 
     return NextResponse.json({ results });
   } catch (error) {
+    if (isRedirectError(error)) throw error;
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
     if (error instanceof Error && (error.message === "invalid_body" || error.message === "missing_file")) return apiError(400, "invalid_body", "Invalid import payload");
     return apiError(401, "unauthorized", "Authentication required");
@@ -739,6 +745,7 @@ export async function handleAdminEntityArchive(req: NextRequest, entity: EntityN
     if (current.deletedAt) return NextResponse.json({ item: current });
     return NextResponse.json({ item: await deps.appDb.artwork.update({ where, data, select: { id: true, deletedAt: true, deletedByAdminId: true, deletedReason: true } }) });
   } catch (error) {
+    if (isRedirectError(error)) throw error;
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
     return apiError(401, "unauthorized", "Authentication required");
   }
@@ -776,6 +783,7 @@ export async function handleAdminEntityRestore(_req: NextRequest, entity: Entity
     if (!current.deletedAt) return NextResponse.json({ item: current });
     return NextResponse.json({ item: await deps.appDb.artwork.update({ where, data, select: { id: true, deletedAt: true, deletedByAdminId: true, deletedReason: true } }) });
   } catch (error) {
+    if (isRedirectError(error)) throw error;
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
     return apiError(401, "unauthorized", "Authentication required");
   }

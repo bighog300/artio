@@ -14,7 +14,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default async function AdminArtworkOrdersPage() {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
 
   const orders = await db.artworkOrder.findMany({
     orderBy: { createdAt: "desc" },

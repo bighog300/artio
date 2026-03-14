@@ -4,7 +4,7 @@ import { getSiteSettings } from "@/lib/site-settings/get-site-settings";
 import SettingsShell from "./settings-shell";
 
 export default async function AdminSettingsPage() {
-  await requireAdmin();
+  await requireAdmin({ redirectOnFail: true });
   const settings = await getSiteSettings();
 
   return (
