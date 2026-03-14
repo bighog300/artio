@@ -100,6 +100,12 @@ const artworkPatchSchema = z.object({
   slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable().optional(),
   description: z.string().trim().max(5000).nullable().optional(),
   isPublished: z.boolean().optional(),
+  medium: z.string().trim().max(200).nullable().optional(),
+  year: z.coerce.number().int().min(1800).max(2100).nullable().optional(),
+  dimensions: z.string().trim().max(200).nullable().optional(),
+  priceAmount: z.coerce.number().int().min(0).nullable().optional(),
+  currency: z.string().trim().length(3).nullable().optional(),
+  artistId: z.string().uuid().nullable().optional(),
 }).strict();
 
 const importPreviewBodySchema = z.object({
