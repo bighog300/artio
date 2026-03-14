@@ -15,6 +15,8 @@ const completeVenue = {
   city: "Lisbon",
   country: "Portugal",
   websiteUrl: "https://aurora.example",
+  lat: 38.7223,
+  lng: -9.1393,
   images: [{ id: "33333333-3333-4333-8333-333333333333" }],
 };
 
