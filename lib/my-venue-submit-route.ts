@@ -10,7 +10,7 @@ import type { ContentStatus } from "@prisma/client";
 type SessionUser = { id: string; email: string };
 type SubmissionStatus = ContentStatus | null;
 
-type VenueRecord = { id: string; name: string; description: string | null; featuredAssetId: string | null; featuredImageUrl: string | null; addressLine1: string | null; city: string | null; country: string | null; websiteUrl: string | null; images: Array<{ id: string }>; isPublished?: boolean };
+type VenueRecord = { id: string; name: string; description: string | null; featuredAssetId: string | null; featuredImageUrl: string | null; addressLine1: string | null; city: string | null; country: string | null; websiteUrl: string | null; lat?: number | null; lng?: number | null; images: Array<{ id: string }>; isPublished?: boolean };
 type SubmissionRecord = { id: string; status: string; createdAt: Date; submittedAt: Date | null };
 
 type SubmitVenueDeps = {

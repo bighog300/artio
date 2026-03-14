@@ -23,6 +23,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         city: true,
         country: true,
         websiteUrl: true,
+        lat: true,
+        lng: true,
         isPublished: true,
         images: { select: { id: true }, take: 1 },
       },
