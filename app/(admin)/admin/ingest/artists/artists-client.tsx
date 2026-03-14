@@ -31,21 +31,19 @@ type EditDraft = {
 
 function computeArtistCandidateCompleteness(candidate: Candidate): {
   score: number;
-  present: string[];
   missing: string[];
 } {
   const checks = [
-    { key: "bio", label: "bio", has: Boolean(candidate.bio?.trim()) },
-    { key: "mediums", label: "mediums", has: candidate.mediums.length > 0 },
-    { key: "website", label: "website", has: Boolean(candidate.websiteUrl?.trim()) },
-    { key: "instagram", label: "instagram", has: Boolean(candidate.instagramUrl?.trim()) },
-    { key: "nationality", label: "nationality", has: Boolean(candidate.nationality) },
-    { key: "birthYear", label: "birth year", has: candidate.birthYear != null },
+    { label: "bio", has: Boolean(candidate.bio?.trim()) },
+    { label: "mediums", has: candidate.mediums.length > 0 },
+    { label: "website", has: Boolean(candidate.websiteUrl?.trim()) },
+    { label: "instagram", has: Boolean(candidate.instagramUrl?.trim()) },
+    { label: "nationality", has: Boolean(candidate.nationality?.trim()) },
+    { label: "birth year", has: candidate.birthYear != null },
   ];
-  const present = checks.filter((c) => c.has).map((c) => c.label);
+  const present = checks.filter((c) => c.has).length;
   const missing = checks.filter((c) => !c.has).map((c) => c.label);
-  const score = Math.round((present.length / checks.length) * 100);
-  return { score, present, missing };
+  return { score: Math.round((present / checks.length) * 100), missing };
 }
 
 function getConfidenceBand(band: string | null): "HIGH" | "MEDIUM" | "LOW" {
@@ -178,7 +176,7 @@ export default function ArtistsClient({ candidates: initial }: { candidates: Can
     <section className="rounded-lg border bg-background p-4">
       {error ? <div className="mb-3 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700">{error}</div> : null}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1380px] text-sm">
+        <table className="w-full min-w-[1560px] text-sm">
           <thead>
             <tr className="border-b text-left">
               <th className="px-3 py-2">Confidence</th>
@@ -207,22 +205,24 @@ export default function ArtistsClient({ candidates: initial }: { candidates: Can
                   <td className="px-3 py-2 font-medium">{candidate.name}</td>
                   <td className="max-w-[280px] px-3 py-2">{candidate.bio ? `${candidate.bio.slice(0, 100)}${candidate.bio.length > 100 ? "…" : ""}` : "—"}</td>
                   <td className="px-3 py-2">{candidate.mediums.length > 0 ? candidate.mediums.join(", ") : "—"}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2 min-w-[160px]">
                     {(() => {
                       const { score, missing } = computeArtistCandidateCompleteness(candidate);
                       return (
                         <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1">
-                            <div className="h-1.5 w-20 overflow-hidden rounded bg-muted">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-16 overflow-hidden rounded bg-muted">
                               <div
-                                className={`h-full ${score >= 70 ? "bg-emerald-500" : score >= 40 ? "bg-amber-500" : "bg-red-400"}`}
+                                className={`h-full rounded ${score >= 70 ? "bg-emerald-500" : score >= 40 ? "bg-amber-500" : "bg-red-400"}`}
                                 style={{ width: `${score}%` }}
                               />
                             </div>
                             <span className="text-xs text-muted-foreground">{score}%</span>
                           </div>
                           {missing.length > 0 && (
-                            <p className="text-xs text-muted-foreground">Missing: {missing.join(", ")}</p>
+                            <p className="text-xs text-muted-foreground leading-tight">
+                              Missing: {missing.join(", ")}
+                            </p>
                           )}
                         </div>
                       );
