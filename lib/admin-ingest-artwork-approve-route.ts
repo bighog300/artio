@@ -2,6 +2,7 @@ import { apiError } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ensureUniqueArtworkSlugWithDeps, slugifyArtworkTitle } from "@/lib/artwork-slug";
+import { ensureUniqueArtistSlugWithDeps, slugifyArtistName } from "@/lib/artist-slug";
 import { importApprovedArtworkImage } from "@/lib/ingest/import-approved-artwork-image";
 import { NextResponse } from "next/server";
 import { isAuthError } from "@/lib/auth";
@@ -38,8 +39,26 @@ export async function handleAdminIngestArtworkApprove(
       artistId = artist?.id ?? null;
     }
 
+    if (!artistId && candidate.artistName) {
+      const baseSlug = slugifyArtistName(candidate.artistName);
+      const slug = await ensureUniqueArtistSlugWithDeps(
+        { findBySlug: (value) => deps.db.artist.findUnique({ where: { slug: value }, select: { id: true } }) },
+        baseSlug,
+      );
+      const stub = await deps.db.artist.create({
+        data: {
+          name: candidate.artistName,
+          slug: slug ?? candidate.id,
+          isAiDiscovered: true,
+          status: "IN_REVIEW",
+        },
+        select: { id: true },
+      });
+      artistId = stub.id;
+    }
+
     if (!artistId) {
-      return apiError(409, "artist_not_found", `Artist "${candidate.artistName}" does not exist. Create the artist record first, then approve this artwork.`);
+      return apiError(409, "artist_name_missing", "This artwork candidate has no artist name. Set an artist name before approving.");
     }
 
     const result = await deps.db.$transaction(async (tx) => {

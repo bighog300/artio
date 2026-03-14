@@ -96,9 +96,7 @@ export default function ArtworksClient({ candidates: initial }: { candidates: Ca
     try {
       const res = await fetch(`/api/admin/ingest/artworks/${id}/approve`, { method: "POST" });
       if (!res.ok) {
-        const body = await res.json().catch(() => null) as { error?: { message?: string }; message?: string } | null;
-        const message = body?.error?.message ?? body?.message ?? "Failed to approve artwork candidate.";
-        setError(message);
+        setError("Failed to approve artwork candidate due to an unexpected server error.");
         return;
       }
       setCandidates((prev) => prev.filter((item) => item.id !== id));
