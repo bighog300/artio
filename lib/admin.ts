@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
-import { isAuthError, requireAdmin as requireDbAdmin } from "@/lib/auth";
-import { ForbiddenError } from "@/lib/http-errors";
-import { isAdminEmail } from "@/lib/admin-email";
+import { requireAdmin as requireAdminDB } from "@/lib/auth";
 
 export { isAdminEmail } from "@/lib/admin-email";
 
@@ -16,13 +14,13 @@ export class AdminAccessError extends Error {
 
 export async function requireAdmin(options?: { redirectOnFail?: boolean }): Promise<{ email: string }> {
   try {
-    const user = await requireDbAdmin();
+    const user = await requireAdminDB();
     return { email: user.email };
-  } catch (error) {
-    const status = isAuthError(error) ? 401 : error instanceof ForbiddenError ? 403 : null;
-    if (status === 401 && options?.redirectOnFail !== false) redirect("/login");
-    if (status === 403 && options?.redirectOnFail !== false) redirect("/");
-    if (status) throw new AdminAccessError(status);
-    throw error;
+  } catch (err) {
+    const status = (err as { status?: number })?.status === 403 ? 403 : 401;
+    if (options?.redirectOnFail !== false) {
+      redirect(status === 401 ? "/login" : "/");
+    }
+    throw new AdminAccessError(status);
   }
 }
