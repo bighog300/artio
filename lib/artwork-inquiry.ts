@@ -1,3 +1,5 @@
+import { formatPrice } from "@/lib/format";
+
 type ArtworkRow = {
   id: string;
   title: string;
@@ -77,11 +79,7 @@ export async function createArtworkInquiry(args: {
   const artworkSlug = artwork.slug ?? artwork.id;
   const priceFormatted =
     artwork.priceAmount != null && artwork.currency
-      ? new Intl.NumberFormat("en-GB", {
-          style: "currency",
-          currency: artwork.currency,
-          maximumFractionDigits: 0,
-        }).format(artwork.priceAmount / 100)
+      ? formatPrice(artwork.priceAmount, artwork.currency)
       : null;
   const notified = await args.notify({
     buyerEmail: args.buyerEmail,
