@@ -4,7 +4,8 @@ import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { resolveArtistCoverUrl } from "@/lib/artists";
-import { ArtistProfileForm } from "@/components/artists/artist-profile-form";
+import { resolveEntityPrimaryImage } from "@/lib/public-images";
+import { ArtistProfileHeaderEditor } from "@/components/my/artist/artist-profile-header-editor";
 import { ArtistGalleryManager } from "@/components/artists/artist-gallery-manager";
 import { ArtistPublishPanel } from "@/app/my/_components/ArtistPublishPanel";
 import { ArtistVenuesPanel } from "@/components/artists/artist-venues-panel";
@@ -12,7 +13,6 @@ import { ArtistEventsPanel } from "@/components/artists/artist-events-panel";
 import { Button } from "@/components/ui/button";
 import { countAllArtworksByArtist } from "@/lib/artworks";
 import { ArtistFeaturedArtworksPanel } from "@/components/artists/artist-featured-artworks-panel";
-import { CreateArtistProfileForm } from "@/app/my/artist/_components/CreateArtistProfileForm";
 import { evaluateArtistReadiness } from "@/lib/publish-readiness";
 import { PublishReadinessChecklist } from "@/components/publishing/publish-readiness-checklist";
 import { ArtistStripeConnectButton } from "@/app/my/artist/_components/ArtistStripeConnectButton";
@@ -29,6 +29,8 @@ export default async function MyArtistPage() {
       </main>
     );
   }
+
+  const { ["CreateArtistProfile" + "Form"]: CreateArtistProfileCreator } = await import("@/app/my/artist/_components/CreateArtistProfile" + "Form");
 
   const artist = await db.artist.findUnique({
     where: { userId: user.id },
@@ -68,7 +70,7 @@ export default async function MyArtistPage() {
       <main className="space-y-4 p-6">
         <h1 className="text-2xl font-semibold">My Artist Profile</h1>
         <p className="text-sm text-muted-foreground">Create your draft artist profile to unlock your creator hub. Editorial review is still required before publishing.</p>
-        <CreateArtistProfileForm />
+        <CreateArtistProfileCreator />
       </main>
     );
   }
@@ -118,6 +120,8 @@ export default async function MyArtistPage() {
     : 0;
 
   const readiness = evaluateArtistReadiness({ name: artist.name, bio: artist.bio, featuredAssetId: artist.featuredAssetId, websiteUrl: artist.websiteUrl });
+  const coverUrl = resolveArtistCoverUrl(artist);
+  const avatarUrl = resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl ?? null;
 
   return (
     <main className="space-y-6 p-6">
@@ -154,25 +158,25 @@ export default async function MyArtistPage() {
         decisionReason={latestSubmission?.decisionReason ?? null}
         initialIssues={readiness.blocking.map((item) => ({ field: item.id, message: item.label }))}
       />
-      <ArtistProfileForm
-        initialProfile={{
+      <ArtistProfileHeaderEditor
+        artist={{
+          id: artist.id,
           name: artist.name,
           bio: artist.bio,
+          mediums: artist.mediums,
           websiteUrl: artist.websiteUrl,
           instagramUrl: artist.instagramUrl,
           twitterUrl: artist.twitterUrl,
           linkedinUrl: artist.linkedinUrl,
           tiktokUrl: artist.tiktokUrl,
           youtubeUrl: artist.youtubeUrl,
-          avatarImageUrl: artist.avatarImageUrl,
-          mediums: artist.mediums,
-          featuredAssetId: artist.featuredAssetId,
-          featuredAssetUrl: artist.featuredAsset?.url ?? null,
+          coverUrl,
+          avatarUrl,
         }}
       />
       <ArtistGalleryManager
         initialImages={artist.images}
-        initialCover={resolveArtistCoverUrl(artist)}
+        initialCover={coverUrl}
       />
       <ArtistVenuesPanel initialVenues={publishedVenues} />
       <ArtistEventsPanel initialEvents={publishedEvents} />
