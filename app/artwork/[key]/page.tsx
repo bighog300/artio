@@ -323,6 +323,8 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
           priceAmount={artwork.priceAmount}
           currency={artwork.currency}
           initialOfferAmountMajor={artwork.offers[0] ? artwork.offers[0].offerAmount / 100 : undefined}
+          initialBuyerName={user?.name ?? ""}
+          initialBuyerEmail={user?.email ?? ""}
         />
       ) : (
         <ArtworkEnquireCard
@@ -330,6 +332,8 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
           artworkTitle={artwork.title}
           priceFormatted="Price on request"
           artistName={artwork.artist.name}
+          initialBuyerName={user?.name ?? ""}
+          initialBuyerEmail={user?.email ?? ""}
         />
       )}
 
