@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArtworkFilterSidebar } from "@/components/artwork/artwork-filter-sidebar";
 import { ArtworkCard, type ArtworkListItem } from "@/components/artwork/artwork-card";
@@ -274,9 +275,9 @@ export function ArtworkBrowser({
                 </button>
               )}
               {hasFilters && !signedIn && (
-                <a href="/api/auth/signin" className="text-xs text-muted-foreground underline">
+                <Link href="/api/auth/signin" className="text-xs text-muted-foreground underline">
                   Sign in to save
-                </a>
+                </Link>
               )}
             </div>
           </div>
