@@ -46,7 +46,7 @@ export default function IngestShellClient({ stats, children }: Props) {
 
   return (
     <main className="space-y-4">
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-8">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-10">
         <StatCard
           label="Pending"
           value={stats.total}
@@ -104,6 +104,22 @@ export default function IngestShellClient({ stats, children }: Props) {
           note={stats.pendingVenueImages > 0 ? "Awaiting review" : "All reviewed"}
           accentClassName={stats.pendingVenueImages > 0 ? "text-amber-700" : "text-muted-foreground"}
         />
+        <Link href="/admin/ingest/artists">
+          <StatCard
+            label="Artist candidates"
+            value={stats.pendingArtists}
+            note={stats.pendingArtists > 0 ? "Awaiting review" : "Queue clear"}
+            accentClassName={stats.pendingArtists > 0 ? "text-amber-700" : "text-muted-foreground"}
+          />
+        </Link>
+        <Link href="/admin/ingest/artworks">
+          <StatCard
+            label="Artwork candidates"
+            value={stats.pendingArtworks}
+            note={stats.pendingArtworks > 0 ? "Awaiting review" : "Queue clear"}
+            accentClassName={stats.pendingArtworks > 0 ? "text-amber-700" : "text-muted-foreground"}
+          />
+        </Link>
       </section>
 
       <nav className="flex items-center gap-2 border-b">
@@ -117,14 +133,13 @@ export default function IngestShellClient({ stats, children }: Props) {
           href="/admin/ingest/artists"
           className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artists") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
-          Artists {stats.pendingArtists > 0 ? `(${stats.pendingArtists})` : ""}
+          Artists
         </Link>
         <Link
           href="/admin/ingest/artworks"
           className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artworks") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
-          Artworks{" "}
-          {stats.pendingArtworks > 0 ? `(${stats.pendingArtworks})` : ""}
+          Artworks
         </Link>
         <Link
           href="/admin/ingest/discovery"
