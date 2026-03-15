@@ -22,11 +22,22 @@ export async function GET(req: NextRequest) {
   if (!parsed.success) return apiError(400, "invalid_request", "Invalid query parameters", zodDetails(parsed.error));
 
   const { query, page, pageSize, sort } = parsed.data;
+  const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") ?? "10") || 10, 10);
   const where = {
     isPublished: true,
     deletedAt: null,
     ...(query ? { name: { contains: query, mode: "insensitive" as const } } : {}),
   };
+
+  if (query) {
+    const artists = await db.artist.findMany({
+      where,
+      orderBy: { name: "asc" },
+      take: limit,
+      select: { id: true, name: true, slug: true },
+    });
+    return NextResponse.json({ artists, items: artists, page: 1, pageSize: artists.length, total: artists.length });
+  }
 
   const dbArtists = await db.artist.findMany({
     where,
