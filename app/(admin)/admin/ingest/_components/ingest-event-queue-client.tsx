@@ -94,13 +94,11 @@ export default function IngestEventQueueClient({
           <select
             className="rounded border px-2 py-1 text-sm"
             value={venueFilter}
-            onChange={(event) => setVenueFilter(event.target.value)}
+            onChange={(e) => setVenueFilter(e.target.value)}
           >
             <option value="all">All venues ({candidates.length})</option>
             {venues.map((venue) => {
-              const count = candidates.filter(
-                (candidate) => candidate.venue.id === venue.id,
-              ).length;
+              const count = candidates.filter((c) => c.venue.id === venue.id).length;
               if (count === 0) return null;
               return (
                 <option key={venue.id} value={venue.id}>
@@ -109,20 +107,22 @@ export default function IngestEventQueueClient({
               );
             })}
           </select>
+        </div>
+        <div className="flex flex-col gap-1">
           <p className="text-sm text-muted-foreground">
             {venueFilter === "all"
               ? "Showing up to 100 primary pending candidates from all venues."
               : `Showing ${filteredCandidates.length} pending candidate${filteredCandidates.length === 1 ? "" : "s"} for this venue.`}
           </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={showReasons}
+              onChange={(e) => setShowReasons(e.target.checked)}
+            />
+            Show confidence reasons
+          </label>
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={showReasons}
-            onChange={(event) => setShowReasons(event.target.checked)}
-          />
-          Show confidence reasons
-        </label>
       </div>
       {importImageError ? (
         <div className="mb-3 flex items-center justify-between rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
