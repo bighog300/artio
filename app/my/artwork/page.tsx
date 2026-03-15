@@ -39,6 +39,7 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
           title: true,
           slug: true,
           isPublished: true,
+          status: true,
           updatedAt: true,
           deletedAt: true,
           priceAmount: true,
@@ -91,7 +92,21 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
               );
             })()}
             <h3 className="font-medium">{item.title}</h3>
-            <p className="text-xs text-muted-foreground">{item.deletedAt ? "Archived" : item.isPublished ? "Published" : "Draft"}</p>
+            <p className={`text-xs font-medium ${
+              item.deletedAt ? "text-muted-foreground"
+              : item.isPublished ? "text-emerald-700"
+              : item.status === "IN_REVIEW" ? "text-amber-700"
+              : item.status === "REJECTED" ? "text-destructive"
+              : item.status === "CHANGES_REQUESTED" ? "text-orange-600"
+              : "text-muted-foreground"
+            }`}>
+              {item.deletedAt ? "Archived"
+              : item.isPublished ? "Published"
+              : item.status === "IN_REVIEW" ? "In review"
+              : item.status === "REJECTED" ? "Rejected"
+              : item.status === "CHANGES_REQUESTED" ? "Changes requested"
+              : "Draft"}
+            </p>
             {item.priceAmount != null && (
               <p className="text-xs text-muted-foreground">{formatPrice(item.priceAmount, item.currency ?? DEFAULT_CURRENCY)}</p>
             )}
@@ -109,7 +124,7 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
               <Link className="underline" href={`/my/artwork/${item.id}`}>
                 Edit
               </Link>
-              <MyArtworkPublishToggleButton artworkId={item.id} initialIsPublished={item.isPublished} />
+              <MyArtworkPublishToggleButton artworkId={item.id} initialIsPublished={item.isPublished} status={item.status} />
               <Link className="underline" href={`/artwork/${item.slug ?? item.id}`}>
                 View Public
               </Link>
@@ -118,6 +133,24 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
           </article>
         ))}
       </div>
+      {items.length === 0 && artist && (
+        <div className="rounded border border-dashed p-8 text-center">
+          <p className="text-sm text-muted-foreground">No artworks yet.</p>
+          <Button asChild size="sm" className="mt-3">
+            <Link href="/my/artwork/new">Add your first artwork</Link>
+          </Button>
+        </div>
+      )}
+      {!artist && (
+        <div className="rounded border border-dashed p-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            Create an artist profile to start adding artworks.
+          </p>
+          <Button asChild size="sm" className="mt-3">
+            <Link href="/my/artist">Create artist profile</Link>
+          </Button>
+        </div>
+      )}
     </main>
   );
 }

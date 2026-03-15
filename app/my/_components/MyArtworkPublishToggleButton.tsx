@@ -18,10 +18,26 @@ export async function requestArtworkPublishToggle(
   });
 }
 
-export function MyArtworkPublishToggleButton({ artworkId, initialIsPublished }: { artworkId: string; initialIsPublished: boolean }) {
+export function MyArtworkPublishToggleButton({
+  artworkId,
+  initialIsPublished,
+  status,
+}: {
+  artworkId: string;
+  initialIsPublished: boolean;
+  status?: string;
+}) {
   const router = useRouter();
   const [isPublished, setIsPublished] = useState(initialIsPublished);
   const [busy, setBusy] = useState(false);
+
+  if (status === "IN_REVIEW") {
+    return (
+      <Button type="button" variant="secondary" size="sm" disabled>
+        In review
+      </Button>
+    );
+  }
 
   async function onToggle() {
     if (busy) return;
