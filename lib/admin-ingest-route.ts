@@ -439,6 +439,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
       }
 
       let unmatchedNames: string[] = [];
+      let sparseArtistNames: string[] = [];
       let artistSettings: {
         googlePseApiKey: string | undefined;
         googlePseCx: string | undefined;
@@ -468,12 +469,14 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
 
       const needsSettings = process.env.AI_ARTWORK_INGEST_ENABLED === "1"
         || process.env.AI_ARTIST_INGEST_ENABLED === "1"
-        || process.env.AI_AUTO_TAG_ENABLED === "1";
+        || process.env.AI_AUTO_TAG_ENABLED === "1"
+        || process.env.AI_ARTIST_ENRICH_ON_MATCH === "1";
       const settings = needsSettings
         ? await tx.siteSettings.findUnique({
           where: { id: "default" },
           select: {
             artworkExtractionProvider: true,
+            enrichMatchedArtists: true,
             googlePseApiKey: true,
             googlePseCx: true,
             artistLookupProvider: true,
@@ -488,6 +491,20 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         })
         : null;
 
+      if (
+        process.env.AI_ARTIST_ENRICH_ON_MATCH === "1" &&
+        settings?.enrichMatchedArtists &&
+        matchedArtists.length > 0
+      ) {
+        const matchedDetails = await tx.artist.findMany({
+          where: { id: { in: matchedArtists.map((a) => a.id) } },
+          select: { id: true, name: true, bio: true, mediums: true, featuredAssetId: true },
+        });
+        sparseArtistNames = matchedDetails
+          .filter((a) => !a.bio?.trim() || a.mediums.length === 0 || !a.featuredAssetId)
+          .map((a) => a.name);
+      }
+
       if (process.env.AI_ARTWORK_INGEST_ENABLED === "1") {
         artworkSettings = {
           artworkExtractionProvider: settings?.artworkExtractionProvider,
@@ -497,14 +514,17 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         };
       }
 
-      if (process.env.AI_ARTIST_INGEST_ENABLED === "1") {
+      if (
+        process.env.AI_ARTIST_INGEST_ENABLED === "1" ||
+        process.env.AI_ARTIST_ENRICH_ON_MATCH === "1"
+      ) {
         unmatchedNames = (candidate.artistNames ?? []).filter(
           (name) => !matchedArtists.some(
             (a) => a.name.toLowerCase() === name.toLowerCase(),
           ),
         );
 
-        if (unmatchedNames.length > 0) {
+        if (unmatchedNames.length > 0 || sparseArtistNames.length > 0) {
           artistSettings = {
             googlePseApiKey: settings?.googlePseApiKey ?? process.env.GOOGLE_PSE_API_KEY,
             googlePseCx: settings?.googlePseCx ?? process.env.GOOGLE_PSE_CX,
@@ -568,6 +588,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         eventDescription: createdEvent.description ?? null,
         autoTagSettings,
         unmatchedNames,
+        sparseArtistNames,
         artistSettings,
         artworkSettings,
         sourceUrl: candidate.sourceUrl,
@@ -587,6 +608,8 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
 
     if ("error" in approved) return approved.error;
 
+    const sparseArtistNames = approved.sparseArtistNames ?? [];
+
     if (
       process.env.AI_ARTIST_INGEST_ENABLED === "1" &&
       approved.unmatchedNames.length > 0 &&
@@ -601,6 +624,25 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
             settings: approved.artistSettings!,
           }).catch((err) =>
             console.error("[artist-discovery] failed for", name, err),
+          ),
+        ),
+      ).catch(() => {});
+    }
+
+    if (
+      process.env.AI_ARTIST_ENRICH_ON_MATCH === "1" &&
+      sparseArtistNames.length > 0 &&
+      approved.artistSettings
+    ) {
+      Promise.all(
+        sparseArtistNames.map((name) =>
+          discoverArtist({
+            db: resolved.appDb,
+            artistName: name,
+            eventId: approved.createdEventId,
+            settings: approved.artistSettings!,
+          }).catch((err) =>
+            console.error("[artist-enrichment] failed for", name, err),
           ),
         ),
       ).catch(() => {});

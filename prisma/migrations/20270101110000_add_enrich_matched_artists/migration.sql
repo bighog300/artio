@@ -1,0 +1,2 @@
+ALTER TABLE "SiteSettings"
+  ADD COLUMN IF NOT EXISTS "enrichMatchedArtists" BOOLEAN NOT NULL DEFAULT false;

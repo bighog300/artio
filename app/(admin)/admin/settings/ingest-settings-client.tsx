@@ -26,6 +26,7 @@ type IngestSettingsProps = {
     regionAutoPublishVenues?: boolean;
     regionAutoPublishEvents?: boolean;
     regionAutoPublishArtists?: boolean;
+    enrichMatchedArtists?: boolean;
     regionAutoPublishArtworks?: boolean;
     regionDiscoveryEnabled?: boolean;
     regionMaxVenuesPerRun?: number | null;
@@ -89,6 +90,9 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
   );
   const [regionAutoPublishArtists, setRegionAutoPublishArtists] = useState(
     props.initial.regionAutoPublishArtists ?? false,
+  );
+  const [enrichMatchedArtists, setEnrichMatchedArtists] = useState(
+    props.initial.enrichMatchedArtists ?? false,
   );
   const [regionAutoPublishArtworks, setRegionAutoPublishArtworks] = useState(
     props.initial.regionAutoPublishArtworks ?? false,
@@ -181,6 +185,7 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
         regionAutoPublishVenues,
         regionAutoPublishEvents,
         regionAutoPublishArtists,
+        enrichMatchedArtists,
         regionAutoPublishArtworks,
         regionDiscoveryEnabled,
         regionMaxVenuesPerRun: regionMaxVenuesPerRun.trim()
@@ -311,6 +316,19 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
             }}
           />
           Auto-publish artists from region runs
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={enrichMatchedArtists}
+            onChange={(e) => setEnrichMatchedArtists(e.target.checked)}
+          />
+          <span>
+            Enrich matched artists
+            <span className="ml-1 text-xs text-muted-foreground">
+              Re-run discovery on existing artists with sparse profiles (missing bio, mediums, or image) when they are matched during event approval. Requires <code>AI_ARTIST_ENRICH_ON_MATCH=1</code>.
+            </span>
+          </span>
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input

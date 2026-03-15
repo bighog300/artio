@@ -99,6 +99,7 @@ const patchSchema = z
     regionAutoPublishVenues: z.boolean().optional(),
     regionAutoPublishEvents: z.boolean().optional(),
     regionAutoPublishArtists: z.boolean().optional(),
+    enrichMatchedArtists: z.boolean().optional(),
     regionAutoPublishArtworks: z.boolean().optional(),
     regionDiscoveryEnabled: z.boolean().optional(),
     regionMaxVenuesPerRun: z
@@ -187,6 +188,7 @@ export async function handleAdminSettingsGet(
         regionAutoPublishVenues: settings.regionAutoPublishVenues ?? false,
         regionAutoPublishEvents: settings.regionAutoPublishEvents ?? false,
         regionAutoPublishArtists: settings.regionAutoPublishArtists ?? false,
+        enrichMatchedArtists: settings.enrichMatchedArtists ?? false,
         regionAutoPublishArtworks: settings.regionAutoPublishArtworks ?? false,
         regionDiscoveryEnabled: settings.regionDiscoveryEnabled ?? false,
         regionMaxVenuesPerRun: settings.regionMaxVenuesPerRun ?? null,
@@ -270,6 +272,7 @@ export async function handleAdminSettingsPatch(
           regionAutoPublishVenues: updated.regionAutoPublishVenues,
           regionAutoPublishEvents: updated.regionAutoPublishEvents,
           regionAutoPublishArtists: updated.regionAutoPublishArtists,
+          enrichMatchedArtists: updated.enrichMatchedArtists,
           regionAutoPublishArtworks: updated.regionAutoPublishArtworks,
           regionDiscoveryEnabled: updated.regionDiscoveryEnabled,
           regionMaxVenuesPerRun: updated.regionMaxVenuesPerRun,
