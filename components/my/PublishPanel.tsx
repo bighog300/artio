@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getPublisherStatusLabel, type PublishIntentResponse, type PublishOutcome, type UnifiedPublishStatus } from "@/lib/publish-intent";
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
   title: string;
   publicUrl?: string;
   onStatusChange?: (status: UnifiedPublishStatus) => void;
+  requiresConfirmation?: boolean;
 };
 
 function getStatusVariant(status: UnifiedPublishStatus): "default" | "secondary" | "destructive" | "outline" {
@@ -23,10 +25,11 @@ function getStatusVariant(status: UnifiedPublishStatus): "default" | "secondary"
   return "outline";
 }
 
-export function PublishPanel({ resourceType, id, status, title, publicUrl, onStatusChange }: Props) {
+export function PublishPanel({ resourceType, id, status, title, publicUrl, onStatusChange, requiresConfirmation }: Props) {
   const [currentStatus, setCurrentStatus] = useState<UnifiedPublishStatus>(status);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PublishIntentResponse | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const statusLabel = getPublisherStatusLabel(currentStatus);
 
@@ -94,7 +97,14 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
           variant={(currentStatus === "PUBLISHED" || currentStatus === "APPROVED") ? "destructive" : "default"}
           disabled={state.disabled || loading}
           onClick={() => {
-            if (state.action === "publish") void runAction("publish");
+            if (state.action === "publish") {
+              if (requiresConfirmation) {
+                setConfirmOpen(true);
+              } else {
+                void runAction("publish");
+              }
+              return;
+            }
             if (state.action === "unpublish") void runAction("unpublish");
             if (state.action === "restore") void runAction("restore");
           }}
@@ -126,6 +136,34 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
           </div>
         ) : null}
       </CardContent>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit for review?</DialogTitle>
+            <DialogDescription>
+              Your {resourceType} will be reviewed by our team before going live. You'll receive an email confirmation once submitted.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setConfirmOpen(false);
+                void runAction("publish");
+              }}
+              disabled={loading}
+            >
+              Submit for review
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

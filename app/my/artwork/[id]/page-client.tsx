@@ -249,7 +249,7 @@ export function ArtworkDetailClient({
           <PublishPanel resourceType="artwork" id={artwork.id} status={status} title={artwork.title || "Untitled artwork"} publicUrl={`/artwork/${artwork.slug ?? artwork.id}`} onStatusChange={() => {
             void refresh();
             router.refresh();
-          }} />
+          }} requiresConfirmation />
         </aside>
       </div>
       <ArtworkRelationsPanel artworkId={artwork.id} initialVenues={initialVenues} initialEvents={initialEvents} />
