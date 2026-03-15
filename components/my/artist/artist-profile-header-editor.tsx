@@ -1,11 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { enqueueToast } from "@/lib/toast";
-import { Camera, ExternalLink, Loader2, Pencil, Plus, X } from "lucide-react";
 
 type ArtistHeaderData = {
   id: string;
@@ -25,7 +24,7 @@ type ArtistHeaderData = {
 const SOCIAL_FIELDS = [
   { key: "websiteUrl", label: "Website" },
   { key: "instagramUrl", label: "Instagram" },
-  { key: "twitterUrl", label: "Twitter" },
+  { key: "twitterUrl", label: "Twitter / X" },
   { key: "linkedinUrl", label: "LinkedIn" },
   { key: "tiktokUrl", label: "TikTok" },
   { key: "youtubeUrl", label: "YouTube" },
@@ -33,400 +32,336 @@ const SOCIAL_FIELDS = [
 
 type SocialKey = (typeof SOCIAL_FIELDS)[number]["key"];
 
-type ArtistState = ArtistHeaderData;
-
-export function ArtistProfileHeaderEditor({ artist }: { artist: ArtistHeaderData }) {
-  const [data, setData] = useState<ArtistState>(artist);
-  const [coverUploading, setCoverUploading] = useState(false);
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const [profileSaving, setProfileSaving] = useState(false);
-  const [socialSaving, setSocialSaving] = useState(false);
-  const [zoneErrors, setZoneErrors] = useState<{ cover: string | null; avatar: string | null; profile: string | null; social: string | null }>({
-    cover: null,
-    avatar: null,
-    profile: null,
-    social: null,
+async function patchArtist(data: Record<string, unknown>) {
+  const res = await fetch("/api/my/artist", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(data),
   });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error?.message ?? "Save failed");
+  }
+  return res.json();
+}
 
+export function ArtistProfileHeaderEditor({ artist: initial }: { artist: ArtistHeaderData }) {
+  const [artist, setArtist] = useState(initial);
+
+  // Cover upload
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  // Avatar upload
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // Name editing
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(artist.name);
+  const [savingName, setSavingName] = useState(false);
 
+  // Bio editing
   const [editingBio, setEditingBio] = useState(false);
   const [bioDraft, setBioDraft] = useState(artist.bio ?? "");
+  const [savingBio, setSavingBio] = useState(false);
 
+  // Mediums editing
   const [editingMediums, setEditingMediums] = useState(false);
-  const [mediumsDraft, setMediumsDraft] = useState(artist.mediums);
-  const [newMediumDraft, setNewMediumDraft] = useState("");
+  const [mediumsDraft, setMediumsDraft] = useState<string[]>(artist.mediums);
+  const [mediumInput, setMediumInput] = useState("");
+  const [savingMediums, setSavingMediums] = useState(false);
 
+  // Social editing
   const [editingField, setEditingField] = useState<SocialKey | null>(null);
   const [socialDraft, setSocialDraft] = useState("");
+  const [savingSocial, setSavingSocial] = useState(false);
 
-  const coverInputRef = useRef<HTMLInputElement | null>(null);
-  const avatarInputRef = useRef<HTMLInputElement | null>(null);
-  const nameInputRef = useRef<HTMLInputElement | null>(null);
-  const bioInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const socialInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (editingName) nameInputRef.current?.focus();
-  }, [editingName]);
-
-  useEffect(() => {
-    if (editingBio) bioInputRef.current?.focus();
-  }, [editingBio]);
-
-  useEffect(() => {
-    if (editingField) socialInputRef.current?.focus();
-  }, [editingField]);
-
-  function setZoneError(zone: "cover" | "avatar" | "profile" | "social", message: string) {
-    setZoneErrors((prev) => ({ ...prev, [zone]: message }));
-    window.setTimeout(() => {
-      setZoneErrors((prev) => ({ ...prev, [zone]: null }));
-    }, 3000);
-  }
-
-  async function patchArtist(patch: Partial<ArtistHeaderData>) {
-    const res = await fetch("/api/my/artist", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body?.error?.message ?? "Failed to save profile");
+  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCover(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("type", "cover");
+      const res = await fetch("/api/my/artist/cover", { method: "POST", body: fd });
+      if (!res.ok) throw new Error("Upload failed");
+      const data = await res.json();
+      setArtist((a) => ({ ...a, coverUrl: data.url ?? a.coverUrl }));
+      enqueueToast({ title: "Cover updated", variant: "success" });
+    } catch (err) {
+      enqueueToast({ title: err instanceof Error ? err.message : "Upload failed", variant: "error" });
+    } finally {
+      setUploadingCover(false);
+      e.target.value = "";
     }
   }
 
-  async function onCoverFileSelected(file: File | null) {
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
     if (!file) return;
-    setCoverUploading(true);
-
+    setUploadingAvatar(true);
     try {
-      const formData = new FormData();
-      formData.set("file", file);
-      formData.set("type", "cover");
-
-      const res = await fetch("/api/my/artist/cover", { method: "POST", body: formData });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error?.message ?? "Failed to update cover");
-
-      const nextCoverUrl = body?.url ?? body?.coverUrl ?? body?.cover?.url ?? null;
-      if (nextCoverUrl) {
-        setData((prev) => ({ ...prev, coverUrl: nextCoverUrl }));
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/my/artist/images/upload", { method: "POST", body: fd });
+      if (!res.ok) throw new Error("Upload failed");
+      const data = await res.json();
+      if (data.assetId) {
+        await patchArtist({ featuredAssetId: data.assetId });
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to update cover";
-      setZoneError("cover", message);
-      enqueueToast({ title: message, variant: "error" });
+      setArtist((a) => ({ ...a, avatarUrl: data.url ?? a.avatarUrl }));
+      enqueueToast({ title: "Photo updated", variant: "success" });
+    } catch (err) {
+      enqueueToast({ title: err instanceof Error ? err.message : "Upload failed", variant: "error" });
     } finally {
-      setCoverUploading(false);
-    }
-  }
-
-  async function onAvatarFileSelected(file: File | null) {
-    if (!file) return;
-    setAvatarUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.set("file", file);
-
-      const uploadRes = await fetch("/api/my/artist/images/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const uploadBody = await uploadRes.json().catch(() => ({}));
-      if (!uploadRes.ok) throw new Error(uploadBody?.error?.message ?? "Failed to upload avatar");
-
-      const assetId = uploadBody?.assetId ?? uploadBody?.image?.assetId;
-      const uploadedUrl = uploadBody?.url ?? uploadBody?.image?.url;
-      if (!assetId) throw new Error("Upload did not return an asset id");
-
-      await patchArtist({ featuredAssetId: assetId });
-      setData((prev) => ({ ...prev, avatarUrl: uploadedUrl ?? prev.avatarUrl }));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to update avatar";
-      setZoneError("avatar", message);
-      enqueueToast({ title: message, variant: "error" });
-    } finally {
-      setAvatarUploading(false);
+      setUploadingAvatar(false);
+      e.target.value = "";
     }
   }
 
   async function saveName() {
-    const trimmed = nameDraft.trim();
-    if (!trimmed || trimmed === data.name) {
-      setNameDraft(data.name);
-      setEditingName(false);
-      return;
-    }
-
-    setProfileSaving(true);
+    if (nameDraft.trim() === artist.name) { setEditingName(false); return; }
+    setSavingName(true);
     try {
-      await patchArtist({ name: trimmed });
-      setData((prev) => ({ ...prev, name: trimmed }));
+      await patchArtist({ name: nameDraft.trim() });
+      setArtist((a) => ({ ...a, name: nameDraft.trim() }));
       setEditingName(false);
-    } catch (error) {
-      setZoneError("profile", error instanceof Error ? error.message : "Failed to save name");
+    } catch (err) {
+      enqueueToast({ title: err instanceof Error ? err.message : "Save failed", variant: "error" });
     } finally {
-      setProfileSaving(false);
+      setSavingName(false);
     }
   }
 
   async function saveBio() {
-    const trimmed = bioDraft.trim();
-    const nextBio = trimmed || null;
-    if (nextBio === data.bio) {
-      setEditingBio(false);
-      return;
-    }
-
-    setProfileSaving(true);
+    const value = bioDraft.trim() || null;
+    if (value === artist.bio) { setEditingBio(false); return; }
+    setSavingBio(true);
     try {
-      await patchArtist({ bio: nextBio });
-      setData((prev) => ({ ...prev, bio: nextBio }));
+      await patchArtist({ bio: value });
+      setArtist((a) => ({ ...a, bio: value }));
       setEditingBio(false);
-    } catch (error) {
-      setZoneError("profile", error instanceof Error ? error.message : "Failed to save bio");
+    } catch (err) {
+      enqueueToast({ title: err instanceof Error ? err.message : "Save failed", variant: "error" });
     } finally {
-      setProfileSaving(false);
+      setSavingBio(false);
     }
   }
 
   async function saveMediums() {
-    setProfileSaving(true);
+    setSavingMediums(true);
     try {
       await patchArtist({ mediums: mediumsDraft });
-      setData((prev) => ({ ...prev, mediums: mediumsDraft }));
+      setArtist((a) => ({ ...a, mediums: mediumsDraft }));
       setEditingMediums(false);
-    } catch (error) {
-      setZoneError("profile", error instanceof Error ? error.message : "Failed to save mediums");
+    } catch (err) {
+      enqueueToast({ title: err instanceof Error ? err.message : "Save failed", variant: "error" });
     } finally {
-      setProfileSaving(false);
+      setSavingMediums(false);
     }
   }
 
-  async function saveSocialField(field: SocialKey, value: string) {
-    const nextValue = value.trim() || null;
-    if (nextValue === data[field]) {
-      setEditingField(null);
-      return;
+  function addMedium() {
+    const val = mediumInput.trim();
+    if (val && !mediumsDraft.includes(val)) {
+      setMediumsDraft((m) => [...m, val]);
     }
+    setMediumInput("");
+  }
 
-    setSocialSaving(true);
+  async function saveSocial() {
+    if (!editingField) return;
+    setSavingSocial(true);
     try {
-      await patchArtist({ [field]: nextValue });
-      setData((prev) => ({ ...prev, [field]: nextValue }));
+      await patchArtist({ [editingField]: socialDraft.trim() || null });
+      setArtist((a) => ({ ...a, [editingField]: socialDraft.trim() || null }));
       setEditingField(null);
-    } catch (error) {
-      setZoneError("social", error instanceof Error ? error.message : `Failed to save ${field}`);
+    } catch (err) {
+      enqueueToast({ title: err instanceof Error ? err.message : "Save failed", variant: "error" });
     } finally {
-      setSocialSaving(false);
+      setSavingSocial(false);
     }
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-card">
-      <div className="group relative aspect-[16/5] min-h-24 bg-gradient-to-r from-indigo-500/50 via-fuchsia-500/40 to-cyan-400/40">
-        {data.coverUrl ? <Image src={data.coverUrl} alt={`${data.name} cover`} fill className="object-cover" sizes="100vw" /> : null}
-        <input
-          ref={coverInputRef}
-          type="file"
-          className="hidden"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={(e) => {
-            onCoverFileSelected(e.target.files?.[0] ?? null);
-            e.currentTarget.value = "";
-          }}
-        />
-        <button
-          type="button"
-          className="absolute inset-0 hidden items-center justify-center bg-black/40 text-sm text-white group-hover:flex"
-          onClick={() => coverInputRef.current?.click()}
-          disabled={coverUploading}
-        >
-          <span className="inline-flex items-center gap-2">{coverUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}Change cover</span>
-        </button>
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      {/* Cover zone */}
+      <div className="group relative aspect-[16/5] min-h-24 bg-gradient-to-r from-indigo-500/50 via-fuchsia-500/40 to-cyan-400/40 cursor-pointer"
+        onClick={() => coverInputRef.current?.click()}>
+        {artist.coverUrl
+          ? <Image src={artist.coverUrl} alt="Cover" fill className="object-cover" sizes="100vw" />
+          : null}
+        <div className="absolute inset-0 hidden group-hover:flex flex-col items-center justify-center bg-black/40 text-white gap-1">
+          {uploadingCover
+            ? <span className="text-sm">Uploading…</span>
+            : <><span className="text-2xl">📷</span><span className="text-sm font-medium">Change cover</span></>}
+        </div>
+        <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleCoverUpload} />
       </div>
-      {zoneErrors.cover ? <p className="px-4 pt-2 text-xs text-red-600">{zoneErrors.cover}</p> : null}
 
+      {/* Profile info zone */}
       <div className="-mt-10 p-4 md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex items-end gap-4">
-            <div className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-background bg-muted md:h-24 md:w-24">
-              {data.avatarUrl ? <Image src={data.avatarUrl} alt={data.name} fill className="object-cover" sizes="96px" /> : <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No image</div>}
-              <input
-                ref={avatarInputRef}
-                type="file"
-                className="hidden"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(e) => {
-                  onAvatarFileSelected(e.target.files?.[0] ?? null);
-                  e.currentTarget.value = "";
-                }}
-              />
-              <button
-                type="button"
-                className="absolute inset-0 hidden items-center justify-center bg-black/40 text-center text-xs text-white group-hover:flex"
-                onClick={() => avatarInputRef.current?.click()}
-                disabled={avatarUploading}
-              >
-                {avatarUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Change photo"}
-              </button>
+            {/* Avatar zone */}
+            <div className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-background bg-muted cursor-pointer md:h-24 md:w-24"
+              onClick={() => avatarInputRef.current?.click()}>
+              {artist.avatarUrl
+                ? <Image src={artist.avatarUrl} alt={artist.name} fill className="object-cover" sizes="96px" />
+                : <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No photo</div>}
+              <div className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/40 text-white text-xs font-medium rounded-full">
+                {uploadingAvatar ? "…" : "Edit"}
+              </div>
+              <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarUpload} />
             </div>
 
-            <div className="space-y-2">
-              <div className="group/name inline-flex items-center gap-2">
-                {editingName ? (
+            {/* Name + bio + mediums */}
+            <div className="space-y-2 min-w-0">
+              {/* Name */}
+              {editingName ? (
+                <div className="flex items-center gap-2">
                   <input
-                    ref={nameInputRef}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-2xl font-semibold"
+                    autoFocus
+                    className="text-2xl font-semibold rounded border px-1 bg-background w-full max-w-xs"
                     value={nameDraft}
                     onChange={(e) => setNameDraft(e.target.value)}
-                    onBlur={saveName}
+                    onBlur={() => void saveName()}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") saveName();
-                      if (e.key === "Escape") {
-                        setNameDraft(data.name);
-                        setEditingName(false);
-                      }
+                      if (e.key === "Enter") void saveName();
+                      if (e.key === "Escape") { setNameDraft(artist.name); setEditingName(false); }
                     }}
                   />
-                ) : (
-                  <button type="button" className="inline-flex items-center gap-2" onClick={() => setEditingName(true)}>
-                    <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{data.name}</h1>
-                    {profileSaving ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <Pencil className="hidden h-4 w-4 text-muted-foreground group-hover/name:block" />}
-                  </button>
-                )}
-              </div>
+                  {savingName && <span className="text-xs text-muted-foreground">Saving…</span>}
+                </div>
+              ) : (
+                <h1
+                  className="group/name flex items-center gap-2 text-2xl font-semibold tracking-tight md:text-3xl cursor-pointer"
+                  onClick={() => { setNameDraft(artist.name); setEditingName(true); }}
+                >
+                  {artist.name}
+                  <span className="hidden group-hover/name:inline text-sm text-muted-foreground">✏️</span>
+                </h1>
+              )}
 
-              <div className="group/bio max-w-2xl">
-                {editingBio ? (
+              {/* Bio */}
+              {editingBio ? (
+                <div className="space-y-1">
                   <textarea
-                    ref={bioInputRef}
+                    autoFocus
+                    className="w-full rounded border p-2 text-sm bg-background min-w-[280px]"
                     rows={4}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={bioDraft}
                     onChange={(e) => setBioDraft(e.target.value)}
-                    onBlur={saveBio}
+                    onBlur={() => void saveBio()}
                     onKeyDown={(e) => {
-                      if (e.key === "Escape") {
-                        setBioDraft(data.bio ?? "");
-                        setEditingBio(false);
-                      }
+                      if (e.key === "Escape") { setBioDraft(artist.bio ?? ""); setEditingBio(false); }
+                      if (e.key === "Enter" && e.metaKey) void saveBio();
                     }}
                   />
-                ) : (
-                  <button type="button" className="inline-flex items-center gap-2 text-left" onClick={() => setEditingBio(true)}>
-                    <p className="text-sm text-muted-foreground">{data.bio || "Click to add bio…"}</p>
-                    {profileSaving ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <Pencil className="hidden h-4 w-4 text-muted-foreground group-hover/bio:block" />}
-                  </button>
-                )}
-              </div>
+                  {savingBio && <span className="text-xs text-muted-foreground">Saving…</span>}
+                </div>
+              ) : (
+                <p
+                  className="group/bio text-sm text-muted-foreground cursor-pointer flex items-start gap-1"
+                  onClick={() => { setBioDraft(artist.bio ?? ""); setEditingBio(true); }}
+                >
+                  {artist.bio ?? <span className="italic">Click to add bio…</span>}
+                  <span className="hidden group-hover/bio:inline shrink-0">✏️</span>
+                </p>
+              )}
 
-              <div>
-                <button type="button" className="group/mediums inline-flex flex-wrap items-center gap-2" onClick={() => setEditingMediums(true)}>
-                  {data.mediums.map((tag) => <Badge key={tag} variant="secondary">{tag}</Badge>)}
-                  {data.mediums.length === 0 ? <span className="text-xs text-muted-foreground">Click to add mediums</span> : null}
-                  {profileSaving ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <Pencil className="hidden h-4 w-4 text-muted-foreground group-hover/mediums:block" />}
-                </button>
-
-                {editingMediums ? (
-                  <div className="mt-2 space-y-2 rounded-md border border-dashed p-3">
-                    <input
-                      className="h-9 w-full rounded-md border border-input px-3 text-sm"
-                      placeholder="Add a medium and press Enter"
-                      value={newMediumDraft}
-                      onChange={(e) => setNewMediumDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key !== "Enter") return;
-                        e.preventDefault();
-                        const next = newMediumDraft.trim();
-                        if (!next) return;
-                        if (mediumsDraft.includes(next)) return;
-                        setMediumsDraft((prev) => [...prev, next]);
-                        setNewMediumDraft("");
-                      }}
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      {mediumsDraft.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="inline-flex items-center gap-1">
-                          {tag}
-                          <button type="button" aria-label={`Remove ${tag}`} onClick={() => setMediumsDraft((prev) => prev.filter((item) => item !== tag))}>
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button type="button" size="sm" onClick={saveMediums} disabled={profileSaving}>Save</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => {
-                        setMediumsDraft(data.mediums);
-                        setEditingMediums(false);
-                        setNewMediumDraft("");
-                      }}>Cancel</Button>
-                    </div>
+              {/* Mediums */}
+              {editingMediums ? (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-1">
+                    {mediumsDraft.map((m) => (
+                      <span key={m} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs">
+                        {m}
+                        <button type="button" onClick={() => setMediumsDraft((d) => d.filter((x) => x !== m))}>×</button>
+                      </span>
+                    ))}
                   </div>
-                ) : null}
-              </div>
+                  <div className="flex gap-2">
+                    <input
+                      className="rounded border px-2 py-1 text-sm"
+                      placeholder="Add medium…"
+                      value={mediumInput}
+                      onChange={(e) => setMediumInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addMedium(); } }}
+                    />
+                    <Button size="sm" type="button" onClick={addMedium}>Add</Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => void saveMediums()} disabled={savingMediums}>
+                      {savingMediums ? "Saving…" : "Save"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { setMediumsDraft(artist.mediums); setEditingMediums(false); }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="group/mediums flex flex-wrap gap-1 cursor-pointer items-center"
+                  onClick={() => { setMediumsDraft(artist.mediums); setEditingMediums(true); }}
+                >
+                  {artist.mediums.length > 0
+                    ? artist.mediums.slice(0, 6).map((m) => <Badge key={m} variant="secondary">{m}</Badge>)
+                    : <span className="text-xs italic text-muted-foreground">Add mediums…</span>}
+                  <span className="hidden group-hover/mediums:inline text-sm text-muted-foreground ml-1">✏️</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {zoneErrors.avatar || zoneErrors.profile ? <p className="mt-2 text-xs text-red-600">{zoneErrors.avatar ?? zoneErrors.profile}</p> : null}
-
-        <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
-          {SOCIAL_FIELDS.map((field) => {
-            const value = data[field.key];
-            const isEditing = editingField === field.key;
-            return (
-              <div key={field.key}>
-                {isEditing ? (
+        {/* Social links row */}
+        <div className="mt-4 flex flex-wrap gap-3">
+          {SOCIAL_FIELDS.map(({ key, label }) => {
+            const value = artist[key];
+            if (editingField === key) {
+              return (
+                <div key={key} className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">{label}:</span>
                   <input
-                    ref={socialInputRef}
-                    className="h-8 rounded-md border border-input px-2 text-xs"
+                    autoFocus
+                    className="rounded border px-2 py-0.5 text-xs w-48"
                     value={socialDraft}
-                    placeholder={`https://… ${field.label}`}
                     onChange={(e) => setSocialDraft(e.target.value)}
-                    onBlur={() => saveSocialField(field.key, socialDraft)}
+                    onBlur={() => void saveSocial()}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") saveSocialField(field.key, socialDraft);
+                      if (e.key === "Enter") void saveSocial();
                       if (e.key === "Escape") setEditingField(null);
                     }}
                   />
-                ) : value ? (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 text-xs text-foreground hover:underline"
-                    onClick={() => {
-                      setSocialDraft(value);
-                      setEditingField(field.key);
-                    }}
-                  >
-                    {field.label}
-                    <ExternalLink className="h-3 w-3" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-                    onClick={() => {
-                      setSocialDraft("");
-                      setEditingField(field.key);
-                    }}
-                  >
-                    <Plus className="h-3 w-3" /> Add {field.label}
-                  </button>
-                )}
-              </div>
+                  {savingSocial && <span className="text-xs text-muted-foreground">…</span>}
+                </div>
+              );
+            }
+            return value ? (
+              <button
+                key={key}
+                type="button"
+                className="text-xs underline text-muted-foreground hover:text-foreground"
+                onClick={() => { setSocialDraft(value); setEditingField(key); }}
+              >
+                {label} ✏️
+              </button>
+            ) : (
+              <button
+                key={key}
+                type="button"
+                className="text-xs text-muted-foreground/50 hover:text-muted-foreground"
+                onClick={() => { setSocialDraft(""); setEditingField(key); }}
+              >
+                + {label}
+              </button>
             );
           })}
-          {socialSaving ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
         </div>
-        {zoneErrors.social ? <p className="mt-2 text-xs text-red-600">{zoneErrors.social}</p> : null}
       </div>
-    </section>
+    </div>
   );
 }
