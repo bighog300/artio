@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import IngestCandidateActions from "@/app/(admin)/admin/ingest/_components/ingest-candidate-actions";
 import IngestConfidenceBadge from "@/app/(admin)/admin/ingest/_components/ingest-confidence-badge";
@@ -41,6 +42,7 @@ export default function IngestEventQueueClient({
   candidates: QueueCandidate[];
   venues: Array<{ id: string; name: string }>;
 }) {
+  const router = useRouter();
   const [showReasons, setShowReasons] = useState(false);
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [importingImageFor, setImportingImageFor] = useState<string | null>(
@@ -50,6 +52,15 @@ export default function IngestEventQueueClient({
     new Set(),
   );
   const [importImageError, setImportImageError] = useState<string | null>(null);
+  const [bulkApproving, setBulkApproving] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const [bulkResults, setBulkResults] = useState<{
+    approved: number;
+    failed: number;
+  } | null>(null);
 
   const filteredCandidates =
     venueFilter === "all"
@@ -86,6 +97,42 @@ export default function IngestEventQueueClient({
     }
   }
 
+  async function bulkApproveHigh() {
+    const highCandidates = filteredCandidates.filter(
+      (c) => c.confidenceBand === "HIGH" && c.status === "PENDING",
+    );
+    if (highCandidates.length === 0) return;
+
+    setBulkApproving(true);
+    setBulkResults(null);
+    setBulkProgress({ done: 0, total: highCandidates.length });
+
+    let approved = 0;
+    let failed = 0;
+
+    for (const candidate of highCandidates) {
+      try {
+        const res = await fetch(
+          `/api/admin/ingest/extracted-events/${candidate.id}/approve`,
+          { method: "POST" },
+        );
+        if (res.ok) {
+          approved += 1;
+        } else {
+          failed += 1;
+        }
+      } catch {
+        failed += 1;
+      }
+      setBulkProgress({ done: approved + failed, total: highCandidates.length });
+    }
+
+    setBulkApproving(false);
+    setBulkProgress(null);
+    setBulkResults({ approved, failed });
+    router.refresh();
+  }
+
   return (
     <section className="rounded-lg border bg-background p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -107,6 +154,27 @@ export default function IngestEventQueueClient({
               );
             })}
           </select>
+          {(() => {
+            const highCount = filteredCandidates.filter(
+              (c) => c.confidenceBand === "HIGH" && c.status === "PENDING",
+            ).length;
+            if (highCount === 0) return null;
+            return (
+              <button
+                type="button"
+                className="rounded border border-emerald-600 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                disabled={bulkApproving}
+                onClick={() => {
+                  if (!window.confirm(`Approve all ${highCount} HIGH confidence candidate${highCount === 1 ? "" : "s"}? This cannot be undone.`)) return;
+                  void bulkApproveHigh();
+                }}
+              >
+                {bulkApproving
+                  ? `Approving… ${bulkProgress?.done ?? 0}/${bulkProgress?.total ?? highCount}`
+                  : `Approve all HIGH (${highCount})`}
+              </button>
+            );
+          })()}
         </div>
         <div className="flex flex-col gap-1">
           <p className="text-sm text-muted-foreground">
@@ -132,6 +200,23 @@ export default function IngestEventQueueClient({
             className="text-amber-700"
             onClick={() => setImportImageError(null)}
           >
+            ×
+          </button>
+        </div>
+      ) : null}
+      {bulkResults ? (
+        <div
+          className={`mb-3 flex items-center justify-between rounded border px-3 py-2 text-sm ${
+            bulkResults.failed > 0
+              ? "border-amber-500/40 bg-amber-500/10 text-amber-800"
+              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800"
+          }`}
+        >
+          <span>
+            Bulk approve complete: {bulkResults.approved} approved
+            {bulkResults.failed > 0 ? `, ${bulkResults.failed} failed` : ""}
+          </span>
+          <button type="button" onClick={() => setBulkResults(null)}>
             ×
           </button>
         </div>

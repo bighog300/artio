@@ -41,6 +41,9 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
   const [importingImageFor, setImportingImageFor] = useState<string | null>(null);
   const [importedImageFor, setImportedImageFor] = useState<Set<string>>(new Set());
   const [importImageError, setImportImageError] = useState<string | null>(null);
+  const [bulkApproving, setBulkApproving] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [bulkResults, setBulkResults] = useState<{ approved: number; failed: number } | null>(null);
 
   async function importImage(candidateId: string, imageUrl: string, setAsFeatured: boolean) {
     setImportingImageFor(candidateId);
@@ -60,6 +63,38 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
     } finally {
       setImportingImageFor(null);
     }
+  }
+
+  async function bulkApproveHigh() {
+    const highCandidates = grouped.primaryCandidates.filter(
+      (c) => c.confidenceBand === "HIGH" && c.status === "PENDING",
+    );
+    if (highCandidates.length === 0) return;
+
+    setBulkApproving(true);
+    setBulkResults(null);
+    setBulkProgress({ done: 0, total: highCandidates.length });
+
+    let approved = 0;
+    let failed = 0;
+
+    for (const candidate of highCandidates) {
+      try {
+        const res = await fetch(
+          `/api/admin/ingest/extracted-events/${candidate.id}/approve`,
+          { method: "POST" },
+        );
+        if (res.ok) approved += 1;
+        else failed += 1;
+      } catch {
+        failed += 1;
+      }
+      setBulkProgress({ done: approved + failed, total: highCandidates.length });
+    }
+
+    setBulkApproving(false);
+    setBulkProgress(null);
+    setBulkResults({ approved, failed });
   }
 
   const laneCounts = useMemo(() => ({
@@ -111,15 +146,51 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
             </button>
           ))}
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={showReasons} onChange={(event) => setShowReasons(event.target.checked)} />
-          Show confidence reasons
-        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={showReasons} onChange={(event) => setShowReasons(event.target.checked)} />
+            Show confidence reasons
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={showDuplicates} onChange={(event) => setShowDuplicates(event.target.checked)} />
+            Show duplicates
+          </label>
+          {(() => {
+            const highCount = grouped.primaryCandidates.filter(
+              (c) => c.confidenceBand === "HIGH" && c.status === "PENDING",
+            ).length;
+            if (highCount === 0) return null;
+            return (
+              <button
+                type="button"
+                className="rounded border border-emerald-600 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                disabled={bulkApproving}
+                onClick={() => {
+                  if (!window.confirm(`Approve all ${highCount} HIGH confidence candidate${highCount === 1 ? "" : "s"} in this run?`)) return;
+                  void bulkApproveHigh();
+                }}
+              >
+                {bulkApproving
+                  ? `Approving… ${bulkProgress?.done ?? 0}/${bulkProgress?.total ?? highCount}`
+                  : `Approve all HIGH (${highCount})`}
+              </button>
+            );
+          })()}
+        </div>
       </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={showDuplicates} onChange={(event) => setShowDuplicates(event.target.checked)} />
-        Show duplicates
-      </label>
+      {bulkResults ? (
+        <div className={`flex items-center justify-between rounded border px-3 py-2 text-sm ${
+          bulkResults.failed > 0
+            ? "border-amber-500/40 bg-amber-500/10 text-amber-800"
+            : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800"
+        }`}>
+          <span>
+            Bulk approve complete: {bulkResults.approved} approved
+            {bulkResults.failed > 0 ? `, ${bulkResults.failed} failed` : ""}
+          </span>
+          <button type="button" onClick={() => setBulkResults(null)}>×</button>
+        </div>
+      ) : null}
       {importImageError ? (
         <div className="flex items-center justify-between rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
           <span>{importImageError}</span>
