@@ -7,18 +7,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { formatPrice } from "@/lib/format";
 
 type ArtworkEnquireCardProps = {
   artworkKey: string;
   artworkTitle: string;
   priceFormatted: string;
   artistName: string;
+  note?: string;
+  initialBuyerName?: string;
+  initialBuyerEmail?: string;
 };
 
-export function ArtworkEnquireCard({ artworkKey, artworkTitle, priceFormatted, artistName }: ArtworkEnquireCardProps) {
+export function ArtworkEnquireCard({
+  artworkKey,
+  artworkTitle,
+  priceFormatted,
+  artistName,
+  note,
+  initialBuyerName,
+  initialBuyerEmail,
+}: ArtworkEnquireCardProps) {
   const [view, setView] = useState<"idle" | "open" | "submitting" | "success" | "error">("idle");
-  const [buyerName, setBuyerName] = useState("");
-  const [buyerEmail, setBuyerEmail] = useState("");
+  const [buyerName, setBuyerName] = useState(initialBuyerName ?? "");
+  const [buyerEmail, setBuyerEmail] = useState(initialBuyerEmail ?? "");
   const [message, setMessage] = useState("");
 
   const isBusy = view === "submitting";
@@ -63,6 +75,7 @@ export function ArtworkEnquireCard({ artworkKey, artworkTitle, priceFormatted, a
         <CardTitle className="text-3xl font-bold">{priceFormatted}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {note && <p className="text-xs text-muted-foreground mb-2">{note}</p>}
         <p className="text-sm text-muted-foreground">Enquire about {artworkTitle}</p>
         {view === "open" || view === "submitting" || view === "error" ? (
           <div className="space-y-3">
@@ -98,6 +111,8 @@ export function ArtworkPurchaseCard({
   priceAmount,
   currency,
   initialOfferAmountMajor,
+  initialBuyerName,
+  initialBuyerEmail,
 }: {
   artworkKey: string;
   artworkTitle: string;
@@ -108,25 +123,31 @@ export function ArtworkPurchaseCard({
   priceAmount: number;
   currency: string;
   initialOfferAmountMajor?: number;
+  initialBuyerName?: string;
+  initialBuyerEmail?: string;
 }) {
   const [buying, setBuying] = useState(false);
   const [buyError, setBuyError] = useState<string | null>(null);
-  const [buyerName, setBuyerName] = useState("");
-  const [buyerEmail, setBuyerEmail] = useState("");
+  const [buyerName, setBuyerName] = useState(initialBuyerName ?? "");
+  const [buyerEmail, setBuyerEmail] = useState(initialBuyerEmail ?? "");
 
   const [enquirySubmitting, setEnquirySubmitting] = useState(false);
   const [enquiryError, setEnquiryError] = useState<string | null>(null);
   const [enquirySuccess, setEnquirySuccess] = useState(false);
-  const [enquiryName, setEnquiryName] = useState("");
-  const [enquiryEmail, setEnquiryEmail] = useState("");
+  const [enquiryName, setEnquiryName] = useState(initialBuyerName ?? "");
+  const [enquiryEmail, setEnquiryEmail] = useState(initialBuyerEmail ?? "");
   const [enquiryMessage, setEnquiryMessage] = useState("");
 
   const defaultOfferAmount = useMemo(() => initialOfferAmountMajor ?? (priceAmount / 100) * 0.8, [initialOfferAmountMajor, priceAmount]);
+  const minOffer = useMemo(
+    () => Math.max(1, Math.round((priceAmount / 100) * 0.1 * 100) / 100),
+    [priceAmount],
+  );
   const [offerSubmitting, setOfferSubmitting] = useState(false);
   const [offerError, setOfferError] = useState<string | null>(null);
   const [offerSuccess, setOfferSuccess] = useState(false);
-  const [offerName, setOfferName] = useState("");
-  const [offerEmail, setOfferEmail] = useState("");
+  const [offerName, setOfferName] = useState(initialBuyerName ?? "");
+  const [offerEmail, setOfferEmail] = useState(initialBuyerEmail ?? "");
   const [offerAmount, setOfferAmount] = useState(defaultOfferAmount.toFixed(2));
   const [offerMessage, setOfferMessage] = useState("");
 
@@ -152,6 +173,9 @@ export function ArtworkPurchaseCard({
         artworkTitle={artworkTitle}
         priceFormatted={priceFormatted}
         artistName={artistName}
+        note="Direct purchase is not currently available for this artwork. Contact the artist to arrange a sale."
+        initialBuyerName={initialBuyerName}
+        initialBuyerEmail={initialBuyerEmail}
       />
     );
   }
@@ -264,12 +288,17 @@ export function ArtworkPurchaseCard({
               <Input
                 placeholder="Offer amount"
                 type="number"
-                min="0.01"
+                min={minOffer}
                 step="0.01"
                 value={offerAmount}
                 disabled={offerSubmitting || offerSuccess}
                 onChange={(e) => setOfferAmount(e.target.value)}
               />
+              {Number(offerAmount) > 0 && Number(offerAmount) < minOffer && (
+                <p className="text-xs text-amber-700">
+                  Minimum offer is {formatPrice(Math.round(minOffer * 100), currency)} (10% of asking price).
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">In {currency.toUpperCase()} (pre-filled at 80% of asking price).</p>
               <Textarea
                 placeholder="Message (optional)"
@@ -286,7 +315,8 @@ export function ArtworkPurchaseCard({
                   offerSuccess ||
                   offerName.trim().length < 2 ||
                   offerEmail.trim().length < 3 ||
-                  Number(offerAmount) <= 0
+                  Number(offerAmount) <= 0 ||
+                  Number(offerAmount) < minOffer
                 }
               >
                 {offerSubmitting ? <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Sending…</span> : "Send offer"}
