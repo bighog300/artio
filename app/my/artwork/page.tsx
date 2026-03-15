@@ -8,6 +8,7 @@ import { ActiveFiltersBar, type FilterPill } from "@/app/my/_components/ActiveFi
 import { buildClearFiltersHref, buildRemoveFilterHref, getFirstSearchValue, toTitleCase, truncateFilterValue } from "@/app/my/_components/filter-href";
 import { MyArchiveActionButton } from "@/app/my/_components/MyArchiveActionButton";
 import { MyArtworkPublishToggleButton } from "@/app/my/_components/MyArtworkPublishToggleButton";
+import { DEFAULT_CURRENCY, formatPrice } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,8 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
           isPublished: true,
           updatedAt: true,
           deletedAt: true,
+          priceAmount: true,
+          currency: true,
           _count: { select: { venues: true, events: true } },
           featuredAsset: { select: { url: true } },
           images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true } } } },
@@ -89,6 +92,9 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
             })()}
             <h3 className="font-medium">{item.title}</h3>
             <p className="text-xs text-muted-foreground">{item.deletedAt ? "Archived" : item.isPublished ? "Published" : "Draft"}</p>
+            {item.priceAmount != null && (
+              <p className="text-xs text-muted-foreground">{formatPrice(item.priceAmount, item.currency ?? DEFAULT_CURRENCY)}</p>
+            )}
             {(item._count.venues > 0 || item._count.events > 0) && (
               <p className="text-xs text-muted-foreground">
                 {[

@@ -46,7 +46,10 @@ export function ArtworkDetailClient({
   initialEvents: Array<{ id: string; title: string; slug: string; startAt: string }>;
 }) {
   const router = useRouter();
-  const [artwork, setArtwork] = useState<Artwork>(initialArtwork);
+  const [artwork, setArtwork] = useState<Artwork>({
+    ...initialArtwork,
+    priceAmount: initialArtwork.priceAmount != null ? initialArtwork.priceAmount / 100 : null,
+  });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -59,7 +62,10 @@ export function ArtworkDetailClient({
         return;
       }
       const data = await res.json();
-      setArtwork(data.artwork);
+      setArtwork({
+        ...data.artwork,
+        priceAmount: data.artwork.priceAmount != null ? data.artwork.priceAmount / 100 : null,
+      });
     } catch {
       setLoadError("Failed to load artwork.");
     }
@@ -78,7 +84,7 @@ export function ArtworkDetailClient({
           year: artwork.year,
           medium: artwork.medium,
           dimensions: artwork.dimensions,
-          priceAmount: artwork.priceAmount,
+          priceAmount: artwork.priceAmount != null ? Math.round(artwork.priceAmount * 100) : null,
           currency: artwork.currency,
           condition: artwork.condition,
           conditionNotes: artwork.conditionNotes,
@@ -153,7 +159,7 @@ export function ArtworkDetailClient({
             <input
               className="w-full rounded border px-2 py-1"
               type="number"
-              placeholder="Price (whole number)"
+              placeholder="Price in £ (e.g. 1200 for £1,200)"
               value={artwork.priceAmount ?? ""}
               onChange={(e) => setArtwork({ ...artwork, priceAmount: e.target.value ? Number(e.target.value) : null })}
             />
