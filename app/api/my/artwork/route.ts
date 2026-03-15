@@ -18,7 +18,24 @@ export async function GET() {
   const items = await db.artwork.findMany({
     where: user.role === "ADMIN" ? {} : { artistId: artist!.id, deletedAt: null },
     orderBy: { updatedAt: "desc" },
-    select: { id: true, title: true, slug: true, isPublished: true, updatedAt: true, description: true, year: true, medium: true, featuredAssetId: true, _count: { select: { images: true } } },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      status: true,
+      isPublished: true,
+      deletedAt: true,
+      priceAmount: true,
+      currency: true,
+      updatedAt: true,
+      description: true,
+      year: true,
+      medium: true,
+      featuredAssetId: true,
+      featuredAsset: { select: { url: true } },
+      images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true } } } },
+      _count: { select: { images: true } },
+    },
   });
   return NextResponse.json({
     items: items.map((item) => {
@@ -27,7 +44,13 @@ export async function GET() {
         id: item.id,
         title: item.title,
         slug: item.slug,
+        status: item.status,
         isPublished: item.isPublished,
+        deletedAt: item.deletedAt,
+        priceAmount: item.priceAmount,
+        currency: item.currency,
+        featuredAsset: item.featuredAsset,
+        images: item.images,
         updatedAt: item.updatedAt,
         completeness: { scorePct: completeness.scorePct, requiredOk: completeness.required.ok },
       };
