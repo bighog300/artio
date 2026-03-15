@@ -63,6 +63,7 @@ test("GET returns null ingest settings when row has no values", async () => {
     stripeWebhookSecretSet: false,
     platformFeePercent: 5,
     regionAutoPublishArtists: false,
+    enrichMatchedArtists: false,
     regionAutoPublishArtworks: false,
     regionAutoPublishEvents: false,
     regionAutoPublishVenues: false,
