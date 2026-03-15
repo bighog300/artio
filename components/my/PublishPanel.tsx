@@ -16,6 +16,7 @@ type Props = {
   publicUrl?: string;
   onStatusChange?: (status: UnifiedPublishStatus) => void;
   requiresConfirmation?: boolean;
+  compact?: boolean;
 };
 
 function getStatusVariant(status: UnifiedPublishStatus): "default" | "secondary" | "destructive" | "outline" {
@@ -25,7 +26,7 @@ function getStatusVariant(status: UnifiedPublishStatus): "default" | "secondary"
   return "outline";
 }
 
-export function PublishPanel({ resourceType, id, status, title, publicUrl, onStatusChange, requiresConfirmation }: Props) {
+export function PublishPanel({ resourceType, id, status, title, publicUrl, onStatusChange, requiresConfirmation, compact }: Props) {
   const [currentStatus, setCurrentStatus] = useState<UnifiedPublishStatus>(status);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PublishIntentResponse | null>(null);
@@ -79,6 +80,61 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
     } finally {
       setLoading(false);
     }
+  }
+
+
+  if (compact) {
+    return (
+      <>
+        <div className="flex items-center gap-2">
+          <Badge variant={getStatusVariant(currentStatus)}>{statusLabel}</Badge>
+          <Button
+            size="sm"
+            variant={(currentStatus === "PUBLISHED" || currentStatus === "APPROVED") ? "destructive" : "default"}
+            disabled={state.disabled || loading}
+            onClick={() => {
+              if (state.action === "publish") {
+                if (requiresConfirmation) {
+                  setConfirmOpen(true);
+                } else {
+                  void runAction("publish");
+                }
+                return;
+              }
+              if (state.action === "unpublish") void runAction("unpublish");
+              if (state.action === "restore") void runAction("restore");
+            }}
+          >
+            {loading ? "Working…" : state.cta}
+          </Button>
+          {result?.publicUrl && result.outcome === "published" && (
+            <a href={result.publicUrl} target="_blank" className="text-xs underline text-muted-foreground" rel="noreferrer">
+              View →
+            </a>
+          )}
+        </div>
+        {result?.message && (
+          <p className="mt-1 text-xs text-muted-foreground">{result.message}</p>
+        )}
+        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Submit for review?</DialogTitle>
+              <DialogDescription>
+                Your {resourceType} will be reviewed by our team before going live.
+                You'll receive an email confirmation once submitted.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={loading}>Cancel</Button>
+              <Button onClick={() => { setConfirmOpen(false); void runAction("publish"); }} disabled={loading}>
+                Submit for review
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
   }
 
   return (

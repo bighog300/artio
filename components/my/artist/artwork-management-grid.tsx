@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { enqueueToast } from "@/lib/toast";
 import { ArtworkGridCard, type ArtworkCardData } from "./artwork-grid-card";
+import { ArtworkEditDrawer } from "./artwork-edit-drawer";
 
 type Filter = "all" | "published" | "draft" | "in_review";
 type Sort = "newest" | "title";
@@ -26,6 +27,8 @@ export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
   const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
   const [featureBusyId, setFeatureBusyId] = useState<string | null>(null);
   const [featuredIds, setFeaturedIds] = useState<Set<string>>(new Set());
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeEditId, setActiveEditId] = useState<string | null>(null);
 
   useEffect(() => {
     void loadArtworks();
@@ -97,7 +100,21 @@ export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
       const data = await res.json();
       const id = data.artwork?.id;
       if (id) {
-        window.location.href = `/my/artwork/${id}`;
+        const newCard: ArtworkCardData = {
+          id,
+          title: "Untitled artwork",
+          slug: null,
+          status: "DRAFT",
+          isPublished: false,
+          deletedAt: null,
+          priceAmount: null,
+          currency: null,
+          isFeatured: false,
+          coverUrl: null,
+        };
+        setArtworks((prev) => [newCard, ...prev]);
+        setActiveEditId(id);
+        setDrawerOpen(true);
       }
     } catch (err) {
       enqueueToast({ title: err instanceof Error ? err.message : "Failed to create artwork", variant: "error" });
@@ -164,7 +181,12 @@ export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
   }
 
   function handleEdit(id: string) {
-    window.location.href = `/my/artwork/${id}`;
+    setActiveEditId(id);
+    setDrawerOpen(true);
+  }
+
+  function handleDrawerSaved(updated: Partial<ArtworkCardData> & { id: string }) {
+    setArtworks((prev) => prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)));
   }
 
   const filtered = artworks
@@ -180,7 +202,8 @@ export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
     });
 
   return (
-    <section className="space-y-4">
+    <>
+      <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" onClick={() => void handleAddArtwork()}>+ Add artwork</Button>
         <div className="flex flex-wrap gap-1">
@@ -254,6 +277,13 @@ export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
         <span>{filtered.length} artwork{filtered.length === 1 ? "" : "s"}</span>
         <Link href="/my/artwork" className="underline">Manage all artworks →</Link>
       </div>
-    </section>
+      </section>
+      <ArtworkEditDrawer
+      artworkId={activeEditId}
+      open={drawerOpen}
+      onClose={() => setDrawerOpen(false)}
+      onSaved={handleDrawerSaved}
+      />
+    </>
   );
 }
