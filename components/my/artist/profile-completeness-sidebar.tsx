@@ -145,7 +145,7 @@ export function ProfileCompletenessSidebar({
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
           <p className="text-sm font-medium text-amber-800">⏳ Under review</p>
           <p className="mt-1 text-xs text-amber-700">
-            We'll notify you when a decision is made.
+            We&apos;ll notify you when a decision is made.
           </p>
         </div>
       ) : completeness.canGoLive ? (

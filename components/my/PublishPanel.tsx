@@ -122,7 +122,7 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
               <DialogTitle>Submit for review?</DialogTitle>
               <DialogDescription>
                 Your {resourceType} will be reviewed by our team before going live.
-                You'll receive an email confirmation once submitted.
+                You&apos;ll receive an email confirmation once submitted.
               </DialogDescription>
             </DialogHeader>
             <div className="flex justify-end gap-2 pt-2">
@@ -197,7 +197,7 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
           <DialogHeader>
             <DialogTitle>Submit for review?</DialogTitle>
             <DialogDescription>
-              Your {resourceType} will be reviewed by our team before going live. You'll receive an email confirmation once submitted.
+              Your {resourceType} will be reviewed by our team before going live. You&apos;ll receive an email confirmation once submitted.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-2">

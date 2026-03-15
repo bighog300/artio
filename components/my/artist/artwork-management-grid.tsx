@@ -19,6 +19,7 @@ function resolveCoverUrl(item: {
 }
 
 export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
+  void artistId;
   const [artworks, setArtworks] = useState<ArtworkCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,14 +30,12 @@ export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
   const [dragMode, setDragMode] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
-  const [featuredIds, setFeaturedIds] = useState<Set<string>>(new Set());
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeEditId, setActiveEditId] = useState<string | null>(null);
 
   useEffect(() => {
     void loadArtworks();
     void loadFeatured();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadArtworks() {
@@ -85,7 +84,6 @@ export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
       const ids = new Set<string>(
         (data.featuredArtworks ?? data.artworks ?? []).map((a: { id: string }) => a.id),
       );
-      setFeaturedIds(ids);
       setArtworks((prev) => prev.map((a) => ({ ...a, isFeatured: ids.has(a.id) })));
     } catch {
       // non-fatal
@@ -161,11 +159,6 @@ export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ artworkId: id }),
         });
-        setFeaturedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
         setArtworks((prev) => prev.map((a) => a.id === id ? { ...a, isFeatured: false } : a));
       } else {
         await fetch(`/api/my/artist/featured-artworks`, {
@@ -173,7 +166,6 @@ export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ artworkId: id }),
         });
-        setFeaturedIds((prev) => new Set([...prev, id]));
         setArtworks((prev) => prev.map((a) => a.id === id ? { ...a, isFeatured: true } : a));
       }
     } catch {
