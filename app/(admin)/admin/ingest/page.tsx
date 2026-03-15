@@ -37,7 +37,11 @@ export default async function AdminIngestPage() {
     }),
   ]);
 
-  const venueOptions = venues.map((venue) => ({ id: venue.id, name: venue.name, websiteUrl: venue.websiteUrl ?? "" }));
+  const venueOptions = venues.map((venue) => ({
+    id: venue.id,
+    name: venue.name,
+    websiteUrl: venue.websiteUrl ?? "",
+  }));
 
   return (
     <>
@@ -46,7 +50,7 @@ export default async function AdminIngestPage() {
         description="All pending extracted event candidates across venues, ordered by confidence. Recent Runs are available in the Runs tab."
       />
       <IngestTriggerClient venues={venueOptions} />
-      <IngestEventQueueClient candidates={candidates} />
+      <IngestEventQueueClient candidates={candidates} venues={venueOptions} />
     </>
   );
 }
