@@ -61,12 +61,12 @@ export async function POST(req: NextRequest) {
     const artworkId = typeof body?.artworkId === "string" ? body.artworkId : null;
     if (!artworkId) return apiError(400, "invalid_request", "artworkId is required");
 
-    // Verify artwork is published and owned by this artist
+    // Verify artwork is owned by this artist and not deleted
     const artwork = await db.artwork.findFirst({
-      where: { id: artworkId, artistId: artist.id, isPublished: true, deletedAt: null },
+      where: { id: artworkId, artistId: artist.id, deletedAt: null },
       select: { id: true },
     });
-    if (!artwork) return apiError(404, "not_found", "Artwork not found or not eligible to feature");
+    if (!artwork) return apiError(404, "not_found", "Artwork not found or not owned by your artist profile");
 
     // Upsert — ignore if already featured
     await db.artistFeaturedArtwork.upsert({
