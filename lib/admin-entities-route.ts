@@ -1,5 +1,5 @@
-import { Prisma } from "@prisma/client";
 import type { Artist, ContentStatus, Event, Venue } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
