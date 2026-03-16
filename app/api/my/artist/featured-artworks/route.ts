@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
+import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { isAuthError, requireAuth } from "@/lib/auth";
 import { logAdminAction } from "@/lib/admin-audit";
 import { handleGetMyArtistFeaturedArtworks, handlePutMyArtistFeaturedArtworks } from "@/lib/my-artist-featured-artworks-route";
+import { parseBody } from "@/lib/validators";
 
 export const runtime = "nodejs";
 
@@ -44,4 +46,66 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   return handlePutMyArtistFeaturedArtworks(req, deps);
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const user = await requireAuth();
+    const artist = await db.artist.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+    if (!artist) return apiError(403, "forbidden", "Artist profile required");
+
+    const body = await parseBody(req);
+    const artworkId = typeof body?.artworkId === "string" ? body.artworkId : null;
+    if (!artworkId) return apiError(400, "invalid_request", "artworkId is required");
+
+    // Verify artwork is published and owned by this artist
+    const artwork = await db.artwork.findFirst({
+      where: { id: artworkId, artistId: artist.id, isPublished: true, deletedAt: null },
+      select: { id: true },
+    });
+    if (!artwork) return apiError(404, "not_found", "Artwork not found or not eligible to feature");
+
+    // Upsert — ignore if already featured
+    await db.artistFeaturedArtwork.upsert({
+      where: { artistId_artworkId: { artistId: artist.id, artworkId } },
+      update: {},
+      create: {
+        artistId: artist.id,
+        artworkId,
+        sortOrder: await db.artistFeaturedArtwork.count({ where: { artistId: artist.id } }),
+      },
+    });
+
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
+    return apiError(500, "internal_error", "Unexpected server error");
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await requireAuth();
+    const artist = await db.artist.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+    if (!artist) return apiError(403, "forbidden", "Artist profile required");
+
+    const body = await parseBody(req);
+    const artworkId = typeof body?.artworkId === "string" ? body.artworkId : null;
+    if (!artworkId) return apiError(400, "invalid_request", "artworkId is required");
+
+    await db.artistFeaturedArtwork.deleteMany({
+      where: { artistId: artist.id, artworkId },
+    });
+
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
+    return apiError(500, "internal_error", "Unexpected server error");
+  }
 }
