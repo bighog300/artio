@@ -494,8 +494,18 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
         if (!before) throw new Error("not_found");
         const patch = parsedBody.data as z.infer<typeof artworkPatchSchema>;
         const { artistId, ...scalarPatch } = patch;
+
+        // Derive status from isPublished when explicitly set
+        const derivedStatus: Prisma.ArtworkUpdateInput["status"] =
+          patch.isPublished === true
+            ? "PUBLISHED"
+            : patch.isPublished === false
+              ? "DRAFT"
+              : undefined;
+
         const data: Prisma.ArtworkUpdateInput = {
           ...scalarPatch,
+          ...(derivedStatus !== undefined ? { status: derivedStatus } : {}),
           ...(artistId ? { artist: { connect: { id: artistId } } } : {}),
         };
         const row = await tx.artwork.update({ where: { id: entityId }, data });
