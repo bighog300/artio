@@ -5,9 +5,13 @@ import { apiError } from "@/lib/api";
 import { requireAdmin } from "@/lib/admin";
 import { isAuthError } from "@/lib/auth";
 import { idParamSchema, zodDetails } from "@/lib/validators";
-import { handleAdminEntityPatch } from "@/lib/admin-entities-route";
+import { handleAdminEntityGet, handleAdminEntityPatch } from "@/lib/admin-entities-route";
 
 export const runtime = "nodejs";
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  return handleAdminEntityGet(req, "artwork", await params, { requireAdminUser: requireAdmin, appDb: db });
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return handleAdminEntityPatch(req, "artwork", await params, { requireAdminUser: requireAdmin, appDb: db });
