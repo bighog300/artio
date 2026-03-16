@@ -537,6 +537,7 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
       if (error.code === "P2003") return apiError(409, "conflict", "Cannot update due to a related record constraint.");
       if (error.code === "P2025") return apiError(404, "not_found", "Record not found.");
     }
+    console.error("[handleAdminEntityPatch] Unhandled error for entity:", entity, "id:", params?.id, error);
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }

@@ -27,20 +27,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   if (parsedBody.action === "approve_publish") {
-    await db.artwork.update({ where: { id: artwork.id }, data: { isPublished: true } });
+    await db.artwork.update({ where: { id: artwork.id }, data: { isPublished: true, status: "PUBLISHED" } });
     return ok({ ok: true, status: "PUBLISHED", message: "Artwork approved and published.", publicUrl: artwork.slug ? `/artwork/${artwork.slug}` : undefined });
   }
 
   if (parsedBody.action === "unpublish") {
-    await db.artwork.update({ where: { id: artwork.id }, data: { isPublished: false } });
+    await db.artwork.update({ where: { id: artwork.id }, data: { isPublished: false, status: "DRAFT" } });
     return ok({ ok: true, status: "DRAFT", message: "Artwork unpublished." });
   }
 
   if (parsedBody.action === "request_changes") {
-    await db.artwork.update({ where: { id: artwork.id }, data: { isPublished: false, deletedReason: `Changes requested: ${parsedBody.reason}` } });
+    await db.artwork.update({ where: { id: artwork.id }, data: { isPublished: false, status: "CHANGES_REQUESTED", deletedReason: `Changes requested: ${parsedBody.reason}` } });
     return ok({ ok: true, status: "CHANGES_REQUESTED", message: "Changes requested." });
   }
 
-  await db.artwork.update({ where: { id: artwork.id }, data: { isPublished: false, deletedReason: `Rejected: ${parsedBody.reason}` } });
+  await db.artwork.update({ where: { id: artwork.id }, data: { isPublished: false, status: "REJECTED", deletedReason: `Rejected: ${parsedBody.reason}` } });
   return ok({ ok: true, status: "REJECTED", message: "Artwork rejected." });
 }
