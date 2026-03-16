@@ -491,7 +491,22 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
         return row;
       }
       if (entity === "artwork") {
-        const before = await tx.artwork.findUnique({ where: { id: entityId } });
+        const before = await tx.artwork.findUnique({
+          where: { id: entityId },
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            isPublished: true,
+            status: true,
+            artistId: true,
+            medium: true,
+            year: true,
+            priceAmount: true,
+            currency: true,
+            deletedAt: true,
+          },
+        });
         if (!before) throw new Error("not_found");
         const patch = parsedBody.data as z.infer<typeof artworkPatchSchema>;
         const { artistId, ...scalarPatch } = patch;
@@ -535,6 +550,7 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2002") return apiError(409, "conflict", "A record with that value already exists (e.g. duplicate slug).");
       if (error.code === "P2003") return apiError(409, "conflict", "Cannot update due to a related record constraint.");
+      if (error.code === "P2022") return apiError(500, "schema_mismatch", "Database schema is out of sync. A migration may be pending.");
       if (error.code === "P2025") return apiError(404, "not_found", "Record not found.");
     }
     console.error("[handleAdminEntityPatch] Unhandled error for entity:", entity, "id:", params?.id, error);

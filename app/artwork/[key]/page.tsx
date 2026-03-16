@@ -83,7 +83,6 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
       shippingNotes: true,
       priceAmount: true,
       currency: true,
-      soldAt: true,
       isPublished: true,
       deletedAt: true,
       artist: {
@@ -319,7 +318,7 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
             artwork.artist.stripeAccount?.status === "ACTIVE" &&
             artwork.artist.stripeAccount?.chargesEnabled === true
           }
-          isSold={artwork.soldAt !== null}
+          isSold={false}
           priceAmount={artwork.priceAmount}
           currency={artwork.currency}
           initialOfferAmountMajor={artwork.offers[0] ? artwork.offers[0].offerAmount / 100 : undefined}
