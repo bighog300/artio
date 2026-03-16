@@ -1,4 +1,5 @@
-import type { Artist, ContentStatus, Event, Prisma, Venue } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { Artist, ContentStatus, Event, Venue } from "@prisma/client";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -495,12 +496,11 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
         const patch = parsedBody.data as z.infer<typeof artworkPatchSchema>;
         const { artistId, ...scalarPatch } = patch;
 
-        // Derive status from isPublished when explicitly set
-        const derivedStatus: Prisma.ArtworkUpdateInput["status"] =
+        const derivedStatus: ContentStatus | undefined =
           patch.isPublished === true
-            ? "PUBLISHED"
+            ? ("PUBLISHED" as ContentStatus)
             : patch.isPublished === false
-              ? "DRAFT"
+              ? ("DRAFT" as ContentStatus)
               : undefined;
 
         const data: Prisma.ArtworkUpdateInput = {
@@ -532,6 +532,11 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
       return apiError(400, "invalid_transition", error.message);
     }
     if (error instanceof Error && (error.message === "unauthorized" || error.name === "AuthError")) return apiError(401, "unauthorized", "Authentication required");
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") return apiError(409, "conflict", "A record with that value already exists (e.g. duplicate slug).");
+      if (error.code === "P2003") return apiError(409, "conflict", "Cannot update due to a related record constraint.");
+      if (error.code === "P2025") return apiError(404, "not_found", "Record not found.");
+    }
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }
