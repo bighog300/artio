@@ -133,6 +133,9 @@ jobs:
       PERF_EXPLAIN_ENABLED: false
       PLAYWRIGHT_BASE_URL: http://localhost:3000
       SEED_ENABLED: "true"
+      CI: "true"
+      PLAYWRIGHT: "true"
+      NODE_ENV: test
 
     steps:
       - name: Checkout
@@ -175,9 +178,6 @@ jobs:
 
       - name: Run Playwright tests
         timeout-minutes: 15
-        env:
-          CI: "true"
-          NODE_ENV: test
         run: pnpm test:e2e
 
       - name: Upload Playwright HTML report
