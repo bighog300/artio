@@ -125,7 +125,10 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/artpulse_e2e?schema=public
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/artpulse_e2e?schema=public
       AUTH_SECRET: ci-e2e-auth-secret
+      NEXTAUTH_SECRET: testsecret
       NEXTAUTH_URL: http://localhost:3000
+      TEST_EMAIL: test@example.com
+      TEST_PASSWORD: password123
       CRON_SECRET: ci-dummy-cron-secret
       PERF_EXPLAIN_ENABLED: false
       PLAYWRIGHT_BASE_URL: http://localhost:3000
@@ -169,12 +172,6 @@ jobs:
       - name: Install Playwright browser
         timeout-minutes: 10
         run: pnpm exec playwright install --with-deps chromium
-
-      - name: Start app
-        run: pnpm start &
-
-      - name: Wait for app readiness
-        run: npx wait-on http://localhost:3000 --timeout 60000
 
       - name: Run Playwright tests
         timeout-minutes: 15

@@ -13,10 +13,10 @@ test.describe('Auth & onboarding', () => {
     const response = await gotoAndWait(page, '/login');
     expect(response?.status()).toBe(200);
 
-    const googleSignIn = page
-      .locator('button:has-text("Continue with Google"), button:has-text("Sign in with Google"), a:has-text("Continue with Google"), a:has-text("Sign in with Google")')
+    const signIn = page
+      .locator('button:has-text("Continue with Google"), button:has-text("Sign in with Google"), button:has-text("Continue with email"), a:has-text("Continue with Google"), a:has-text("Sign in with Google")')
       .first();
-    await expect(googleSignIn).toBeVisible();
+    await expect(signIn).toBeVisible();
 
     await expect(page).toHaveURL(/\/login(?:\?|$)/);
     await expect(page).not.toHaveURL(/\/$/);

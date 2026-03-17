@@ -30,3 +30,5 @@ next-env.d.ts
 playwright-results/
 playwright-report/
 tests/e2e/.auth/
+
+playwright/.auth/
