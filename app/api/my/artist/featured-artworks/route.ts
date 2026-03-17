@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
-import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { isAuthError } from "@/lib/auth";
 import { logAdminAction } from "@/lib/admin-audit";
 import { handleGetMyArtistFeaturedArtworks, handlePutMyArtistFeaturedArtworks } from "@/lib/my-artist-featured-artworks-route";
+import { apiError } from "@/lib/api";
+import { isAuthError } from "@/lib/auth";
 import { parseBody } from "@/lib/validators";
 
 export const runtime = "nodejs";
