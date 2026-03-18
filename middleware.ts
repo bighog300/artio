@@ -20,8 +20,8 @@ export async function middleware(req: NextRequest) {
 
   const pathname = req.nextUrl.pathname;
 
-  const isTest = process.env.NODE_ENV === "test" || process.env.PLAYWRIGHT === "true" || process.env.CI === "true";
-  if (isTest) {
+  const isPlaywright = process.env.PLAYWRIGHT === "true";
+  if (isPlaywright) {
     return NextResponse.next({
       request: {
         headers: requestHeaders,
