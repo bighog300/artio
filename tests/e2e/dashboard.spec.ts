@@ -141,18 +141,22 @@ test.describe('User dashboard', () => {
     const response = await gotoAndWait(userPage, '/my/artwork/new');
     expect(response?.status()).toBeLessThan(500);
 
-    const form = userPage.locator('form').first();
-    await expect(form).toBeVisible();
+    // /my/artwork/new auto-creates a draft and redirects to the edit page
+    // Wait for the redirect to settle
+    await userPage.waitForLoadState('networkidle');
 
-    const titleField = form
-      .locator('input[name*="title" i], input[id*="title" i], input[placeholder*="title" i]')
+    // The edit page renders inputs directly (not inside a <form> tag)
+    const titleField = userPage
+      .locator('input[name*="title" i], input[id*="title" i], input[placeholder*="title" i], input[id="title"]')
       .first();
-    const descriptionField = form
-      .locator('textarea[name*="description" i], textarea[id*="description" i], textarea')
+    const descriptionField = userPage
+      .locator('textarea[name*="description" i], textarea[id*="description" i], textarea[id="description"], textarea')
       .first();
 
-    await expect(titleField).toBeVisible();
-    await expect(descriptionField).toBeVisible();
+    await expect(titleField).toBeVisible({ timeout: 10000 });
+    await expect(descriptionField).toBeVisible({ timeout: 10000 });
+
+    await expect(userPage.locator('text=/500|internal server error|application error/i')).toHaveCount(0);
   });
 
   test('Collection (/my/collection)', async ({ userPage }) => {
