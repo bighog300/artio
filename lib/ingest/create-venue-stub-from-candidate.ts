@@ -1,5 +1,10 @@
 import type { PrismaClient } from "@prisma/client";
 import { ensureUniqueVenueSlugWithDeps, slugifyVenueName } from "@/lib/venue-slug";
+import { forwardGeocodeVenueAddressToLatLng } from "@/lib/geocode/forward";
+
+export const createVenueStubFromCandidateDeps = {
+  forwardGeocodeVenueAddressToLatLng,
+};
 
 function deriveNameFromTitle(raw: string | null): string {
   if (!raw?.trim()) return "Untitled Venue";
@@ -50,6 +55,37 @@ export async function createVenueStubFromCandidate(args: {
       },
       select: { id: true },
     });
+
+    const queryTexts = [
+      [name, args.region, args.country].filter(Boolean).join(", "),
+      [args.region, args.country].filter(Boolean).join(", "),
+    ].filter((q) => q.trim().length >= 3);
+
+    const countryCode = args.country?.trim().length === 2 ? args.country.trim().toUpperCase() : undefined;
+
+    try {
+      const coords = await createVenueStubFromCandidateDeps.forwardGeocodeVenueAddressToLatLng({
+        queryTexts,
+        countryCode,
+      });
+
+      if (coords) {
+        await args.db.venue.update({
+          where: { id: venue.id },
+          data: { lat: coords.lat, lng: coords.lng },
+        });
+      } else {
+        console.warn("create_venue_stub_geocode_failed", {
+          url: args.candidateUrl,
+          reason: "no_coords",
+        });
+      }
+    } catch (error) {
+      console.warn("create_venue_stub_geocode_failed", {
+        url: args.candidateUrl,
+        error,
+      });
+    }
 
     return { venueId: venue.id };
   } catch (error) {

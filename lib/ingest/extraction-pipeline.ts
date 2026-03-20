@@ -147,11 +147,42 @@ type IngestStore = {
   };
   venue: {
     findUnique: typeof db.venue.findUnique;
+    update: typeof db.venue.update;
   };
   siteSettings: {
     findUnique: typeof db.siteSettings.findUnique;
   };
 };
+
+function detectEventsPageUrl(html: string, baseUrl: string): string | null {
+  const anchorRegex = /<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const matchRegex = /(events?|exhibitions?|whats-on|what-s-on|programme|program|calendar|on-view|shows?)/i;
+
+  let match: RegExpExecArray | null;
+  let base: URL;
+  try {
+    base = new URL(baseUrl);
+  } catch {
+    return null;
+  }
+
+  while ((match = anchorRegex.exec(html)) !== null) {
+    const href = match[1]?.trim() ?? "";
+    const innerText = (match[2] ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (!href) continue;
+    if (!matchRegex.test(href) && !matchRegex.test(innerText)) continue;
+
+    try {
+      const resolved = new URL(href, base);
+      if (resolved.hostname !== base.hostname) continue;
+      return resolved.toString();
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
 
 function truncateMessage(input: string, maxLength: number): string {
   return input.length > maxLength ? `${input.slice(0, maxLength)}…` : input;
@@ -357,6 +388,20 @@ export async function runVenueIngestExtraction(
         lng: true,
       },
     });
+
+    const detectedEventsPageUrl = detectEventsPageUrl(fetched.html, fetched.finalUrl);
+    if (detectedEventsPageUrl && !venue?.eventsPageUrl) {
+      store.venue.update({
+        where: { id: params.venueId },
+        data: { eventsPageUrl: detectedEventsPageUrl },
+      }).catch((err) => {
+        console.warn("ingest_detect_events_page_url_update_failed", {
+          venueId: params.venueId,
+          detectedEventsPageUrl,
+          err,
+        });
+      });
+    }
 
     const settings = await store.siteSettings.findUnique({
       where: { id: "default" },

@@ -3,6 +3,10 @@ import { slugifyArtistName, ensureUniqueArtistSlugWithDeps } from "@/lib/artist-
 import { resolveArtistCandidate } from "@/lib/ingest/artist-resolution";
 import { importApprovedArtistImage } from "@/lib/ingest/import-approved-artist-image";
 
+export const autoApproveArtistCandidateDeps = {
+  importApprovedArtistImage,
+};
+
 export async function autoApproveArtistCandidate(args: {
   candidateId: string;
   db: PrismaClient;
@@ -80,14 +84,14 @@ export async function autoApproveArtistCandidate(args: {
     });
 
 
-    await importApprovedArtistImage({
+    await autoApproveArtistCandidateDeps.importApprovedArtistImage({
       appDb: args.db,
       artistId: newArtist.id,
       name: candidate.name,
       websiteUrl: candidate.websiteUrl,
       sourceUrl: candidate.sourceUrl,
       requestId: `auto-approve-artist-${candidate.id}`,
-    }).catch((err) => console.warn("auto_approve_artist_image_import_failed", { candidateId: candidate.id, err }));
+    }).catch((err) => console.warn("auto_approve_artist_image_failed", { candidateId: candidate.id, err }));
 
     const canPublish = Boolean(
       args.autoPublish

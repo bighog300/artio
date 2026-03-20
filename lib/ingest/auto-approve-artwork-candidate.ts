@@ -4,6 +4,10 @@ import { ensureUniqueArtistSlugWithDeps, slugifyArtistName } from "@/lib/artist-
 import { importApprovedArtworkImage } from "@/lib/ingest/import-approved-artwork-image";
 import { evaluateArtworkReadiness } from "@/lib/publish-readiness";
 
+export const autoApproveArtworkCandidateDeps = {
+  importApprovedArtworkImage,
+};
+
 export async function autoApproveArtworkCandidate(args: {
   candidateId: string;
   db: PrismaClient;
@@ -88,7 +92,7 @@ export async function autoApproveArtworkCandidate(args: {
       return createdArtwork;
     });
 
-    const imageResult = await importApprovedArtworkImage({
+    const imageResult = await autoApproveArtworkCandidateDeps.importApprovedArtworkImage({
       appDb: args.db,
       candidateId: candidate.id,
       runId: candidate.id,
@@ -98,7 +102,7 @@ export async function autoApproveArtworkCandidate(args: {
       candidateImageUrl: candidate.imageUrl,
       requestId: `auto-approve-artwork-${candidate.id}`,
     }).catch((err) => {
-      console.warn("auto_approve_artwork_image_import_failed", { candidateId: candidate.id, err });
+      console.warn("auto_approve_artwork_image_failed", { candidateId: candidate.id, err });
       return { attached: false, warning: String(err), imageUrl: null };
     });
 
