@@ -21,6 +21,18 @@ export default async function AdminEditEvent({ params }: { params: Promise<{ id:
   return (
     <main className="space-y-6">
       <AdminPageHeader title="Edit event" backHref="/admin/events" backLabel="Back to events" />
+      {blockers.length > 0 ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3">
+          <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+            This event cannot be published yet
+          </p>
+          <ul className="mt-1 list-disc pl-5 text-sm text-amber-800/80 dark:text-amber-300/80">
+            {blockers.map((blocker) => (
+              <li key={blocker.id}>{blocker.message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <EventAdminForm
         title="Edit Event"
         endpoint={`/api/admin/events/${id}`}

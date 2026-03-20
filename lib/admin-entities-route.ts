@@ -109,7 +109,7 @@ const importPreviewBodySchema = z.object({
 
 const defaultFields = {
   venues: ["id", "name", "slug", "addressLine1", "addressLine2", "city", "postcode", "country", "lat", "lng", "timezone", "websiteUrl", "eventsPageUrl", "isPublished", "status", "description", "featuredAssetId", "deletedAt"] as const,
-  events: ["id", "title", "startAt", "endAt", "timezone", "venueId", "ticketUrl", "isPublished", "status", "deletedAt"] as const,
+  events: ["id", "title", "startAt", "endAt", "timezone", "venueId", "ticketUrl", "isPublished", "status", "isAiExtracted", "deletedAt"] as const,
   artists: ["id", "name", "websiteUrl", "bio", "featuredAssetId", "isPublished", "deletedAt"] as const,
   artwork: ["id", "title", "slug", "artistId", "isPublished", "deletedAt", "priceAmount", "currency"] as const,
 };
@@ -309,7 +309,12 @@ export async function handleAdminEntityList(req: NextRequest, entity: EntityName
           take: PAGE_SIZE,
           select: {
             ...Object.fromEntries(defaultFields.events.map((k) => [k, true])),
-            venue: { select: { status: true, isPublished: true } },
+            venue: { select: { id: true, name: true, status: true, isPublished: true } },
+            eventArtists: {
+              select: { artist: { select: { name: true } } },
+              take: 3,
+              orderBy: { createdAt: "asc" },
+            },
             images: { select: { url: true }, orderBy: { sortOrder: "asc" }, take: 1 },
           } as never,
         }),
@@ -323,6 +328,10 @@ export async function handleAdminEntityList(req: NextRequest, entity: EntityName
           timezone: (event as { timezone: string | null }).timezone,
           venue: (event as { venue: { status?: string | null; isPublished?: boolean | null } | null }).venue,
         }).blockers,
+        venueName: (event as { venue?: { name?: string | null } | null }).venue?.name ?? null,
+        artistNames: (
+          (event as { eventArtists?: Array<{ artist: { name: string } }> }).eventArtists ?? []
+        ).map((ea) => ea.artist.name),
       }));
       return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE, statusCounts: buildStatusCounts(grouped) });
     }
