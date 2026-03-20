@@ -1,5 +1,6 @@
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import ArtistsClient from "@/app/(admin)/admin/ingest/artists/artists-client";
+import { BackfillArtistsTrigger } from "@/app/(admin)/admin/ingest/artists/backfill-trigger";
 import { getSessionUser, requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -42,6 +43,7 @@ export default async function AdminIngestArtistsPage() {
         title="Artist Discovery Queue"
         description="Pending AI-discovered artist profile candidates awaiting moderation."
       />
+      <BackfillArtistsTrigger />
       <ArtistsClient candidates={candidates} userRole={user?.role} />
     </>
   );

@@ -1,5 +1,6 @@
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import ArtworksClient from "@/app/(admin)/admin/ingest/artworks/artworks-client";
+import { BackfillArtworksTrigger } from "@/app/(admin)/admin/ingest/artworks/backfill-trigger";
 import { getSessionUser, requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -37,6 +38,7 @@ export default async function AdminIngestArtworksPage() {
         title="Artwork Extraction Queue"
         description="Pending AI-extracted artwork candidates awaiting moderation."
       />
+      <BackfillArtworksTrigger />
       <ArtworksClient candidates={candidates} userRole={user?.role} />
     </>
   );
