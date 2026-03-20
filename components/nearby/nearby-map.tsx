@@ -24,9 +24,11 @@ type NearbyMapProps = {
   radiusKm: string;
   days: number;
   onSearchArea: (center: { lat: number; lng: number }) => Promise<void>;
+  fullscreen?: boolean;
+  onExitFullscreen?: () => void;
 };
 
-export function NearbyMap({ items, lat, lng, radiusKm, days, onSearchArea }: NearbyMapProps) {
+export function NearbyMap({ items, lat, lng, radiusKm, days, onSearchArea, fullscreen = false, onExitFullscreen }: NearbyMapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRefs = useRef<L.Marker[]>([]);
@@ -53,8 +55,13 @@ export function NearbyMap({ items, lat, lng, radiusKm, days, onSearchArea }: Nea
       maxZoom: 19,
     }).addTo(map);
     mapRef.current = map;
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    if (mapContainerRef.current) resizeObserver.observe(mapContainerRef.current);
 
     return () => {
+      resizeObserver.disconnect();
       markerRefs.current.forEach((marker) => marker.remove());
       markerRefs.current = [];
       userMarkerRef.current?.remove();
@@ -127,40 +134,91 @@ export function NearbyMap({ items, lat, lng, radiusKm, days, onSearchArea }: Nea
     return <p className="text-sm text-gray-600">No events or venues found in this area. Increase radius or try another area.</p>;
   }
 
+  const wrapperClassName = fullscreen
+    ? "fixed inset-0 z-50 flex flex-col bg-background"
+    : "space-y-3";
+
+  const mapContainerClassName = fullscreen
+    ? "flex-1 w-full"
+    : "h-[420px] w-full rounded border md:h-[calc(100vh-220px)] md:min-h-[500px] md:max-h-[800px]";
+
+  const searchArea = async () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const center = map.getCenter();
+    setIsSearchingArea(true);
+    try {
+      await onSearchArea({ lat: center.lat, lng: center.lng });
+    } finally {
+      setIsSearchingArea(false);
+    }
+  };
+
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-blue-500" /> Event marker</span>
-        <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Venue marker</span>
-        <span>Showing up to {MAX_MAP_MARKERS} results.</span>
-      </div>
-      {omittedCount > 0 ? <p className="text-xs text-amber-700">{omittedCount} additional markers omitted. Reduce radius/days to see more.</p> : null}
-      <div ref={mapContainerRef} className="h-[420px] w-full rounded border" aria-label="Nearby map" />
-      <div className="flex flex-wrap gap-2">
-        <button className="rounded border px-3 py-1 text-sm" type="button" onClick={fitToResults}>Center on results</button>
-        <button
-          className="rounded border px-3 py-1 text-sm"
-          type="button"
-          onClick={async () => {
-            const map = mapRef.current;
-            if (!map) return;
-            const center = map.getCenter();
-            setIsSearchingArea(true);
-            try {
-              await onSearchArea({ lat: center.lat, lng: center.lng });
-            } finally {
-              setIsSearchingArea(false);
-            }
-          }}
-          disabled={isSearchingArea}
-        >
-          {isSearchingArea ? "Searching area..." : "Search this area"}
-        </button>
-      </div>
+    <div className={wrapperClassName}>
+      {fullscreen ? (
+        <div className="flex shrink-0 items-center justify-between border-b px-3 py-2">
+          <button
+            type="button"
+            className="flex items-center gap-1 rounded px-2 py-1 text-sm text-muted-foreground"
+            onClick={onExitFullscreen}
+            aria-label="Back to list"
+          >
+            ← Back
+          </button>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-full bg-blue-500" /> Event
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Venue
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+          <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-blue-500" /> Event marker</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Venue marker</span>
+          <span>Showing up to {MAX_MAP_MARKERS} results.</span>
+        </div>
+      )}
+      {!fullscreen && omittedCount > 0 ? <p className="text-xs text-amber-700">{omittedCount} additional markers omitted. Reduce radius/days to see more.</p> : null}
+      <div
+        ref={mapContainerRef}
+        className={mapContainerClassName}
+        aria-label="Nearby map"
+      />
+      {fullscreen ? (
+        <div className="flex shrink-0 items-center gap-2 border-t px-3 py-2">
+          <button className="rounded border px-3 py-1 text-sm" type="button" onClick={fitToResults}>
+            Center on results
+          </button>
+          <button
+            className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+            type="button"
+            onClick={() => void searchArea()}
+            disabled={isSearchingArea}
+          >
+            {isSearchingArea ? "Searching area..." : "Search this area"}
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <button className="rounded border px-3 py-1 text-sm" type="button" onClick={fitToResults}>Center on results</button>
+          <button
+            className="rounded border px-3 py-1 text-sm"
+            type="button"
+            onClick={() => void searchArea()}
+            disabled={isSearchingArea}
+          >
+            {isSearchingArea ? "Searching area..." : "Search this area"}
+          </button>
+        </div>
+      )}
       {selected ? (
         <>
           <div className="hidden md:block"><EventPreviewCard event={selected} /></div>
-          <div className="fixed inset-x-0 bottom-16 z-20 border-t bg-card p-3 shadow-lg md:hidden"><EventPreviewCard event={selected} /></div>
+          <div className={`fixed inset-x-0 border-t bg-card p-3 shadow-lg md:hidden ${fullscreen ? "bottom-12 z-[60]" : "bottom-16 z-20"}`}><EventPreviewCard event={selected} /></div>
         </>
       ) : <p className="text-xs text-gray-600">Select a marker to preview.</p>}
     </div>

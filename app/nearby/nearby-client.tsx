@@ -41,6 +41,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
   const [isLoading, setIsLoading] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [view, setView] = useState<NearbyView>(initialView);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -136,6 +137,17 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
     }
   }, [eventItems]);
 
+  useEffect(() => {
+    if (mapFullscreen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mapFullscreen]);
+
 
   const enableLocation = async () => {
     track("location_enable_clicked", { page: "nearby" });
@@ -211,8 +223,32 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
       {inlineError ? <p className="text-sm text-destructive">{inlineError}</p> : null}
 
       <div className="inline-flex rounded-md border border-border p-1" role="tablist" aria-label="Nearby view mode">
-        <button className={`rounded px-3 py-1 text-sm ${view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`} onClick={() => updateView("list")} type="button" role="tab" aria-selected={view === "list"}>List</button>
-        <button className={`rounded px-3 py-1 text-sm ${view === "map" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`} onClick={() => updateView("map")} type="button" role="tab" aria-selected={view === "map"}>Map</button>
+        <button
+          className={`rounded px-3 py-1 text-sm ${view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+          onClick={() => {
+            updateView("list");
+            setMapFullscreen(false);
+          }}
+          type="button"
+          role="tab"
+          aria-selected={view === "list"}
+        >
+          List
+        </button>
+        <button
+          className={`rounded px-3 py-1 text-sm ${view === "map" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+          onClick={() => {
+            updateView("map");
+            if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+              setMapFullscreen(true);
+            }
+          }}
+          type="button"
+          role="tab"
+          aria-selected={view === "map"}
+        >
+          Map
+        </button>
       </div>
 
       {message ? <ErrorCard message={message} onRetry={() => void loadNearby({ mode: "reset" })} /> : null}
@@ -223,7 +259,26 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
         </div>
       ) : null}
 
-      {view === "map" && !isLoading ? <NearbyMap items={mapItems} lat={form.lat} lng={form.lng} radiusKm={form.radiusKm} days={filters.days} onSearchArea={async (center) => { const nextLat = String(center.lat); const nextLng = String(center.lng); setForm((prev) => ({ ...prev, lat: nextLat, lng: nextLng })); await loadNearby({ mode: "reset", override: { lat: nextLat, lng: nextLng } }); }} /> : null}
+      {view === "map" && !isLoading ? (
+        <NearbyMap
+          items={mapItems}
+          lat={form.lat}
+          lng={form.lng}
+          radiusKm={form.radiusKm}
+          days={filters.days}
+          fullscreen={mapFullscreen}
+          onExitFullscreen={() => {
+            setMapFullscreen(false);
+            updateView("list");
+          }}
+          onSearchArea={async (center) => {
+            const nextLat = String(center.lat);
+            const nextLng = String(center.lng);
+            setForm((prev) => ({ ...prev, lat: nextLat, lng: nextLng }));
+            await loadNearby({ mode: "reset", override: { lat: nextLat, lng: nextLng } });
+          }}
+        />
+      ) : null}
 
       {view === "list" && !isLoading ? (
         eventItems.length === 0 && venueItems.length === 0 ? (
