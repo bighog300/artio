@@ -3,9 +3,14 @@ import { spawnSync } from "node:child_process";
 const RESOLVABLE_AS_ROLLED_BACK = new Set([
   "20260706120000_unified_content_status",
   "20261206110000_add_region_id_to_discovery_job",
+  "20260320120000_per_entity_ingest_prompts",
 ]);
 
 const RESOLVABLE_AS_APPLIED = new Set(["20261203105000_enrichment_provenance"]);
+
+const ALWAYS_RESOLVE_AS_ROLLED_BACK = new Set([
+  "20260320120000_per_entity_ingest_prompts",
+]);
 
 const RESOLVABLE_FAILED_MIGRATIONS = new Set([
   ...RESOLVABLE_AS_ROLLED_BACK,
@@ -24,6 +29,7 @@ type StatusSummary = {
   pendingMigrations: string[];
   failedDetected: boolean;
   pendingDetected: boolean;
+  divergentHistory: boolean;
   uninitializedDetected: boolean;
   upToDate: boolean;
 };
@@ -44,8 +50,13 @@ function runPrisma(
     `\n[prisma-safe-deploy] [step=${options.step}] pnpm prisma ${args.join(" ")}`,
   );
 
+  const env = { ...process.env };
+  if (args[0] === "migrate" && args[1] === "deploy" && env.DIRECT_URL) {
+    env.DATABASE_URL = env.DIRECT_URL;
+  }
+
   const result = spawnSync("pnpm", ["prisma", ...args], {
-    env: process.env,
+    env,
     encoding: "utf8",
   });
 
@@ -81,10 +92,16 @@ function parseFailedMigrations(statusOutput: string): string[] {
 }
 
 function parsePendingMigrations(statusOutput: string): string[] {
-  return parseMigrationList(
+  const standardPending = parseMigrationList(
     statusOutput,
     /Following migrations have not yet been applied:/i,
   );
+  const divergentPending = parseMigrationList(
+    statusOutput,
+    /The migration have not yet been applied:/i,
+  );
+
+  return Array.from(new Set([...standardPending, ...divergentPending]));
 }
 
 function parseMigrationList(
@@ -128,14 +145,22 @@ function parseMigrationList(
 function parseStatusSummary(statusOutput: string): StatusSummary {
   const failedMigrations = parseFailedMigrations(statusOutput);
   const pendingMigrations = parsePendingMigrations(statusOutput);
+  const divergentHistory =
+    /Your local migration history and the migrations table from your database are different/i.test(
+      statusOutput,
+    ) ||
+    /The migrations from the database are not found locally/i.test(
+      statusOutput,
+    );
 
   return {
     failedMigrations,
     pendingMigrations,
     failedDetected: /Following migration have failed:/i.test(statusOutput),
-    pendingDetected: /Following migrations have not yet been applied:/i.test(
-      statusOutput,
-    ),
+    pendingDetected:
+      /Following migrations have not yet been applied:/i.test(statusOutput) ||
+      (divergentHistory && pendingMigrations.length > 0),
+    divergentHistory,
     uninitializedDetected:
       /relation\s+"_prisma_migrations"\s+does not exist/i.test(statusOutput) ||
       /The table `?_prisma_migrations`? does not exist/i.test(statusOutput),
@@ -188,15 +213,31 @@ async function main() {
 
   const status = parseStatusSummary(statusResult.output);
 
+  for (const migration of ALWAYS_RESOLVE_AS_ROLLED_BACK) {
+    const result = runPrisma(
+      ["migrate", "resolve", "--rolled-back", migration],
+      {
+        allowFailure: true,
+        step: `Pre-resolving superseded migration ${migration}`,
+      },
+    );
+    if (result.status !== 0 && !result.output.includes("P3008")) {
+      console.warn(
+        `[prisma-safe-deploy] [resolve] Could not pre-resolve ${migration} — may not exist in DB, continuing.`,
+      );
+    }
+  }
+
   console.log(
-    `[prisma-safe-deploy] [status] pending=${status.pendingMigrations.length} failed=${status.failedMigrations.length} uninitialized=${status.uninitializedDetected} upToDate=${status.upToDate}`,
+    `[prisma-safe-deploy] [status] pending=${status.pendingMigrations.length} failed=${status.failedMigrations.length} divergentHistory=${status.divergentHistory} uninitialized=${status.uninitializedDetected} upToDate=${status.upToDate}`,
   );
 
   const recognizedStateCount =
     Number(status.failedDetected) +
     Number(status.pendingDetected) +
     Number(status.uninitializedDetected) +
-    Number(status.upToDate);
+    Number(status.upToDate) +
+    Number(status.divergentHistory);
 
   if (recognizedStateCount === 0) {
     console.warn(
@@ -267,7 +308,11 @@ async function main() {
     console.log(
       "[prisma-safe-deploy] [result] migrations applied successfully",
     );
-  } else if (status.pendingDetected || status.uninitializedDetected) {
+  } else if (
+    status.pendingDetected ||
+    status.uninitializedDetected ||
+    status.divergentHistory
+  ) {
     if (status.uninitializedDetected) {
       console.log(
         "[prisma-safe-deploy] [status] Migration table missing; treating database as uninitialized.",
