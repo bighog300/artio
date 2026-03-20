@@ -154,7 +154,7 @@ type IngestStore = {
   };
 };
 
-function detectEventsPageUrl(html: string, baseUrl: string): string | null {
+export function detectEventsPageUrl(html: string, baseUrl: string): string | null {
   const anchorRegex = /<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
   const matchRegex = /(events?|exhibitions?|whats-on|what-s-on|programme|program|calendar|on-view|shows?)/i;
 
