@@ -56,6 +56,7 @@ enum SubmissionStatus {
 
 enum ContentStatus {
   DRAFT
+  ONBOARDING
   IN_REVIEW
   APPROVED
   REJECTED
@@ -587,6 +588,7 @@ model VenueGenerationRunItem {
   timezoneWarning   String?
   homepageImageStatus String           @default("skipped")
   homepageImageCandidateCount Int      @default(0)
+  eventsPageStatus  String             @default("not_attempted")
   createdAt         DateTime           @default(now())
   run               VenueGenerationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
   venue             Venue?             @relation(fields: [venueId], references: [id], onDelete: SetNull)

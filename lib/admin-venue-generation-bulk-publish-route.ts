@@ -62,6 +62,8 @@ export async function handleAdminVenueGenerationBulkPublish(
       continue;
     }
 
+    // Intentionally status-agnostic: both DRAFT and ONBOARDING venues can be bulk-published
+    // once core blockers are cleared.
     await resolved.appDb.venue.update({
       where: { id: venueId },
       data: { status: "PUBLISHED", isPublished: true },

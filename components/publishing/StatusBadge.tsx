@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 
 const CLASS_BY_STATUS: Record<ContentStatus, string> = {
   DRAFT: "bg-slate-100 text-slate-800 border-slate-300",
+  ONBOARDING: "bg-indigo-100 text-indigo-800 border-indigo-300",
   IN_REVIEW: "bg-blue-100 text-blue-800 border-blue-300",
   APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-300",
   REJECTED: "bg-red-100 text-red-800 border-red-300",

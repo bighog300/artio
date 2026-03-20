@@ -49,6 +49,7 @@ export async function getVenueGenerationRuns(deps: {
           socialWarning: true,
           homepageImageStatus: true,
           homepageImageCandidateCount: true,
+          eventsPageStatus: true,
           geocodeStatus: true,
           geocodeErrorCode: true,
           timezoneWarning: true,
@@ -70,7 +71,7 @@ export async function getVenueGenerationRuns(deps: {
   const venues = createdVenueIds.length > 0
     ? await appDb.venue.findMany({
         where: { id: { in: createdVenueIds } },
-        select: { id: true, name: true, city: true, country: true, lat: true, lng: true, status: true },
+        select: { id: true, name: true, city: true, country: true, lat: true, lng: true, status: true, eventsPageUrl: true },
       })
     : [];
 
@@ -95,6 +96,8 @@ export async function getVenueGenerationRuns(deps: {
         publishable,
         blockers,
         venueStatus: venue?.status ?? null,
+        eventsPageUrl: venue?.eventsPageUrl ?? null,
+        eventsPageStatus: item.eventsPageStatus,
       };
     }),
   }));

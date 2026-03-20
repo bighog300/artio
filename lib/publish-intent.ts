@@ -1,6 +1,6 @@
 export type PublishOutcome = "published" | "submitted" | "blocked";
 
-export type UnifiedPublishStatus = "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "REJECTED" | "ARCHIVED" | "APPROVED" | "CHANGES_REQUESTED";
+export type UnifiedPublishStatus = "DRAFT" | "ONBOARDING" | "IN_REVIEW" | "PUBLISHED" | "REJECTED" | "ARCHIVED" | "APPROVED" | "CHANGES_REQUESTED";
 
 export type PublishBlockingIssue = {
   key: string;

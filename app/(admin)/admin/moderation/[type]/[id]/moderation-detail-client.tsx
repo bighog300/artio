@@ -10,6 +10,7 @@ type ModerationStatus = ContentStatus;
 
 const actionsByStatus: Record<ModerationStatus, Array<{ label: string; nextStatus: ModerationStatus }>> = {
   DRAFT: [{ label: "Submit for Review", nextStatus: "IN_REVIEW" }],
+  ONBOARDING: [{ label: "Move to Draft", nextStatus: "DRAFT" }, { label: "Publish", nextStatus: "PUBLISHED" }],
   IN_REVIEW: [{ label: "Approve", nextStatus: "APPROVED" }, { label: "Request Changes", nextStatus: "CHANGES_REQUESTED" }, { label: "Reject", nextStatus: "REJECTED" }],
   APPROVED: [{ label: "Publish", nextStatus: "PUBLISHED" }, { label: "Reject", nextStatus: "REJECTED" }],
   REJECTED: [{ label: "Reopen", nextStatus: "IN_REVIEW" }],

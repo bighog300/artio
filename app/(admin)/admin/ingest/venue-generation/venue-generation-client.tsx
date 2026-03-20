@@ -20,6 +20,8 @@ type RunItem = {
   socialWarning: string | null;
   homepageImageStatus: string;
   homepageImageCandidateCount: number;
+  eventsPageStatus: string;
+  eventsPageUrl: string | null;
   geocodeStatus: string;
   geocodeErrorCode: string | null;
   timezoneWarning: string | null;
@@ -73,8 +75,19 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
     ),
   );
   const [publishVenueErrors, setPublishVenueErrors] = useState<Record<string, string>>({});
+  const [onboardingVenueId, setOnboardingVenueId] = useState<string | null>(null);
+  const [onboardSubmittingVenueId, setOnboardSubmittingVenueId] = useState<string | null>(null);
+  const [onboardEventsPageUrl, setOnboardEventsPageUrl] = useState<Record<string, string>>({});
+  const [onboardVenueErrors, setOnboardVenueErrors] = useState<Record<string, string>>({});
   const [publishResults, setPublishResults] = useState<Record<string, { published: number; skipped: number }>>({});
   const submittingRef = useRef(false);
+
+  const eventsPageLabel = (status: string) => {
+    if (status === "detected") return "detected";
+    if (status === "not_found") return "not found";
+    if (status === "fetch_failed") return "fetch failed";
+    return "not attempted";
+  };
 
   const refreshRuns = async () => {
     try {
@@ -107,6 +120,32 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
       setPublishedVenueIds((prev) => new Set([...prev, venueId]));
     } finally {
       setPublishingVenueId(null);
+    }
+  }
+
+  async function onboardVenue(venueId: string) {
+    setOnboardSubmittingVenueId(venueId);
+    setOnboardVenueErrors((prev) => {
+      const next = { ...prev };
+      delete next[venueId];
+      return next;
+    });
+    try {
+      const value = onboardEventsPageUrl[venueId]?.trim() ?? "";
+      const res = await fetch(`/api/admin/venues/${venueId}/onboard`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ eventsPageUrl: value || null }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        setOnboardVenueErrors((prev) => ({ ...prev, [venueId]: body.error?.message ?? "Onboarding publish failed." }));
+        return;
+      }
+      setPublishedVenueIds((prev) => new Set([...prev, venueId]));
+      setOnboardingVenueId(null);
+    } finally {
+      setOnboardSubmittingVenueId(null);
     }
   }
 
@@ -238,7 +277,7 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
                     {created.map((item) => (
                       <li key={item.id}>
                         <div>
-                          {item.venueId ? <Link className="underline" href={`/admin/venues/${item.venueId}`}>{item.name}</Link> : item.name} — geocode: {item.geocodeStatus}{item.geocodeErrorCode ? ` (${item.geocodeErrorCode})` : ""}{item.timezoneWarning ? `, timezone: ${item.timezoneWarning}` : ""} · homepage images: {item.homepageImageStatus === "candidates_extracted" ? `${item.homepageImageCandidateCount} candidates` : item.homepageImageStatus}
+                          {item.venueId ? <Link className="underline" href={`/admin/venues/${item.venueId}`}>{item.name}</Link> : item.name} — geocode: {item.geocodeStatus}{item.geocodeErrorCode ? ` (${item.geocodeErrorCode})` : ""}{item.timezoneWarning ? `, timezone: ${item.timezoneWarning}` : ""} · homepage images: {item.homepageImageStatus === "candidates_extracted" ? `${item.homepageImageCandidateCount} candidates` : item.homepageImageStatus} · events page: {eventsPageLabel(item.eventsPageStatus)}
                           {item.venueId ? (
                             <>
                               {" "}
@@ -247,7 +286,23 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
                                 <span className="text-xs text-emerald-700">✓ Published</span>
                               ) : publishingVenueId === item.venueId ? (
                                 <span className="text-xs text-muted-foreground">Publishing…</span>
-                              ) : item.publishable ? (
+                              ) : item.venueStatus === "ONBOARDING" && item.publishable ? (
+                                <button
+                                  type="button"
+                                  className="text-xs underline"
+                                  onClick={() => {
+                                    const venueId = item.venueId as string;
+                                    setOnboardingVenueId((prev) => (prev === venueId ? null : venueId));
+                                    setOnboardEventsPageUrl((prev) => (
+                                      venueId in prev
+                                        ? prev
+                                        : { ...prev, [venueId]: item.eventsPageStatus === "detected" ? (item.eventsPageUrl ?? "") : "" }
+                                    ));
+                                  }}
+                                >
+                                  Onboard
+                                </button>
+                              ) : item.publishable && (item.venueStatus === "DRAFT" || Boolean(item.eventsPageUrl)) ? (
                                 <button type="button" className="text-xs underline" onClick={() => publishVenue(item.venueId as string)}>
                                   Publish
                                 </button>
@@ -274,6 +329,29 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
                             >
                               ✕
                             </button>
+                          </div>
+                        ) : null}
+                        {item.venueId && onboardingVenueId === item.venueId ? (
+                          <div className="mt-2 rounded border bg-muted/20 p-2 text-xs">
+                            <label className="block space-y-1">
+                              <span className="font-medium">Events page URL (optional)</span>
+                              <Input
+                                value={onboardEventsPageUrl[item.venueId] ?? ""}
+                                onChange={(event) => setOnboardEventsPageUrl((prev) => ({ ...prev, [item.venueId as string]: event.target.value }))}
+                                placeholder="https://example.com/events"
+                              />
+                            </label>
+                            <div className="mt-2 flex items-center gap-3">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => onboardVenue(item.venueId as string)}
+                                disabled={onboardSubmittingVenueId === item.venueId}
+                              >
+                                {onboardSubmittingVenueId === item.venueId ? "Publishing…" : "Publish venue"}
+                              </Button>
+                              {onboardVenueErrors[item.venueId] ? <span className="text-red-700">{onboardVenueErrors[item.venueId]}</span> : null}
+                            </div>
                           </div>
                         ) : null}
                         <div className="text-xs text-muted-foreground">

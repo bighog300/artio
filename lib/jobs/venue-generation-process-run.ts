@@ -1,9 +1,10 @@
-import { type Prisma } from "@prisma/client";
+import { type ContentStatus, type Prisma } from "@prisma/client";
 import tzLookup from "tz-lookup";
 import { db } from "@/lib/db";
 import { type JobResult } from "@/lib/jobs/registry";
 import { forwardGeocodeVenueAddressToLatLng } from "@/lib/geocode/forward";
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
+import { detectEventsPageUrl } from "@/lib/ingest/extraction-pipeline";
 import { computeVenuePublishBlockers } from "@/lib/publish-readiness";
 import { ensureUniqueVenueSlugWithDeps, slugifyVenueName } from "@/lib/venue-slug";
 import { type AutoSelectDeps } from "@/lib/venue-generation/auto-select-venue-cover";
@@ -134,6 +135,9 @@ export async function runVenueGenerationProcessRunJob(args: {
                 lng: geocodeResult.geocoded?.lng,
                 timezone,
                 isPublished: false,
+                // ONBOARDING venues are intentionally excluded from unpublished ingest cron
+                // and only become eligible after explicit admin publish via onboard route.
+                status: "ONBOARDING" as ContentStatus,
                 aiGenerated: true,
                 aiGeneratedAt: new Date(),
                 claimStatus: "UNCLAIMED",
@@ -173,6 +177,27 @@ export async function runVenueGenerationProcessRunJob(args: {
               }
             }
 
+            // ── Events page detection ───────────────────────────────────────────────
+            let eventsPageStatus = "no_url";
+            if (item.websiteUrl) {
+              eventsPageStatus = "fetch_failed";
+              try {
+                const fetched = await fetchHtmlFn(item.websiteUrl, { maxBytes: 1_000_000 });
+                const detected = detectEventsPageUrl(fetched.html, fetched.finalUrl);
+                if (detected) {
+                  await appDb.venue.update({
+                    where: { id: created.id },
+                    data: { eventsPageUrl: detected },
+                  });
+                  eventsPageStatus = "detected";
+                } else {
+                  eventsPageStatus = "not_found";
+                }
+              } catch {
+                eventsPageStatus = "fetch_failed";
+              }
+            }
+
             if (autoPublish && homepageResult.autoSelectedCandidateId) {
               const refreshed = await appDb.venue.findFirst({
                 where: { id: created.id },
@@ -198,6 +223,7 @@ export async function runVenueGenerationProcessRunJob(args: {
                 timezoneWarning,
                 homepageImageStatus: homepageResult.homepageImageStatus,
                 homepageImageCandidateCount: homepageResult.homepageImageCandidateCount,
+                eventsPageStatus,
               },
             });
           } catch (error) {
