@@ -2,6 +2,7 @@ import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import ModerationClient from "./moderation-client";
 import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 
 const PAGE_SIZE = 30;
 
@@ -12,14 +13,38 @@ export default async function AdminModerationPage({ searchParams }: { searchPara
   const type = typeof params.type === "string" ? params.type : "all";
   const publisher = typeof params.publisher === "string" ? params.publisher : "";
   const submittedAfter = typeof params.submittedAfter === "string" ? params.submittedAfter : "";
+  const source = typeof params.source === "string" ? params.source : "all";
+  const sourceFilter = source === "ai" || source === "user" || source === "all" ? source : "all";
   const page = Math.max(1, Number(typeof params.page === "string" ? params.page : "1") || 1);
 
   const statusByTab = tab === "published" ? "APPROVED" : tab === "rejected" ? "REJECTED" : "IN_REVIEW";
-  const where = {
+  const where: Prisma.SubmissionWhereInput = {
     status: statusByTab as "IN_REVIEW" | "APPROVED" | "REJECTED",
     ...(type !== "all" ? { type: type.toUpperCase() as "EVENT" | "VENUE" | "ARTIST" | "ARTWORK" } : {}),
     ...(publisher ? { submitter: { email: { contains: publisher, mode: "insensitive" as const } } } : {}),
     ...(submittedAfter ? { submittedAt: { gte: new Date(submittedAfter) } } : {}),
+    ...(sourceFilter === "ai"
+      ? {
+          details: {
+            path: ["source"],
+            string_contains: "ingest",
+          },
+        }
+      : sourceFilter === "user"
+        ? {
+            OR: [
+              { details: { equals: Prisma.DbNull } },
+              {
+                NOT: {
+                  details: {
+                    path: ["source"],
+                    string_contains: "ingest",
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
   };
 
   const [total, items] = await Promise.all([
@@ -37,6 +62,7 @@ export default async function AdminModerationPage({ searchParams }: { searchPara
         createdAt: true,
         decisionReason: true,
         decidedAt: true,
+        details: true,
         submitter: { select: { email: true, name: true } },
         targetEvent: { select: { id: true, title: true, slug: true } },
         targetVenue: { select: { id: true, name: true, slug: true } },
@@ -60,6 +86,12 @@ export default async function AdminModerationPage({ searchParams }: { searchPara
           decisionReason: item.decisionReason ?? null,
           decidedAt: item.decidedAt?.toISOString() ?? null,
           publisher: item.submitter.name ?? item.submitter.email,
+          isAiSource:
+            item.details !== null &&
+            typeof item.details === "object" &&
+            !Array.isArray(item.details) &&
+            typeof (item.details as Record<string, unknown>).source === "string" &&
+            ((item.details as Record<string, unknown>).source as string).includes("ingest"),
         }))}
         page={page}
         total={total}
@@ -68,6 +100,7 @@ export default async function AdminModerationPage({ searchParams }: { searchPara
         typeFilter={type}
         publisherFilter={publisher}
         submittedAfterFilter={submittedAfter}
+        sourceFilter={sourceFilter}
       />
     </main>
   );

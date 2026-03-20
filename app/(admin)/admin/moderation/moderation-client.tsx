@@ -19,6 +19,7 @@ type Item = {
   decisionReason: string | null;
   decidedAt: string | null;
   publisher: string;
+  isAiSource: boolean;
 };
 
 export default function ModerationClient({
@@ -28,6 +29,7 @@ export default function ModerationClient({
   pageSize,
   tab,
   typeFilter,
+  sourceFilter,
   publisherFilter,
   submittedAfterFilter,
 }: {
@@ -37,6 +39,7 @@ export default function ModerationClient({
   pageSize: number;
   tab: string;
   typeFilter: string;
+  sourceFilter: string;
   publisherFilter: string;
   submittedAfterFilter: string;
 }) {
@@ -52,10 +55,11 @@ export default function ModerationClient({
   const selectedItems = useMemo(() => initialItems.filter((item) => selectedIds.has(item.submissionId)), [initialItems, selectedIds]);
 
   function qs(next: Record<string, string>) {
-    const sp = new URLSearchParams({ tab, type: typeFilter, publisher: publisherFilter, submittedAfter: submittedAfterFilter, page: String(page), ...next });
+    const sp = new URLSearchParams({ tab, type: typeFilter, publisher: publisherFilter, submittedAfter: submittedAfterFilter, source: sourceFilter, page: String(page), ...next });
     ["publisher", "submittedAfter"].forEach((key) => {
       if (!sp.get(key)) sp.delete(key);
     });
+    if (sp.get("source") === "all") sp.delete("source");
     return `/admin/moderation?${sp.toString()}`;
   }
 
@@ -124,6 +128,15 @@ export default function ModerationClient({
           <option value="venue">Venue</option>
           <option value="artist">Artist</option>
         </select>
+        <select
+          className="rounded border px-2 py-1 text-sm"
+          value={sourceFilter}
+          onChange={(e) => router.push(qs({ source: e.target.value, page: "1" }))}
+        >
+          <option value="all">All sources</option>
+          <option value="ai">AI ingest</option>
+          <option value="user">User submitted</option>
+        </select>
         <input className="rounded border px-2 py-1 text-sm" placeholder="Publisher" defaultValue={publisherFilter} onBlur={(e) => router.push(qs({ publisher: e.target.value, page: "1" }))} />
         <input type="date" className="rounded border px-2 py-1 text-sm" defaultValue={submittedAfterFilter} onChange={(e) => router.push(qs({ submittedAfter: e.target.value, page: "1" }))} />
         <Button variant="outline" onClick={() => setSelectedIds(new Set(initialItems.map((item) => item.submissionId)))}>Select page</Button>
@@ -147,7 +160,15 @@ export default function ModerationClient({
                 return next;
               })} />
               <div>
-                <div className="flex items-center gap-2"><Badge>{item.entityType}</Badge><span className="font-medium">{item.title}</span></div>
+                <div className="flex items-center gap-2">
+                  <Badge>{item.entityType}</Badge>
+                  {item.isAiSource ? (
+                    <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900/40 dark:text-purple-200">
+                      AI
+                    </span>
+                  ) : null}
+                  <span className="font-medium">{item.title}</span>
+                </div>
                 <div className="text-xs text-muted-foreground">{item.publisher} • {new Date(item.submittedAtISO).toLocaleString()}</div>
                 {item.decidedAt ? (
                   <div className="text-xs text-muted-foreground">
