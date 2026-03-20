@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import IngestCandidateActions from "@/app/(admin)/admin/ingest/_components/ingest-candidate-actions";
 import IngestConfidenceBadge from "@/app/(admin)/admin/ingest/_components/ingest-confidence-badge";
 import IngestImageCell from "@/app/(admin)/admin/ingest/_components/ingest-image-cell";
@@ -14,6 +14,9 @@ type QueueCandidate = {
   blobImageUrl: string | null;
   startAt: Date | null;
   locationText: string | null;
+  description: string | null;
+  artistNames: string[];
+  timezone: string | null;
   confidenceScore: number;
   confidenceBand: string | null;
   confidenceReasons: unknown;
@@ -47,6 +50,7 @@ export default function IngestEventQueueClient({
 }) {
   const router = useRouter();
   const [showReasons, setShowReasons] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [confidenceFilter, setConfidenceFilter] = useState<
     "all" | "HIGH" | "MEDIUM" | "LOW"
@@ -274,75 +278,126 @@ export default function IngestEventQueueClient({
           </thead>
           <tbody>
             {filteredCandidates.map((candidate) => (
-              <tr key={candidate.id} className="border-b align-top">
-                <td className="px-3 py-2">
-                  <IngestConfidenceBadge
-                    score={candidate.confidenceScore}
-                    band={getConfidenceBand(candidate.confidenceBand)}
-                    reasons={getConfidenceReasons(candidate.confidenceReasons)}
-                    showReasons={showReasons}
-                  />
-                </td>
-                <td className="px-3 py-2">
-                  <IngestImageCell
-                    imageUrl={candidate.imageUrl}
-                    blobImageUrl={candidate.blobImageUrl}
-                    altText={candidate.title}
-                    importStatus={
-                      importedImageFor.has(candidate.id)
-                        ? "imported"
-                        : importFailedFor.has(candidate.id)
-                          ? "failed"
-                          : importingImageFor === candidate.id
-                            ? "importing"
-                            : "none"
-                    }
-                    onImport={
-                      candidate.imageUrl && candidate.status !== "DUPLICATE"
-                        ? () =>
-                            importImage(
-                              candidate.id,
-                              candidate.run.id,
-                              candidate.imageUrl!,
-                              true,
-                            )
-                        : undefined
-                    }
-                  />
-                </td>
-                <td className="px-3 py-2 font-medium">{candidate.title}</td>
-                <td className="px-3 py-2">
-                  {candidate.startAt
-                    ? new Date(candidate.startAt).toLocaleString()
-                    : "—"}
-                </td>
-                <td className="px-3 py-2">{candidate.venue.name}</td>
-                <td className="px-3 py-2">{candidate.locationText ?? "—"}</td>
-                <td className="px-3 py-2">
-                  <Link
-                    href={`/admin/ingest/runs/${candidate.run.id}`}
-                    className="underline"
-                  >
-                    Run details
-                  </Link>
-                  <div
-                    className="mt-1 max-w-[280px] truncate text-xs text-muted-foreground"
-                    title={candidate.run.sourceUrl}
-                  >
-                    {candidate.run.sourceUrl}
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <IngestCandidateActions
-                    candidateId={candidate.id}
-                    venueId={candidate.venue.id}
-                    status={candidate.status}
-                    createdEventId={candidate.createdEventId}
-                    rejectionReason={candidate.rejectionReason}
-                    userRole={userRole}
-                  />
-                </td>
-              </tr>
+              <Fragment key={candidate.id}>
+                <tr className="border-b align-top">
+                  <td className="px-3 py-2">
+                    <IngestConfidenceBadge
+                      score={candidate.confidenceScore}
+                      band={getConfidenceBand(candidate.confidenceBand)}
+                      reasons={getConfidenceReasons(candidate.confidenceReasons)}
+                      showReasons={showReasons}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <IngestImageCell
+                      imageUrl={candidate.imageUrl}
+                      blobImageUrl={candidate.blobImageUrl}
+                      altText={candidate.title}
+                      importStatus={
+                        importedImageFor.has(candidate.id)
+                          ? "imported"
+                          : importFailedFor.has(candidate.id)
+                            ? "failed"
+                            : importingImageFor === candidate.id
+                              ? "importing"
+                              : "none"
+                      }
+                      onImport={
+                        candidate.imageUrl && candidate.status !== "DUPLICATE"
+                          ? () =>
+                              importImage(
+                                candidate.id,
+                                candidate.run.id,
+                                candidate.imageUrl!,
+                                true,
+                              )
+                          : undefined
+                      }
+                    />
+                  </td>
+                  <td className="px-3 py-2 font-medium">
+                    <button
+                      type="button"
+                      className="text-left hover:underline"
+                      onClick={() =>
+                        setExpandedId((prev) =>
+                          prev === candidate.id ? null : candidate.id,
+                        )
+                      }
+                    >
+                      {candidate.title}
+                    </button>
+                  </td>
+                  <td className="px-3 py-2">
+                    {candidate.startAt
+                      ? new Date(candidate.startAt).toLocaleString()
+                      : "—"}
+                  </td>
+                  <td className="px-3 py-2">{candidate.venue.name}</td>
+                  <td className="px-3 py-2">{candidate.locationText ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    <Link
+                      href={`/admin/ingest/runs/${candidate.run.id}`}
+                      className="underline"
+                    >
+                      Run details
+                    </Link>
+                    <div
+                      className="mt-1 max-w-[280px] truncate text-xs text-muted-foreground"
+                      title={candidate.run.sourceUrl}
+                    >
+                      {candidate.run.sourceUrl}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2">
+                    <IngestCandidateActions
+                      candidateId={candidate.id}
+                      venueId={candidate.venue.id}
+                      status={candidate.status}
+                      createdEventId={candidate.createdEventId}
+                      rejectionReason={candidate.rejectionReason}
+                      userRole={userRole}
+                    />
+                  </td>
+                </tr>
+                {expandedId === candidate.id ? (
+                  <tr className="border-b bg-muted/30">
+                    <td colSpan={8} className="px-4 py-3 text-sm">
+                      <div className="space-y-2">
+                        {candidate.artistNames.length > 0 ? (
+                          <p>
+                            <span className="font-medium text-foreground">
+                              Artists:{" "}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {candidate.artistNames.join(", ")}
+                            </span>
+                          </p>
+                        ) : null}
+                        {candidate.description ? (
+                          <p>
+                            <span className="font-medium text-foreground">
+                              Description:{" "}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {candidate.description}
+                            </span>
+                          </p>
+                        ) : (
+                          <p className="text-muted-foreground italic">
+                            No description extracted.
+                          </p>
+                        )}
+                        {candidate.timezone ? (
+                          <p className="text-xs text-muted-foreground">
+                            Timezone: {candidate.timezone}
+                          </p>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
             ))}
             {filteredCandidates.length === 0 ? (
               <tr>
