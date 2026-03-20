@@ -137,6 +137,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       name: result.name,
       websiteUrl: result.websiteUrl,
       sourceUrl: result.sourceUrl,
+      instagramUrl: result.instagramUrl,
       requestId: `admin-approve-artist-${result.candidateId}`,
     }).catch((err) => console.warn("admin_approve_artist_image_import_failed", { candidateId: result.candidateId, err }));
 

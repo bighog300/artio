@@ -90,6 +90,7 @@ export async function autoApproveArtistCandidate(args: {
       name: candidate.name,
       websiteUrl: candidate.websiteUrl,
       sourceUrl: candidate.sourceUrl,
+      instagramUrl: candidate.instagramUrl,
       requestId: `auto-approve-artist-${candidate.id}`,
     }).catch((err) => console.warn("auto_approve_artist_image_failed", { candidateId: candidate.id, err }));
 
