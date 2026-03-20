@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import IngestStatusBadge from "@/app/(admin)/admin/ingest/_components/ingest-status-badge";
+import IngestTriggerClient from "@/app/(admin)/admin/ingest/_components/ingest-trigger-client";
 import { db } from "@/lib/db";
 
 type IngestRun = {
@@ -15,27 +16,43 @@ type IngestRun = {
 };
 
 export default async function AdminIngestRunsPage() {
-  const runs: IngestRun[] = await db.ingestRun.findMany({
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: 20,
-    select: {
-      id: true,
-      createdAt: true,
-      status: true,
-      sourceUrl: true,
-      fetchStatus: true,
-      errorCode: true,
-      createdCandidates: true,
-      venue: { select: { id: true, name: true } },
-    },
-  });
+  const [runs, venues] = await Promise.all([
+    db.ingestRun.findMany({
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 20,
+      select: {
+        id: true,
+        createdAt: true,
+        status: true,
+        sourceUrl: true,
+        fetchStatus: true,
+        errorCode: true,
+        createdCandidates: true,
+        venue: { select: { id: true, name: true } },
+      },
+    }),
+    db.venue.findMany({
+      where: { websiteUrl: { not: null }, deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, websiteUrl: true },
+      take: 200,
+    }),
+  ]);
+
+  const venueOptions = venues.map((venue) => ({
+    id: venue.id,
+    name: venue.name,
+    websiteUrl: venue.websiteUrl ?? "",
+  }));
 
   return (
     <>
       <AdminPageHeader
         title="Ingest Runs"
-        description="Latest 20 ingest runs across venues."
+        description="Trigger a manual extraction run or review recent run history."
       />
+
+      <IngestTriggerClient venues={venueOptions} />
 
       <section className="rounded-lg border bg-background p-4">
         <div className="overflow-x-auto">

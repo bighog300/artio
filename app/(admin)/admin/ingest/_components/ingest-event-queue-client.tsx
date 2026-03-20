@@ -38,11 +38,11 @@ function getConfidenceReasons(value: unknown): string[] | null {
 }
 export default function IngestEventQueueClient({
   candidates,
-  venues,
+  venues = [],
   userRole,
 }: {
   candidates: QueueCandidate[];
-  venues: Array<{ id: string; name: string }>;
+  venues?: Array<{ id: string; name: string }>;
   userRole?: "USER" | "EDITOR" | "ADMIN";
 }) {
   const router = useRouter();
