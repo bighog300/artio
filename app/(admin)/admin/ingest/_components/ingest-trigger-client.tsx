@@ -22,6 +22,14 @@ export default function IngestTriggerClient({ venues }: { venues: VenueOption[] 
   const router = useRouter();
   const [selectedVenueId, setSelectedVenueId] = useState(venues[0]?.id ?? "");
   const [isRunning, setIsRunning] = useState(false);
+  const [isBatchRunning, setIsBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{
+    done: number;
+    total: number;
+    succeeded: number;
+    failed: number;
+  } | null>(null);
+  const [batchComplete, setBatchComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function runExtraction() {
@@ -51,6 +59,54 @@ export default function IngestTriggerClient({ venues }: { venues: VenueOption[] 
     }
   }
 
+  async function runAllVenues() {
+    const cap = Math.min(venues.length, 50);
+    const toRun = venues.slice(0, cap);
+    if (toRun.length === 0) return;
+
+    if (
+      !window.confirm(
+        `Run extraction for all ${toRun.length} venue${toRun.length === 1 ? "" : "s"}? This will fire ${toRun.length} sequential extraction run${toRun.length === 1 ? "" : "s"}.`,
+      )
+    )
+      return;
+
+    setError(null);
+    setIsBatchRunning(true);
+    setBatchComplete(false);
+    setBatchProgress({ done: 0, total: toRun.length, succeeded: 0, failed: 0 });
+
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const venue of toRun) {
+      try {
+        const res = await fetch(`/api/admin/ingest/venues/${venue.id}/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+        if (res.ok) {
+          succeeded += 1;
+        } else {
+          failed += 1;
+        }
+      } catch {
+        failed += 1;
+      }
+      setBatchProgress({
+        done: succeeded + failed,
+        total: toRun.length,
+        succeeded,
+        failed,
+      });
+    }
+
+    setIsBatchRunning(false);
+    setBatchComplete(true);
+    router.refresh();
+  }
+
   return (
     <section className="rounded-lg border bg-background p-4 space-y-3">
       <div>
@@ -78,6 +134,58 @@ export default function IngestTriggerClient({ venues }: { venues: VenueOption[] 
         <Button type="button" onClick={runExtraction} disabled={!selectedVenueId || isRunning}>
           {isRunning ? "Running…" : "Run Extraction"}
         </Button>
+      </div>
+
+      <div className="space-y-2 border-t pt-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Or run extraction for all {Math.min(venues.length, 50)} venue
+            {Math.min(venues.length, 50) === 1 ? "" : "s"} sequentially.
+            {venues.length > 50 ? " (capped at 50)" : ""}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void runAllVenues()}
+            disabled={isBatchRunning || isRunning || venues.length === 0}
+          >
+            {isBatchRunning
+              ? `Running… ${batchProgress?.done ?? 0}/${batchProgress?.total ?? 0}`
+              : "Run all venues"}
+          </Button>
+        </div>
+
+        {isBatchRunning && batchProgress ? (
+          <div className="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">
+            {batchProgress.done}/{batchProgress.total} venues processed
+            {batchProgress.succeeded > 0 ? ` · ${batchProgress.succeeded} started` : ""}
+            {batchProgress.failed > 0 ? ` · ${batchProgress.failed} failed` : ""}
+          </div>
+        ) : null}
+
+        {batchComplete && batchProgress ? (
+          <div
+            className={`flex items-center justify-between rounded border px-3 py-2 text-xs ${
+              batchProgress.failed > 0
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-800"
+                : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800"
+            }`}
+          >
+            <span>
+              Batch complete: {batchProgress.succeeded} started
+              {batchProgress.failed > 0 ? `, ${batchProgress.failed} failed` : ""}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setBatchComplete(false);
+                setBatchProgress(null);
+              }}
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
       </div>
     </section>
   );
