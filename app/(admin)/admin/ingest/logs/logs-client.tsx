@@ -75,6 +75,14 @@ export default function LogsClient({ cronState, initialRunFailures, initialCandi
   const [errorCodeFilter, setErrorCodeFilter] = useState("");
   const [loadingRuns, setLoadingRuns] = useState(false);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryProgress, setRetryProgress] = useState<{
+    done: number;
+    total: number;
+    succeeded: number;
+    failed: number;
+  } | null>(null);
+  const [retryComplete, setRetryComplete] = useState(false);
 
   async function fetchRunFailures(days: number, errorCode: string) {
     setLoadingRuns(true);
@@ -101,6 +109,58 @@ export default function LogsClient({ cronState, initialRunFailures, initialCandi
     } finally {
       setLoadingCandidates(false);
     }
+  }
+
+  async function retryFailedVenues() {
+    const uniqueVenueIds = Array.from(new Set(runFailures.map((r) => r.venue.id)));
+    if (uniqueVenueIds.length === 0) return;
+
+    if (
+      !window.confirm(
+        `Retry extraction for ${uniqueVenueIds.length} venue${
+          uniqueVenueIds.length === 1 ? "" : "s"
+        } that had failures?`
+      )
+    )
+      return;
+
+    setRetrying(true);
+    setRetryComplete(false);
+    setRetryProgress({
+      done: 0,
+      total: uniqueVenueIds.length,
+      succeeded: 0,
+      failed: 0,
+    });
+
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const venueId of uniqueVenueIds) {
+      try {
+        const res = await fetch(`/api/admin/ingest/venues/${venueId}/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+        if (res.ok) {
+          succeeded += 1;
+        } else {
+          failed += 1;
+        }
+      } catch {
+        failed += 1;
+      }
+      setRetryProgress({
+        done: succeeded + failed,
+        total: uniqueVenueIds.length,
+        succeeded,
+        failed,
+      });
+    }
+
+    setRetrying(false);
+    setRetryComplete(true);
   }
 
   const ingestCronNames = ["ingest_regions", "ingest_venues", "ingest_discovery"];
@@ -164,7 +224,50 @@ export default function LogsClient({ cronState, initialRunFailures, initialCandi
             }}
           />
           {loadingRuns ? <span className="text-xs text-muted-foreground">Loading…</span> : null}
+          {runFailures.length > 0 ? (
+            <button
+              type="button"
+              className="ml-auto rounded border border-amber-500/60 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50 dark:bg-amber-900/20 dark:text-amber-300"
+              disabled={retrying}
+              onClick={() => void retryFailedVenues()}
+            >
+              {retrying
+                ? `Retrying… ${retryProgress?.done ?? 0}/${retryProgress?.total ?? 0}`
+                : `Retry ${Array.from(new Set(runFailures.map((r) => r.venue.id))).length} failed venue${Array.from(new Set(runFailures.map((r) => r.venue.id))).length === 1 ? "" : "s"}`}
+            </button>
+          ) : null}
         </div>
+        {retrying && retryProgress ? (
+          <div className="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">
+            {retryProgress.done}/{retryProgress.total} venues retried
+            {retryProgress.succeeded > 0 ? ` · ${retryProgress.succeeded} started` : ""}
+            {retryProgress.failed > 0 ? ` · ${retryProgress.failed} failed` : ""}
+          </div>
+        ) : null}
+
+        {retryComplete && retryProgress ? (
+          <div
+            className={`flex items-center justify-between rounded border px-3 py-2 text-xs ${
+              retryProgress.failed > 0
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-800"
+                : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800"
+            }`}
+          >
+            <span>
+              Retry complete: {retryProgress.succeeded} started
+              {retryProgress.failed > 0 ? `, ${retryProgress.failed} could not be triggered` : ""}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setRetryComplete(false);
+                setRetryProgress(null);
+              }}
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
         {runFailures.length === 0 ? (
           <p className="text-sm text-muted-foreground">No run failures in this period.</p>
         ) : (
