@@ -51,6 +51,17 @@ export default function IngestEventQueueClient({
   const router = useRouter();
   const [showReasons, setShowReasons] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDrafts, setEditDrafts] = useState<
+    Record<string, {
+      title: string;
+      description: string;
+      startAt: string;
+      endAt: string;
+      timezone: string;
+      locationText: string;
+    }>
+  >({});
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [confidenceFilter, setConfidenceFilter] = useState<
     "all" | "HIGH" | "MEDIUM" | "LOW"
@@ -72,6 +83,24 @@ export default function IngestEventQueueClient({
     approved: number;
     failed: number;
   } | null>(null);
+
+  function initDraft(candidate: QueueCandidate) {
+    const candidateEndAt =
+      "endAt" in candidate ? (candidate.endAt as Date | null | undefined) : null;
+
+    return {
+      title: candidate.title,
+      description: candidate.description ?? "",
+      startAt: candidate.startAt
+        ? new Date(candidate.startAt).toISOString().slice(0, 16)
+        : "",
+      endAt: candidateEndAt
+        ? new Date(candidateEndAt).toISOString().slice(0, 16)
+        : "",
+      timezone: candidate.timezone ?? "",
+      locationText: candidate.locationText ?? "",
+    };
+  }
 
   const filteredCandidates = candidates
     .filter((candidate) => venueFilter === "all" || candidate.venue.id === venueFilter)
@@ -357,6 +386,18 @@ export default function IngestEventQueueClient({
                       createdEventId={candidate.createdEventId}
                       rejectionReason={candidate.rejectionReason}
                       userRole={userRole}
+                      patch={
+                        editDrafts[candidate.id]
+                          ? {
+                              title: editDrafts[candidate.id].title || undefined,
+                              description: editDrafts[candidate.id].description || null,
+                              startAt: editDrafts[candidate.id].startAt || null,
+                              endAt: editDrafts[candidate.id].endAt || null,
+                              timezone: editDrafts[candidate.id].timezone || null,
+                              locationText: editDrafts[candidate.id].locationText || null,
+                            }
+                          : undefined
+                      }
                     />
                   </td>
                 </tr>
@@ -392,6 +433,78 @@ export default function IngestEventQueueClient({
                           <p className="text-xs text-muted-foreground">
                             Timezone: {candidate.timezone}
                           </p>
+                        ) : null}
+                        <div className="flex items-center gap-3 pt-1">
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground underline"
+                            onClick={() => {
+                              if (editingId === candidate.id) {
+                                setEditingId(null);
+                              } else {
+                                setEditingId(candidate.id);
+                                setEditDrafts((prev) => ({
+                                  ...prev,
+                                  [candidate.id]: initDraft(candidate),
+                                }));
+                              }
+                            }}
+                          >
+                            {editingId === candidate.id ? "Cancel edit" : "Edit before approval"}
+                          </button>
+                        </div>
+
+                        {editingId === candidate.id ? (
+                          <div className="mt-3 grid gap-3 rounded border bg-background p-3 text-sm sm:grid-cols-2">
+                            {(
+                              [
+                                { key: "title", label: "Title", type: "text" },
+                                { key: "locationText", label: "Location", type: "text" },
+                                { key: "startAt", label: "Start at", type: "datetime-local" },
+                                { key: "endAt", label: "End at", type: "datetime-local" },
+                                { key: "timezone", label: "Timezone (IANA)", type: "text" },
+                              ] as const
+                            ).map(({ key, label, type }) => (
+                              <label key={key} className="flex flex-col gap-1">
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  {label}
+                                </span>
+                                <input
+                                  type={type}
+                                  className="rounded border px-2 py-1 text-sm"
+                                  value={editDrafts[candidate.id]?.[key] ?? ""}
+                                  onChange={(e) =>
+                                    setEditDrafts((prev) => ({
+                                      ...prev,
+                                      [candidate.id]: {
+                                        ...prev[candidate.id],
+                                        [key]: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                />
+                              </label>
+                            ))}
+                            <label className="flex flex-col gap-1 sm:col-span-2">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Description
+                              </span>
+                              <textarea
+                                className="rounded border px-2 py-1 text-sm"
+                                rows={3}
+                                value={editDrafts[candidate.id]?.description ?? ""}
+                                onChange={(e) =>
+                                  setEditDrafts((prev) => ({
+                                    ...prev,
+                                    [candidate.id]: {
+                                      ...prev[candidate.id],
+                                      description: e.target.value,
+                                    },
+                                  }))
+                                }
+                              />
+                            </label>
+                          </div>
                         ) : null}
                       </div>
                     </td>

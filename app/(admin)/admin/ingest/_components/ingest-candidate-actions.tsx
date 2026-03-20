@@ -48,6 +48,7 @@ export default function IngestCandidateActions({
   createdEventId,
   rejectionReason,
   userRole,
+  patch,
 }: {
   candidateId: string;
   venueId: string;
@@ -55,6 +56,14 @@ export default function IngestCandidateActions({
   createdEventId: string | null;
   rejectionReason: string | null;
   userRole?: "USER" | "EDITOR" | "ADMIN";
+  patch?: {
+    title?: string;
+    description?: string | null;
+    startAt?: string | null;
+    endAt?: string | null;
+    timezone?: string | null;
+    locationText?: string | null;
+  };
 }) {
   const router = useRouter();
   const [openRejectModal, setOpenRejectModal] = useState(false);
@@ -89,7 +98,11 @@ export default function IngestCandidateActions({
     setImageSkipWarning(null);
     setLoadingAction("approve");
     try {
-      const res = await fetch(`/api/admin/ingest/extracted-events/${candidateId}/approve`, { method: "POST" });
+      const res = await fetch(`/api/admin/ingest/extracted-events/${candidateId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch ? { ...patch } : {}),
+      });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: { details?: unknown } } | null;
         const missingFields = extractMissingFields(body?.error?.details);
@@ -142,7 +155,7 @@ export default function IngestCandidateActions({
       const res = await fetch(`/api/admin/ingest/extracted-events/${candidateId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ publishImmediately: true }),
+        body: JSON.stringify({ publishImmediately: true, ...(patch ?? {}) }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: { details?: unknown } } | null;

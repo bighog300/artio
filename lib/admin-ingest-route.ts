@@ -62,6 +62,14 @@ const rejectBodySchema = z.object({ rejectionReason: z.string().trim().min(1).ma
 const approveBodySchema = z.object({
   publishImmediately: z.boolean().optional().default(false),
 });
+const eventApprovePatchSchema = z.object({
+  title: z.string().trim().min(1).max(300).optional(),
+  description: z.string().trim().max(5000).nullable().optional(),
+  startAt: z.string().datetime().nullable().optional(),
+  endAt: z.string().datetime().nullable().optional(),
+  timezone: z.string().trim().min(1).max(100).nullable().optional(),
+  locationText: z.string().trim().max(300).nullable().optional(),
+}).strict();
 
 export async function handleAdminIngestRun(req: NextRequest, params: { venueId?: string }, deps: Partial<AdminIngestDeps> = {}) {
   const resolved = { ...defaultDeps, ...deps };
@@ -296,8 +304,16 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
     const actor = await resolved.requireEditorUser();
     const parsedParams = candidateIdSchema.safeParse(params);
     if (!parsedParams.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedParams.error), requestId);
-    const parsedApproveBody = approveBodySchema.safeParse(await parseBody(req).catch(() => ({})));
+    const rawBody = await parseBody(req).catch(() => ({}));
+    const parsedApproveBody = approveBodySchema.safeParse(rawBody);
     const publishImmediately = parsedApproveBody.success ? parsedApproveBody.data.publishImmediately : false;
+    const patchBody =
+      rawBody && typeof rawBody === "object"
+        ? { ...(rawBody as Record<string, unknown>) }
+        : {};
+    delete (patchBody as { publishImmediately?: unknown }).publishImmediately;
+    const parsedPatch = eventApprovePatchSchema.safeParse(patchBody);
+    const patch = parsedPatch.success ? parsedPatch.data : {};
 
     if (publishImmediately && actor.role !== "ADMIN") {
       return apiError(403, "forbidden", "Approve & Publish requires ADMIN role", undefined, requestId);
@@ -387,10 +403,20 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         };
       }
 
-      const requiredStartAt = candidate.startAt as Date;
-      const requiredTimezone = resolvedTimezone as string;
+      const effectiveTitle = patch.title ?? candidate.title;
+      const effectiveDescription =
+        "description" in patch ? patch.description : candidate.description;
+      const effectiveLocationText =
+        "locationText" in patch ? patch.locationText : candidate.locationText;
+      const requiredStartAt =
+        patch.startAt ? new Date(patch.startAt) : (candidate.startAt as Date);
+      const requiredTimezone = patch.timezone ?? resolvedTimezone as string;
+      const effectiveEndAt =
+        "endAt" in patch
+          ? (patch.endAt ? new Date(patch.endAt) : null)
+          : candidate.endAt;
 
-      const baseSlug = slugifyEventTitle(candidate.title);
+      const baseSlug = slugifyEventTitle(effectiveTitle);
       const slug = await ensureUniqueEventSlugWithDeps(
         { findBySlug: (value) => tx.event.findUnique({ where: { slug: value }, select: { id: true } }) },
         baseSlug,
@@ -399,11 +425,11 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
       const createdEvent = await tx.event.create({
         data: {
           venueId: candidate.venueId,
-          title: candidate.title,
+          title: effectiveTitle,
           slug,
-          description: candidate.description,
+          description: effectiveDescription,
           startAt: requiredStartAt,
-          endAt: candidate.endAt,
+          endAt: effectiveEndAt,
           timezone: requiredTimezone,
           isPublished: publishImmediately,
           status: publishImmediately ? "PUBLISHED" : "DRAFT",
@@ -563,7 +589,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
               candidateId: candidate.id,
               runId: candidate.runId,
               sourceUrl: candidate.sourceUrl,
-              locationText: candidate.locationText,
+              locationText: effectiveLocationText,
             },
             submittedAt: new Date(),
           },
@@ -577,6 +603,12 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
           status: "APPROVED",
           rejectionReason: null,
           createdEventId: createdEvent.id,
+          title: effectiveTitle,
+          description: effectiveDescription,
+          startAt: requiredStartAt,
+          endAt: effectiveEndAt,
+          timezone: requiredTimezone,
+          locationText: effectiveLocationText,
         },
         select: { id: true, createdEventId: true, runId: true, venueId: true },
       });
@@ -591,19 +623,19 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         sparseArtistNames,
         artistSettings,
         artworkSettings,
-        sourceUrl: candidate.sourceUrl,
-        linkedArtistCount: matchedArtists.length,
-        published: publishImmediately,
-        imageContext: {
-          runId: candidate.runId,
-          venueId: candidate.venueId,
           sourceUrl: candidate.sourceUrl,
-          venueWebsiteUrl: candidate.venue.websiteUrl,
-          candidateImageUrl: candidate.imageUrl,
-          title: candidate.title,
-          runErrorDetail: candidate.run.errorDetail,
-        },
-      };
+          linkedArtistCount: matchedArtists.length,
+          published: publishImmediately,
+          imageContext: {
+            runId: candidate.runId,
+            venueId: candidate.venueId,
+            sourceUrl: candidate.sourceUrl,
+            venueWebsiteUrl: candidate.venue.websiteUrl,
+            candidateImageUrl: candidate.imageUrl,
+            title: effectiveTitle,
+            runErrorDetail: candidate.run.errorDetail,
+          },
+        };
     });
 
     if ("error" in approved) return approved.error;
