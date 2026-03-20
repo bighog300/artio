@@ -11,12 +11,14 @@ type AdminVenueOnboardDeps = {
   appDb: Pick<typeof db, "venue" | "ingestRun">;
   requireAdminFn: typeof requireAdmin;
   logAction: typeof logAdminAction;
+  assertUrlFn: typeof assertSafeUrl;
 };
 
 const defaultDeps: AdminVenueOnboardDeps = {
   appDb: db,
   requireAdminFn: requireAdmin,
   logAction: logAdminAction,
+  assertUrlFn: assertSafeUrl,
 };
 
 export async function handleAdminVenueOnboard(
@@ -58,7 +60,12 @@ export async function handleAdminVenueOnboard(
 
     let requestEventsPageUrl: string | null | undefined = undefined;
     if (typeof body.eventsPageUrl === "string") {
-      const safe = await assertSafeUrl(body.eventsPageUrl);
+      let safe: URL;
+      try {
+        safe = await resolved.assertUrlFn(body.eventsPageUrl);
+      } catch {
+        return apiError(422, "invalid_events_page_url", "Invalid events page URL");
+      }
       requestEventsPageUrl = safe.toString();
       await resolved.appDb.venue.update({
         where: { id: venue.id },

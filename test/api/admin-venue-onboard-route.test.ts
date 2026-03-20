@@ -169,3 +169,43 @@ test("request eventsPageUrl overrides stored URL for ingest source", async () =>
   assert.equal(updates.some((u) => u.data.eventsPageUrl === "https://example.com/program"), true);
   assert.equal(ingestCreates[0]?.sourceUrl, "https://example.com/program");
 });
+
+test("returns 422 when eventsPageUrl in body is rejected by assertSafeUrl", async () => {
+  const response = await handleAdminVenueOnboard(
+    new Request(`http://localhost/api/admin/venues/${venueId}/onboard`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventsPageUrl: "http://169.254.169.254/metadata" }),
+    }),
+    { id: venueId },
+    {
+      appDb: {
+        venue: {
+          findUnique: async () => ({
+            id: venueId,
+            status: "ONBOARDING",
+            featuredAssetId: "asset-1",
+            websiteUrl: "https://example.com",
+            eventsPageUrl: null,
+            country: "GB",
+            lat: 51.5,
+            lng: -0.1,
+            name: "Test Gallery",
+            city: "London",
+          }),
+          update: async () => ({ id: venueId }),
+        },
+        ingestRun: { create: async () => ({ id: "run-1" }) },
+      } as never,
+      assertUrlFn: async (_url: string) => {
+        throw new Error("URL is not allowed: private IP range");
+      },
+      requireAdminFn: async () => ({ email: "admin@example.com" } as never),
+      logAction: async () => {},
+    } as never,
+  );
+
+  assert.equal(response.status, 422);
+  const body = await response.json();
+  assert.equal(body.error?.code, "invalid_events_page_url");
+});

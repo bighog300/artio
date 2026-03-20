@@ -36,7 +36,7 @@ type IngestVenueDb = {
           deletedAt: null;
           OR: Array<
             | { isPublished: true; websiteUrl: { not: null } }
-            | { aiGenerated: true; isPublished: false; eventsPageUrl: { not: null } }
+            | { aiGenerated: true; isPublished: false; status: { not: string }; eventsPageUrl: { not: null } }
           >;
         };
       orderBy: { updatedAt: "asc" };
@@ -263,6 +263,8 @@ export async function runCronIngestVenues(
               {
                 aiGenerated: true,
                 isPublished: false,
+                // Excludes ONBOARDING venues — those must be published via the onboard route first
+                status: { not: "ONBOARDING" },
                 eventsPageUrl: { not: null },
               },
             ],

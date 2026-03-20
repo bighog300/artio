@@ -80,11 +80,32 @@ export default function IngestCandidateActions({
     artworkCandidates: number;
     imageAttached: boolean;
   } | null>(null);
+  const [editingImageFor, setEditingImageFor] = useState<string | null>(null);
+  const [editImageUrl, setEditImageUrl] = useState<Record<string, string>>({});
+  const [editingImageLoading, setEditingImageLoading] = useState<string | null>(null);
+  const [editImageError, setEditImageError] = useState<Record<string, string>>({});
   const rejectReasonRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     setApprovedEventId(createdEventId);
   }, [createdEventId]);
+
+  useEffect(() => {
+    if (!approvedEventId) return;
+    fetch(`/api/admin/ingest/extracted-events/${candidateId}/pipeline-status`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) {
+          setPipelineStatus({
+            linkedArtists: data.linkedArtists?.length ?? 0,
+            artistCandidates: data.artistCandidates?.length ?? 0,
+            artworkCandidates: data.artworkCandidates?.length ?? 0,
+            imageAttached: data.imageStatus?.attached ?? false,
+          });
+        }
+      })
+      .catch(() => null);
+  }, [approvedEventId, candidateId]);
 
   function closeRejectModal() {
     setOpenRejectModal(false);
@@ -122,19 +143,6 @@ export default function IngestCandidateActions({
       }
       if (body.createdEventId) {
         setApprovedEventId(body.createdEventId);
-        fetch(`/api/admin/ingest/extracted-events/${candidateId}/pipeline-status`)
-          .then((r) => (r.ok ? r.json() : null))
-          .then((data) => {
-            if (data) {
-              setPipelineStatus({
-                linkedArtists: data.linkedArtists?.length ?? 0,
-                artistCandidates: data.artistCandidates?.length ?? 0,
-                artworkCandidates: data.artworkCandidates?.length ?? 0,
-                imageAttached: data.imageStatus?.attached ?? false,
-              });
-            }
-          })
-          .catch(() => null);
       }
       router.refresh();
     } catch {
@@ -209,6 +217,33 @@ export default function IngestCandidateActions({
     }
   }
 
+  async function replaceEventImage(localCandidateId: string, eventId: string) {
+    setEditingImageLoading(localCandidateId);
+    setEditImageError((prev) => ({ ...prev, [localCandidateId]: "" }));
+    try {
+      const sourceUrl = editImageUrl[localCandidateId] ?? "";
+      const response = await fetch(`/api/admin/events/${eventId}/image`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceUrl }),
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
+        setEditImageError((prev) => ({ ...prev, [localCandidateId]: body.error?.message ?? "Image replace failed" }));
+        return;
+      }
+
+      setEditImageUrl((prev) => ({ ...prev, [localCandidateId]: "" }));
+      setPipelineStatus((prev) => (prev ? { ...prev, imageAttached: true } : prev));
+      setEditingImageFor(null);
+      setEditImageError((prev) => ({ ...prev, [localCandidateId]: "" }));
+    } catch {
+      setEditImageError((prev) => ({ ...prev, [localCandidateId]: "Image replace failed" }));
+    } finally {
+      setEditingImageLoading(null);
+    }
+  }
+
   return (
     <div className="space-y-2">
       {error ? (
@@ -273,6 +308,50 @@ export default function IngestCandidateActions({
               <p className={pipelineStatus.imageAttached ? "text-emerald-700" : ""}>
                 {pipelineStatus.imageAttached ? "✓ Image attached" : "— No image imported"}
               </p>
+              {editingImageFor !== candidateId ? (
+                <button
+                  type="button"
+                  className="text-xs underline text-muted-foreground"
+                  onClick={() => {
+                    setEditingImageFor(candidateId);
+                    setEditImageUrl((prev) => (prev[candidateId] !== undefined ? prev : { ...prev, [candidateId]: "" }));
+                  }}
+                >
+                  Edit image
+                </button>
+              ) : null}
+              {editingImageFor === candidateId ? (
+                <div className="mt-1 space-y-1">
+                  <input
+                    className="w-full rounded border px-2 py-1 text-xs"
+                    placeholder="https://… image URL"
+                    value={editImageUrl[candidateId] ?? ""}
+                    onChange={(event) =>
+                      setEditImageUrl((prev) => ({ ...prev, [candidateId]: event.target.value }))
+                    }
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="text-xs"
+                      disabled={editingImageLoading === candidateId || !approvedEventId}
+                      onClick={() => approvedEventId && replaceEventImage(candidateId, approvedEventId)}
+                    >
+                      {editingImageLoading === candidateId ? "Replacing…" : "Replace"}
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground"
+                      onClick={() => setEditingImageFor(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {editImageError[candidateId] ? (
+                    <p className="text-xs text-destructive">{editImageError[candidateId]}</p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
