@@ -65,7 +65,7 @@ export async function handleAdminEventImageReplace(
   let uploaded: Awaited<ReturnType<typeof uploadEventImageToBlob>>;
   try {
     uploaded = await resolved.uploadImageFn({
-      venueId: event.venueId,
+      venueId: event.venueId ?? "",
       candidateId: eventId,
       sourceUrl,
       contentType: fetched.contentType,
