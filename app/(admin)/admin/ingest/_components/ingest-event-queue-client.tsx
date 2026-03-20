@@ -48,6 +48,9 @@ export default function IngestEventQueueClient({
   const router = useRouter();
   const [showReasons, setShowReasons] = useState(false);
   const [venueFilter, setVenueFilter] = useState<string>("all");
+  const [confidenceFilter, setConfidenceFilter] = useState<
+    "all" | "HIGH" | "MEDIUM" | "LOW"
+  >("all");
   const [importingImageFor, setImportingImageFor] = useState<string | null>(
     null,
   );
@@ -66,10 +69,12 @@ export default function IngestEventQueueClient({
     failed: number;
   } | null>(null);
 
-  const filteredCandidates =
-    venueFilter === "all"
-      ? candidates
-      : candidates.filter((candidate) => candidate.venue.id === venueFilter);
+  const filteredCandidates = candidates
+    .filter((candidate) => venueFilter === "all" || candidate.venue.id === venueFilter)
+    .filter(
+      (candidate) =>
+        confidenceFilter === "all" || candidate.confidenceBand === confidenceFilter,
+    );
 
   async function importImage(
     candidateId: string,
@@ -158,7 +163,12 @@ export default function IngestEventQueueClient({
           >
             <option value="all">All venues ({candidates.length})</option>
             {venues.map((venue) => {
-              const count = candidates.filter((c) => c.venue.id === venue.id).length;
+              const count = candidates.filter(
+                (c) =>
+                  c.venue.id === venue.id &&
+                  (confidenceFilter === "all" ||
+                    c.confidenceBand === confidenceFilter),
+              ).length;
               if (count === 0) return null;
               return (
                 <option key={venue.id} value={venue.id}>
@@ -166,6 +176,20 @@ export default function IngestEventQueueClient({
                 </option>
               );
             })}
+          </select>
+          <select
+            className="rounded border px-2 py-1 text-sm"
+            value={confidenceFilter}
+            onChange={(e) =>
+              setConfidenceFilter(
+                e.target.value as "all" | "HIGH" | "MEDIUM" | "LOW",
+              )
+            }
+          >
+            <option value="all">All confidence</option>
+            <option value="HIGH">HIGH only</option>
+            <option value="MEDIUM">MEDIUM only</option>
+            <option value="LOW">LOW only</option>
           </select>
           {(() => {
             const highCount = filteredCandidates.filter(
