@@ -10,6 +10,7 @@ const RESOLVABLE_AS_APPLIED = new Set(["20261203105000_enrichment_provenance"]);
 
 const ALWAYS_RESOLVE_AS_ROLLED_BACK = new Set([
   "20260320120000_per_entity_ingest_prompts",
+  "20270103120000_venue_ingest_frequency",
 ]);
 
 const RESOLVABLE_FAILED_MIGRATIONS = new Set([

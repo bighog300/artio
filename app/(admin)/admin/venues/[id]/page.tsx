@@ -10,6 +10,7 @@ import { computeVenuePublishBlockers } from "@/lib/publish-readiness";
 import VenueImagePicker from "@/app/(admin)/admin/venues/[id]/venue-image-picker";
 import VenueEnrichmentLogPanel from "@/components/admin/venue-enrichment-log-panel";
 import { DetectEventsPageButton } from "@/app/(admin)/admin/venues/[id]/detect-events-page-button";
+import { IngestFrequencySelect } from "@/app/(admin)/admin/venues/[id]/ingest-frequency-select";
 
 export default async function AdminVenue({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -85,6 +86,10 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
           { name: "contactEmail", label: "Contact Email" },
         ]}
         altRequired={ADMIN_IMAGE_ALT_REQUIRED}
+      />
+      <IngestFrequencySelect
+        venueId={id}
+        initial={venue.ingestFrequency ?? "WEEKLY"}
       />
       <DetectEventsPageButton
         venueId={id}

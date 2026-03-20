@@ -61,6 +61,7 @@ const venuePatchSchema = z.object({
   timezone: z.string().trim().max(80).nullable().optional(),
   websiteUrl: z.string().trim().url().nullable().optional(),
   eventsPageUrl: z.string().trim().url().nullable().optional(),
+  ingestFrequency: z.enum(["DAILY", "WEEKLY", "MONTHLY", "MANUAL"]).optional(),
   isPublished: z.boolean().optional(),
   status: z.enum(["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "CHANGES_REQUESTED", "ARCHIVED"]).optional(),
   description: z.string().trim().max(5000).nullable().optional(),

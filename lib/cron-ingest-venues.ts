@@ -41,8 +41,8 @@ type IngestVenueDb = {
         };
       orderBy: { updatedAt: "asc" };
       take: number;
-      select: { id: true; websiteUrl: true; eventsPageUrl: true; aiGenerated: true };
-    }) => Promise<Array<{ id: string; websiteUrl: string | null; eventsPageUrl: string | null; aiGenerated: boolean }>>;
+      select: { id: true; websiteUrl: true; eventsPageUrl: true; aiGenerated: true; ingestFrequency: true };
+    }) => Promise<Array<{ id: string; websiteUrl: string | null; eventsPageUrl: string | null; aiGenerated: boolean; ingestFrequency: "DAILY" | "WEEKLY" | "MONTHLY" | "MANUAL" }>>;
   };
   ingestRun: {
     findFirst: (args: {
@@ -103,6 +103,19 @@ function shouldSendDedupedAlert(key: string, nowMs: number, windowMs = 24 * 60 *
   if (nowMs - lastSent < windowMs) return false;
   alertDedup.set(key, nowMs);
   return true;
+}
+
+function minLastRunAtForVenue(
+  frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "MANUAL",
+  now: Date,
+): Date {
+  const ms =
+    frequency === "DAILY"
+      ? 20 * 60 * 60 * 1000
+      : frequency === "MONTHLY"
+        ? 25 * 24 * 60 * 60 * 1000
+        : 6 * 24 * 60 * 60 * 1000;
+  return new Date(now.getTime() - ms);
 }
 
 export async function runCronIngestVenues(
@@ -261,10 +274,9 @@ export async function runCronIngestVenues(
           },
         orderBy: { updatedAt: "asc" },
         take: Math.min(MAX_SCAN_VENUES, Math.max(enforcedLimit * 5, enforcedLimit)),
-        select: { id: true, websiteUrl: true, eventsPageUrl: true, aiGenerated: true },
+        select: { id: true, websiteUrl: true, eventsPageUrl: true, aiGenerated: true, ingestFrequency: true },
       });
 
-      const minLastRunAt = new Date(now() - parsed.data.minHoursSinceLastRun * 60 * 60 * 1000);
       const venueState = await Promise.all(sourceVenues.map(async (venue) => {
         const latestRun = await cronDb.ingestRun.findFirst({
           where: { venueId: venue.id, status: { in: ["RUNNING", "SUCCEEDED"] } },
@@ -279,12 +291,13 @@ export async function runCronIngestVenues(
       }));
 
       const eligibleVenues = venueState
+        .filter((item) => item.venue.ingestFrequency !== "MANUAL")
         .filter((item) =>
           (
             (typeof item.venue.eventsPageUrl === "string" && item.venue.eventsPageUrl.trim().length > 0)
             || (typeof item.venue.websiteUrl === "string" && item.venue.websiteUrl.trim().length > 0)
           )
-          && (!item.lastRunAt || item.lastRunAt < minLastRunAt)
+          && (!item.lastRunAt || item.lastRunAt < minLastRunAtForVenue(item.venue.ingestFrequency, new Date(now())))
         )
         .sort((a, b) => {
           if (!a.lastRunAt && !b.lastRunAt) return 0;

@@ -293,6 +293,13 @@ enum EditorialNotificationKind {
   RANK_COLLISION_ALERT
 }
 
+enum VenueIngestFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  MANUAL
+}
+
 model User {
   id                   String                @id @default(uuid()) @db.Uuid
   email                String                @unique
@@ -468,6 +475,7 @@ model Venue {
   websiteUrl         String?
   canonicalUrl       String?
   eventsPageUrl      String?                   @map("eventsPageUrl")
+  ingestFrequency    VenueIngestFrequency      @default(WEEKLY)
   instagramUrl       String?
   facebookUrl        String?
   contactEmail       String?
