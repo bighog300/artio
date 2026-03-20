@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ImageGalleryManager from "@/app/(admin)/admin/_components/ImageGalleryManager";
 
@@ -29,8 +29,18 @@ export default function EventAdminForm({ title, endpoint, method, eventId, initi
   const [form, setForm] = useState({ ...initial });
   const [tagSlugsText, setTagSlugsText] = useState((initial.tagSlugs || []).join(","));
   const [artistSlugsText, setArtistSlugsText] = useState((initial.artistSlugs || []).join(","));
+  const [venueOptions, setVenueOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch("/api/admin/venues?status=PUBLISHED&page=1")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { items?: Array<{ id: string; name: string }> } | null) => {
+        if (data?.items) setVenueOptions(data.items);
+      })
+      .catch(() => {});
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,14 +98,42 @@ export default function EventAdminForm({ title, endpoint, method, eventId, initi
           ["timezone", "Timezone"],
           ["startAt", "Start (ISO 8601)", "datetime-local"],
           ["endAt", "End (ISO 8601)", "datetime-local"],
-          ["venueId", "Venue ID"],
         ].map(([key, label, type]) => (
           <label key={key} className="block">
             <span className="text-sm">{label}</span>
             <input className="border p-2 rounded w-full" type={type || "text"} value={String(form[key as keyof typeof form] ?? "")} onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value || null }))} />
-            {fieldErrors[key === "venueId" ? "venue" : key] ? <p className="text-xs text-red-500 mt-0.5">{fieldErrors[key === "venueId" ? "venue" : key]}</p> : null}
+            {fieldErrors[key] ? <p className="text-xs text-red-500 mt-0.5">{fieldErrors[key]}</p> : null}
           </label>
         ))}
+        <label className="block">
+          <span className="text-sm">Venue</span>
+          <select
+            className="border p-2 rounded w-full text-sm"
+            value={String(form.venueId ?? "")}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                venueId: e.target.value || null,
+              }))
+            }
+          >
+            <option value="">— No venue —</option>
+            {venueOptions.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+            {form.venueId &&
+            !venueOptions.some((v) => v.id === form.venueId) ? (
+              <option value={String(form.venueId)}>
+                {String(form.venueId)} (current)
+              </option>
+            ) : null}
+          </select>
+          {fieldErrors.venue ? (
+            <p className="text-xs text-red-500 mt-0.5">{fieldErrors.venue}</p>
+          ) : null}
+        </label>
         <label className="block">
           <span className="text-sm">Description</span>
           <textarea className="border p-2 rounded w-full" value={String(form.description ?? "")} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value || null }))} />

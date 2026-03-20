@@ -7,7 +7,7 @@ import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
 import { computeEventPublishBlockers, computeReadiness, computeVenuePublishBlockers } from "@/lib/publish-readiness";
 import { allowedTransitions, validateModerationTransition } from "@/lib/moderation-decision-service";
-import { idParamSchema, zodDetails } from "@/lib/validators";
+import { adminEventPatchSchema, idParamSchema, zodDetails } from "@/lib/validators";
 
 type AdminActor = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN" };
 
@@ -67,20 +67,6 @@ const venuePatchSchema = z.object({
   description: z.string().trim().max(5000).nullable().optional(),
   featuredAssetId: z.string().uuid().nullable().optional(),
 }).strict();
-
-const eventPatchSchema = z.object({
-  title: z.string().trim().min(1).optional(),
-  startAt: z.string().datetime({ offset: true }).optional(),
-  endAt: z.string().datetime({ offset: true }).nullable().optional(),
-  venueId: z.string().uuid().nullable().optional(),
-  ticketUrl: z.string().trim().url().nullable().optional(),
-  isPublished: z.boolean().optional(),
-  status: z.enum(["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "CHANGES_REQUESTED", "ARCHIVED"]).optional(),
-}).strict().superRefine((data, ctx) => {
-  if (data.startAt && data.endAt && new Date(data.endAt) < new Date(data.startAt)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endAt"], message: "endAt must be >= startAt" });
-  }
-});
 
 const artistPatchSchema = z.object({
   name: z.string().trim().min(1).optional(),
@@ -175,7 +161,7 @@ function getRequestDetails(req: NextRequest) {
 
 function getEntitySchema(entity: EntityName) {
   if (entity === "venues") return venuePatchSchema;
-  if (entity === "events") return eventPatchSchema;
+  if (entity === "events") return adminEventPatchSchema;
   if (entity === "artwork") return artworkPatchSchema;
   return artistPatchSchema;
 }
@@ -462,28 +448,65 @@ export async function handleAdminEntityPatch(req: NextRequest, entity: EntityNam
       if (entity === "events") {
         const before = await tx.event.findUnique({ where: { id: entityId } });
         if (!before) throw new Error("not_found");
-        const payload = parsedBody.data as z.infer<typeof eventPatchSchema>;
-        const { status: payloadStatus, ...payloadWithoutStatus } = payload;
-        const patch: Prisma.EventUpdateInput = { ...payloadWithoutStatus, ...(payloadStatus ? { status: payloadStatus as ContentStatus } : {}), ...(payload.startAt ? { startAt: new Date(payload.startAt) } : {}), ...(payload.endAt !== undefined ? { endAt: payload.endAt ? new Date(payload.endAt) : null } : {}) };
+        const payload = parsedBody.data as z.infer<typeof adminEventPatchSchema> & { status?: ContentStatus };
+        const {
+          status: payloadStatus,
+          tagSlugs,
+          artistSlugs,
+          images: _images,
+          ...payloadWithoutStatus
+        } = payload;
+        const patch: Prisma.EventUpdateInput = {
+          ...payloadWithoutStatus,
+          ...(payloadStatus ? { status: payloadStatus as ContentStatus } : {}),
+          ...(payload.startAt ? { startAt: new Date(payload.startAt) } : {}),
+          ...(payload.endAt !== undefined
+            ? { endAt: payload.endAt ? new Date(payload.endAt) : null }
+            : {}),
+          ...(tagSlugs !== undefined
+            ? {
+                eventTags: {
+                  deleteMany: {},
+                  create: tagSlugs.map((slug) => ({
+                    tag: { connect: { slug } },
+                  })),
+                },
+              }
+            : {}),
+          ...(artistSlugs !== undefined
+            ? {
+                eventArtists: {
+                  deleteMany: {},
+                  create: artistSlugs.map((slug) => ({
+                    artist: { connect: { slug } },
+                  })),
+                },
+              }
+            : {}),
+        };
         const venue = before.venueId ? await tx.venue.findUnique({ where: { id: before.venueId }, select: { status: true, isPublished: true } }) : null;
-        const wantsPublish = payload.status === "PUBLISHED" || payload.isPublished === true;
+        const wantsPublish = payloadStatus === "PUBLISHED" || payload.isPublished === true;
         if (wantsPublish) {
           validateTransitionForActor(before.status, "PUBLISHED");
-        } else if (payload.status) {
-          validateTransitionForActor(before.status, payload.status);
+        } else if (payloadStatus) {
+          validateTransitionForActor(before.status, payloadStatus);
         }
         if (wantsPublish) {
-          const blockers = computeEventPublishBlockers({ startAt: before.startAt, timezone: before.timezone, venue });
+          const blockers = computeEventPublishBlockers({
+            startAt: payload.startAt ? new Date(payload.startAt) : before.startAt,
+            timezone: payload.timezone ?? before.timezone,
+            venue,
+          });
           if (blockers.length > 0) throw new PublishBlockedError(blockers);
           patch.status = "PUBLISHED" as ContentStatus;
           patch.isPublished = true;
           patch.publishedAt = new Date();
-        } else if (payload.status === "CHANGES_REQUESTED") {
+        } else if (payloadStatus === "CHANGES_REQUESTED") {
           patch.status = "CHANGES_REQUESTED" as ContentStatus;
           patch.isPublished = false;
           patch.publishedAt = null;
         } else if (payload.isPublished === false) {
-          patch.status = (payload.status ?? "PUBLISHED") as ContentStatus;
+          patch.status = (payloadStatus ?? "PUBLISHED") as ContentStatus;
           patch.isPublished = false;
           patch.publishedAt = null;
         }
