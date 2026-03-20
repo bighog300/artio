@@ -1,3 +1,5 @@
+import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
+import { discoverEventImageUrl } from "@/lib/ingest/image-discovery";
 import { fetchImageWithGuards } from "@/lib/ingest/fetch-image";
 import { uploadArtworkImageToBlob } from "@/lib/blob/upload-image";
 
@@ -53,9 +55,11 @@ export async function importApprovedArtworkImage(params: {
 }, deps: {
   fetchImageWithGuards: typeof fetchImageWithGuards;
   uploadArtworkImageToBlob: typeof uploadArtworkImageToBlob;
+  fetchHtmlWithGuards: typeof fetchHtmlWithGuards;
 } = {
   fetchImageWithGuards,
   uploadArtworkImageToBlob,
+  fetchHtmlWithGuards,
 }) : Promise<ImportResult> {
   if (process.env.AI_INGEST_IMAGE_ENABLED !== "1") {
     return { attached: false, warning: "image-import disabled: set AI_INGEST_IMAGE_ENABLED=1 to enable", imageUrl: null };
@@ -70,9 +74,28 @@ export async function importApprovedArtworkImage(params: {
     return { attached: false, warning: null, imageUrl: artwork.featuredAsset?.url ?? null };
   }
 
-  const imageUrl = params.candidateImageUrl ?? null;
+  let imageUrl = params.candidateImageUrl ?? null;
+
+  if (!imageUrl && params.sourceUrl) {
+    try {
+      const fetched = await deps.fetchHtmlWithGuards(params.sourceUrl, {
+        maxBytes: 1_000_000,
+      });
+      imageUrl = discoverEventImageUrl({
+        sourceUrl: params.sourceUrl,
+        html: fetched.html,
+      });
+    } catch {
+      // fallback failed — continue with null imageUrl
+    }
+  }
+
   if (!imageUrl) {
-    return { attached: false, warning: null, imageUrl: null };
+    return {
+      attached: false,
+      warning: "image-import skipped: no image URL and page discovery found nothing",
+      imageUrl: null,
+    };
   }
 
   if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://")) {

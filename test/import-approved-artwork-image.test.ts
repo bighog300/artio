@@ -48,6 +48,7 @@ test("imports artwork candidate image into Asset and ArtworkImage and updates fe
     candidateImageUrl: "https://cdn.example.com/artwork.jpg",
     requestId: "request-1",
   }, {
+    fetchHtmlWithGuards: async (url) => ({ html: "", finalUrl: url }),
     fetchImageWithGuards: async () => ({
       bytes: new Uint8Array([1, 2, 3]),
       sizeBytes: 3,
@@ -91,6 +92,7 @@ test("skips import when artwork already has featuredAssetId", async () => {
     candidateImageUrl: "https://cdn.example.com/artwork.jpg",
     requestId: "request-1",
   }, {
+    fetchHtmlWithGuards: async (url) => ({ html: "", finalUrl: url }),
     fetchImageWithGuards: async () => {
       fetchImageCalls += 1;
       return {
@@ -134,6 +136,7 @@ test("returns warning when image fetch fails", async () => {
     candidateImageUrl: "https://cdn.example.com/artwork.jpg",
     requestId: "request-1",
   }, {
+    fetchHtmlWithGuards: async (url) => ({ html: "", finalUrl: url }),
     fetchImageWithGuards: async () => {
       throw new Error("fetch timeout");
     },
@@ -148,8 +151,10 @@ test("returns warning when image fetch fails", async () => {
   assert.match(result.warning ?? "", /image-import failed: fetch timeout/);
 });
 
-test("returns no-op result when candidate image URL is null", async () => {
+test("falls back to page discovery when candidateImageUrl is null", async () => {
   process.env.AI_INGEST_IMAGE_ENABLED = "1";
+  let fetchHtmlArg: string | null = null;
+  let uploadCalls = 0;
 
   const result = await importApprovedArtworkImage({
     appDb: {
@@ -171,7 +176,137 @@ test("returns no-op result when candidate image URL is null", async () => {
     sourceUrl: "https://example.com/event",
     candidateImageUrl: null,
     requestId: "request-1",
+  }, {
+    fetchHtmlWithGuards: async (url) => {
+      fetchHtmlArg = url;
+      return {
+        html: '<html><head><meta property="og:image" content="https://cdn.example.com/discovered.jpg"></head><body></body></html>',
+        finalUrl: url,
+      };
+    },
+    fetchImageWithGuards: async (url) => {
+      assert.equal(url, "https://cdn.example.com/discovered.jpg");
+      return {
+        bytes: new Uint8Array([1, 2, 3]),
+        sizeBytes: 3,
+        contentType: "image/jpeg",
+        finalUrl: "https://cdn.example.com/discovered.jpg",
+      };
+    },
+    uploadArtworkImageToBlob: async () => {
+      uploadCalls += 1;
+      return {
+        url: "https://blob.example/artwork.jpg",
+        path: "artworks/ingest/artwork-1/candidate-1/image.jpg",
+      };
+    },
   });
 
-  assert.deepEqual(result, { attached: false, warning: null, imageUrl: null });
+  assert.equal(fetchHtmlArg, "https://example.com/event");
+  assert.equal(uploadCalls, 1);
+  assert.deepEqual(result, { attached: true, warning: null, imageUrl: "https://blob.example/artwork.jpg" });
+});
+
+test("returns warning when candidateImageUrl is null and page discovery finds nothing", async () => {
+  process.env.AI_INGEST_IMAGE_ENABLED = "1";
+  let fetchImageCalls = 0;
+
+  const result = await importApprovedArtworkImage({
+    appDb: {
+      artwork: {
+        findUnique: async () => ({ featuredAssetId: null, featuredAsset: null }),
+        update: async () => ({ id: "artwork-1" }),
+      },
+      artworkImage: {
+        create: async () => ({ id: "artwork-image-1" }),
+      },
+      asset: {
+        create: async () => ({ id: "asset-1", url: "https://blob.example/artwork.jpg" }),
+      },
+    },
+    candidateId: "candidate-1",
+    runId: "run-1",
+    artworkId: "artwork-1",
+    title: "Blue Sky",
+    sourceUrl: "https://example.com/event",
+    candidateImageUrl: null,
+    requestId: "request-1",
+  }, {
+    fetchHtmlWithGuards: async (url) => ({
+      html: "<html></html>",
+      finalUrl: url,
+    }),
+    fetchImageWithGuards: async () => {
+      fetchImageCalls += 1;
+      return {
+        bytes: new Uint8Array([1, 2, 3]),
+        sizeBytes: 3,
+        contentType: "image/jpeg",
+        finalUrl: "https://cdn.example.com/discovered.jpg",
+      };
+    },
+    uploadArtworkImageToBlob: async () => ({
+      url: "https://blob.example/artwork.jpg",
+      path: "artworks/ingest/artwork-1/candidate-1/image.jpg",
+    }),
+  });
+
+  assert.equal(fetchImageCalls, 0);
+  assert.deepEqual(result, {
+    attached: false,
+    warning: "image-import skipped: no image URL and page discovery found nothing",
+    imageUrl: null,
+  });
+});
+
+test("skips page discovery when sourceUrl is null", async () => {
+  process.env.AI_INGEST_IMAGE_ENABLED = "1";
+  let fetchHtmlCalls = 0;
+
+  const result = await importApprovedArtworkImage({
+    appDb: {
+      artwork: {
+        findUnique: async () => ({ featuredAssetId: null, featuredAsset: null }),
+        update: async () => ({ id: "artwork-1" }),
+      },
+      artworkImage: {
+        create: async () => ({ id: "artwork-image-1" }),
+      },
+      asset: {
+        create: async () => ({ id: "asset-1", url: "https://blob.example/artwork.jpg" }),
+      },
+    },
+    candidateId: "candidate-1",
+    runId: "run-1",
+    artworkId: "artwork-1",
+    title: "Blue Sky",
+    sourceUrl: null,
+    candidateImageUrl: null,
+    requestId: "request-1",
+  }, {
+    fetchHtmlWithGuards: async (url) => {
+      fetchHtmlCalls += 1;
+      return {
+        html: "<html></html>",
+        finalUrl: url,
+      };
+    },
+    fetchImageWithGuards: async () => ({
+      bytes: new Uint8Array([1, 2, 3]),
+      sizeBytes: 3,
+      contentType: "image/jpeg",
+      finalUrl: "https://cdn.example.com/discovered.jpg",
+    }),
+    uploadArtworkImageToBlob: async () => ({
+      url: "https://blob.example/artwork.jpg",
+      path: "artworks/ingest/artwork-1/candidate-1/image.jpg",
+    }),
+  });
+
+  assert.equal(fetchHtmlCalls, 0);
+  assert.deepEqual(result, {
+    attached: false,
+    warning: "image-import skipped: no image URL and page discovery found nothing",
+    imageUrl: null,
+  });
 });
