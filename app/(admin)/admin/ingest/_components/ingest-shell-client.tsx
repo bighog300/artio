@@ -15,6 +15,14 @@ type Props = {
     activeRegions: number;
     venueGenRuns7d: number;
     pendingVenueImages: number;
+    pendingOnboarding: number;
+  };
+  pipelineFlags: {
+    ingestEnabled: boolean;
+    artistIngestEnabled: boolean;
+    artworkIngestEnabled: boolean;
+    imageEnabled: boolean;
+    venueEnrichmentEnabled: boolean;
   };
   children: React.ReactNode;
 };
@@ -41,7 +49,7 @@ function StatCard({
   );
 }
 
-export default function IngestShellClient({ stats, children }: Props) {
+export default function IngestShellClient({ stats, pipelineFlags, children }: Props) {
   const pathname = usePathname();
 
   return (
@@ -104,6 +112,16 @@ export default function IngestShellClient({ stats, children }: Props) {
           note={stats.pendingVenueImages > 0 ? "Awaiting review" : "All reviewed"}
           accentClassName={stats.pendingVenueImages > 0 ? "text-amber-700" : "text-muted-foreground"}
         />
+        <Link href="/admin/ingest/venue-onboarding">
+          <StatCard
+            label="Venues to onboard"
+            value={stats.pendingOnboarding}
+            note={stats.pendingOnboarding > 0 ? "Awaiting review" : "Queue clear"}
+            accentClassName={
+              stats.pendingOnboarding > 0 ? "text-amber-700" : "text-muted-foreground"
+            }
+          />
+        </Link>
         <Link href="/admin/ingest/artists">
           <StatCard
             label="Artist candidates"
@@ -121,6 +139,28 @@ export default function IngestShellClient({ stats, children }: Props) {
           />
         </Link>
       </section>
+
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-muted-foreground">Pipeline:</span>
+        {[
+          { label: "Events", on: pipelineFlags.ingestEnabled },
+          { label: "Artists", on: pipelineFlags.artistIngestEnabled },
+          { label: "Artworks", on: pipelineFlags.artworkIngestEnabled },
+          { label: "Images", on: pipelineFlags.imageEnabled },
+          { label: "Enrichment", on: pipelineFlags.venueEnrichmentEnabled },
+        ].map(({ label, on }) => (
+          <span
+            key={label}
+            className={`rounded-full px-2 py-0.5 font-medium ${
+              on
+                ? "bg-emerald-100 text-emerald-800"
+                : "bg-muted text-muted-foreground line-through"
+            }`}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
 
       <nav className="flex items-center gap-2 border-b">
         <Link
@@ -164,6 +204,16 @@ export default function IngestShellClient({ stats, children }: Props) {
           className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/venue-images") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
           Venue Images{stats.pendingVenueImages > 0 ? ` (${stats.pendingVenueImages})` : ""}
+        </Link>
+        <Link
+          href="/admin/ingest/venue-onboarding"
+          className={`rounded-t-md px-3 py-2 text-sm ${
+            pathname.startsWith("/admin/ingest/venue-onboarding")
+              ? "bg-muted font-medium text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Onboarding{stats.pendingOnboarding > 0 ? ` (${stats.pendingOnboarding})` : ""}
         </Link>
         <Link
           href="/admin/ingest/runs"

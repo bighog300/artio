@@ -12,7 +12,7 @@ export default async function AdminIngestLayout({ children }: { children: React.
     redirect("/admin");
   }
 
-  const [bandCounts, failedLast24h, pendingArtists, pendingArtworks, activeRegions, venueGenRuns7d, pendingVenueImages] = await Promise.all([
+  const [bandCounts, failedLast24h, pendingArtists, pendingArtworks, activeRegions, venueGenRuns7d, pendingVenueImages, pendingOnboarding] = await Promise.all([
     db.ingestExtractedEvent.groupBy({
       by: ["confidenceBand"],
       where: { status: "PENDING", duplicateOfId: null },
@@ -33,6 +33,9 @@ export default async function AdminIngestLayout({ children }: { children: React.
       where: { createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
     }),
     db.venueHomepageImageCandidate.count({ where: { status: "pending" } }),
+    db.venue.count({
+      where: { status: "ONBOARDING", deletedAt: null },
+    }),
   ]);
 
   const high = bandCounts.find((band) => band.confidenceBand === "HIGH")?._count.id ?? 0;
@@ -41,13 +44,28 @@ export default async function AdminIngestLayout({ children }: { children: React.
   const total = high + medium + low;
 
   return (
-    <IngestShellClient stats={{
-      high, medium, low, total, failedLast24h,
-      pendingArtists, pendingArtworks,
-      activeRegions,
-      venueGenRuns7d,
-      pendingVenueImages,
-    }}>
+    <IngestShellClient
+      stats={{
+        high,
+        medium,
+        low,
+        total,
+        failedLast24h,
+        pendingArtists,
+        pendingArtworks,
+        activeRegions,
+        venueGenRuns7d,
+        pendingVenueImages,
+        pendingOnboarding,
+      }}
+      pipelineFlags={{
+        ingestEnabled: process.env.AI_INGEST_ENABLED === "1",
+        artistIngestEnabled: process.env.AI_ARTIST_INGEST_ENABLED === "1",
+        artworkIngestEnabled: process.env.AI_ARTWORK_INGEST_ENABLED === "1",
+        imageEnabled: process.env.AI_INGEST_IMAGE_ENABLED === "1",
+        venueEnrichmentEnabled: process.env.AI_VENUE_ENRICHMENT_ENABLED === "1",
+      }}
+    >
       {children}
     </IngestShellClient>
   );
