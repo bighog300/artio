@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import IngestCandidateActions from "@/app/(admin)/admin/ingest/_components/ingest-candidate-actions";
 import IngestConfidenceBadge from "@/app/(admin)/admin/ingest/_components/ingest-confidence-badge";
 import IngestImageCell from "@/app/(admin)/admin/ingest/_components/ingest-image-cell";
@@ -234,6 +234,17 @@ export default function IngestEventQueueClient({
     }
   }
 
+  useEffect(() => {
+    const approved = candidates.filter(
+      (c) => c.createdEventId && !pipelineStatusById[c.id],
+    );
+    const toFetch = approved.slice(0, 10);
+    for (const c of toFetch) {
+      void fetchPipelineStatus(c.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidates]);
+
   return (
     <section className="rounded-lg border bg-background p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -351,6 +362,7 @@ export default function IngestEventQueueClient({
               <th className="px-3 py-2">Start Date</th>
               <th className="px-3 py-2">Venue</th>
               <th className="px-3 py-2">Location</th>
+              <th className="px-3 py-2">Pipeline</th>
               <th className="px-3 py-2">Run Source</th>
               <th className="px-3 py-2">Actions</th>
             </tr>
@@ -417,6 +429,76 @@ export default function IngestEventQueueClient({
                   <td className="px-3 py-2">{candidate.venue.name}</td>
                   <td className="px-3 py-2">{candidate.locationText ?? "—"}</td>
                   <td className="px-3 py-2">
+                    {candidate.createdEventId ? (
+                      pipelineStatusById[candidate.id] ? (
+                        <div className="flex flex-col gap-0.5 text-xs">
+                          <span
+                            title={
+                              pipelineStatusById[candidate.id].imageStatus.attached
+                                ? "Image attached"
+                                : "No image"
+                            }
+                            className={
+                              pipelineStatusById[candidate.id].imageStatus.attached
+                                ? "text-emerald-600"
+                                : "text-amber-600"
+                            }
+                          >
+                            {pipelineStatusById[candidate.id].imageStatus.attached
+                              ? "✓ img"
+                              : "○ img"}
+                          </span>
+                          {pipelineStatusById[candidate.id].linkedArtists.length > 0 ? (
+                            <span className="text-emerald-600">
+                              ✓ {pipelineStatusById[candidate.id].linkedArtists.length}{" "}
+                              artist
+                              {pipelineStatusById[candidate.id].linkedArtists.length ===
+                              1
+                                ? ""
+                                : "s"}
+                            </span>
+                          ) : pipelineStatusById[candidate.id].artistCandidates
+                              .length > 0 ? (
+                            <span className="text-amber-600">
+                              ⟳{" "}
+                              {
+                                pipelineStatusById[candidate.id].artistCandidates
+                                  .length
+                              }{" "}
+                              queued
+                            </span>
+                          ) : null}
+                          {pipelineStatusById[candidate.id].artworkCandidates.length >
+                          0 ? (
+                            <span className="text-muted-foreground">
+                              {
+                                pipelineStatusById[candidate.id].artworkCandidates
+                                  .length
+                              }{" "}
+                              artwork
+                              {pipelineStatusById[candidate.id].artworkCandidates
+                                .length === 1
+                                ? ""
+                                : "s"}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : loadingPipelineFor.has(candidate.id) ? (
+                        <span className="text-xs text-muted-foreground">…</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground underline"
+                          onClick={() => void fetchPipelineStatus(candidate.id)}
+                        >
+                          load
+                        </button>
+                      )
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
                     <Link
                       href={`/admin/ingest/runs/${candidate.run.id}`}
                       className="underline"
@@ -455,7 +537,7 @@ export default function IngestEventQueueClient({
                 </tr>
                 {expandedId === candidate.id ? (
                   <tr className="border-b bg-muted/30">
-                    <td colSpan={8} className="px-4 py-3 text-sm">
+                    <td colSpan={9} className="px-4 py-3 text-sm">
                       <div className="space-y-2">
                         {candidate.artistNames.length > 0 ? (
                           <p>
@@ -695,7 +777,7 @@ export default function IngestEventQueueClient({
             ))}
             {filteredCandidates.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-muted-foreground" colSpan={8}>
+                <td className="px-3 py-6 text-muted-foreground" colSpan={9}>
                   {venueFilter === "all"
                     ? "No pending candidates in the queue."
                     : "No pending candidates for this venue."}
