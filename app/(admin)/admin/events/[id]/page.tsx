@@ -7,16 +7,18 @@ import { AdminArchiveActions } from "@/app/(admin)/admin/_components/AdminArchiv
 import AdminHardDeleteButton from "@/app/(admin)/admin/_components/AdminHardDeleteButton";
 import ModerationPanel from "@/app/(admin)/admin/_components/ModerationPanel";
 import { computeEventPublishBlockers } from "@/lib/publish-readiness";
+import { ImageReplacePanel } from "@/components/admin/ImageReplacePanel";
 
 export default async function AdminEditEvent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const event = await db.event.findUnique({
     where: { id },
-    include: { eventTags: { include: { tag: true } }, eventArtists: { include: { artist: true } }, venue: { select: { status: true, isPublished: true } }, images: { select: { id: true } } },
+    include: { eventTags: { include: { tag: true } }, eventArtists: { include: { artist: true } }, venue: { select: { status: true, isPublished: true } }, images: { select: { id: true, url: true }, orderBy: { sortOrder: "asc" }, take: 1 } },
   });
   if (!event) notFound();
 
   const blockers = computeEventPublishBlockers({ startAt: event.startAt, timezone: event.timezone, venue: event.venue, hasImage: event.images.length > 0 });
+  const currentImageUrl = event.images[0]?.url ?? null;
 
   return (
     <main className="space-y-6">
@@ -51,6 +53,11 @@ export default async function AdminEditEvent({ params }: { params: Promise<{ id:
           isPublished: event.isPublished,
         }}
         altRequired={ADMIN_IMAGE_ALT_REQUIRED}
+      />
+      <ImageReplacePanel
+        endpoint={`/api/admin/events/${id}/image`}
+        label="event"
+        currentImageUrl={currentImageUrl}
       />
       <ModerationPanel resource="events" id={event.id} status={event.status} blockers={blockers.map((item) => item.message)} />
       <section className="rounded-lg border border-destructive/30 bg-card p-4">

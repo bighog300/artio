@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import ArtworkAdminForm from "../ArtworkAdminForm";
 import ModerationPanel from "@/app/(admin)/admin/_components/ModerationPanel";
 import { computeArtworkCompleteness } from "@/lib/artwork-completeness";
+import { ImageReplacePanel } from "@/components/admin/ImageReplacePanel";
 
 export default async function AdminArtworkDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -28,11 +29,16 @@ export default async function AdminArtworkDetailPage({ params }: { params: Promi
       deletedAt: true,
       deletedReason: true,
       featuredAssetId: true,
+      featuredAsset: { select: { url: true } },
       images: { select: { id: true } },
     },
   });
 
   if (!artwork) notFound();
+
+  const currentImageUrl =
+    (artwork as { featuredAsset?: { url?: string | null } | null }).featuredAsset?.url
+    ?? null;
 
   const completeness = computeArtworkCompleteness({
     title: artwork.title,
@@ -70,6 +76,11 @@ export default async function AdminArtworkDetailPage({ params }: { params: Promi
           isPublished: artwork.isPublished,
           artistId: artwork.artistId,
         }}
+      />
+      <ImageReplacePanel
+        endpoint={`/api/admin/artworks/${artwork.id}/image`}
+        label="artwork"
+        currentImageUrl={currentImageUrl}
       />
       <ModerationPanel resource="artwork" id={artwork.id} status={derivedStatus} blockers={blockers} />
       <section className="rounded-lg border border-destructive/30 bg-card p-4">

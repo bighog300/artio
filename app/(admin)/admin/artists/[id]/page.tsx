@@ -7,6 +7,7 @@ import { AdminArchiveActions } from "@/app/(admin)/admin/_components/AdminArchiv
 import AdminHardDeleteButton from "@/app/(admin)/admin/_components/AdminHardDeleteButton";
 import ModerationPanel from "@/app/(admin)/admin/_components/ModerationPanel";
 import { evaluateArtistReadiness } from "@/lib/publish-readiness";
+import { ImageReplacePanel } from "@/components/admin/ImageReplacePanel";
 
 export default async function AdminArtist({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,12 +28,18 @@ export default async function AdminArtist({ params }: { params: Promise<{ id: st
       avatarImageUrl: true,
       featuredImageUrl: true,
       featuredAssetId: true,
+      featuredAsset: { select: { url: true } },
       status: true,
       isPublished: true,
       deletedAt: true,
     },
   });
   if (!artist) notFound();
+
+  const currentImageUrl =
+    (artist as { featuredAsset?: { url?: string | null } | null }).featuredAsset?.url
+    ?? artist.featuredImageUrl
+    ?? null;
 
   const readiness = evaluateArtistReadiness(artist);
   const blockers = readiness.blocking.map((b) => b.label);
@@ -66,6 +73,11 @@ export default async function AdminArtist({ params }: { params: Promise<{ id: st
           { name: "featuredAssetId", label: "Featured Asset ID" },
         ]}
         altRequired={ADMIN_IMAGE_ALT_REQUIRED}
+      />
+      <ImageReplacePanel
+        endpoint={`/api/admin/artists/${id}/image`}
+        label="artist"
+        currentImageUrl={currentImageUrl}
       />
       <ModerationPanel resource="artists" id={artist.id} status={artist.status} blockers={blockers} />
       <section className="rounded-lg border border-destructive/30 bg-card p-4">
