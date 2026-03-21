@@ -63,6 +63,87 @@ export default async function AdminIngestHealthPage() {
       </section>
 
       <section className="rounded-lg border p-4">
+        <h2 className="mb-1 text-base font-semibold">Venue performance (7d)</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Events created per run, confidence distribution, and approval rate
+          for venues with activity in the last 7 days. Venues flagged as
+          &quot;noise&quot; have &lt;20% HIGH confidence candidates — consider tuning
+          the extraction prompt or removing from the active schedule.
+        </p>
+        {data.venuePerformance.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No venue runs in the last 7 days.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px] text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="px-3 py-2">Venue</th>
+                  <th className="px-3 py-2">Runs</th>
+                  <th className="px-3 py-2">Avg/run</th>
+                  <th className="px-3 py-2">HIGH</th>
+                  <th className="px-3 py-2">MED</th>
+                  <th className="px-3 py-2">LOW</th>
+                  <th className="px-3 py-2">Approval</th>
+                  <th className="px-3 py-2">Signal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.venuePerformance.map((row) => (
+                  <tr key={row.venueId} className="border-b align-middle">
+                    <td className="px-3 py-2">
+                      <Link
+                        href={`/admin/venues/${row.venueId}`}
+                        className="underline"
+                      >
+                        {row.name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {row.runCount}
+                    </td>
+                    <td className="px-3 py-2 font-medium">
+                      {row.avgPerRun}
+                    </td>
+                    <td className="px-3 py-2 text-emerald-700">
+                      {row.high > 0 ? row.high : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-amber-700">
+                      {row.medium > 0 ? row.medium : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-rose-700">
+                      {row.low > 0 ? row.low : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {row.approvalRate !== null
+                        ? `${Math.round(row.approvalRate * 100)}%`
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.qualitySignal === "noise" ? (
+                        <span className="rounded bg-rose-100 px-1.5 py-0.5 text-xs font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-300">
+                          noise
+                        </span>
+                      ) : row.qualitySignal === "low" ? (
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                          low yield
+                        </span>
+                      ) : (
+                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                          good
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-lg border p-4">
         <h2 className="mb-2 text-base font-semibold">Runs in last 24h</h2>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[780px] text-sm">
