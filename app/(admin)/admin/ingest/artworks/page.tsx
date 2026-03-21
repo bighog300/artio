@@ -4,6 +4,8 @@ import { BackfillArtworksTrigger } from "@/app/(admin)/admin/ingest/artworks/bac
 import { getSessionUser, requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminIngestArtworksPage() {
   await requireAdmin();
   const user = await getSessionUser();

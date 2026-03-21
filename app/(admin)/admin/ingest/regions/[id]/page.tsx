@@ -5,6 +5,8 @@ import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 function statusClassName(status: string): string {
   if (status === "RUNNING") return "bg-blue-100 text-blue-800";
   if (status === "SUCCEEDED") return "bg-green-100 text-green-800";

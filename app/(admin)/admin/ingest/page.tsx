@@ -3,6 +3,8 @@ import IngestEventQueueClient from "@/app/(admin)/admin/ingest/_components/inges
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminIngestPage() {
   const user = await getSessionUser();
 
