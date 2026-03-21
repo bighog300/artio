@@ -5,6 +5,8 @@ import IngestTriggerClient from "@/app/(admin)/admin/ingest/_components/ingest-t
 import { SchedulePanel } from "./schedule-panel";
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 type IngestRun = {
   id: string;
   createdAt: Date;
