@@ -2,6 +2,7 @@ import Link from "next/link";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import IngestStatusBadge from "@/app/(admin)/admin/ingest/_components/ingest-status-badge";
 import IngestTriggerClient from "@/app/(admin)/admin/ingest/_components/ingest-trigger-client";
+import { SchedulePanel } from "./schedule-panel";
 import { db } from "@/lib/db";
 
 type IngestRun = {
@@ -34,7 +35,7 @@ export default async function AdminIngestRunsPage() {
     db.venue.findMany({
       where: { websiteUrl: { not: null }, deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, websiteUrl: true },
+      select: { id: true, name: true, websiteUrl: true, ingestFrequency: true },
       take: 200,
     }),
   ]);
@@ -43,6 +44,7 @@ export default async function AdminIngestRunsPage() {
     id: venue.id,
     name: venue.name,
     websiteUrl: venue.websiteUrl ?? "",
+    ingestFrequency: venue.ingestFrequency,
   }));
 
   return (
@@ -53,6 +55,17 @@ export default async function AdminIngestRunsPage() {
       />
 
       <IngestTriggerClient venues={venueOptions} />
+      <SchedulePanel
+        venues={venueOptions.map((v) => ({
+          id: v.id,
+          name: v.name,
+          ingestFrequency: (v as { ingestFrequency?: string }).ingestFrequency as
+            | "DAILY"
+            | "WEEKLY"
+            | "MONTHLY"
+            | "MANUAL" ?? "WEEKLY",
+        }))}
+      />
 
       <section className="rounded-lg border bg-background p-4">
         <div className="overflow-x-auto">
