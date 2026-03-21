@@ -222,6 +222,16 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
           Trigger / Runs
         </Link>
         <Link
+          href="/admin/ingest/venue-map"
+          className={`rounded-t-md px-3 py-2 text-sm ${
+            pathname.startsWith("/admin/ingest/venue-map")
+              ? "bg-muted font-medium text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Venue Map
+        </Link>
+        <Link
           href="/admin/ingest/logs"
           className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/logs") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
