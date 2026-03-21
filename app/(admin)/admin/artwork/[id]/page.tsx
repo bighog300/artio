@@ -48,7 +48,7 @@ export default async function AdminArtworkDetailPage({ params }: { params: Promi
     featuredAssetId: artwork.featuredAssetId,
   }, artwork.images.length);
 
-  const blockers = [...completeness.required.issues, ...completeness.recommended.issues].map((issue) => issue.label);
+  const blockers = completeness.required.issues.map((issue) => issue.label);
   const derivedStatus = artwork.deletedAt
     ? "ARCHIVED"
     : artwork.isPublished

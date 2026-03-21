@@ -37,13 +37,18 @@ export type ArtistCompletenessResult = {
 
 const hasText = (value: string | null | undefined, min = 1) => (value ?? "").trim().length >= min;
 
-export function evaluateArtistReadiness(artist: { name: string | null; bio: string | null; featuredAssetId: string | null; websiteUrl?: string | null }): ReadinessResult {
+export function evaluateArtistReadiness(artist: { name: string | null; bio: string | null; featuredAssetId: string | null; featuredImageUrl?: string | null; avatarImageUrl?: string | null; websiteUrl?: string | null }): ReadinessResult {
   const blocking: CheckItem[] = [];
   const warnings: CheckItem[] = [];
 
   if (!hasText(artist.name)) blocking.push({ id: "artist-name", label: "Add artist name.", severity: "block", href: "#name" });
   if (!hasText(artist.bio, 20)) blocking.push({ id: "artist-bio", label: "Add bio (20+ characters).", severity: "block", href: "#bio" });
-  if (!artist.featuredAssetId) blocking.push({ id: "artist-avatar", label: "Add profile avatar.", severity: "block", href: "#avatar" });
+  const hasAnyImage = Boolean(
+    artist.featuredAssetId ||
+    artist.featuredImageUrl?.trim() ||
+    artist.avatarImageUrl?.trim()
+  );
+  if (!hasAnyImage) warnings.push({ id: "artist-avatar", label: "Add a profile image (recommended).", severity: "info", href: "#avatar" });
   if (!hasText(artist.websiteUrl)) warnings.push({ id: "artist-website", label: "Add website URL (recommended).", severity: "info", href: "#websiteUrl" });
 
   return { ready: blocking.length === 0, blocking, warnings };

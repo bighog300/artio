@@ -41,7 +41,14 @@ export default async function AdminArtist({ params }: { params: Promise<{ id: st
     ?? artist.featuredImageUrl
     ?? null;
 
-  const readiness = evaluateArtistReadiness(artist);
+  const readiness = evaluateArtistReadiness({
+    name: artist.name,
+    bio: artist.bio,
+    featuredAssetId: artist.featuredAssetId,
+    featuredImageUrl: artist.featuredImageUrl,
+    avatarImageUrl: artist.avatarImageUrl,
+    websiteUrl: artist.websiteUrl,
+  });
   const blockers = readiness.blocking.map((b) => b.label);
 
   return (
