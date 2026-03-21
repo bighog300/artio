@@ -176,7 +176,11 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
 
   const mutateDone = useMemo(() => onAfterMutate ?? (() => router.refresh()), [onAfterMutate, router]);
   const controlsDisabled = isSaving || isArchiving || isDeleting || isPublishing || isAdvancing || isGeocoding;
-  const supportsModeratedPublish = entityType === "events" || entityType === "venues";
+  const supportsModeratedPublish =
+    entityType === "events" ||
+    entityType === "venues" ||
+    entityType === "artists" ||
+    entityType === "artwork";
   const canPublish = !!status && status !== "PUBLISHED" && status !== "ARCHIVED" && publishBlockers.length === 0;
   const canUnpublish = status === "PUBLISHED";
   const advanceToStatus = status === "DRAFT" ? "IN_REVIEW" : status === "IN_REVIEW" ? "APPROVED" : null;
@@ -284,6 +288,25 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
       }
       return;
     }
+    if (entityType === "artists" || entityType === "artwork") {
+      const url = `/api/admin/${entityType}/${id}/moderation-intent`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve_publish" }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: { message?: string } } | null;
+        const message = body?.error?.message ?? "Publish failed";
+        setRowError(message);
+        enqueueToast({ title: message, variant: "error" });
+        return;
+      }
+      enqueueToast({ title: `${entityLabel} published` });
+      onCancelEdit();
+      mutateDone();
+      return;
+    }
     const url = entityType === "venues" ? `/api/admin/venues/${id}/publish` : `/api/admin/events/${id}/publish`;
     await runLifecycleTransition(url, `${entityLabel} published`, "Publish failed");
   }
@@ -310,6 +333,25 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
 
   async function unpublish() {
     if (!supportsModeratedPublish || !canUnpublish) return;
+    if (entityType === "artists" || entityType === "artwork") {
+      const url = `/api/admin/${entityType}/${id}/moderation-intent`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unpublish" }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: { message?: string } } | null;
+        const message = body?.error?.message ?? "Unpublish failed";
+        setRowError(message);
+        enqueueToast({ title: message, variant: "error" });
+        return;
+      }
+      enqueueToast({ title: `${entityLabel} unpublished` });
+      onCancelEdit();
+      mutateDone();
+      return;
+    }
     const url = entityType === "venues" ? `/api/admin/venues/${id}/unpublish` : `/api/admin/events/${id}/unpublish`;
     await runLifecycleTransition(url, `${entityLabel} unpublished`, "Unpublish failed");
   }
