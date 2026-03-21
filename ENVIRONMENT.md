@@ -65,6 +65,29 @@ Minimum required:
 - `UNSUBSCRIBE_TOKEN_SECRET`
 - `ADMIN_EMAILS` (required for admin panel access control, comma-separated email allowlist)
 - `ADMIN_EMAIL_DOMAINS` (optional, comma-separated admin email domains)
+
+**Admin access: two-layer system**
+
+Admin access is controlled by two independent mechanisms that must both allow a request.
+
+**Layer 1 — Middleware allowlist (env-based)**
+`ADMIN_EMAILS` and `ADMIN_EMAIL_DOMAINS` gate all requests to `/admin` and `/api/admin` routes at the middleware level. Changes require a redeploy to take effect.
+
+**Layer 2 — DB role (session-based)**
+`requireAdmin()` in API handlers checks that the session JWT carries `role: "ADMIN"`. This role is written into the JWT at sign-in time from the database. Promoting a user in the Admin → Users panel updates the DB immediately, but the user must sign out and back in before their JWT reflects the new role.
+
+**Important: the two layers can desync.**
+A user who is in the env allowlist but has `role: "USER"` in the DB will pass middleware but get 403 from every API write. A user promoted to `role: "ADMIN"` in the DB but not in the env allowlist will be blocked by middleware before reaching any handler.
+
+**Correct sequence to promote a new admin:**
+1. Add their email to `ADMIN_EMAILS` (or domain to `ADMIN_EMAIL_DOMAINS`) and redeploy.
+2. In Admin → Users, set their DB role to ADMIN.
+3. Ask the user to sign out and sign back in to refresh their session JWT.
+
+**Correct sequence to revoke admin access:**
+1. Remove their email from `ADMIN_EMAILS` and redeploy. This blocks them at the middleware layer immediately on next request.
+2. In Admin → Users, set their DB role back to EDITOR or USER. This ensures their JWT role is also downgraded on next sign-in, and prevents any residual API access if the middleware gate is ever misconfigured.
+
 - `ADMIN_IMAGE_ALT_REQUIRED` (optional; defaults to `false`, when `true` admin image alt text is required before setting an image as featured/primary)
 
 
