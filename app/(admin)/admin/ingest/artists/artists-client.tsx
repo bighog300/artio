@@ -22,7 +22,9 @@ type Candidate = {
   extractionProvider: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE";
   createdArtistId: string | null;
-  blobImageUrl?: string | null;
+  createdArtist?: {
+    featuredAsset: { url: string } | null;
+  } | null;
   eventLinks: Array<{ eventId: string; event: { title: string; slug: string } }>;
 };
 
@@ -301,6 +303,7 @@ export default function ArtistsClient({
                   <td className="px-3 py-2">
                     <IngestImageCell
                       imageUrl={candidate.sourceUrl}
+                      blobImageUrl={candidate.createdArtist?.featuredAsset?.url ?? null}
                       altText={candidate.name}
                       importStatus={
                         importedImageFor.has(candidate.id)

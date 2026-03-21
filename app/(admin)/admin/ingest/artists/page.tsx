@@ -29,6 +29,13 @@ export default async function AdminIngestArtistsPage() {
       extractionProvider: true,
       createdArtistId: true,
       createdAt: true,
+      createdArtist: {
+        select: {
+          featuredAsset: {
+            select: { url: true },
+          },
+        },
+      },
       eventLinks: {
         select: {
           eventId: true,
