@@ -57,6 +57,9 @@ test("health endpoint returns aggregate shape", async () => {
         }));
       },
     },
+    ingestExtractedEvent: {
+      findMany: async () => [],
+    },
   };
 
   const response = await handleAdminIngestHealth(createReq(), {
