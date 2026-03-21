@@ -74,6 +74,23 @@ export default function IngestEventQueueClient({
   );
   const [importFailedFor, setImportFailedFor] = useState<Set<string>>(new Set());
   const [importImageError, setImportImageError] = useState<string | null>(null);
+  const [pipelineStatusById, setPipelineStatusById] = useState<
+    Record<string, {
+      linked: boolean;
+      linkedArtists: Array<{ id: string; name: string; slug: string }>;
+      artistCandidates: Array<{ id: string; name: string; status: string }>;
+      artworkCandidates: Array<{
+        id: string;
+        title: string;
+        status: string;
+        imageUrl: string | null;
+      }>;
+      imageStatus: { attached: boolean; url: string | null };
+    }>
+  >({});
+  const [loadingPipelineFor, setLoadingPipelineFor] = useState<Set<string>>(
+    new Set(),
+  );
   const [bulkApproving, setBulkApproving] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{
     done: number;
@@ -182,6 +199,39 @@ export default function IngestEventQueueClient({
     setBulkProgress(null);
     setBulkResults({ approved, failed });
     router.refresh();
+  }
+
+  async function fetchPipelineStatus(candidateId: string) {
+    if (loadingPipelineFor.has(candidateId) || pipelineStatusById[candidateId]) return;
+    setLoadingPipelineFor((prev) => new Set([...prev, candidateId]));
+    try {
+      const res = await fetch(
+        `/api/admin/ingest/extracted-events/${candidateId}/pipeline-status`,
+      );
+      if (res.ok) {
+        const data = (await res.json()) as {
+          linked: boolean;
+          linkedArtists: Array<{ id: string; name: string; slug: string }>;
+          artistCandidates: Array<{ id: string; name: string; status: string }>;
+          artworkCandidates: Array<{
+            id: string;
+            title: string;
+            status: string;
+            imageUrl: string | null;
+          }>;
+          imageStatus: { attached: boolean; url: string | null };
+        };
+        setPipelineStatusById((prev) => ({ ...prev, [candidateId]: data }));
+      }
+    } catch {
+      // silent — pipeline status is informational only
+    } finally {
+      setLoadingPipelineFor((prev) => {
+        const next = new Set(prev);
+        next.delete(candidateId);
+        return next;
+      });
+    }
   }
 
   return (
@@ -348,11 +398,13 @@ export default function IngestEventQueueClient({
                     <button
                       type="button"
                       className="text-left hover:underline"
-                      onClick={() =>
-                        setExpandedId((prev) =>
-                          prev === candidate.id ? null : candidate.id,
-                        )
-                      }
+                      onClick={() => {
+                        const next = expandedId === candidate.id ? null : candidate.id;
+                        setExpandedId(next);
+                        if (next && candidate.createdEventId) {
+                          void fetchPipelineStatus(candidate.id);
+                        }
+                      }}
                     >
                       {candidate.title}
                     </button>
@@ -504,6 +556,135 @@ export default function IngestEventQueueClient({
                                 }
                               />
                             </label>
+                          </div>
+                        ) : null}
+
+                        {candidate.status === "PENDING" && candidate.artistNames.length > 0 ? (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            <span className="font-medium">Will discover: </span>
+                            {candidate.artistNames.join(", ")}
+                          </div>
+                        ) : null}
+
+                        {candidate.createdEventId ? (
+                          <div className="mt-3 space-y-2 rounded border bg-background p-3">
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Pipeline status
+                            </p>
+                            {loadingPipelineFor.has(candidate.id) ? (
+                              <p className="text-xs text-muted-foreground">Loading…</p>
+                            ) : pipelineStatusById[candidate.id] ? (
+                              <div className="space-y-2 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={
+                                      pipelineStatusById[candidate.id].imageStatus.attached
+                                        ? "text-emerald-600"
+                                        : "text-amber-600"
+                                    }
+                                  >
+                                    {pipelineStatusById[candidate.id].imageStatus.attached
+                                      ? "✓"
+                                      : "○"}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    {pipelineStatusById[candidate.id].imageStatus.attached
+                                      ? "Image attached"
+                                      : "No image imported"}
+                                  </span>
+                                </div>
+
+                                {pipelineStatusById[candidate.id].linkedArtists.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {pipelineStatusById[candidate.id].linkedArtists.map((a) => (
+                                      <a
+                                        key={a.id}
+                                        href={`/admin/artists/${a.id}`}
+                                        className="rounded bg-emerald-50 px-2 py-0.5 text-emerald-800 hover:underline dark:bg-emerald-900/30 dark:text-emerald-300"
+                                      >
+                                        {a.name}
+                                      </a>
+                                    ))}
+                                    <span className="text-muted-foreground">linked</span>
+                                  </div>
+                                ) : null}
+
+                                {pipelineStatusById[candidate.id].artistCandidates.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {pipelineStatusById[candidate.id].artistCandidates.map((a) => (
+                                      <span
+                                        key={a.id}
+                                        className={`rounded px-2 py-0.5 ${
+                                          a.status === "APPROVED"
+                                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                            : a.status === "PENDING"
+                                              ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                              : "bg-muted text-muted-foreground"
+                                        }`}
+                                      >
+                                        {a.name}
+                                      </span>
+                                    ))}
+                                    <a
+                                      href="/admin/ingest/artists"
+                                      className="text-muted-foreground underline"
+                                    >
+                                      {pipelineStatusById[candidate.id].artistCandidates.length}{" "}
+                                      candidate
+                                      {pipelineStatusById[candidate.id].artistCandidates.length === 1
+                                        ? ""
+                                        : "s"}
+                                    </a>
+                                  </div>
+                                ) : null}
+
+                                {pipelineStatusById[candidate.id].artworkCandidates.length > 0 ? (
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    <a
+                                      href="/admin/ingest/artworks"
+                                      className="text-muted-foreground underline"
+                                    >
+                                      {pipelineStatusById[candidate.id].artworkCandidates.length}{" "}
+                                      artwork
+                                      {pipelineStatusById[candidate.id].artworkCandidates.length ===
+                                      1
+                                        ? ""
+                                        : "s"}{" "}
+                                      queued
+                                    </a>
+                                    <span className="text-muted-foreground">
+                                      (
+                                      {
+                                        pipelineStatusById[
+                                          candidate.id
+                                        ].artworkCandidates.filter(
+                                          (a) => a.status === "APPROVED",
+                                        ).length
+                                      }{" "}
+                                      approved)
+                                    </span>
+                                  </div>
+                                ) : null}
+
+                                {pipelineStatusById[candidate.id].linked &&
+                                pipelineStatusById[candidate.id].linkedArtists.length === 0 &&
+                                pipelineStatusById[candidate.id].artistCandidates.length === 0 &&
+                                pipelineStatusById[candidate.id].artworkCandidates.length ===
+                                  0 ? (
+                                  <p className="text-muted-foreground">
+                                    No artists or artworks linked yet.
+                                  </p>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                className="text-xs text-muted-foreground underline"
+                                onClick={() => void fetchPipelineStatus(candidate.id)}
+                              >
+                                Load pipeline status
+                              </button>
+                            )}
                           </div>
                         ) : null}
                       </div>
