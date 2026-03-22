@@ -18,9 +18,10 @@ type NavSection = {
 type AdminSidebarNavProps = {
   userLinks: NavLink[];
   adminSections: NavSection[];
+  pendingCounts?: Record<string, number | null>;
 };
 
-export default function AdminSidebarNav({ userLinks, adminSections }: AdminSidebarNavProps) {
+export default function AdminSidebarNav({ userLinks, adminSections, pendingCounts }: AdminSidebarNavProps) {
   const pathname = usePathname();
 
   return (
@@ -62,7 +63,14 @@ export default function AdminSidebarNav({ userLinks, adminSections }: AdminSideb
                     : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                 )}
               >
-                {item.label}
+                <span className="flex items-center justify-between gap-2">
+                  <span>{item.label}</span>
+                  {(pendingCounts?.[item.href] ?? 0) > 0 ? (
+                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                      {pendingCounts![item.href]}
+                    </span>
+                  ) : null}
+                </span>
               </Link>
             );
           })}

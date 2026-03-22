@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { isRouteActive } from "../app/(admin)/admin/_components/admin-sidebar-nav-utils";
 import { ADMIN_SECTIONS } from "../app/(admin)/admin/layout";
 
+function shouldShowBadge(count: number | null | undefined): boolean {
+  return (count ?? 0) > 0;
+}
+
 test("isRouteActive marks nested admin routes active by segment", () => {
   assert.equal(isRouteActive("/admin/events/123", "/admin/events"), true);
   assert.equal(isRouteActive("/admin/events", "/admin/events"), true);
@@ -11,6 +15,14 @@ test("isRouteActive marks nested admin routes active by segment", () => {
 test("isRouteActive avoids false positives on similar prefixes", () => {
   assert.equal(isRouteActive("/admin/event", "/admin/events"), false);
   assert.equal(isRouteActive("/admin/events-archive", "/admin/events"), false);
+});
+
+test("badge shows for positive counts only", () => {
+  assert.equal(shouldShowBadge(5), true);
+  assert.equal(shouldShowBadge(1), true);
+  assert.equal(shouldShowBadge(0), false);
+  assert.equal(shouldShowBadge(null), false);
+  assert.equal(shouldShowBadge(undefined), false);
 });
 
 test("every admin section has a non-empty label and at least one link", () => {
