@@ -259,7 +259,7 @@ export default function IngestCandidateActions({
         </InlineBanner>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={approve} disabled={status !== "PENDING" || loadingAction !== null}>
+        <Button data-action="approve" size="sm" onClick={approve} disabled={status !== "PENDING" || loadingAction !== null}>
           {loadingAction === "approve" ? "Approving…" : "Approve"}
         </Button>
         {userRole === "ADMIN" && status === "PENDING" ? (
@@ -273,7 +273,7 @@ export default function IngestCandidateActions({
             {loadingAction === "approve_publish" ? "Publishing…" : "Approve & Publish"}
           </Button>
         ) : null}
-        <Button size="sm" variant="outline" onClick={() => setOpenRejectModal(true)} disabled={status !== "PENDING" || loadingAction !== null}>
+        <Button data-action="reject" size="sm" variant="outline" onClick={() => setOpenRejectModal(true)} disabled={status !== "PENDING" || loadingAction !== null}>
           {loadingAction === "reject" ? "Rejecting…" : "Reject"}
         </Button>
         {status === "REJECTED" && rejectionReason ? <span className="text-xs text-muted-foreground" title={rejectionReason}>Reason: {rejectionReason}</span> : null}

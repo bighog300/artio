@@ -100,6 +100,7 @@ export default function IngestEventQueueClient({
     approved: number;
     failed: number;
   } | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   function initDraft(candidate: QueueCandidate) {
     const candidateEndAt =
@@ -245,6 +246,50 @@ export default function IngestEventQueueClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidates]);
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const tag = (document.activeElement?.tagName ?? "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const pending = filteredCandidates.filter((c) => c.status === "PENDING");
+      if (pending.length === 0) return;
+
+      if (e.key === "j" || e.key === "J") {
+        e.preventDefault();
+        setFocusedIndex((prev) => (prev === null ? 0 : (prev + 1) % pending.length));
+      } else if (e.key === "k" || e.key === "K") {
+        e.preventDefault();
+        setFocusedIndex((prev) =>
+          prev === null ? pending.length - 1 : (prev - 1 + pending.length) % pending.length,
+        );
+      } else if (e.key === "a" || e.key === "A") {
+        if (focusedIndex === null) return;
+        const candidate = pending[focusedIndex];
+        if (!candidate || candidate.status !== "PENDING") return;
+        e.preventDefault();
+        const row = document.querySelector(`[data-candidate-id="${candidate.id}"]`);
+        const approveBtn = row?.querySelector<HTMLButtonElement>("button[data-action='approve']");
+        approveBtn?.click();
+      } else if (e.key === "r" || e.key === "R") {
+        if (focusedIndex === null) return;
+        const candidate = pending[focusedIndex];
+        if (!candidate || candidate.status !== "PENDING") return;
+        e.preventDefault();
+        const row = document.querySelector(`[data-candidate-id="${candidate.id}"]`);
+        const rejectBtn = row?.querySelector<HTMLButtonElement>("button[data-action='reject']");
+        rejectBtn?.click();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [filteredCandidates, focusedIndex]);
+
+  const pendingCandidates = filteredCandidates.filter((c) => c.status === "PENDING");
+  const focusedCandidateId =
+    focusedIndex !== null ? pendingCandidates[focusedIndex]?.id : null;
+
   return (
     <section className="rounded-lg border bg-background p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -370,7 +415,10 @@ export default function IngestEventQueueClient({
           <tbody>
             {filteredCandidates.map((candidate) => (
               <Fragment key={candidate.id}>
-                <tr className="border-b align-top">
+                <tr
+                  data-candidate-id={candidate.id}
+                  className={`border-b align-top ${focusedCandidateId === candidate.id ? "bg-blue-50/60 ring-1 ring-inset ring-blue-200 dark:bg-blue-950/20 dark:ring-blue-800" : ""}`}
+                >
                   <td className="px-3 py-2">
                     <IngestConfidenceBadge
                       score={candidate.confidenceScore}
@@ -787,6 +835,12 @@ export default function IngestEventQueueClient({
           </tbody>
         </table>
       </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        <kbd className="rounded border px-1 font-mono">J</kbd>{" / "}
+        <kbd className="rounded border px-1 font-mono">K</kbd> navigate{" · "}
+        <kbd className="rounded border px-1 font-mono">A</kbd> approve{" · "}
+        <kbd className="rounded border px-1 font-mono">R</kbd> reject
+      </p>
     </section>
   );
 }

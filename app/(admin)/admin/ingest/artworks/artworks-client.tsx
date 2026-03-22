@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import IngestConfidenceBadge from "@/app/(admin)/admin/ingest/_components/ingest-confidence-badge";
 import IngestImageCell from "@/app/(admin)/admin/ingest/_components/ingest-image-cell";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,7 @@ export default function ArtworksClient({
   const [mergeOptionsById, setMergeOptionsById] = useState<Record<string, Array<{ id: string; title: string; slug: string; artistName: string }>>>({});
   const [editOpenById, setEditOpenById] = useState<Record<string, boolean>>({});
   const [editDraftById, setEditDraftById] = useState<Record<string, EditDraft>>({});
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   function updateDraft(id: string, field: keyof EditDraft, value: string) {
     setEditDraftById((prev) => ({
@@ -127,7 +128,7 @@ export default function ArtworksClient({
     }
   }
 
-  async function merge(id: string, existingArtworkId: string) {
+  const merge = useCallback(async (id: string, existingArtworkId: string) => {
     setWorkingId(id);
     setError(null);
     try {
@@ -142,14 +143,15 @@ export default function ArtworksClient({
       }
       const body = await res.json() as { artworkId?: string; artistId?: string };
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
+      setFocusedIndex(null);
     } catch {
       setError("Failed to link artwork candidate to existing artwork.");
     } finally {
       setWorkingId(null);
     }
-  }
+  }, []);
 
-  async function approve(id: string) {
+  const approve = useCallback(async (id: string) => {
     setWorkingId(id);
     setError(null);
     try {
@@ -160,12 +162,13 @@ export default function ArtworksClient({
       }
       const body = await res.json() as { artworkId?: string; artistId?: string };
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
+      setFocusedIndex(null);
     } catch {
       setError("Failed to approve artwork candidate.");
     } finally {
       setWorkingId(null);
     }
-  }
+  }, []);
 
   async function approveWithPatch(id: string) {
     const draft = editDraftById[id];
@@ -227,7 +230,7 @@ export default function ArtworksClient({
     }
   }
 
-  async function reject(id: string) {
+  const reject = useCallback(async (id: string) => {
     setWorkingId(id);
     setError(null);
     try {
@@ -237,12 +240,53 @@ export default function ArtworksClient({
         return;
       }
       setCandidates((prev) => prev.filter((item) => item.id !== id));
+      setFocusedIndex(null);
     } catch {
       setError("Failed to reject artwork candidate.");
     } finally {
       setWorkingId(null);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const tag = (document.activeElement?.tagName ?? "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const pending = candidates.filter((c) => c.status === "PENDING");
+      if (pending.length === 0) return;
+
+      if (e.key === "j" || e.key === "J") {
+        e.preventDefault();
+        setFocusedIndex((prev) => (prev === null ? 0 : (prev + 1) % pending.length));
+      } else if (e.key === "k" || e.key === "K") {
+        e.preventDefault();
+        setFocusedIndex((prev) =>
+          prev === null ? pending.length - 1 : (prev - 1 + pending.length) % pending.length,
+        );
+      } else if (e.key === "a" || e.key === "A") {
+        if (focusedIndex === null) return;
+        const candidate = pending[focusedIndex];
+        if (!candidate) return;
+        e.preventDefault();
+        void approve(candidate.id);
+      } else if (e.key === "r" || e.key === "R") {
+        if (focusedIndex === null) return;
+        const candidate = pending[focusedIndex];
+        if (!candidate) return;
+        e.preventDefault();
+        void reject(candidate.id);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [candidates, focusedIndex, approve, reject]);
+
+  const pendingCandidates = candidates.filter((c) => c.status === "PENDING");
+  const focusedCandidateId =
+    focusedIndex !== null ? pendingCandidates[focusedIndex]?.id : null;
 
   return (
     <section className="rounded-lg border bg-background p-4">
@@ -265,7 +309,10 @@ export default function ArtworksClient({
           <tbody>
             {candidates.map((candidate) => (
               <Fragment key={candidate.id}>
-                <tr className="border-b align-top">
+                <tr
+                  data-candidate-id={candidate.id}
+                  className={`border-b align-top ${focusedCandidateId === candidate.id ? "bg-blue-50/60 ring-1 ring-inset ring-blue-200 dark:bg-blue-950/20 dark:ring-blue-800" : ""}`}
+                >
                   <td className="px-3 py-2">
                     <IngestImageCell
                       imageUrl={candidate.imageUrl}
@@ -444,6 +491,12 @@ export default function ArtworksClient({
           </tbody>
         </table>
       </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        <kbd className="rounded border px-1 font-mono">J</kbd>{" / "}
+        <kbd className="rounded border px-1 font-mono">K</kbd> navigate{" · "}
+        <kbd className="rounded border px-1 font-mono">A</kbd> approve{" · "}
+        <kbd className="rounded border px-1 font-mono">R</kbd> reject
+      </p>
     </section>
   );
 }
