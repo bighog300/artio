@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { isRouteActive } from "../app/(admin)/admin/_components/admin-sidebar-nav-utils";
-import { ADMIN_SECTIONS } from "../app/(admin)/admin/layout";
+import { ADMIN_SECTIONS } from "../app/(admin)/admin/_components/admin-nav-sections";
 
 function shouldShowBadge(count: number | null | undefined): boolean {
   return (count ?? 0) > 0;
