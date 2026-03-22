@@ -167,19 +167,40 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
           href="/admin/ingest"
           className={`rounded-t-md px-3 py-2 text-sm ${pathname === "/admin/ingest" ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
-          Event Queue
+          <span className="flex items-center gap-1.5">
+            Event Queue
+            {stats.total > 0 ? (
+              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                {stats.total}
+              </span>
+            ) : null}
+          </span>
         </Link>
         <Link
           href="/admin/ingest/artists"
           className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artists") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
-          Artists
+          <span className="flex items-center gap-1.5">
+            Artists
+            {stats.pendingArtists > 0 ? (
+              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                {stats.pendingArtists}
+              </span>
+            ) : null}
+          </span>
         </Link>
         <Link
           href="/admin/ingest/artworks"
           className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artworks") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
-          Artworks
+          <span className="flex items-center gap-1.5">
+            Artworks
+            {stats.pendingArtworks > 0 ? (
+              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                {stats.pendingArtworks}
+              </span>
+            ) : null}
+          </span>
         </Link>
         <Link
           href="/admin/ingest/discovery"
@@ -203,7 +224,14 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
           href="/admin/ingest/venue-images"
           className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/venue-images") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
-          Venue Images{stats.pendingVenueImages > 0 ? ` (${stats.pendingVenueImages})` : ""}
+          <span className="flex items-center gap-1.5">
+            Venue Images
+            {stats.pendingVenueImages > 0 ? (
+              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                {stats.pendingVenueImages}
+              </span>
+            ) : null}
+          </span>
         </Link>
         <Link
           href="/admin/ingest/venue-onboarding"
@@ -213,7 +241,14 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          Onboarding{stats.pendingOnboarding > 0 ? ` (${stats.pendingOnboarding})` : ""}
+          <span className="flex items-center gap-1.5">
+            Onboarding
+            {stats.pendingOnboarding > 0 ? (
+              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                {stats.pendingOnboarding}
+              </span>
+            ) : null}
+          </span>
         </Link>
         <Link
           href="/admin/ingest/runs"
