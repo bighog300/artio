@@ -37,6 +37,9 @@ test("admin ingest run detail includes candidate moderation actions", () => {
 });
 
 test("admin sidebar includes ingest route", () => {
-  const layoutSource = readFileSync("app/(admin)/admin/layout.tsx", "utf8");
-  assert.match(layoutSource, /href: "\/admin\/ingest", label: "Ingest"/);
+  const navSource = readFileSync(
+    "app/(admin)/admin/_components/admin-nav-sections.ts",
+    "utf8"
+  );
+  assert.match(navSource, /href: "\/admin\/ingest", label: "Ingest"/);
 });

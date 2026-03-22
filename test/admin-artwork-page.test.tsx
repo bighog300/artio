@@ -11,6 +11,9 @@ test("admin artwork page renders header and inline row actions", () => {
 });
 
 test("admin sidebar includes artwork link", () => {
-  const layoutSource = readFileSync("app/(admin)/admin/layout.tsx", "utf8");
-  assert.match(layoutSource, /href: "\/admin\/artwork", label: "Artwork"/);
+  const navSource = readFileSync(
+    "app/(admin)/admin/_components/admin-nav-sections.ts",
+    "utf8"
+  );
+  assert.match(navSource, /href: "\/admin\/artwork", label: "Artwork"/);
 });
