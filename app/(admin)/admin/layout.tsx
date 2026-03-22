@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { requireAdmin } from "@/lib/admin";
+import { db } from "@/lib/db";
 import AdminSidebarNav from "./_components/AdminSidebarNav";
 
 type AdminNavLink = {
@@ -60,8 +61,24 @@ export const ADMIN_SECTIONS: AdminNavSection[] = [
   },
 ];
 
+async function getSidebarCounts() {
+  try {
+    const [submissions, ingest, venueClaims] = await Promise.all([
+      db.submission.count({ where: { status: "IN_REVIEW" } }),
+      db.ingestExtractedEvent.count({ where: { status: "PENDING", duplicateOfId: null } }),
+      db.venueClaimRequest.count({ where: { status: "PENDING_VERIFICATION" } }),
+    ]);
+    return { submissions, ingest, venueClaims };
+  } catch {
+    return { submissions: null, ingest: null, venueClaims: null };
+  }
+}
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const admin = await requireAdmin({ redirectOnFail: true });
+  const [admin, sidebarCounts] = await Promise.all([
+    requireAdmin({ redirectOnFail: true }),
+    getSidebarCounts(),
+  ]);
 
   return (
     <div className="min-h-screen bg-muted/20">
@@ -90,6 +107,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               { href: "/", label: "Public Home" },
             ]}
             adminSections={ADMIN_SECTIONS}
+            pendingCounts={{
+              "/admin/submissions": sidebarCounts.submissions,
+              "/admin/ingest": sidebarCounts.ingest,
+              "/admin/venue-claims": sidebarCounts.venueClaims,
+            }}
           />
         </aside>
         <section>{children}</section>
