@@ -88,6 +88,7 @@ export default function ArtistsClient({
   const [importingImageFor, setImportingImageFor] = useState<string | null>(null);
   const [importedImageFor, setImportedImageFor] = useState<Set<string>>(new Set());
   const [importFailedFor, setImportFailedFor] = useState<Set<string>>(new Set());
+  const [importedImageUrlById, setImportedImageUrlById] = useState<Record<string, string>>({});
   const [editingImageFor, setEditingImageFor] = useState<string | null>(null);
   const [editImageUrl, setEditImageUrl] = useState<Record<string, string>>({});
   const [editingImageLoading, setEditingImageLoading] = useState<string | null>(null);
@@ -210,6 +211,10 @@ export default function ArtistsClient({
         method: "POST",
       });
       if (res.ok) {
+        const body = await res.json() as { attached?: boolean; imageUrl?: string | null; warning?: string | null };
+        if (body.imageUrl) {
+          setImportedImageUrlById((prev) => ({ ...prev, [candidateId]: body.imageUrl }));
+        }
         setImportedImageFor((prev) => new Set([...prev, candidateId]));
         setImportFailedFor((prev) => {
           const next = new Set(prev);
@@ -243,6 +248,10 @@ export default function ArtistsClient({
         return;
       }
 
+      const replaceBody = (await response.json().catch(() => ({}))) as { url?: string | null };
+      if (replaceBody.url) {
+        setImportedImageUrlById((prev) => ({ ...prev, [candidateId]: replaceBody.url }));
+      }
       setEditImageUrl((prev) => ({ ...prev, [candidateId]: "" }));
       setEditingImageFor(null);
       setImportedImageFor((prev) => new Set([...prev, candidateId]));
@@ -349,7 +358,11 @@ export default function ArtistsClient({
                   <td className="px-3 py-2">
                     <IngestImageCell
                       imageUrl={null}
-                      blobImageUrl={candidate.createdArtist?.featuredAsset?.url ?? null}
+                      blobImageUrl={
+                        importedImageUrlById[candidate.id]
+                        ?? candidate.createdArtist?.featuredAsset?.url
+                        ?? null
+                      }
                       altText={candidate.name}
                       importStatus={
                         importedImageFor.has(candidate.id)
