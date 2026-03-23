@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
-import { requireAdmin } from "@/lib/admin";
+import { withAdminRoute } from "@/lib/admin-route";
 import { db } from "@/lib/db";
 import { importApprovedArtworkImage } from "@/lib/ingest/import-approved-artwork-image";
 import { idParamSchema, zodDetails } from "@/lib/validators";
@@ -8,19 +8,13 @@ import { idParamSchema, zodDetails } from "@/lib/validators";
 export const runtime = "nodejs";
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    await requireAdmin();
+  return withAdminRoute(async () => {
     const parsed = idParamSchema.safeParse(await params);
     if (!parsed.success) {
-      return apiError(
-        400,
-        "invalid_request",
-        "Invalid route parameter",
-        zodDetails(parsed.error),
-      );
+      return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsed.error));
     }
 
     const candidate = await db.ingestExtractedArtwork.findUnique({
@@ -34,15 +28,9 @@ export async function POST(
       },
     });
 
-    if (!candidate) {
-      return apiError(404, "not_found", "Artwork candidate not found");
-    }
+    if (!candidate) return apiError(404, "not_found", "Artwork candidate not found");
     if (!candidate.createdArtworkId) {
-      return apiError(
-        409,
-        "not_approved",
-        "Artwork candidate has not been approved yet",
-      );
+      return apiError(409, "not_approved", "Artwork candidate has not been approved yet");
     }
 
     const result = await importApprovedArtworkImage({
@@ -61,13 +49,5 @@ export async function POST(
       imageUrl: result.imageUrl,
       warning: result.warning,
     });
-  } catch (error) {
-    if (error instanceof Error && error.message === "unauthorized") {
-      return apiError(401, "unauthorized", "Authentication required");
-    }
-    if (error instanceof Error && error.message === "forbidden") {
-      return apiError(403, "forbidden", "Forbidden");
-    }
-    return apiError(500, "internal_error", "Unexpected server error");
-  }
+  });
 }
