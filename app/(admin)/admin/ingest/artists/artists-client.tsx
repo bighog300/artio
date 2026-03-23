@@ -212,8 +212,9 @@ export default function ArtistsClient({
       });
       if (res.ok) {
         const body = await res.json() as { attached?: boolean; imageUrl?: string | null; warning?: string | null };
-        if (body.imageUrl) {
-          setImportedImageUrlById((prev) => ({ ...prev, [candidateId]: body.imageUrl }));
+        const importedImageUrl = body.imageUrl;
+        if (typeof importedImageUrl === "string" && importedImageUrl.length > 0) {
+          setImportedImageUrlById((prev) => ({ ...prev, [candidateId]: importedImageUrl }));
         }
         setImportedImageFor((prev) => new Set([...prev, candidateId]));
         setImportFailedFor((prev) => {
@@ -249,8 +250,9 @@ export default function ArtistsClient({
       }
 
       const replaceBody = (await response.json().catch(() => ({}))) as { url?: string | null };
-      if (replaceBody.url) {
-        setImportedImageUrlById((prev) => ({ ...prev, [candidateId]: replaceBody.url }));
+      const replacedImageUrl = replaceBody.url;
+      if (typeof replacedImageUrl === "string" && replacedImageUrl.length > 0) {
+        setImportedImageUrlById((prev) => ({ ...prev, [candidateId]: replacedImageUrl }));
       }
       setEditImageUrl((prev) => ({ ...prev, [candidateId]: "" }));
       setEditingImageFor(null);
