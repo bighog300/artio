@@ -348,7 +348,7 @@ export default function ArtistsClient({
                   </td>
                   <td className="px-3 py-2">
                     <IngestImageCell
-                      imageUrl={candidate.sourceUrl}
+                      imageUrl={null}
                       blobImageUrl={candidate.createdArtist?.featuredAsset?.url ?? null}
                       altText={candidate.name}
                       importStatus={
@@ -361,7 +361,7 @@ export default function ArtistsClient({
                               : "none"
                       }
                       onImport={
-                        candidate.websiteUrl
+                        (candidate.websiteUrl || candidate.instagramUrl || candidate.sourceUrl)
                           ? () => importArtistImage(candidate.id)
                           : undefined
                       }

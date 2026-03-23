@@ -30,6 +30,7 @@ export async function POST(
         name: true,
         websiteUrl: true,
         sourceUrl: true,
+        instagramUrl: true,
         createdArtistId: true,
       },
     });
@@ -51,6 +52,7 @@ export async function POST(
       name: candidate.name,
       websiteUrl: candidate.websiteUrl,
       sourceUrl: candidate.sourceUrl,
+      instagramUrl: candidate.instagramUrl,
       requestId: `manual-import-artist-${candidate.id}`,
     });
 
