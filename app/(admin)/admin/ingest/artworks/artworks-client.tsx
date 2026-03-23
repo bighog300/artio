@@ -68,6 +68,7 @@ export default function ArtworksClient({
   const [importingImageFor, setImportingImageFor] = useState<string | null>(null);
   const [importedImageFor, setImportedImageFor] = useState<Set<string>>(new Set());
   const [importFailedFor, setImportFailedFor] = useState<Set<string>>(new Set());
+  const [importedImageUrlById, setImportedImageUrlById] = useState<Record<string, string>>({});
 
   function updateDraft(id: string, field: keyof EditDraft, value: string) {
     setEditDraftById((prev) => ({
@@ -138,7 +139,11 @@ export default function ArtworksClient({
         method: "POST",
       });
       if (res.ok) {
+        const body = await res.json() as { attached?: boolean; imageUrl?: string | null; warning?: string | null };
         setImportedImageFor((prev) => new Set([...prev, candidateId]));
+        if (body.imageUrl) {
+          setImportedImageUrlById((prev) => ({ ...prev, [candidateId]: body.imageUrl! }));
+        }
         setImportFailedFor((prev) => {
           const next = new Set(prev);
           next.delete(candidateId);
@@ -176,6 +181,9 @@ export default function ArtworksClient({
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
       if (body.imageImported) {
         setImportedImageFor((prev) => new Set([...prev, id]));
+        if (body.imageUrl) {
+          setImportedImageUrlById((prev) => ({ ...prev, [id]: body.imageUrl! }));
+        }
       } else if (body.artworkId) {
         setImportFailedFor((prev) => new Set([...prev, id]));
       }
@@ -205,6 +213,9 @@ export default function ArtworksClient({
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
       if (body.imageImported) {
         setImportedImageFor((prev) => new Set([...prev, id]));
+        if (body.imageUrl) {
+          setImportedImageUrlById((prev) => ({ ...prev, [id]: body.imageUrl! }));
+        }
       } else if (body.artworkId) {
         setImportFailedFor((prev) => new Set([...prev, id]));
       }
@@ -254,6 +265,9 @@ export default function ArtworksClient({
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
       if (body.imageImported) {
         setImportedImageFor((prev) => new Set([...prev, id]));
+        if (body.imageUrl) {
+          setImportedImageUrlById((prev) => ({ ...prev, [id]: body.imageUrl! }));
+        }
       } else if (body.artworkId) {
         setImportFailedFor((prev) => new Set([...prev, id]));
       }
@@ -286,6 +300,9 @@ export default function ArtworksClient({
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
       if (body.imageImported) {
         setImportedImageFor((prev) => new Set([...prev, id]));
+        if (body.imageUrl) {
+          setImportedImageUrlById((prev) => ({ ...prev, [id]: body.imageUrl! }));
+        }
       } else if (body.artworkId) {
         setImportFailedFor((prev) => new Set([...prev, id]));
       }
@@ -382,6 +399,7 @@ export default function ArtworksClient({
                   <td className="px-3 py-2">
                     <IngestImageCell
                       imageUrl={candidate.imageUrl}
+                      blobImageUrl={importedImageUrlById[candidate.id] ?? null}
                       altText={candidate.title}
                       importStatus={
                         importedImageFor.has(candidate.id)
