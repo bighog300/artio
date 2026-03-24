@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MAX_IMAGE_UPLOAD_BYTES, resolveImageUrl, uploadImageAsset, validateImageFile } from "../lib/assets.ts";
+import { MAX_IMAGE_UPLOAD_BYTES, resolveImageUrl, validateImageFile } from "../lib/assets.ts";
+import { uploadImageAsset } from "../lib/assets/server.ts";
 
 test("validateImageFile rejects unsupported mime types", () => {
   const file = new File([new Uint8Array([1, 2, 3])], "notes.txt", { type: "text/plain" });
