@@ -1,4 +1,3 @@
-import "server-only";
 
 import { ASSET_PIPELINE_CONFIG } from "@/lib/assets/config";
 import { getImageTransformRuntimeStatus, getSharpModule } from "@/lib/assets/transform-runtime";

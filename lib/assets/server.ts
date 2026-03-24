@@ -1,4 +1,3 @@
-import "server-only";
 
 import { put } from "@vercel/blob";
 import { saveImageAssetPipeline } from "@/lib/assets/save-asset";
