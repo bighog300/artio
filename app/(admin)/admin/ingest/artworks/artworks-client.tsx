@@ -471,20 +471,20 @@ export default function ArtworksClient({
                   <td className="px-3 py-2">
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap gap-2">
-                        <button className="rounded border px-2 py-1 text-xs" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => approve(candidate.id)}>Approve</button>
+                        <button className="rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => approve(candidate.id)}>Approve</button>
                         {userRole === "ADMIN" ? (
-                          <button className="rounded border border-emerald-600 px-2 py-1 text-xs text-emerald-800" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => approveAndPublish(candidate.id)}>Approve & Publish</button>
+                          <button className="rounded border border-emerald-600 px-2 py-1 text-xs text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => approveAndPublish(candidate.id)}>Approve & Publish</button>
                         ) : null}
-                        <button className="rounded border px-2 py-1 text-xs" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => reject(candidate.id)}>Reject</button>
+                        <button className="rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => reject(candidate.id)}>Reject</button>
                         <button
-                          className="rounded border px-2 py-1 text-xs"
+                          className="rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                           disabled={workingId === candidate.id || candidate.status !== "PENDING"}
                           onClick={() => openEdit(candidate)}
                         >
                           Edit
                         </button>
                         <button
-                          className="rounded border px-2 py-1 text-xs"
+                          className="rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                           disabled={workingId === candidate.id || candidate.status !== "PENDING"}
                           onClick={() => setMergeOpenById((prev) => ({ ...prev, [candidate.id]: !prev[candidate.id] }))}
                         >

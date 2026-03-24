@@ -11,7 +11,7 @@ export default async function AdminIngestArtworksPage() {
   const user = await getSessionUser();
 
   const candidates = await db.ingestExtractedArtwork.findMany({
-    where: { status: { in: ["PENDING", "APPROVED"] } },
+    where: { status: "PENDING" },
     select: {
       id: true,
       title: true,
