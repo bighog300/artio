@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { requireAuth, isAuthError } from "@/lib/auth";
-import { uploadImageAsset } from "@/lib/assets";
+import { uploadImageAsset } from "@/lib/assets/server";
 import { db } from "@/lib/db";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 

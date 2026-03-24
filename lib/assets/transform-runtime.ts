@@ -1,3 +1,5 @@
+import "server-only";
+
 export type SharpLikeInstance = {
   rotate: () => SharpLikeInstance;
   resize: (options: {

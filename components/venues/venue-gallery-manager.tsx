@@ -5,10 +5,12 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
-import { ALLOWED_IMAGE_MIME_TYPES, MAX_IMAGE_UPLOAD_BYTES } from "@/lib/assets";
+import { ASSET_PIPELINE_CONFIG } from "@/lib/assets/config";
 import { enqueueToast } from "@/lib/toast";
 
 type VenueImage = { id: string; url: string; alt: string | null; sortOrder: number };
+const ALLOWED_IMAGE_MIME_TYPES = ASSET_PIPELINE_CONFIG.acceptedMimeTypes;
+const MAX_IMAGE_UPLOAD_BYTES = ASSET_PIPELINE_CONFIG.maxUploadBytes;
 
 export function VenueGalleryManager({
   venueId,
