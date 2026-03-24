@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { FavoriteTargetType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
+import { toApiImageField } from "@/lib/assets/image-contract";
 import { getRequestId } from "@/lib/request-id";
 import { logInfo, logWarn } from "@/lib/logging";
 import { captureException } from "@/lib/telemetry";
@@ -63,6 +64,7 @@ const getTrendingEvents = unstable_cache(
         endAt: event.endAt?.toISOString() ?? null,
         venue: event.venue,
         tags: event.eventTags.map((eventTag) => ({ slug: eventTag.tag.slug, name: eventTag.tag.name })),
+        image: toApiImageField(primaryDisplay),
         primaryImageUrl: primaryDisplay.url,
         imageSource: primaryDisplay.source,
         imageIsProcessing: primaryDisplay.isProcessing,

@@ -304,7 +304,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
                   <div className="flex gap-3 overflow-x-auto pb-2">
                     {eventItems.slice(0, 6).map((item) => (
                       <div key={`rail-${item.id}`} onClick={() => { trackEngagement({ surface: "NEARBY", action: "CLICK", targetType: "EVENT", targetId: item.id }); track("event_viewed", { eventSlug: item.slug, source: "nearby", ui: "rail" }); }}>
-                        <EventRailCard href={`/events/${item.slug}`} title={item.title} startAt={item.startAt} venueName={item.venueName} imageUrl={item.primaryImageUrl} distanceLabel={toKmLabel(item)} />
+                        <EventRailCard href={`/events/${item.slug}`} title={item.title} startAt={item.startAt} venueName={item.venueName} image={item.image} imageUrl={item.primaryImageUrl} distanceLabel={toKmLabel(item)} />
                       </div>
                     ))}
                   </div>
@@ -313,7 +313,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {eventItems.map((item, idx) => (
                     <div key={item.id} onClick={() => { trackEngagement({ surface: "NEARBY", action: "CLICK", targetType: "EVENT", targetId: item.id, meta: { position: idx } }); track("event_viewed", { eventSlug: item.slug, source: "nearby", ui: "card" }); }}>
-                      <EventCard href={`/events/${item.slug}`} title={item.title} startAt={item.startAt} venueName={item.venueName} imageUrl={item.primaryImageUrl} distanceLabel={toKmLabel(item)} badges={(item.tags ?? []).map((tag) => tag.slug)} />
+                      <EventCard href={`/events/${item.slug}`} title={item.title} startAt={item.startAt} venueName={item.venueName} image={item.image} imageUrl={item.primaryImageUrl} distanceLabel={toKmLabel(item)} badges={(item.tags ?? []).map((tag) => tag.slug)} />
                     </div>
                   ))}
                 </section>

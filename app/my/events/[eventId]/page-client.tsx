@@ -272,7 +272,7 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
       </section>
 
       <section className="space-y-3 rounded border p-4">
-        <FeaturedEventImagePanel eventId={event.id} featuredAssetId={event.featuredAssetId} featuredImageUrl={event.featuredAsset?.url ?? null} />
+        <FeaturedEventImagePanel eventId={event.id} featuredImageUrl={event.featuredAsset?.url ?? null} />
       </section>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}

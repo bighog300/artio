@@ -7,6 +7,8 @@ import { logAdminAction } from "@/lib/admin-audit";
 import { ensureUniqueArtworkSlugWithDeps, slugifyArtworkTitle } from "@/lib/artwork-slug";
 import { myArtworkCreateSchema, parseBody, zodDetails } from "@/lib/validators";
 import { computeArtworkCompleteness } from "@/lib/artwork-completeness";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
+import { toApiImageField } from "@/lib/assets/image-contract";
 
 export const runtime = "nodejs";
 
@@ -33,14 +35,18 @@ export async function GET() {
         year: true,
         medium: true,
         featuredAssetId: true,
-        featuredAsset: { select: { url: true } },
-        images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true } } } },
+        featuredAsset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } },
+        images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } } } },
         _count: { select: { images: true } },
       },
     });
     return NextResponse.json({
       artworks: items.map((item) => {
         const completeness = computeArtworkCompleteness(item, item._count.images);
+        const image = toApiImageField(resolveAssetDisplay({
+          asset: item.featuredAsset ?? item.images[0]?.asset,
+          requestedVariant: "card",
+        }));
         return {
           id: item.id,
           title: item.title,
@@ -50,6 +56,7 @@ export async function GET() {
           deletedAt: item.deletedAt?.toISOString() ?? null,
           priceAmount: item.priceAmount,
           currency: item.currency,
+          image,
           featuredAsset: item.featuredAsset,
           images: item.images,
           updatedAt: item.updatedAt,

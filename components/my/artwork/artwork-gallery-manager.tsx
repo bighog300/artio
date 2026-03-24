@@ -164,7 +164,7 @@ export function ArtworkGalleryManager({
         const formData = new FormData();
         formData.append("file", file);
 
-        const uploadRes = await fetch("/api/uploads/image", {
+        const uploadRes = await fetch("/api/assets/upload/process", {
           method: "POST",
           body: formData,
         });
@@ -175,12 +175,12 @@ export function ArtworkGalleryManager({
           continue;
         }
 
-        const uploadData = (await uploadRes.json()) as { assetId: string };
+        const uploadData = (await uploadRes.json()) as { asset: { id: string } };
 
         const createRes = await fetch(`/api/my/artwork/${artworkId}/images`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ assetId: uploadData.assetId }),
+          body: JSON.stringify({ assetId: uploadData.asset.id }),
         });
 
         if (handleAuth(createRes)) return;

@@ -61,6 +61,8 @@ export default function ImageUploader({
   const [statusText, setStatusText] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [pendingAsset, setPendingAsset] = useState<{ assetId: string; url: string; metadata: Metadata; suggestions: Suggestion[]; processing?: ProcessingSummary } | null>(null);
+  const [assetStatus, setAssetStatus] = useState<{ assetId: string; processingStatus: "UPLOADED" | "PROCESSING" | "READY" | "FAILED"; processingError?: string | null } | null>(null);
+  const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
   const [cropState, setCropState] = useState<CropState>({ preset: "landscape", zoom: 1, centerX: 0.5, centerY: 0.5 });
 
   async function onFileChange(file: File | null) {
@@ -102,6 +104,7 @@ export default function ImageUploader({
         suggestions: data.suggestions ?? [],
         processing: data.processing,
       });
+      setAssetStatus({ assetId: data.asset.id, processingStatus: data.asset.processingStatus ?? "READY", processingError: null });
       setCropState((prev) => ({ ...prev, preset: "landscape", zoom: 1, centerX: 0.5, centerY: 0.5 }));
       setCropOpen(true);
     } catch (uploadError) {
@@ -161,6 +164,7 @@ export default function ImageUploader({
       const body = await res.json() as { asset: { id: string; url: string; processingStatus: "UPLOADED" | "PROCESSING" | "READY" | "FAILED"; processingError?: string | null } };
       setPreviewUrl(body.asset.url);
       onUploaded({ assetId: body.asset.id, url: body.asset.url });
+      setAssetStatus({ assetId: body.asset.id, processingStatus: body.asset.processingStatus, processingError: body.asset.processingError ?? null });
       setStatusText(body.asset.processingStatus === "READY" ? "Image ready." : `Image status: ${body.asset.processingStatus}`);
       setCropOpen(false);
       setPendingAsset(null);
@@ -176,7 +180,39 @@ export default function ImageUploader({
     if (!onRemove || !window.confirm("Remove current image?")) return;
     onRemove();
     setPreviewUrl(null);
+    setAssetStatus(null);
     setStatusText(null);
+  }
+
+  async function refreshProcessingStatus() {
+    if (!assetStatus?.assetId) return;
+    setIsRefreshingStatus(true);
+    try {
+      const res = await fetch(`/api/assets/${assetStatus.assetId}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const body = await res.json() as {
+        asset?: { id: string; processingStatus: "UPLOADED" | "PROCESSING" | "READY" | "FAILED"; processingError?: string | null };
+        image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean };
+      };
+      if (!body.asset) return;
+      setAssetStatus({
+        assetId: body.asset.id,
+        processingStatus: body.asset.processingStatus,
+        processingError: body.asset.processingError ?? null,
+      });
+      if (body.image?.url) {
+        setPreviewUrl(body.image.url);
+      }
+      if (body.asset.processingStatus === "READY") {
+        setStatusText("Image ready.");
+      } else if (body.asset.processingStatus === "FAILED") {
+        setStatusText("Image processing failed.");
+      } else {
+        setStatusText("Image is still processing.");
+      }
+    } finally {
+      setIsRefreshingStatus(false);
+    }
   }
 
   const processingDiagnostics = pendingAsset?.processing?.diagnostics ?? [];
@@ -194,6 +230,11 @@ export default function ImageUploader({
             <Image src={previewUrl} alt="Preview" fill sizes="128px" className="object-cover" />
           </div>
           {onRemove ? <button type="button" className="rounded border px-2 py-1 text-sm text-red-700" onClick={removeImage}>Remove image</button> : null}
+          {assetStatus?.processingStatus === "PROCESSING" || assetStatus?.processingStatus === "UPLOADED" ? (
+            <button type="button" className="ml-2 rounded border px-2 py-1 text-sm" onClick={() => void refreshProcessingStatus()} disabled={isRefreshingStatus}>
+              {isRefreshingStatus ? "Refreshing..." : "Refresh image status"}
+            </button>
+          ) : null}
         </>
       ) : null}
       <Dialog open={cropOpen} onOpenChange={setCropOpen}>

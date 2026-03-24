@@ -5,12 +5,14 @@ import { validateImageUpload } from "@/lib/assets/validate-upload";
 import { saveImageAssetPipeline } from "@/lib/assets/save-asset";
 import { getImageSuggestions } from "@/lib/assets/image-suggestions";
 import { logAssetValidationFailure } from "@/lib/assets/diagnostics";
+import { logImageTransformRuntimeStatusOnce } from "@/lib/assets/runtime-observability";
 import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
+    await logImageTransformRuntimeStatusOnce("api/assets/upload/process");
     const user = await requireAuth();
     const form = await req.formData();
     const file = form.get("file");

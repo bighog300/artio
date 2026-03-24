@@ -3,7 +3,8 @@ import { unstable_cache } from "next/cache";
 import { apiError } from "@/lib/api";
 import { guardUser } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
-import { resolveImageUrl } from "@/lib/assets";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
+import { toApiImageField } from "@/lib/assets/image-contract";
 import { getRequestId } from "@/lib/request-id";
 import { logInfo, logWarn } from "@/lib/logging";
 import { captureException } from "@/lib/telemetry";
@@ -123,12 +124,12 @@ export async function GET(req: NextRequest) {
       },
       take: 60,
       orderBy: { startAt: "asc" },
-      include: {
-        venue: { select: { id: true, name: true } },
-        images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
-        eventTags: { include: { tag: { select: { slug: true, name: true } } } },
-        eventArtists: { select: { artistId: true } },
-      },
+        include: {
+          venue: { select: { id: true, name: true } },
+          images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } } } },
+          eventTags: { include: { tag: { select: { slug: true, name: true } } } },
+          eventArtists: { select: { artistId: true } },
+        },
     });
 
     const tagSet = new Set(topTags);
@@ -137,6 +138,11 @@ export async function GET(req: NextRequest) {
 
     const items = candidates
       .map((event) => {
+        const primaryDisplay = resolveAssetDisplay({
+          asset: event.images?.[0]?.asset,
+          requestedVariant: "card",
+          legacyUrl: event.images?.[0]?.url ?? null,
+        });
         const tagOverlap = event.eventTags.reduce((total, eventTag) => total + (tagSet.has(eventTag.tag.slug) ? 1 : 0), 0);
         const artistBoost = event.eventArtists.some((eventArtist) => followedArtistSet.has(eventArtist.artistId)) ? 1 : 0;
         const venueBoost = event.venue?.id && followedVenueSet.has(event.venue.id) ? 1 : 0;
@@ -148,7 +154,8 @@ export async function GET(req: NextRequest) {
           endAt: event.endAt?.toISOString() ?? null,
           venue: event.venue,
           tags: event.eventTags.map((eventTag) => ({ slug: eventTag.tag.slug, name: eventTag.tag.name })),
-          primaryImageUrl: resolveImageUrl(event.images?.[0]?.asset?.url, event.images?.[0]?.url),
+          image: toApiImageField(primaryDisplay),
+          primaryImageUrl: primaryDisplay.url,
           score: tagOverlap + artistBoost + venueBoost,
         };
       })

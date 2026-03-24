@@ -3,6 +3,8 @@ import { z } from "zod";
 import { requireAuth, isAuthError } from "@/lib/auth";
 import { apiError } from "@/lib/api";
 import { finalizeAssetCrop } from "@/lib/assets/save-asset";
+import { getImageTransformRuntimeStatus } from "@/lib/assets/transform-runtime";
+import { logImageTransformRuntimeStatusOnce } from "@/lib/assets/runtime-observability";
 import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -21,6 +23,7 @@ const cropSchema = z.object({
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await logImageTransformRuntimeStatusOnce("api/assets/[id]/crop");
     await requireAuth();
     const { id } = await params;
     const body = await req.json();
@@ -34,6 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       assetId: id,
       crop: parsed.data,
     });
+    const runtime = await getImageTransformRuntimeStatus();
 
     return NextResponse.json({
       ok: true,
@@ -50,6 +54,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         width: variant.width,
         height: variant.height,
       })),
+      processing: {
+        runtime,
+        fallbackUsed: !runtime.available,
+        diagnostics: runtime.available ? [] : ["transform_runtime_unavailable_passthrough_used"],
+      },
     });
   } catch (error) {
     if (isAuthError(error)) {
