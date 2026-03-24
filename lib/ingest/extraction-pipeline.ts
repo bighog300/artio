@@ -15,17 +15,7 @@ import { inferTimezoneFromLatLng } from "@/lib/timezone";
 import { detectPlatform, getPlatformPromptHint, isJsRenderedPlatform, type Platform } from "@/lib/ingest/detect-platform";
 import { enrichVenueFromSnapshot } from "@/lib/ingest/enrich-venue-from-snapshot";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
-
-
-function resolveRelativeImageUrl(imageUrl: string | null | undefined, baseUrl: string): string | null {
-  if (!imageUrl) return null;
-  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) return imageUrl;
-  try {
-    return new URL(imageUrl, baseUrl).toString();
-  } catch {
-    return imageUrl;
-  }
-}
+import { resolveRelativeHttpUrl } from "@/lib/ingest/url-utils";
 
 const MAX_ERROR_MESSAGE_LENGTH = 500;
 const MAX_ERROR_DETAIL_LENGTH = 1000;
@@ -667,7 +657,7 @@ export async function runVenueIngestExtraction(
           locationText: candidate.event.locationText,
           description: candidate.event.description,
           artistNames: candidate.event.artistNames ?? [],
-          imageUrl: resolveRelativeImageUrl(candidate.event.imageUrl, fetched.finalUrl),
+          imageUrl: resolveRelativeHttpUrl(candidate.event.imageUrl, fetched.finalUrl),
           confidenceScore: confidence.score,
           confidenceBand: confidence.band,
           confidenceReasons: sanitizeReasons(confidence.reasons),
@@ -690,7 +680,7 @@ export async function runVenueIngestExtraction(
         })
         .map(async (candidate) => {
           const candidateId = createdPrimaryIdByTempId.get(candidate.tempId);
-          const imageUrl = resolveRelativeImageUrl(candidate.event.imageUrl, fetched.finalUrl);
+          const imageUrl = resolveRelativeHttpUrl(candidate.event.imageUrl, fetched.finalUrl);
           if (!candidateId || !imageUrl) return;
 
           try {
@@ -774,7 +764,7 @@ export async function runVenueIngestExtraction(
           locationText: candidate.event.locationText,
           description: candidate.event.description,
           artistNames: candidate.event.artistNames ?? [],
-          imageUrl: resolveRelativeImageUrl(candidate.event.imageUrl, fetched.finalUrl),
+          imageUrl: resolveRelativeHttpUrl(candidate.event.imageUrl, fetched.finalUrl),
           confidenceScore: confidence.score,
           confidenceBand: confidence.band,
           confidenceReasons: sanitizeReasons(confidence.reasons),

@@ -412,6 +412,7 @@ export default function ArtworksClient({
                       imageUrl={candidate.imageUrl}
                       blobImageUrl={importedImageUrlById[candidate.id] ?? null}
                       altText={candidate.title}
+                      sourceUrl={candidate.sourceUrl}
                       importStatus={
                         importedImageFor.has(candidate.id)
                           ? "imported"
