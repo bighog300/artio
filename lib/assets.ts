@@ -1,7 +1,10 @@
 import { put } from "@vercel/blob";
+import { ASSET_PIPELINE_CONFIG } from "@/lib/assets/config";
+import { saveImageAssetPipeline } from "@/lib/assets/save-asset";
+import { validateImageUpload } from "@/lib/assets/validate-upload";
 
 export const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-export const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
+export const MAX_IMAGE_UPLOAD_BYTES = ASSET_PIPELINE_CONFIG.maxUploadBytes;
 
 export function validateImageFile(file: File) {
   if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
@@ -17,45 +20,26 @@ export async function uploadImageAsset(params: {
   ownerUserId: string;
   alt?: string | null;
   uploadToBlob?: typeof put;
-  dbClient: {
-    asset: {
-      create: (args: {
-        data: {
-          ownerUserId: string;
-          kind: "IMAGE";
-          url: string;
-          filename: string | null;
-          mime: string | null;
-          sizeBytes: number;
-          alt: string | null;
-        };
-        select: { id: true; url: true };
-      }) => Promise<{ id: string; url: string }>;
-    };
-  };
+  dbClient: Parameters<typeof saveImageAssetPipeline>[0]["dbClient"];
 }) {
-  const { file, ownerUserId, alt, uploadToBlob = put, dbClient } = params;
-  validateImageFile(file);
+  const { file, ownerUserId, alt, dbClient } = params;
+  const validation = await validateImageUpload(file);
+  if (!validation.isValid) {
+    if (validation.errors.includes("unsupported_mime_type")) throw new Error("invalid_mime");
+    if (validation.errors.includes("file_too_large")) throw new Error("file_too_large");
+    throw new Error(validation.errors[0] ?? "invalid_upload");
+  }
 
-  const blob = await uploadToBlob(`uploads/${ownerUserId}/${Date.now()}-${file.name}`, file, {
-    access: "public",
-    addRandomSuffix: true,
+  const saved = await saveImageAssetPipeline({
+    dbClient,
+    ownerUserId,
+    fileName: file.name,
+    sourceMimeType: file.type,
+    sourceBytes: new Uint8Array(await file.arrayBuffer()),
+    altText: alt ?? null,
   });
 
-  const asset = await dbClient.asset.create({
-    data: {
-      ownerUserId,
-      kind: "IMAGE",
-      url: blob.url,
-      filename: file.name || null,
-      mime: file.type || null,
-      sizeBytes: file.size,
-      alt: alt ?? null,
-    },
-    select: { id: true, url: true },
-  });
-
-  return { assetId: asset.id, url: asset.url };
+  return { assetId: saved.asset.id, url: saved.asset.url };
 }
 
 export function resolveImageUrl(assetUrl: string | null | undefined, legacyUrl: string | null | undefined) {
