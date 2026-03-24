@@ -7,6 +7,7 @@ import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 import { scoreArtworkCandidate } from "@/lib/ingest/artwork-confidence";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
 import { autoApproveArtworkCandidate } from "@/lib/ingest/auto-approve-artwork-candidate";
+import { resolveRelativeHttpUrl } from "@/lib/ingest/url-utils";
 
 const artworkExtractionSchema = {
   type: "object",
@@ -194,7 +195,7 @@ export async function extractArtworksForEvent(args: {
         year: asInteger(artwork.year),
         dimensions: asString(artwork.dimensions),
         description: asString(artwork.description),
-        imageUrl: asString(artwork.imageUrl),
+        imageUrl: resolveRelativeHttpUrl(asString(artwork.imageUrl), args.sourceUrl),
         artistName: asString(artwork.artistName),
       };
 
