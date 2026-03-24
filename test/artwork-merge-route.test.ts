@@ -61,7 +61,13 @@ test("POST merge approves candidate and sets createdArtworkId", async () => {
 
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.deepEqual(body, { artworkId: "44444444-4444-4444-8444-444444444444", merged: true });
+  assert.deepEqual(body, {
+    artworkId: "44444444-4444-4444-8444-444444444444",
+    merged: true,
+    imageImported: false,
+    imageUrl: null,
+    imageImportWarning: "image-import disabled: set AI_INGEST_IMAGE_ENABLED=1 to enable",
+  });
   assert.equal(updatedCandidate?.status, "APPROVED");
   assert.equal(updatedCandidate?.createdArtworkId, "44444444-4444-4444-8444-444444444444");
 });
