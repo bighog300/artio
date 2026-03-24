@@ -12,6 +12,8 @@ import { collectGeoFilteredPage } from "@/lib/events-geo-pagination";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { publishedEventWhere } from "@/lib/publish-status";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
+import { toApiImageField } from "@/lib/assets/image-contract";
 
 type EventWithJoin = {
   id: string;
@@ -19,7 +21,7 @@ type EventWithJoin = {
   lng: number | null;
   featuredImageUrl?: string | null;
   venue?: { lat: number | null; lng: number | null } | null;
-  images?: Array<{ url?: string | null; alt?: string | null; sortOrder?: number | null; isPrimary?: boolean | null; asset?: { url?: string | null } | null }>;
+  images?: Array<{ url?: string | null; alt?: string | null; sortOrder?: number | null; isPrimary?: boolean | null; asset?: { url?: string | null; originalUrl?: string | null; processingStatus?: string | null; processingError?: string | null; variants?: Array<{ variantName: string; url: string | null }> } | null }>;
   eventTags?: Array<{ tag: { name: string; slug: string } }>;
   eventArtists?: Array<{ artistId: string }>;
   startAt: Date;
@@ -97,7 +99,7 @@ export async function GET(req: NextRequest) {
         include: {
           eventArtists: { select: { artistId: true } },
           venue: { select: { id: true, name: true, slug: true, city: true, lat: true, lng: true } },
-          images: { orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
+          images: { orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } } } },
           eventTags: { include: { tag: { select: { name: true, slug: true } } } },
         },
       })) as EventWithJoin[];
@@ -156,10 +158,16 @@ export async function GET(req: NextRequest) {
       items: page.map((e) => {
         const image = resolveEntityPrimaryImage(e);
         const imageUrl = image?.url ?? null;
+        const displayImage = resolveAssetDisplay({
+          asset: e.images?.[0]?.asset ?? null,
+          requestedVariant: "card",
+          legacyUrl: e.images?.[0]?.url ?? imageUrl,
+        });
         return {
           ...e,
+          image: toApiImageField(displayImage),
           featuredImageUrl: imageUrl,
-          primaryImageUrl: imageUrl,
+          primaryImageUrl: displayImage.url ?? imageUrl,
           primaryImageAlt: image?.alt ?? null,
           primaryImageWidth: image?.width ?? null,
           primaryImageHeight: image?.height ?? null,

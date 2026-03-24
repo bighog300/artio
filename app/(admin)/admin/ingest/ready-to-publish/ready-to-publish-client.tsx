@@ -16,7 +16,7 @@ type ArtistRow = {
   birthYear: number | null;
   websiteUrl: string | null;
   instagramUrl: string | null;
-  featuredAsset: { url: string } | null;
+  image?: { url: string | null; isProcessing: boolean; hasFailure: boolean } | null;
   _count: { artworks: number };
 };
 
@@ -28,7 +28,7 @@ type ArtworkRow = {
   year: number | null;
   description: string | null;
   featuredAssetId: string | null;
-  featuredAsset: { url: string } | null;
+  image?: { url: string | null; isProcessing: boolean; hasFailure: boolean } | null;
   artist: { id: string; name: string; slug: string; status: string };
   _count: { images: number };
 };
@@ -148,8 +148,12 @@ export default function ReadyToPublishClient({
                 {artistRows.map((artist) => (
                   <tr key={artist.id} className="border-b align-top">
                     <td className="px-3 py-2">
-                      {artist.featuredAsset?.url ? (
-                        <img src={artist.featuredAsset.url} alt={artist.name} className="h-12 w-12 rounded object-cover" />
+                      {artist.image?.url ? (
+                        <div className="relative">
+                          <img src={artist.image.url} alt={artist.name} className="h-12 w-12 rounded object-cover" />
+                          {artist.image.isProcessing ? <span className="absolute -bottom-2 left-0 rounded bg-background px-1 text-[10px] text-muted-foreground">Processing…</span> : null}
+                          {artist.image.hasFailure ? <span className="absolute -bottom-2 left-0 rounded bg-amber-100 px-1 text-[10px] text-amber-800">Issue</span> : null}
+                        </div>
                       ) : (
                         <div className="h-12 w-12 rounded bg-muted" />
                       )}
@@ -201,8 +205,12 @@ export default function ReadyToPublishClient({
                     <Fragment key={artwork.id}>
                       <tr className="border-b align-top">
                         <td className="px-3 py-2">
-                          {artwork.featuredAsset?.url ? (
-                            <img src={artwork.featuredAsset.url} alt={artwork.title} className="h-12 w-12 rounded object-cover" />
+                          {artwork.image?.url ? (
+                            <div className="relative">
+                              <img src={artwork.image.url} alt={artwork.title} className="h-12 w-12 rounded object-cover" />
+                              {artwork.image.isProcessing ? <span className="absolute -bottom-2 left-0 rounded bg-background px-1 text-[10px] text-muted-foreground">Processing…</span> : null}
+                              {artwork.image.hasFailure ? <span className="absolute -bottom-2 left-0 rounded bg-amber-100 px-1 text-[10px] text-amber-800">Issue</span> : null}
+                            </div>
                           ) : (
                             <div className="h-12 w-12 rounded bg-muted" />
                           )}

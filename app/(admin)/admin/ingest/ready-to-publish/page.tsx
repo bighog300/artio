@@ -1,6 +1,7 @@
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import ReadyToPublishClient from "@/app/(admin)/admin/ingest/ready-to-publish/ready-to-publish-client";
 import { getSessionUser, requireAdmin } from "@/lib/auth";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export default async function AdminReadyToPublishPage() {
         mediums: true,
         websiteUrl: true,
         instagramUrl: true,
-        featuredAsset: { select: { url: true } },
+        featuredAsset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } },
         _count: { select: { artworks: true } },
       },
       orderBy: { updatedAt: "desc" },
@@ -36,7 +37,7 @@ export default async function AdminReadyToPublishPage() {
         year: true,
         description: true,
         featuredAssetId: true,
-        featuredAsset: { select: { url: true } },
+        featuredAsset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } },
         artist: { select: { id: true, name: true, slug: true, status: true } },
         _count: { select: { images: true } },
       },
@@ -47,12 +48,14 @@ export default async function AdminReadyToPublishPage() {
 
   const artists = artistResults.map((artist) => ({
     ...artist,
+    image: resolveAssetDisplay({ asset: artist.featuredAsset, requestedVariant: "thumb" }),
     nationality: null,
     birthYear: null,
   }));
 
   const artworks = artworkResults.map((artwork) => ({
     ...artwork,
+    image: resolveAssetDisplay({ asset: artwork.featuredAsset, requestedVariant: "thumb" }),
     slug: artwork.slug ?? "",
   }));
 

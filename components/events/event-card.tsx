@@ -15,6 +15,11 @@ type EventCardProps = {
   venueName?: string | null | undefined;
   venueSlug?: string | null | undefined;
   imageUrl?: string | null;
+  image?: {
+    url: string | null;
+    isProcessing?: boolean;
+    hasFailure?: boolean;
+  } | null;
   imageAlt?: string | null;
   href: string;
   badges?: string[];
@@ -28,7 +33,7 @@ type EventCardProps = {
   viewArtworksHref?: string;
 };
 
-export function EventCard({ title, startAt, endAt, venueName, imageUrl, imageAlt, href, badges, tags, secondaryText, action, distanceLabel, className, onOpen, artworkCount = 0, viewArtworksHref }: EventCardProps) {
+export function EventCard({ title, startAt, endAt, venueName, imageUrl, image, imageAlt, href, badges, tags, secondaryText, action, distanceLabel, className, onOpen, artworkCount = 0, viewArtworksHref }: EventCardProps) {
   const start = typeof startAt === "string" ? new Date(startAt) : startAt;
   const end = endAt ? (typeof endAt === "string" ? new Date(endAt) : endAt) : undefined;
   const hasValidStart = !Number.isNaN(start.getTime());
@@ -36,6 +41,9 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, imageAlt
   const dateRange = hasValidStart ? formatEventDateRange(start, end) : null;
   const chips = badges ?? tags;
   const urgencyStatus = getEventUrgencyStatus(start, end);
+  const resolvedImageUrl = image?.url ?? imageUrl ?? null;
+  const isImageProcessing = Boolean(image?.isProcessing);
+  const hasImageFailure = Boolean(image?.hasFailure);
 
   return (
     <article className={cn("group overflow-hidden rounded-xl border border-border bg-card shadow-sm ui-hover-lift ui-press", className)}>
@@ -46,9 +54,9 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, imageAlt
         onClick={onOpen}
       >
         <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
-          {imageUrl ? (
+          {resolvedImageUrl ? (
             <Image
-              src={imageUrl}
+              src={resolvedImageUrl}
               alt={imageAlt ?? title}
               fill
               sizes="(max-width: 768px) 100vw, 33vw"
@@ -57,6 +65,8 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, imageAlt
           ) : (
             <div className="flex h-full items-center justify-center bg-muted text-sm text-muted-foreground">No event image</div>
           )}
+          {isImageProcessing ? <div className="absolute bottom-2 left-3 rounded bg-background/90 px-2 py-0.5 text-[10px] text-muted-foreground">Processing image…</div> : null}
+          {hasImageFailure ? <div className="absolute bottom-2 left-3 rounded bg-amber-100/95 px-2 py-0.5 text-[10px] text-amber-800">Image processing issue</div> : null}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           {dayMonth ? (
             <div className="absolute left-3 top-3 rounded-md bg-background/95 px-2 py-1 text-center text-xs font-semibold leading-tight text-foreground">

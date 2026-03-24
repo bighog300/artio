@@ -13,6 +13,11 @@ type TrendingEvent = {
   venue?: { id: string; name: string } | null;
   tags?: Array<{ slug: string }>;
   primaryImageUrl?: string | null;
+  image?: {
+    url: string | null;
+    isProcessing?: boolean;
+    hasFailure?: boolean;
+  };
   score: number;
 };
 
@@ -66,6 +71,7 @@ export function TrendingEvents() {
               startAt={event.startAt}
               endAt={event.endAt}
               venueName={event.venue?.name}
+              image={event.image}
               imageUrl={event.primaryImageUrl}
               badges={(event.tags ?? []).slice(0, 3).map((tag) => tag.slug)}
               secondaryText={`${event.score} saves`}

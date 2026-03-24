@@ -10,14 +10,6 @@ import { ArtworkEditDrawer } from "./artwork-edit-drawer";
 type Filter = "all" | "published" | "draft" | "in_review";
 type Sort = "newest" | "title";
 
-function resolveCoverUrl(item: {
-  featuredAsset?: { url: string | null } | null;
-  images?: Array<{ asset?: { url: string | null } | null }>;
-}): string | null {
-  if (item.featuredAsset?.url) return item.featuredAsset.url;
-  return item.images?.[0]?.asset?.url ?? null;
-}
-
 export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
   void artistId;
   const [artworks, setArtworks] = useState<ArtworkCardData[]>([]);
@@ -54,6 +46,7 @@ export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
         deletedAt: string | null;
         priceAmount: number | null;
         currency: string | null;
+        image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
         featuredAsset?: { url: string | null } | null;
         images?: Array<{ asset?: { url: string | null } | null }>;
       }>;
@@ -67,7 +60,7 @@ export function ArtworkManagementGrid({ artistId }: { artistId: string }) {
         priceAmount: item.priceAmount,
         currency: item.currency,
         isFeatured: false,
-        coverUrl: resolveCoverUrl(item),
+        coverUrl: item.image?.url ?? item.featuredAsset?.url ?? item.images?.[0]?.asset?.url ?? null,
       })));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load artworks");
