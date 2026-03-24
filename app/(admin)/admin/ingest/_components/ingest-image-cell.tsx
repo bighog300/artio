@@ -1,7 +1,5 @@
 "use client";
 
-import { resolveRelativeHttpUrl } from "@/lib/ingest/url-utils";
-
 type ImportStatus = "none" | "imported" | "failed" | "importing";
 
 type Props = {
@@ -10,7 +8,6 @@ type Props = {
   importStatus: ImportStatus;
   onImport?: () => void;
   altText?: string;
-  sourceUrl?: string | null;
 };
 
 export default function IngestImageCell({
@@ -19,9 +16,8 @@ export default function IngestImageCell({
   importStatus,
   onImport,
   altText = "",
-  sourceUrl,
 }: Props) {
-  const displayUrl = blobImageUrl ?? resolveRelativeHttpUrl(imageUrl, sourceUrl);
+  const displayUrl = blobImageUrl ?? imageUrl;
 
   return (
     <div className="flex flex-col items-start gap-1">

@@ -5,6 +5,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import IngestConfidenceBadge from "@/app/(admin)/admin/ingest/_components/ingest-confidence-badge";
 import IngestImageCell from "@/app/(admin)/admin/ingest/_components/ingest-image-cell";
 import { Button } from "@/components/ui/button";
+import { resolveRelativeHttpUrl } from "@/lib/ingest/url-utils";
 
 type Candidate = {
   id: string;
@@ -22,7 +23,7 @@ type Candidate = {
   extractionProvider: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE";
   createdArtworkId: string | null;
-  sourceEvent: { id: string; title: string; slug: string };
+  sourceEvent: { id: string; title: string; slug: string } | null;
   createdArtwork?: {
     id: string;
     artistId: string;
@@ -401,18 +402,23 @@ export default function ArtworksClient({
             </tr>
           </thead>
           <tbody>
-            {candidates.map((candidate) => (
-              <Fragment key={candidate.id}>
+            {candidates.map((candidate) => {
+              const resolvedImageUrl =
+                resolveRelativeHttpUrl(candidate.imageUrl, candidate.sourceUrl) ?? candidate.imageUrl;
+              const sourceEventTitle = candidate.sourceEvent?.title?.trim() || "Unknown event";
+              const sourceEventSlug = candidate.sourceEvent?.slug?.trim() || null;
+
+              return (
+                <Fragment key={candidate.id}>
                 <tr
                   data-candidate-id={candidate.id}
                   className={`border-b align-top ${focusedCandidateId === candidate.id ? "bg-blue-50/60 ring-1 ring-inset ring-blue-200 dark:bg-blue-950/20 dark:ring-blue-800" : ""}`}
                 >
                   <td className="px-3 py-2">
                     <IngestImageCell
-                      imageUrl={candidate.imageUrl}
+                      imageUrl={resolvedImageUrl}
                       blobImageUrl={importedImageUrlById[candidate.id] ?? null}
                       altText={candidate.title}
-                      sourceUrl={candidate.sourceUrl}
                       importStatus={
                         importedImageFor.has(candidate.id)
                           ? "imported"
@@ -448,7 +454,11 @@ export default function ArtworksClient({
                   <td className="px-3 py-2">{candidate.medium ?? "—"}</td>
                   <td className="px-3 py-2">{candidate.year ?? "—"}</td>
                   <td className="px-3 py-2">
-                    <Link className="underline" href={`/events/${candidate.sourceEvent.slug}`}>{candidate.sourceEvent.title}</Link>
+                    {sourceEventSlug ? (
+                      <Link className="underline" href={`/events/${sourceEventSlug}`}>{sourceEventTitle}</Link>
+                    ) : (
+                      <span>{sourceEventTitle}</span>
+                    )}
                     {candidate.createdArtworkId ? (
                       <p className="text-xs text-muted-foreground">
                         Artist:{" "}
@@ -593,8 +603,9 @@ export default function ArtworksClient({
                     </td>
                   </tr>
                 ) : null}
-              </Fragment>
-            ))}
+                </Fragment>
+              );
+            })}
             {candidates.length === 0 ? (
               <tr>
                 <td className="px-3 py-6 text-muted-foreground" colSpan={10}>No artwork candidates.</td>
