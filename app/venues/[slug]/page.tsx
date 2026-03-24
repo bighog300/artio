@@ -169,27 +169,35 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
   const mapHref = address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : null;
   const directionsUrl = `https://maps.google.com/?q=${encodeURIComponent([venue.addressLine1, venue.city, venue.country].filter(Boolean).join(", "))}`;
 
-  const events = venue.events.map((event) => ({
-    id: event.id,
-    title: event.title,
-    slug: event.slug,
-    startAt: event.startAt,
-    endAt: event.endAt,
-    imageUrl: resolveEntityPrimaryImage(event)?.url ?? null,
-    imageAlt: resolveEntityPrimaryImage(event)?.alt ?? event.title,
-    tags: event.eventTags.map(({ tag }) => tag.slug),
-  }));
+  const events = venue.events.map((event) => {
+    const image = resolveEntityPrimaryImage(event);
+    return {
+      id: event.id,
+      title: event.title,
+      slug: event.slug,
+      startAt: event.startAt,
+      endAt: event.endAt,
+      imageUrl: image?.url ?? null,
+      image,
+      imageAlt: image?.alt ?? event.title,
+      tags: event.eventTags.map(({ tag }) => tag.slug),
+    };
+  });
 
-  const pastEvents = pastEventsRaw.map((event) => ({
-    id: event.id,
-    title: event.title,
-    slug: event.slug,
-    startAt: event.startAt,
-    endAt: event.endAt,
-    imageUrl: resolveEntityPrimaryImage(event)?.url ?? null,
-    imageAlt: resolveEntityPrimaryImage(event)?.alt ?? event.title,
-    tags: event.eventTags.map(({ tag }) => tag.slug),
-  }));
+  const pastEvents = pastEventsRaw.map((event) => {
+    const image = resolveEntityPrimaryImage(event);
+    return {
+      id: event.id,
+      title: event.title,
+      slug: event.slug,
+      startAt: event.startAt,
+      endAt: event.endAt,
+      imageUrl: image?.url ?? null,
+      image,
+      imageAlt: image?.alt ?? event.title,
+      tags: event.eventTags.map(({ tag }) => tag.slug),
+    };
+  });
 
   const verifiedAssociations = venue.artistAssociations.map((a) => ({
     artistId: a.artistId,
@@ -233,7 +241,9 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
       <EntityHeader
         title={venue.name}
         subtitle={subtitle}
+        image={cover}
         imageUrl={coverUrl}
+        coverImage={cover}
         coverUrl={coverUrl}
         primaryAction={<FollowButton targetType="VENUE" targetId={venue.id} initialIsFollowing={Boolean(existingFollow)} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={venue.slug} />}
         secondaryAction={mapHref ? <a className="inline-flex rounded-md border px-3 py-1 text-sm" href={mapHref} target="_blank" rel="noreferrer">Open in Maps</a> : undefined}
@@ -269,7 +279,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
             <SectionHeader title="Past events" subtitle="What has happened at this venue." />
             {pastEvents.length === 0 ? <EmptyState title="No past events" description="No past events to show." /> : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {pastEvents.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={venue.name} venueSlug={venue.slug} imageUrl={event.imageUrl} imageAlt={event.imageAlt} tags={event.tags} />)}
+                {pastEvents.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={venue.name} venueSlug={venue.slug} image={event.image} imageUrl={event.imageUrl} imageAlt={event.imageAlt} tags={event.tags} />)}
               </div>
             )}
           </section>

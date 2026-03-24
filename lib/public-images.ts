@@ -1,4 +1,4 @@
-import { resolveImageUrl } from "@/lib/assets";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 import { normalizeUrlOrNull, safeParseImagesJson } from "@/lib/images";
 
 export type PublicImage = {
@@ -8,6 +8,8 @@ export type PublicImage = {
   height: number | null;
   sortOrder: number;
   isPrimary: boolean;
+  isProcessing: boolean;
+  hasFailure: boolean;
 };
 
 type EntityImageLike = {
@@ -17,7 +19,13 @@ type EntityImageLike = {
   isPrimary?: boolean | null;
   width?: number | null;
   height?: number | null;
-  asset?: { url?: string | null } | null;
+  asset?: {
+    url?: string | null;
+    originalUrl?: string | null;
+    processingStatus?: string | null;
+    processingError?: string | null;
+    variants?: Array<{ variantName: string; url: string | null }> | null;
+  } | null;
 };
 
 type EntityWithImages = {
@@ -51,7 +59,12 @@ function sortRows(rows: EntityImageLike[]) {
 }
 
 function toPublicImage(row: EntityImageLike, fallbackAlt: string | null): PublicImage | null {
-  const url = toHttpsUrl(resolveImageUrl(toHttpsUrl(row.asset?.url), toHttpsUrl(row.url)));
+  const display = resolveAssetDisplay({
+    asset: row.asset ?? null,
+    legacyUrl: toHttpsUrl(row.url),
+    requestedVariant: "card",
+  });
+  const url = toHttpsUrl(display.url);
   if (!url) return null;
 
   return {
@@ -61,6 +74,8 @@ function toPublicImage(row: EntityImageLike, fallbackAlt: string | null): Public
     height: typeof row.height === "number" ? row.height : null,
     sortOrder: typeof row.sortOrder === "number" ? row.sortOrder : Number.MAX_SAFE_INTEGER,
     isPrimary: Boolean(row.isPrimary),
+    isProcessing: display.isProcessing,
+    hasFailure: display.hasFailure,
   };
 }
 
@@ -87,10 +102,25 @@ export function resolveEntityPrimaryImage(entity: EntityWithImages): Omit<Public
   const gallery = resolveEntityGallery(entity);
   if (gallery.length) {
     const first = gallery[0];
-    return { url: first.url, alt: first.alt, width: first.width, height: first.height };
+    return {
+      url: first.url,
+      alt: first.alt,
+      width: first.width,
+      height: first.height,
+      isProcessing: first.isProcessing,
+      hasFailure: first.hasFailure,
+    };
   }
 
-  const featured = toHttpsUrl(entity.featuredImageUrl);
+  const display = resolveAssetDisplay({ legacyUrl: toHttpsUrl(entity.featuredImageUrl), requestedVariant: "card" });
+  const featured = toHttpsUrl(display.url);
   if (!featured) return null;
-  return { url: featured, alt: entity.title?.trim() || entity.name?.trim() || null, width: null, height: null };
+  return {
+    url: featured,
+    alt: entity.title?.trim() || entity.name?.trim() || null,
+    width: null,
+    height: null,
+    isProcessing: display.isProcessing,
+    hasFailure: display.hasFailure,
+  };
 }

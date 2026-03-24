@@ -24,7 +24,7 @@ export default async function VenuesPage() {
     );
   }
 
-  let venues: Array<{ id: string; slug: string; name: string; subtitle: string; description: string | null; imageUrl: string | null; imageAlt: string | null; followersCount: number; isFollowing: boolean; artworkCount: number }> = [];
+  let venues: Array<{ id: string; slug: string; name: string; subtitle: string; description: string | null; imageUrl: string | null; image: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null; imageAlt: string | null; followersCount: number; isFollowing: boolean; artworkCount: number }> = [];
 
   if (hasDatabaseUrl()) {
     const dbVenues = await db.venue.findMany({
@@ -43,32 +43,40 @@ export default async function VenuesPage() {
     const followedSet = new Set(userFollows.map((row) => row.targetId));
     const artworkCountByVenueId = new Map(artworkCounts.map((entry) => [entry.venueId, entry._count._all]));
 
-    venues = dbVenues.map((venue) => ({
-      id: venue.id,
-      slug: venue.slug,
-      name: venue.name,
-      subtitle: [venue.city, venue.region, venue.country].filter(Boolean).join(", ") || "Location unavailable",
-      description: venue.description,
-      imageUrl: resolveEntityPrimaryImage(venue)?.url ?? null,
-      imageAlt: resolveEntityPrimaryImage(venue)?.alt ?? venue.name,
-      followersCount: countById.get(venue.id) ?? 0,
-      isFollowing: followedSet.has(venue.id),
-      artworkCount: artworkCountByVenueId.get(venue.id) ?? 0,
-    }));
+    venues = dbVenues.map((venue) => {
+      const image = resolveEntityPrimaryImage(venue);
+      return {
+        id: venue.id,
+        slug: venue.slug,
+        name: venue.name,
+        subtitle: [venue.city, venue.region, venue.country].filter(Boolean).join(", ") || "Location unavailable",
+        description: venue.description,
+        imageUrl: image?.url ?? null,
+        image,
+        imageAlt: image?.alt ?? venue.name,
+        followersCount: countById.get(venue.id) ?? 0,
+        isFollowing: followedSet.has(venue.id),
+        artworkCount: artworkCountByVenueId.get(venue.id) ?? 0,
+      };
+    });
   } else {
     cities = Array.from(new Set(uiFixtureVenues.map((v) => v.city).filter(Boolean))).sort() as string[];
-    venues = uiFixtureVenues.map((venue) => ({
-      id: venue.id,
-      slug: venue.slug,
-      name: venue.name,
-      subtitle: [venue.city, venue.region, venue.country].filter(Boolean).join(", ") || "Location unavailable",
-      description: venue.description,
-      imageUrl: resolveEntityPrimaryImage(venue)?.url ?? null,
-      imageAlt: resolveEntityPrimaryImage(venue)?.alt ?? venue.name,
-      followersCount: 0,
-      isFollowing: false,
-      artworkCount: 0,
-    }));
+    venues = uiFixtureVenues.map((venue) => {
+      const image = resolveEntityPrimaryImage(venue);
+      return {
+        id: venue.id,
+        slug: venue.slug,
+        name: venue.name,
+        subtitle: [venue.city, venue.region, venue.country].filter(Boolean).join(", ") || "Location unavailable",
+        description: venue.description,
+        imageUrl: image?.url ?? null,
+        image,
+        imageAlt: image?.alt ?? venue.name,
+        followersCount: 0,
+        isFollowing: false,
+        artworkCount: 0,
+      };
+    });
   }
 
   return (

@@ -11,18 +11,24 @@ type EntityCardProps = {
   subtitle?: string | null;
   description?: string | null;
   imageUrl?: string | null;
+  image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
   imageAlt?: string | null;
   tags?: string[];
   action?: ReactNode;
   artworkCount?: number;
 };
 
-export function EntityCard({ href, name, subtitle, description, imageUrl, imageAlt, tags = [], action, artworkCount = 0 }: EntityCardProps) {
+export function EntityCard({ href, name, subtitle, description, imageUrl, image, imageAlt, tags = [], action, artworkCount = 0 }: EntityCardProps) {
+  const resolvedImageUrl = image?.url ?? imageUrl ?? null;
+  const isImageProcessing = Boolean(image?.isProcessing);
+  const hasImageFailure = Boolean(image?.hasFailure);
   return (
     <Card className="group overflow-hidden shadow-sm ui-hover-lift ui-press">
       <Link href={href} className="block focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
         <div className="relative aspect-square bg-muted">
-          {imageUrl ? <Image src={imageUrl} alt={imageAlt ?? name} fill className="object-cover ui-trans motion-safe:group-hover:scale-[1.02] motion-safe:group-focus-visible:scale-[1.02]" sizes="(max-width: 768px) 100vw, 33vw" /> : <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No image</div>}
+          {resolvedImageUrl ? <Image src={resolvedImageUrl} alt={imageAlt ?? name} fill className="object-cover ui-trans motion-safe:group-hover:scale-[1.02] motion-safe:group-focus-visible:scale-[1.02]" sizes="(max-width: 768px) 100vw, 33vw" /> : <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No image</div>}
+          {isImageProcessing ? <div className="absolute bottom-2 left-2 rounded bg-background/90 px-2 py-0.5 text-[10px] text-muted-foreground">Processing image…</div> : null}
+          {hasImageFailure ? <div className="absolute bottom-2 left-2 rounded bg-amber-100/95 px-2 py-0.5 text-[10px] text-amber-800">Image processing issue</div> : null}
         </div>
         <div className="space-y-2 p-4">
           <h3 className="text-lg font-semibold tracking-tight">{name}</h3>

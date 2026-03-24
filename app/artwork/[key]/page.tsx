@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
-import { resolveImageUrl } from "@/lib/assets";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 import { isArtworkIdKey, shouldRedirectArtworkIdKey } from "@/lib/artwork-route";
 import { listPublishedArtworksByArtist, listPublishedArtworksByEvent, listPublishedArtworksByVenue, type PublishedArtworkListItem } from "@/lib/artworks";
 import { resolveArtistCoverUrl } from "@/lib/artists";
@@ -50,7 +50,11 @@ export async function generateMetadata({ params }: { params: Promise<{ key: stri
   const description =
     (artwork.description ?? "").trim().slice(0, 160) ||
     `An artwork by ${artwork.artist.name} on Artio.`;
-  const imageUrl = artwork.featuredAsset?.url ?? artwork.images[0]?.asset?.url ?? null;
+  const imageUrl = resolveAssetDisplay({
+    asset: artwork.featuredAsset,
+    legacyUrl: artwork.images[0]?.asset?.url ?? null,
+    requestedVariant: "hero",
+  }).url;
   const url = `${getSiteUrl()}/artwork/${artwork.slug ?? artwork.id}`;
   return {
     title,
@@ -143,7 +147,12 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
     db.follow.count({ where: { targetType: "ARTIST", targetId: artwork.artist.id } }),
   ]);
 
-  const cover = resolveImageUrl(artwork.featuredAsset?.url, artwork.images[0]?.asset?.url);
+  const coverDisplay = resolveAssetDisplay({
+    asset: artwork.featuredAsset,
+    legacyUrl: artwork.images[0]?.asset?.url ?? null,
+    requestedVariant: "hero",
+  });
+  const cover = coverDisplay.url;
   const artistAvatarUrl = resolveArtistCoverUrl({
     featuredAsset: artwork.artist.featuredAsset,
     featuredImageUrl: artwork.artist.featuredImageUrl,
