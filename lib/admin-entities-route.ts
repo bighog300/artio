@@ -360,6 +360,7 @@ export async function handleAdminEntityList(req: NextRequest, entity: EntityName
             ...Object.fromEntries(defaultFields.artwork.map((k) => [k, true])),
             updatedAt: true,
             artist: { select: { name: true } },
+            featuredAsset: { select: { url: true } },
             images: {
               select: {
                 asset: { select: { url: true } },
@@ -372,7 +373,8 @@ export async function handleAdminEntityList(req: NextRequest, entity: EntityName
       ]);
       const items = rows.map((row) => ({
         ...row,
-        thumbnailUrl: (row as { images?: Array<{ url?: string | null; asset?: { url?: string | null } | null }> }).images?.[0]?.asset?.url
+        thumbnailUrl: (row as { featuredAsset?: { url?: string | null } | null }).featuredAsset?.url
+          ?? (row as { images?: Array<{ url?: string | null; asset?: { url?: string | null } | null }> }).images?.[0]?.asset?.url
           ?? (row as { images?: Array<{ url?: string | null }> }).images?.[0]?.url
           ?? null,
       }));

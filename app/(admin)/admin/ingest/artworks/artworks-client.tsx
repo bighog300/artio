@@ -69,6 +69,37 @@ export default function ArtworksClient({
   const [importedImageFor, setImportedImageFor] = useState<Set<string>>(new Set());
   const [importFailedFor, setImportFailedFor] = useState<Set<string>>(new Set());
   const [importedImageUrlById, setImportedImageUrlById] = useState<Record<string, string>>({});
+  const [imageImportMessageById, setImageImportMessageById] = useState<Record<string, string>>({});
+
+  function applyImageImportOutcome(candidateId: string, body: {
+    imageImported?: boolean;
+    imageUrl?: string | null;
+    imageImportWarning?: string | null;
+    warning?: string | null;
+  }, markFailureWhenNotImported = true) {
+    const warning = body.imageImportWarning ?? body.warning ?? null;
+    if (body.imageImported) {
+      setImportedImageFor((prev) => new Set([...prev, candidateId]));
+      setImportFailedFor((prev) => {
+        const next = new Set(prev);
+        next.delete(candidateId);
+        return next;
+      });
+      if (body.imageUrl) {
+        setImportedImageUrlById((prev) => ({ ...prev, [candidateId]: body.imageUrl! }));
+      }
+      setImageImportMessageById((prev) => ({ ...prev, [candidateId]: "Image imported." }));
+      return;
+    }
+    if (markFailureWhenNotImported) {
+      setImportFailedFor((prev) => new Set([...prev, candidateId]));
+    }
+    if (warning) {
+      setImageImportMessageById((prev) => ({ ...prev, [candidateId]: warning }));
+      return;
+    }
+    setImageImportMessageById((prev) => ({ ...prev, [candidateId]: "Image import did not run." }));
+  }
 
   function updateDraft(id: string, field: keyof EditDraft, value: string) {
     setEditDraftById((prev) => ({
@@ -140,15 +171,11 @@ export default function ArtworksClient({
       });
       if (res.ok) {
         const body = await res.json() as { attached?: boolean; imageUrl?: string | null; warning?: string | null };
-        setImportedImageFor((prev) => new Set([...prev, candidateId]));
-        if (body.imageUrl) {
-          setImportedImageUrlById((prev) => ({ ...prev, [candidateId]: body.imageUrl! }));
-        }
-        setImportFailedFor((prev) => {
-          const next = new Set(prev);
-          next.delete(candidateId);
-          return next;
-        });
+        applyImageImportOutcome(candidateId, {
+          imageImported: body.attached,
+          imageUrl: body.imageUrl,
+          warning: body.warning,
+        }, false);
       } else {
         setImportFailedFor((prev) => new Set([...prev, candidateId]));
       }
@@ -177,15 +204,11 @@ export default function ArtworksClient({
         artistId?: string;
         imageImported?: boolean;
         imageUrl?: string | null;
+        imageImportWarning?: string | null;
       };
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
-      if (body.imageImported) {
-        setImportedImageFor((prev) => new Set([...prev, id]));
-        if (body.imageUrl) {
-          setImportedImageUrlById((prev) => ({ ...prev, [id]: body.imageUrl! }));
-        }
-      } else if (body.artworkId) {
-        setImportFailedFor((prev) => new Set([...prev, id]));
+      if (body.artworkId) {
+        applyImageImportOutcome(id, body);
       }
       setFocusedIndex(null);
     } catch {
@@ -209,15 +232,11 @@ export default function ArtworksClient({
         artistId?: string;
         imageImported?: boolean;
         imageUrl?: string | null;
+        imageImportWarning?: string | null;
       };
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
-      if (body.imageImported) {
-        setImportedImageFor((prev) => new Set([...prev, id]));
-        if (body.imageUrl) {
-          setImportedImageUrlById((prev) => ({ ...prev, [id]: body.imageUrl! }));
-        }
-      } else if (body.artworkId) {
-        setImportFailedFor((prev) => new Set([...prev, id]));
+      if (body.artworkId) {
+        applyImageImportOutcome(id, body);
       }
       setFocusedIndex(null);
     } catch {
@@ -261,15 +280,11 @@ export default function ArtworksClient({
         artistId?: string;
         imageImported?: boolean;
         imageUrl?: string | null;
+        imageImportWarning?: string | null;
       };
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
-      if (body.imageImported) {
-        setImportedImageFor((prev) => new Set([...prev, id]));
-        if (body.imageUrl) {
-          setImportedImageUrlById((prev) => ({ ...prev, [id]: body.imageUrl! }));
-        }
-      } else if (body.artworkId) {
-        setImportFailedFor((prev) => new Set([...prev, id]));
+      if (body.artworkId) {
+        applyImageImportOutcome(id, body);
       }
     } catch {
       setError("Failed to approve artwork candidate.");
@@ -296,15 +311,11 @@ export default function ArtworksClient({
         artistId?: string;
         imageImported?: boolean;
         imageUrl?: string | null;
+        imageImportWarning?: string | null;
       };
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
-      if (body.imageImported) {
-        setImportedImageFor((prev) => new Set([...prev, id]));
-        if (body.imageUrl) {
-          setImportedImageUrlById((prev) => ({ ...prev, [id]: body.imageUrl! }));
-        }
-      } else if (body.artworkId) {
-        setImportFailedFor((prev) => new Set([...prev, id]));
+      if (body.artworkId) {
+        applyImageImportOutcome(id, body);
       }
     } catch {
       setError("Failed to approve and publish artwork candidate.");
@@ -416,6 +427,9 @@ export default function ArtworksClient({
                           : undefined
                       }
                     />
+                    {imageImportMessageById[candidate.id] ? (
+                      <p className="mt-1 max-w-[220px] text-[11px] text-muted-foreground">{imageImportMessageById[candidate.id]}</p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2">
                     <IngestConfidenceBadge
