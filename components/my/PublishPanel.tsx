@@ -50,7 +50,7 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
         : `/api/my/${resourceType === "event" ? "events" : resourceType === "venue" ? "venues" : "artwork"}/${id}/${action}`;
       const method = action === "publish" ? "POST" : "POST";
       const res = await fetch(endpoint, { method });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setResult({
           outcome: "blocked",
