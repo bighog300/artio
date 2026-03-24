@@ -6,6 +6,7 @@ import { processImage } from "@/lib/assets/process-image";
 import { saveAssetBinary } from "@/lib/assets/storage";
 import { getImageTransformRuntimeStatus } from "@/lib/assets/transform-runtime";
 import type { AssetCrop } from "@/lib/assets/types";
+import type { put } from "@vercel/blob";
 
 export async function saveImageAssetPipeline(params: {
   dbClient: PrismaClient;
@@ -16,6 +17,7 @@ export async function saveImageAssetPipeline(params: {
   altText?: string | null;
   crop?: AssetCrop | null;
   kind?: "IMAGE";
+  uploadToBlob?: typeof put;
 }) {
   const {
     dbClient,
@@ -26,6 +28,7 @@ export async function saveImageAssetPipeline(params: {
     altText = null,
     crop = null,
     kind = "IMAGE",
+    uploadToBlob,
   } = params;
 
   const originalStored = await saveAssetBinary({
@@ -33,6 +36,7 @@ export async function saveImageAssetPipeline(params: {
     kind: "original",
     bytes: sourceBytes,
     mimeType: sourceMimeType,
+    uploadToBlob,
   });
 
   const baseAsset = await dbClient.asset.create({
@@ -67,6 +71,7 @@ export async function saveImageAssetPipeline(params: {
       kind: "master",
       bytes: processed.bytes,
       mimeType: processed.metadata.mimeType,
+      uploadToBlob,
     });
 
     const variants = await generateImageVariants({ master: processed, crop });
@@ -87,6 +92,7 @@ export async function saveImageAssetPipeline(params: {
         variantName: variant.name,
         bytes: variant.bytes,
         mimeType: variant.metadata.mimeType,
+        uploadToBlob,
       });
       return dbClient.assetVariant.create({
         data: {
@@ -152,6 +158,7 @@ export async function finalizeAssetCrop(params: {
   dbClient: PrismaClient;
   assetId: string;
   crop: AssetCrop;
+  uploadToBlob?: typeof put;
 }) {
   const asset = await params.dbClient.asset.findUnique({
     where: { id: params.assetId },
@@ -193,6 +200,7 @@ export async function finalizeAssetCrop(params: {
       kind: "master",
       bytes: processed.bytes,
       mimeType: processed.metadata.mimeType,
+      uploadToBlob: params.uploadToBlob,
     });
     const variants = await generateImageVariants({ master: processed, crop: params.crop });
     const transformedVariants = variants.filter((variant) => variant.transformed).length;
@@ -213,6 +221,7 @@ export async function finalizeAssetCrop(params: {
         variantName: variant.name,
         bytes: variant.bytes,
         mimeType: variant.metadata.mimeType,
+        uploadToBlob: params.uploadToBlob,
       });
       await params.dbClient.assetVariant.create({
         data: {

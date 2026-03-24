@@ -10,7 +10,7 @@ export async function uploadImageAsset(params: {
   uploadToBlob?: typeof put;
   dbClient: Parameters<typeof saveImageAssetPipeline>[0]["dbClient"];
 }) {
-  const { file, ownerUserId, alt, dbClient } = params;
+  const { file, ownerUserId, alt, dbClient, uploadToBlob } = params;
   const validation = await validateImageUpload(file);
   if (!validation.isValid) {
     if (validation.errors.includes("unsupported_mime_type")) throw new Error("invalid_mime");
@@ -25,6 +25,7 @@ export async function uploadImageAsset(params: {
     sourceMimeType: file.type,
     sourceBytes: new Uint8Array(await file.arrayBuffer()),
     altText: alt ?? null,
+    uploadToBlob,
   });
 
   return { assetId: saved.asset.id, url: saved.asset.url };
