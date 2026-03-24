@@ -1406,14 +1406,27 @@ model Asset {
   id                 String         @id @default(uuid()) @db.Uuid
   ownerUserId        String?        @db.Uuid
   kind               AssetKind
+  sourceType         String?
+  originalFilename   String?
+  mimeType           String?
+  byteSize           Int?
   url                String
+  originalUrl        String?
+  storageKey         String?
   filename           String?
   mime               String?
   sizeBytes          Int?
   width              Int?
   height             Int?
+  altText            String?
+  focalPointX        Float?
+  focalPointY        Float?
+  cropJson           Json?
+  processingStatus   String         @default("UPLOADED")
+  processingError    String?
   alt                String?
   createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
   owner              User?          @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
   eventImages        EventImage[]
   venueImages        VenueImage[]
@@ -1424,9 +1437,27 @@ model Asset {
   eventFeaturedFor   Event[]        @relation("EventFeaturedAsset")
   artworkImages      ArtworkImage[]
   siteSettingsLogo   SiteSettings[]
+  variants           AssetVariant[]
 
   @@index([ownerUserId])
   @@index([createdAt])
+}
+
+model AssetVariant {
+  id          String   @id @default(uuid()) @db.Uuid
+  assetId     String   @db.Uuid
+  variantName String
+  mimeType    String?
+  byteSize    Int?
+  width       Int?
+  height      Int?
+  storageKey  String?
+  url         String?
+  createdAt   DateTime @default(now())
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@unique([assetId, variantName])
 }
 
 model SiteSettings {

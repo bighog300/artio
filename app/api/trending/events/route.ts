@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { FavoriteTargetType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/assets";
+import { getAssetVariantUrl } from "@/lib/assets/variant-url";
 import { getRequestId } from "@/lib/request-id";
 import { logInfo, logWarn } from "@/lib/logging";
 import { captureException } from "@/lib/telemetry";
@@ -43,7 +44,7 @@ const getTrendingEvents = unstable_cache(
       },
       include: {
         venue: { select: { id: true, name: true } },
-        images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
+        images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true, variants: { select: { variantName: true, url: true } } } } } },
         eventTags: { include: { tag: { select: { slug: true, name: true } } } },
       },
     });
@@ -57,7 +58,7 @@ const getTrendingEvents = unstable_cache(
         endAt: event.endAt?.toISOString() ?? null,
         venue: event.venue,
         tags: event.eventTags.map((eventTag) => ({ slug: eventTag.tag.slug, name: eventTag.tag.name })),
-        primaryImageUrl: resolveImageUrl(event.images?.[0]?.asset?.url, event.images?.[0]?.url),
+        primaryImageUrl: resolveImageUrl(getAssetVariantUrl(event.images?.[0]?.asset, "card"), event.images?.[0]?.url),
         score: scoreMap.get(event.id) ?? 0,
       }))
       .sort((a, b) => b.score - a.score || a.startAt.localeCompare(b.startAt))

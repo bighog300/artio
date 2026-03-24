@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       return apiError(400, "invalid_request", "Only jpeg/png/webp images are allowed");
     }
     if (error instanceof Error && error.message === "file_too_large") {
-      return apiError(400, "invalid_request", "Image size must be 5MB or less");
+      return apiError(400, "invalid_request", "Image size must be 10MB or less");
     }
     return apiError(500, "internal_error", "Unexpected server error");
   }
