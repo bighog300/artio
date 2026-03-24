@@ -1,6 +1,8 @@
 import { put } from "@vercel/blob";
 import { ASSET_PIPELINE_CONFIG } from "@/lib/assets/config";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 import { saveImageAssetPipeline } from "@/lib/assets/save-asset";
+import { getImageTransformRuntimeStatus, isImageTransformAvailable } from "@/lib/assets/transform-runtime";
 import { validateImageUpload } from "@/lib/assets/validate-upload";
 
 export const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -45,3 +47,5 @@ export async function uploadImageAsset(params: {
 export function resolveImageUrl(assetUrl: string | null | undefined, legacyUrl: string | null | undefined) {
   return assetUrl || legacyUrl || null;
 }
+
+export { getImageTransformRuntimeStatus, isImageTransformAvailable, resolveAssetDisplay };

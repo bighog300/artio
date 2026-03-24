@@ -1,28 +1,7 @@
 import { ASSET_PIPELINE_CONFIG } from "@/lib/assets/config";
+import { getImageTransformRuntimeStatus, getSharpModule } from "@/lib/assets/transform-runtime";
 import { inspectImageMetadata } from "@/lib/assets/inspect-image";
 import type { ProcessedImage } from "@/lib/assets/types";
-
-let sharpPromise: Promise<{ default: (input: Buffer, options: { failOn: "none" }) => any } | null> | null = null;
-
-async function getSharpModule() {
-  if (!sharpPromise) {
-    sharpPromise = Promise.resolve().then(() => {
-      try {
-        const required = (Function("return require")() as (id: string) => { default?: unknown } | ((...args: unknown[]) => unknown))("sharp");
-        if (typeof required === "function") {
-          return { default: required as (input: Buffer, options: { failOn: "none" }) => any };
-        }
-        if (required && typeof required === "object" && typeof required.default === "function") {
-          return { default: required.default as (input: Buffer, options: { failOn: "none" }) => any };
-        }
-        return null;
-      } catch {
-        return null;
-      }
-    });
-  }
-  return sharpPromise;
-}
 
 function longEdge(width: number, height: number) {
   return Math.max(width, height);
@@ -35,19 +14,23 @@ export async function processImage(input: { bytes: Uint8Array; mimeType: string 
   }
 
   const diagnostics: string[] = [];
-  const sharpModule = await getSharpModule();
-  if (!sharpModule) {
-    diagnostics.push("sharp_unavailable_passthrough_used");
+  const runtimeStatus = await getImageTransformRuntimeStatus();
+  const sharp = await getSharpModule();
+  if (!sharp) {
+    diagnostics.push("transform_runtime_unavailable_passthrough_used");
     return {
       bytes: input.bytes,
       metadata: initial,
       optimized: false,
       optimizationSavingsBytes: 0,
+      transformApplied: false,
+      fallbackUsed: true,
+      processingPartial: true,
+      runtime: runtimeStatus,
       diagnostics,
     };
   }
 
-  const sharp = sharpModule.default;
   const instance = sharp(Buffer.from(input.bytes), { failOn: "none" }).rotate();
 
   if (longEdge(initial.width, initial.height) > ASSET_PIPELINE_CONFIG.maxMasterLongEdge) {
@@ -72,6 +55,9 @@ export async function processImage(input: { bytes: Uint8Array; mimeType: string 
   }
 
   const optimizationSavingsBytes = Math.max(0, initial.byteSize - output.byteLength);
+  if (shouldOptimize && optimizationSavingsBytes === 0) {
+    diagnostics.push("optimization_skipped_or_no_savings");
+  }
   if (shouldOptimize && optimizationSavingsBytes > 0) {
     diagnostics.push("optimized_over_threshold");
   }
@@ -81,6 +67,10 @@ export async function processImage(input: { bytes: Uint8Array; mimeType: string 
     metadata: outputMetadata,
     optimized: shouldOptimize && optimizationSavingsBytes > 0,
     optimizationSavingsBytes,
+    transformApplied: true,
+    fallbackUsed: false,
+    processingPartial: false,
+    runtime: runtimeStatus,
     diagnostics,
   };
 }

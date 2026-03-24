@@ -86,5 +86,8 @@
     "@types/qrcode": "^1.5.5",
     "@playwright/test": "^1.58.2",
     "wait-on": "^8.0.1"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.34.4"
   }
 }

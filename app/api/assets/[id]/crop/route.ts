@@ -12,6 +12,10 @@ const cropSchema = z.object({
   y: z.number().min(0),
   width: z.number().positive(),
   height: z.number().positive(),
+  aspectRatio: z.number().positive().optional(),
+  zoom: z.number().min(1).max(4).optional(),
+  focalPointX: z.number().min(0).max(1).optional(),
+  focalPointY: z.number().min(0).max(1).optional(),
   preset: z.enum(["square", "landscape", "portrait", "hero"]).optional(),
 });
 
@@ -37,6 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         id: updated.id,
         url: updated.url,
         processingStatus: updated.processingStatus,
+        processingError: updated.processingError,
         cropJson: updated.cropJson,
       },
       variants: updated.variants.map((variant) => ({

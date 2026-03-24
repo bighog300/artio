@@ -1,22 +1,10 @@
 import { ASSET_PIPELINE_CONFIG } from "@/lib/assets/config";
 import { inspectImageMetadata } from "@/lib/assets/inspect-image";
+import { getSharpModule } from "@/lib/assets/transform-runtime";
 import type { AssetCrop, AssetVariantName, GeneratedVariant, ProcessedImage } from "@/lib/assets/types";
 
-async function getSharp() {
-  try {
-    const required = (Function("return require")() as (id: string) => { default?: unknown } | ((...args: unknown[]) => unknown))("sharp");
-    if (typeof required === "function") return required as (input: Buffer, options: { failOn: "none" }) => any;
-    if (required && typeof required === "object" && typeof required.default === "function") {
-      return required.default as (input: Buffer, options: { failOn: "none" }) => any;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 export async function generateImageVariants(input: { master: ProcessedImage; crop?: AssetCrop | null }): Promise<GeneratedVariant[]> {
-  const sharp = await getSharp();
+  const sharp = await getSharpModule();
   const variantNames = Object.keys(ASSET_PIPELINE_CONFIG.variants) as AssetVariantName[];
 
   if (!sharp) {
@@ -24,6 +12,7 @@ export async function generateImageVariants(input: { master: ProcessedImage; cro
       name,
       bytes: input.master.bytes,
       metadata: input.master.metadata,
+      transformed: false,
     }));
   }
 
@@ -52,7 +41,7 @@ export async function generateImageVariants(input: { master: ProcessedImage; cro
     const metadata = inspectImageMetadata({ bytes: new Uint8Array(out), mimeType: "image/jpeg" });
     if (!metadata) continue;
 
-    variants.push({ name, bytes: new Uint8Array(out), metadata });
+    variants.push({ name, bytes: new Uint8Array(out), metadata, transformed: true });
   }
 
   return variants;

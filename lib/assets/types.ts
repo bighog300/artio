@@ -37,6 +37,14 @@ export type ProcessedImage = {
   metadata: ImageMetadata;
   optimized: boolean;
   optimizationSavingsBytes: number;
+  transformApplied: boolean;
+  fallbackUsed: boolean;
+  processingPartial: boolean;
+  runtime: {
+    provider: "sharp" | "none";
+    mode: "transform" | "passthrough";
+    reason: "ok" | "sharp_not_installed" | "sharp_load_failed";
+  };
   diagnostics: string[];
 };
 
@@ -44,6 +52,7 @@ export type GeneratedVariant = {
   name: AssetVariantName;
   bytes: Uint8Array;
   metadata: ImageMetadata;
+  transformed: boolean;
 };
 
 export type AssetPipelineConfig = {
@@ -66,5 +75,9 @@ export type AssetCrop = {
   y: number;
   width: number;
   height: number;
+  aspectRatio?: number;
+  zoom?: number;
+  focalPointX?: number;
+  focalPointY?: number;
   preset?: CropPreset;
 };

@@ -13,7 +13,20 @@ test("validateImageFile rejects oversized files", () => {
 });
 
 test("uploadImageAsset returns assetId/url and stores metadata", async () => {
-  const file = new File([new Uint8Array([255, 216, 255])], "photo.jpg", { type: "image/jpeg" });
+  const pngBytes = new Uint8Array(64);
+  pngBytes[0] = 0x89;
+  pngBytes[1] = 0x50;
+  pngBytes[2] = 0x4e;
+  pngBytes[3] = 0x47;
+  pngBytes[16] = 0x00;
+  pngBytes[17] = 0x00;
+  pngBytes[18] = 0x04;
+  pngBytes[19] = 0x00;
+  pngBytes[20] = 0x00;
+  pngBytes[21] = 0x00;
+  pngBytes[22] = 0x03;
+  pngBytes[23] = 0x00;
+  const file = new File([pngBytes], "photo.png", { type: "image/png" });
 
   const createdRows: Array<Record<string, unknown>> = [];
   const result = await uploadImageAsset({
@@ -33,7 +46,7 @@ test("uploadImageAsset returns assetId/url and stores metadata", async () => {
   assert.deepEqual(result, { assetId: "asset-1", url: "https://blob.example/photo.jpg" });
   assert.equal(createdRows.length, 1);
   assert.equal(createdRows[0].ownerUserId, "user-123");
-  assert.equal(createdRows[0].mime, "image/jpeg");
+  assert.equal(createdRows[0].mime, "image/png");
 });
 
 test("resolveImageUrl prefers asset URL over legacy URL", () => {

@@ -1,4 +1,5 @@
 import type { AssetVariantName } from "@/lib/assets/types";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 
 type AssetWithVariants = {
   url?: string | null;
@@ -6,9 +7,13 @@ type AssetWithVariants = {
 };
 
 export function getAssetVariantUrl(asset: AssetWithVariants | null | undefined, variantName: AssetVariantName): string | null {
-  if (!asset) return null;
-  const exact = asset.variants?.find((variant) => variant.variantName === variantName)?.url;
-  if (exact) return exact;
-  const firstAvailable = asset.variants?.find((variant) => Boolean(variant.url))?.url;
-  return firstAvailable ?? asset.url ?? null;
+  return resolveAssetDisplay({
+    asset: asset
+      ? {
+        url: asset.url,
+        variants: asset.variants ?? [],
+      }
+      : null,
+    requestedVariant: variantName,
+  }).url;
 }

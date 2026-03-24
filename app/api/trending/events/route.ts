@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { FavoriteTargetType } from "@prisma/client";
 import { db } from "@/lib/db";
-import { resolveImageUrl } from "@/lib/assets";
-import { getAssetVariantUrl } from "@/lib/assets/variant-url";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 import { getRequestId } from "@/lib/request-id";
 import { logInfo, logWarn } from "@/lib/logging";
 import { captureException } from "@/lib/telemetry";
@@ -44,13 +43,19 @@ const getTrendingEvents = unstable_cache(
       },
       include: {
         venue: { select: { id: true, name: true } },
-        images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true, variants: { select: { variantName: true, url: true } } } } } },
+        images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } } } },
         eventTags: { include: { tag: { select: { slug: true, name: true } } } },
       },
     });
 
     return events
-      .map((event) => ({
+      .map((event) => {
+        const primaryDisplay = resolveAssetDisplay({
+          asset: event.images?.[0]?.asset,
+          requestedVariant: "card",
+          legacyUrl: event.images?.[0]?.url ?? null,
+        });
+        return ({
         id: event.id,
         slug: event.slug,
         title: event.title,
@@ -58,9 +63,13 @@ const getTrendingEvents = unstable_cache(
         endAt: event.endAt?.toISOString() ?? null,
         venue: event.venue,
         tags: event.eventTags.map((eventTag) => ({ slug: eventTag.tag.slug, name: eventTag.tag.name })),
-        primaryImageUrl: resolveImageUrl(getAssetVariantUrl(event.images?.[0]?.asset, "card"), event.images?.[0]?.url),
+        primaryImageUrl: primaryDisplay.url,
+        imageSource: primaryDisplay.source,
+        imageIsProcessing: primaryDisplay.isProcessing,
+        imageHasFailure: primaryDisplay.hasFailure,
         score: scoreMap.get(event.id) ?? 0,
-      }))
+      });
+      })
       .sort((a, b) => b.score - a.score || a.startAt.localeCompare(b.startAt))
       .slice(0, LIMIT);
   },

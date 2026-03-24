@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
       })),
       validation,
       suggestions,
+      processing: saved.processing,
     }, { status: 201 });
   } catch (error) {
     if (isAuthError(error)) {
