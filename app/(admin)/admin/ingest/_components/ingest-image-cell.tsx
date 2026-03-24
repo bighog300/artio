@@ -1,10 +1,12 @@
 "use client";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 
 type ImportStatus = "none" | "imported" | "failed" | "importing";
 
 type Props = {
   imageUrl: string | null;
   blobImageUrl?: string | null;
+  image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
   importStatus: ImportStatus;
   onImport?: () => void;
   altText?: string;
@@ -13,11 +15,15 @@ type Props = {
 export default function IngestImageCell({
   imageUrl,
   blobImageUrl,
+  image,
   importStatus,
   onImport,
   altText = "",
 }: Props) {
-  const displayUrl = blobImageUrl ?? imageUrl;
+  const display = resolveAssetDisplay({ legacyUrl: blobImageUrl ?? image?.url ?? imageUrl, requestedVariant: "thumb" });
+  const displayUrl = display.url;
+  const isImageProcessing = Boolean(image?.isProcessing);
+  const hasImageFailure = Boolean(image?.hasFailure);
 
   return (
     <div className="flex flex-col items-start gap-1">
@@ -55,6 +61,8 @@ export default function IngestImageCell({
       {importStatus === "importing" && (
         <span className="text-xs text-muted-foreground">Importing…</span>
       )}
+      {isImageProcessing && <span className="text-xs text-muted-foreground">Processing image…</span>}
+      {hasImageFailure && <span className="text-xs text-amber-700">Image processing issue</span>}
       {importStatus === "none" && onImport && (
         <button
           type="button"

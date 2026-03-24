@@ -1,4 +1,4 @@
-import { resolveImageUrl } from "@/lib/assets";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 
@@ -42,9 +42,8 @@ export type TrendingArtworkListItem = {
 };
 
 export function resolveArtworkCoverUrl(artwork: ArtworkCoverSource): string | null {
-  if (artwork.featuredAsset?.url) return artwork.featuredAsset.url;
   const firstImage = artwork.images?.find((image) => image.asset?.url);
-  return resolveImageUrl(firstImage?.asset?.url, null);
+  return resolveAssetDisplay({ asset: artwork.featuredAsset, legacyUrl: firstImage?.asset?.url ?? null, requestedVariant: "card" }).url;
 }
 
 export function getArtworkPublicHref(artwork: { id: string; slug?: string | null }) {
@@ -103,7 +102,7 @@ function mapPublishedArtworkRow(item: PublishedArtworkRow): PublishedArtworkList
     slug: item.slug,
     title: item.title,
     artist: item.artist,
-    coverUrl: resolveImageUrl(item.featuredAsset?.url, item.images[0]?.asset?.url),
+    coverUrl: resolveAssetDisplay({ asset: item.featuredAsset, legacyUrl: item.images[0]?.asset?.url ?? null, requestedVariant: "card" }).url,
   };
 }
 
@@ -246,7 +245,7 @@ export async function getTrendingArtworks30({ limit = 10 }: { limit?: number } =
       id: item.id,
       slug: item.slug,
       title: item.title,
-      coverUrl: resolveImageUrl(item.featuredAsset?.url, item.images[0]?.asset?.url),
+      coverUrl: resolveAssetDisplay({ asset: item.featuredAsset, legacyUrl: item.images[0]?.asset?.url ?? null, requestedVariant: "card" }).url,
       artist: item.artist,
       views30: viewsById.get(item.id) ?? 0,
     }));

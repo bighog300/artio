@@ -17,6 +17,7 @@ type ArtistListItem = {
   slug: string;
   bio: string | null;
   avatarImageUrl: string | null;
+  image: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
   imageAlt: string | null;
   tags: string[];
   followersCount: number;
@@ -81,24 +82,41 @@ export default async function ArtistsPage() {
     const followedSet = new Set(userFollows.map((row) => row.targetId));
     const artworkCountByArtistId = new Map(artworkCounts.map((entry) => [entry.artistId, entry._count._all]));
     const forSaleCountByArtistId = new Map(forSaleCounts.map((entry) => [entry.artistId, entry._count._all]));
-    artists = dbArtists.map((artist) => ({
-      id: artist.id,
-      name: artist.name,
-      slug: artist.slug,
-      bio: artist.bio,
-      avatarImageUrl: resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl,
-      imageAlt: resolveEntityPrimaryImage(artist)?.alt ?? artist.name,
-      tags:
-        artist.mediums.length > 0
-          ? Array.from(new Set(artist.mediums)).slice(0, 6)
-          : Array.from(new Set(artist.eventArtists.flatMap((row) => row.event.eventTags.map(({ tag }) => tag.slug)))).slice(0, 6),
-      followersCount: countById.get(artist.id) ?? 0,
-      isFollowing: followedSet.has(artist.id),
-      artworkCount: artworkCountByArtistId.get(artist.id) ?? 0,
-      forSaleCount: forSaleCountByArtistId.get(artist.id) ?? 0,
-    }));
+    artists = dbArtists.map((artist) => {
+      const image = resolveEntityPrimaryImage(artist);
+      return {
+        id: artist.id,
+        name: artist.name,
+        slug: artist.slug,
+        bio: artist.bio,
+        avatarImageUrl: image?.url ?? artist.avatarImageUrl,
+        image,
+        imageAlt: image?.alt ?? artist.name,
+        tags:
+          artist.mediums.length > 0
+            ? Array.from(new Set(artist.mediums)).slice(0, 6)
+            : Array.from(new Set(artist.eventArtists.flatMap((row) => row.event.eventTags.map(({ tag }) => tag.slug)))).slice(0, 6),
+        followersCount: countById.get(artist.id) ?? 0,
+        isFollowing: followedSet.has(artist.id),
+        artworkCount: artworkCountByArtistId.get(artist.id) ?? 0,
+        forSaleCount: forSaleCountByArtistId.get(artist.id) ?? 0,
+      };
+    });
   } else {
-    artists = uiFixtureArtists.map((artist) => ({ ...artist, avatarImageUrl: resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl, imageAlt: resolveEntityPrimaryImage(artist)?.alt ?? artist.name, tags: artist.tags ?? [], followersCount: 0, isFollowing: false, artworkCount: 0, forSaleCount: 0 }));
+    artists = uiFixtureArtists.map((artist) => {
+      const image = resolveEntityPrimaryImage(artist);
+      return {
+        ...artist,
+        avatarImageUrl: image?.url ?? artist.avatarImageUrl,
+        image,
+        imageAlt: image?.alt ?? artist.name,
+        tags: artist.tags ?? [],
+        followersCount: 0,
+        isFollowing: false,
+        artworkCount: 0,
+        forSaleCount: 0,
+      };
+    });
     total = artists.length;
   }
 

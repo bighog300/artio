@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { resolveImageUrl } from "@/lib/assets";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 import { apiError } from "@/lib/api";
 import { listPublishedArtworkIdsByViews30 } from "@/lib/artworks";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
         priceAmount: item.priceAmount,
         currency: item.currency,
         artist: item.artist,
-        coverUrl: resolveImageUrl(item.featuredAsset?.url, item.images[0]?.asset?.url),
+        coverUrl: resolveAssetDisplay({ asset: item.featuredAsset, legacyUrl: item.images[0]?.asset?.url ?? null, requestedVariant: "card" }).url,
         ...(includeViews ? { views30: viewsById.get(item.id) ?? 0 } : {}),
       })),
       page: input.page,
@@ -151,7 +151,7 @@ export async function GET(req: NextRequest) {
       slug: item.slug,
       title: item.title,
       artist: item.artist,
-      coverUrl: resolveImageUrl(item.featuredAsset?.url, item.images[0]?.asset?.url),
+      coverUrl: resolveAssetDisplay({ asset: item.featuredAsset, legacyUrl: item.images[0]?.asset?.url ?? null, requestedVariant: "card" }).url,
       year: item.year,
       medium: item.medium,
       priceAmount: item.priceAmount,

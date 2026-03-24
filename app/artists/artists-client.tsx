@@ -12,6 +12,7 @@ type ArtistListItem = {
   slug: string;
   bio: string | null;
   avatarImageUrl: string | null;
+  image: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
   imageAlt: string | null;
   tags: string[];
   followersCount: number;
@@ -143,6 +144,7 @@ export function ArtistsClient({
               name={artist.name}
               bio={artist.bio}
               imageUrl={artist.avatarImageUrl}
+              image={artist.image}
               tags={artist.tags}
               artistId={artist.id}
               initialFollowing={artist.isFollowing}

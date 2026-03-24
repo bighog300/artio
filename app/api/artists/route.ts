@@ -78,22 +78,26 @@ export async function GET(req: NextRequest) {
   const artworkCountByArtistId = new Map(artworkCounts.map((entry) => [entry.artistId, entry._count._all]));
   const forSaleCountByArtistId = new Map(forSaleCounts.map((entry) => [entry.artistId, entry._count._all]));
 
-  let items = dbArtists.map((artist) => ({
-    id: artist.id,
-    name: artist.name,
-    slug: artist.slug,
-    bio: artist.bio,
-    avatarImageUrl: resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl,
-    imageAlt: artist.name,
-    tags:
-      artist.mediums.length > 0
-        ? Array.from(new Set(artist.mediums)).slice(0, 6)
-        : Array.from(new Set(artist.eventArtists.flatMap((row) => row.event.eventTags.map(({ tag }) => tag.slug)))).slice(0, 6),
-    followersCount: followersByArtistId.get(artist.id) ?? 0,
-    isFollowing: false,
-    artworkCount: artworkCountByArtistId.get(artist.id) ?? 0,
-    forSaleCount: forSaleCountByArtistId.get(artist.id) ?? 0,
-  }));
+  let items = dbArtists.map((artist) => {
+    const image = resolveEntityPrimaryImage(artist);
+    return {
+      id: artist.id,
+      name: artist.name,
+      slug: artist.slug,
+      bio: artist.bio,
+      avatarImageUrl: image?.url ?? artist.avatarImageUrl,
+      image,
+      imageAlt: artist.name,
+      tags:
+        artist.mediums.length > 0
+          ? Array.from(new Set(artist.mediums)).slice(0, 6)
+          : Array.from(new Set(artist.eventArtists.flatMap((row) => row.event.eventTags.map(({ tag }) => tag.slug)))).slice(0, 6),
+      followersCount: followersByArtistId.get(artist.id) ?? 0,
+      isFollowing: false,
+      artworkCount: artworkCountByArtistId.get(artist.id) ?? 0,
+      forSaleCount: forSaleCountByArtistId.get(artist.id) ?? 0,
+    };
+  });
 
   if (sort === "followers") {
     items = items.sort((a, b) => b.followersCount - a.followersCount || a.name.localeCompare(b.name));

@@ -35,7 +35,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const artist = await db.artist.findFirst({ where: { slug, isPublished: true, deletedAt: null }, select: { name: true, bio: true, avatarImageUrl: true, featuredImageUrl: true, images: { take: 4, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } } } });
   if (!artist) return FALLBACK_METADATA;
   const description = (artist.bio ?? "").trim().slice(0, 160) || FALLBACK_METADATA.description;
-  const imageUrl = resolveEntityPrimaryImage(artist)?.url ?? null;
+  const artistImage = resolveEntityPrimaryImage(artist);
+  const imageUrl = artistImage?.url ?? null;
   return { title: `${artist.name} | Artio`, description, openGraph: { title: `${artist.name} | Artio`, description, images: imageUrl ? [{ url: imageUrl, alt: artist.name }] : undefined } };
 }
 export default async function ArtistDetail({ params }: { params: Promise<{ slug: string }> }) {
@@ -143,34 +144,43 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
     ? artist.mediums
     : Array.from(new Set(initialArtworks.flatMap((item) => item.tags))).filter(Boolean);
 
-  const imageUrl = resolveEntityPrimaryImage(artist)?.url ?? null;
-  const events = artist.eventArtists.map((row) => ({
-    id: row.event.id,
-    title: row.event.title,
-    slug: row.event.slug,
-    startAt: row.event.startAt,
-    endAt: row.event.endAt,
-    venueName: row.event.venue?.name,
-    venueSlug: row.event.venue?.slug,
-    imageUrl: resolveEntityPrimaryImage(row.event)?.url ?? null,
-    imageAlt: resolveEntityPrimaryImage(row.event)?.alt ?? row.event.title,
-    tags: row.event.eventTags.map(({ tag }) => tag.slug),
-    artworkCount: artworkCountMap.get(row.event.id) ?? 0,
-  }));
+  const artistImage = resolveEntityPrimaryImage(artist);
+  const imageUrl = artistImage?.url ?? null;
+  const events = artist.eventArtists.map((row) => {
+    const image = resolveEntityPrimaryImage(row.event);
+    return {
+      id: row.event.id,
+      title: row.event.title,
+      slug: row.event.slug,
+      startAt: row.event.startAt,
+      endAt: row.event.endAt,
+      venueName: row.event.venue?.name,
+      venueSlug: row.event.venue?.slug,
+      imageUrl: image?.url ?? null,
+      image,
+      imageAlt: image?.alt ?? row.event.title,
+      tags: row.event.eventTags.map(({ tag }) => tag.slug),
+      artworkCount: artworkCountMap.get(row.event.id) ?? 0,
+    };
+  });
 
-  const pastEvents = pastEventArtists.map((row) => ({
-    id: row.event.id,
-    title: row.event.title,
-    slug: row.event.slug,
-    startAt: row.event.startAt,
-    endAt: row.event.endAt,
-    venueName: row.event.venue?.name,
-    venueSlug: row.event.venue?.slug,
-    imageUrl: resolveEntityPrimaryImage(row.event)?.url ?? null,
-    imageAlt: resolveEntityPrimaryImage(row.event)?.alt ?? row.event.title,
-    tags: row.event.eventTags.map(({ tag }) => tag.slug),
-    artworkCount: artworkCountMap.get(row.event.id) ?? 0,
-  }));
+  const pastEvents = pastEventArtists.map((row) => {
+    const image = resolveEntityPrimaryImage(row.event);
+    return {
+      id: row.event.id,
+      title: row.event.title,
+      slug: row.event.slug,
+      startAt: row.event.startAt,
+      endAt: row.event.endAt,
+      venueName: row.event.venue?.name,
+      venueSlug: row.event.venue?.slug,
+      imageUrl: image?.url ?? null,
+      image,
+      imageAlt: image?.alt ?? row.event.title,
+      tags: row.event.eventTags.map(({ tag }) => tag.slug),
+      artworkCount: artworkCountMap.get(row.event.id) ?? 0,
+    };
+  });
 
   const eventDerivedVenues = Array.from(
     new Map(
@@ -200,7 +210,9 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
       <EntityHeader
         title={artist.name}
         subtitle={artistTags.slice(0, 2).join(" • ") || "Artist profile"}
-        imageUrl={resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl ?? imageUrl}
+        image={artistImage}
+        imageUrl={artist.avatarImageUrl ?? imageUrl}
+        coverImage={artistImage}
         coverUrl={imageUrl}
         tags={artistTags}
         primaryAction={<FollowButton targetType="ARTIST" targetId={artist.id} initialIsFollowing={Boolean(existingFollow)} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={artist.slug} />}
@@ -222,7 +234,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
             <SectionHeader title="Upcoming events" subtitle="Catch this artist's next exhibitions and shows." />
             {events.length === 0 ? <EmptyState title="No upcoming events" description="Follow this artist and we’ll keep you posted." /> : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {events.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={event.venueName} venueSlug={event.venueSlug} imageUrl={event.imageUrl} imageAlt={event.imageAlt} tags={event.tags} artworkCount={event.artworkCount} viewArtworksHref={(event.artworkCount ?? 0) > 0 ? `/artwork?eventId=${event.id}` : undefined} />)}
+                {events.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={event.venueName} venueSlug={event.venueSlug} image={event.image} imageUrl={event.imageUrl} imageAlt={event.imageAlt} tags={event.tags} artworkCount={event.artworkCount} viewArtworksHref={(event.artworkCount ?? 0) > 0 ? `/artwork?eventId=${event.id}` : undefined} />)}
               </div>
             )}
             {featuredArtworks.length > 0 ? <ArtworkRelatedSection title="Featured artworks" subtitle="Selected by the artist." items={featuredArtworks} viewAllHref={artworkCount > 6 ? `/artwork?artistId=${artist.id}` : undefined} /> : null}
@@ -245,7 +257,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
             <SectionHeader title="Past events" subtitle="Explore this artist's previous exhibitions and shows." />
             {pastEvents.length === 0 ? <EmptyState title="No past events" description="Past events featuring this artist will appear here." /> : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {pastEvents.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={event.venueName} venueSlug={event.venueSlug} imageUrl={event.imageUrl} imageAlt={event.imageAlt} tags={event.tags} artworkCount={event.artworkCount} viewArtworksHref={(event.artworkCount ?? 0) > 0 ? `/artwork?eventId=${event.id}` : undefined} />)}
+                {pastEvents.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={event.venueName} venueSlug={event.venueSlug} image={event.image} imageUrl={event.imageUrl} imageAlt={event.imageAlt} tags={event.tags} artworkCount={event.artworkCount} viewArtworksHref={(event.artworkCount ?? 0) > 0 ? `/artwork?eventId=${event.id}` : undefined} />)}
               </div>
             )}
           </section>

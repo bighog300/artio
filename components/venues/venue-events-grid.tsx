@@ -12,6 +12,7 @@ type VenueEvent = {
   startAt: Date;
   endAt: Date | null;
   imageUrl: string | null;
+  image: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
   imageAlt: string;
   tags: string[];
 };
@@ -91,6 +92,7 @@ export function VenueEventsGrid({ events, venueName }: Props) {
               startAt={event.startAt}
               endAt={event.endAt}
               venueName={venueName}
+              image={event.image}
               imageUrl={event.imageUrl}
               imageAlt={event.imageAlt}
               tags={event.tags}
