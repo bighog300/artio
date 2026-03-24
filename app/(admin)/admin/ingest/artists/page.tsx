@@ -11,7 +11,7 @@ export default async function AdminIngestArtistsPage() {
   const user = await getSessionUser();
 
   const candidates = await db.ingestExtractedArtist.findMany({
-    where: { status: { in: ["PENDING", "APPROVED"] } },
+    where: { status: "PENDING" },
     select: {
       id: true,
       name: true,
