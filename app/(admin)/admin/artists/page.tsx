@@ -43,7 +43,7 @@ export default async function AdminArtists() {
       <AdminEntityManagerClient
         entity="artists"
         title="Manage Artists"
-        fields={["name", "websiteUrl", "bio", "featuredAssetId", "isPublished"]}
+        fields={["name", "websiteUrl", "bio"]}
         defaultMatchBy="id"
       />
     </main>

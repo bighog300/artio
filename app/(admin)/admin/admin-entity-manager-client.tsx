@@ -36,6 +36,20 @@ type EditableField = {
   type: "text" | "textarea" | "checkbox" | "datetime";
 };
 
+const COLUMN_WIDTHS: Record<string, string> = {
+  title: "180px",
+  venueName: "140px",
+  artistNames: "160px",
+  ticketUrl: "120px",
+  websiteUrl: "120px",
+  bio: "220px",
+  startAt: "110px",
+  endAt: "110px",
+  name: "160px",
+};
+
+const SCROLL_BOX_FIELDS = new Set(["bio", "description"]);
+
 export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy }: { entity: EntityName; fields: string[]; title: string; defaultMatchBy: "id" | "slug" | "name" }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -359,7 +373,19 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
 
       <div className="overflow-x-auto rounded border bg-background">
         <table className="w-full min-w-[960px] text-sm">
-          <thead className="bg-muted/50"><tr>{["img", "id", ...fields, "status", "actions"].map((field) => <th key={field} className="px-3 py-2 text-left">{field}</th>)}</tr></thead>
+          <thead className="bg-muted/50">
+            <tr>
+              {["img", "id", ...fields, "status", "actions"].map((field) => (
+                <th
+                  key={field}
+                  className="px-3 py-2 text-left"
+                  style={COLUMN_WIDTHS[field] ? { width: COLUMN_WIDTHS[field], maxWidth: COLUMN_WIDTHS[field] } : undefined}
+                >
+                  {field}
+                </th>
+              ))}
+            </tr>
+          </thead>
           <tbody>
             {items.length === 0 ? <tr><td className="px-3 py-3 text-muted-foreground" colSpan={fields.length + 4}>{busy ? "Loading..." : "No records"}</td></tr> : items.map((item) => {
               const id = String(item.id ?? "");
@@ -381,21 +407,62 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
                     )}
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">{id}</td>
-                  {fields.map((field) => (
-                    <td key={field} className="px-3 py-2">
-                      {isEditing && editableKeys.has(field)
-                        ? renderEditableField({
-                          field,
-                          value: drafts[id]?.[field],
-                          onChange: (next) => setDrafts((d) => ({ ...d, [id]: { ...(d[id] ?? {}), [field]: next } })),
-                        })
-                        : String(item[field] ?? "")}
-                    </td>
-                  ))}
+                  {fields.map((field) => {
+                    const rawValue = String(item[field] ?? "");
+                    const maxWidth = COLUMN_WIDTHS[field];
+                    return (
+                      <td
+                        key={field}
+                        className="px-3 py-2"
+                        style={maxWidth ? { width: maxWidth, maxWidth } : undefined}
+                      >
+                        {isEditing && editableKeys.has(field) ? (
+                          renderEditableField({
+                            field,
+                            value: drafts[id]?.[field],
+                            onChange: (next) =>
+                              setDrafts((d) => ({ ...d, [id]: { ...(d[id] ?? {}), [field]: next } })),
+                          })
+                        ) : SCROLL_BOX_FIELDS.has(field) ? (
+                          <div
+                            style={{
+                              maxHeight: "56px",
+                              overflowY: "auto",
+                              lineHeight: "1.5",
+                              paddingRight: "4px",
+                            }}
+                          >
+                            {rawValue}
+                          </div>
+                        ) : (
+                          <div
+                            title={rawValue}
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {rawValue}
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
-                      {typeof item.status === "string" ? <span className="rounded border px-2 py-0.5 text-xs">{displayStatus(item.status)}</span> : null}
-                      {item.deletedAt ? <span className="rounded border px-2 py-0.5 text-xs">Archived</span> : null}
+                      {typeof item.status === "string" ? (
+                        <span className="rounded border px-2 py-0.5 text-xs">{displayStatus(item.status)}</span>
+                      ) : null}
+                      {item.isPublished === true || item.isPublished === "true" ? (
+                        <span className="rounded border px-2 py-0.5 text-xs text-green-700 border-green-300 bg-green-50">live</span>
+                      ) : null}
+                      {item.isAiExtracted === true || item.isAiExtracted === "true" ? (
+                        <span className="rounded border px-2 py-0.5 text-xs text-blue-700 border-blue-300 bg-blue-50">ai</span>
+                      ) : null}
+                      {item.deletedAt ? (
+                        <span className="rounded border px-2 py-0.5 text-xs">Archived</span>
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-3 py-2">

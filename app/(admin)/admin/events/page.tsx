@@ -84,7 +84,7 @@ export default async function AdminEvents() {
       <AdminEntityManagerClient
         entity="events"
         title="Manage Events"
-        fields={["title", "startAt", "endAt", "venueName", "artistNames", "isAiExtracted", "ticketUrl", "isPublished"]}
+        fields={["title", "startAt", "endAt", "venueName", "artistNames", "ticketUrl"]}
         defaultMatchBy="id"
       />
     </main>
