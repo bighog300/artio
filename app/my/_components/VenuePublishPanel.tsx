@@ -2,6 +2,7 @@ import Link from "next/link";
 import VenueSubmitButton from "@/app/my/_components/VenueSubmitButton";
 import DirectPublishButton from "@/app/my/_components/DirectPublishButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ReadinessChecklist } from "@/components/publishing/ReadinessChecklist";
 import type { ContentStatus } from "@prisma/client";
 
 type SubmissionStatus = ContentStatus | null;
@@ -45,12 +46,14 @@ export default function VenuePublishPanel({
         <CardDescription>{canPublishDirectly ? "Trusted users can publish or unpublish directly from this panel." : "Complete required items before submitting for review."}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <ul className="space-y-2 text-sm">
-          <li className="flex items-center justify-between"><span>Basic info</span><span>{checks.basicInfo ? "✓" : "✕"}</span></li>
-          <li className="flex items-center justify-between"><span>Location</span><span>{checks.location ? "✓" : "✕"}</span></li>
-          <li className="flex items-center justify-between"><span>Images</span><span>{checks.images ? "✓" : "✕"}</span></li>
-          <li className="flex items-center justify-between"><span>Contact/Details</span><span>{checks.contact ? "✓" : "○"}</span></li>
-        </ul>
+        <ReadinessChecklist
+          items={[
+            { label: "Basic info", complete: checks.basicInfo },
+            { label: "Location", complete: checks.location },
+            { label: "Images", complete: checks.images },
+            { label: "Contact / details", complete: checks.contact },
+          ]}
+        />
 
         <div className="rounded-md border bg-muted/20 p-3 text-sm">
           <p className="font-medium">{canPublishDirectly ? "Direct publish control" : "What happens next"}</p>

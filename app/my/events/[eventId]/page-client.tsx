@@ -132,22 +132,6 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
     void loadStripeStatus();
   }, [ticketingMode, venueId]);
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      void fetch(`/api/my/events/${event.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          ticketingMode,
-          capacity: ticketingMode === "RSVP" ? (capacity.trim() ? Number(capacity) : null) : null,
-          rsvpClosesAt: ticketingMode === "RSVP" ? (rsvpClosesAt ? new Date(`${rsvpClosesAt}:00Z`).toISOString() : null) : null,
-        }),
-      });
-    }, 400);
-
-    return () => clearTimeout(timeout);
-  }, [capacity, event.id, rsvpClosesAt, ticketingMode]);
-
   async function onCreateSeries() {
     if (!venueId || !newSeriesTitle.trim()) return;
     setIsCreatingSeries(true);
