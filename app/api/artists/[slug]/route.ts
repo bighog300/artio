@@ -43,6 +43,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
       },
       isPublished: true,
       eventArtists: {
+        where: {
+          event: { isPublished: true, deletedAt: null },
+        },
         select: {
           event: {
             select: {

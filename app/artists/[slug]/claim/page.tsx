@@ -11,8 +11,8 @@ export default async function ArtistClaimPage({ params }: { params: Promise<{ sl
   noStore();
   const { slug } = await params;
 
-  const artist = await db.artist.findUnique({ where: { slug }, select: { id: true, name: true, slug: true, userId: true, isPublished: true, deletedAt: true } });
-  if (!artist?.isPublished || artist.deletedAt) redirect("/artists");
+  const artist = await db.artist.findUnique({ where: { slug, isPublished: true }, select: { id: true, name: true, slug: true, userId: true, deletedAt: true } });
+  if (!artist || artist.deletedAt) redirect("/artists");
   if (artist.userId) redirect(`/artists/${artist.slug}`);
 
   return (

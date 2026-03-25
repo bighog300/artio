@@ -14,7 +14,9 @@ import { EntityPageViewTracker } from "@/components/analytics/entity-page-view-t
 import { SectionHeader } from "@/components/ui/section-header";
 import { ArtistArtworkShowcase } from "@/components/artists/artist-artwork-showcase";
 import { ArtistAssociatedVenuesSection } from "@/components/artists/artist-associated-venues-section";
+import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
 import { dedupeAssociatedVenues } from "@/lib/artist-associated-venues";
+import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { buildArtistJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
@@ -55,6 +57,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function ArtistDetail({ params }: { params: Promise<{ slug: string }> }) {
   if (!hasDatabaseUrl()) return <main className="p-6">Set DATABASE_URL to view artists locally.</main>;
   const { slug } = await params;
+  const user = await getSessionUser();
   const now = new Date();
 
   const artist = await db.artist.findFirst({
@@ -138,8 +141,12 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
     _count: { _all: true },
   }));
 
-  const [followersCount, artworkCount, featuredArtworks, showcaseResult, forSaleCount, pastEventArtists, artworkCountsByEvent] = await Promise.all([
+  const [followersCount, existingFollow, artworkCount, featuredArtworks, showcaseResult, forSaleCount, pastEventArtists, artworkCountsByEvent] = await Promise.all([
     db.follow.count({ where: { targetType: "ARTIST", targetId: artist.id } }),
+    user ? db.follow.findUnique({
+      where: { userId_targetType_targetId: { userId: user.id, targetType: "ARTIST", targetId: artist.id } },
+      select: { id: true },
+    }) : Promise.resolve(null),
     countPublishedArtworksByArtist(artist.id),
     listFeaturedArtworksByArtist(artist.id, 6),
     getArtistArtworks(slug, { limit: 24, sort: "newest", resolvedArtistId: artist.id }),
@@ -226,9 +233,19 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         coverImage={artistImage}
         coverUrl={imageUrl}
         tags={artistTags}
-        primaryAction={<FollowButton targetType="ARTIST" targetId={artist.id} initialIsFollowing={false} initialFollowersCount={followersCount} isAuthenticated={false} analyticsSlug={artist.slug} />}
+        primaryAction={<FollowButton targetType="ARTIST" targetId={artist.id} initialIsFollowing={Boolean(existingFollow)} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={artist.slug} />}
         meta={<div className="flex items-center gap-2"><ArtworkCountBadge count={artworkCount} href={`/artwork?artistId=${artist.id}`} /><span className="text-xs text-muted-foreground">{forSaleCount} for sale</span></div>}
       />
+      {Boolean(user) ? (
+        <ContextualNudgeSlot
+          page="artist_detail"
+          type="entity_save_search"
+          nudgeId="nudge_artist_detail_save_search"
+          title="Get alerts for artists you follow"
+          body="Create a saved search to get weekly updates tailored to your tastes."
+          destination="/search"
+        />
+      ) : null}
       {showClaimCta ? (
         <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
           <Link className="underline" href={`/artists/${artist.slug}/claim`}>Is this your profile? Claim it.</Link>

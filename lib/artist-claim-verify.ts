@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { enqueueNotification } from "@/lib/notifications";
 
@@ -73,6 +74,7 @@ export async function handleArtistClaimVerify(
     where: { id: artist.id },
     data: { status: "IN_REVIEW", reviewNotes: `Claim requested by ${payload.claimantName} <${payload.email}>` },
   });
+  revalidatePath(`/artists/${artist.slug}`);
 
   const adminRecipients = await resolveAdminRecipients(deps.appDb);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
