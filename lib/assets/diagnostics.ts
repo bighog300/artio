@@ -22,8 +22,10 @@ export function logAssetTransformRuntime(payload: { available: boolean; mode: "t
 
 export function logAssetTransformDecision(payload: {
   assetId?: string;
-  optimizationSkipped: boolean;
+  optimizationAttempted: boolean;
+  optimizationStatus: string;
   fallbackUsed: boolean;
+  transformed: boolean;
   transformedVariants: number;
   totalVariants: number;
   diagnostics: string[];
@@ -31,10 +33,21 @@ export function logAssetTransformDecision(payload: {
   logInfo({
     message: "asset_transform_decision",
     assetId: payload.assetId ?? null,
-    optimizationSkipped: payload.optimizationSkipped,
+    optimizationAttempted: payload.optimizationAttempted,
+    optimizationStatus: payload.optimizationStatus,
     fallbackUsed: payload.fallbackUsed,
+    transformed: payload.transformed,
     transformedVariants: payload.transformedVariants,
     totalVariants: payload.totalVariants,
+    diagnostics: payload.diagnostics,
+  });
+}
+
+export function logAssetTransformDegraded(payload: { assetId?: string; context: "upload" | "crop"; diagnostics: string[] }) {
+  logWarn({
+    message: "asset_transform_degraded",
+    assetId: payload.assetId ?? null,
+    context: payload.context,
     diagnostics: payload.diagnostics,
   });
 }

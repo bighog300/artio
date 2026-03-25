@@ -29,9 +29,11 @@ test("real transform runtime shrinks large uploads and applies crop dimensions",
   assert.equal(processed.runtime.available, true);
   assert.equal(processed.fallbackUsed, false);
   assert.equal(processed.transformApplied, true);
+  assert.equal(processed.optimizationAttempted, true);
+  assert.equal(processed.optimizationStatus, "optimized");
   assert.ok(processed.metadata.byteSize < sourceBytes.byteLength, "optimized master should be smaller than input");
 
-  const variants = await generateImageVariants({
+  const variantResult = await generateImageVariants({
     master: processed,
     crop: {
       x: 250,
@@ -45,8 +47,11 @@ test("real transform runtime shrinks large uploads and applies crop dimensions",
       focalPointY: 0.5,
     },
   });
+  const variants = variantResult.variants;
   const square = variants.find((variant) => variant.name === "square");
   assert.ok(square, "square variant should be generated");
+  assert.equal(square?.transformed, true);
   assert.equal(square?.metadata.width, 800);
   assert.equal(square?.metadata.height, 800);
+  assert.equal(variantResult.fallbackUsed, false);
 });

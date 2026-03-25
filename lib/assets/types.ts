@@ -36,6 +36,13 @@ export type ProcessedImage = {
   bytes: Uint8Array;
   metadata: ImageMetadata;
   optimized: boolean;
+  optimizationAttempted: boolean;
+  optimizationStatus:
+    | "optimized"
+    | "attempted_no_savings"
+    | "skipped_below_threshold"
+    | "skipped_runtime_unavailable"
+    | "skipped_transform_failed";
   optimizationSavingsBytes: number;
   transformApplied: boolean;
   fallbackUsed: boolean;
@@ -53,6 +60,15 @@ export type GeneratedVariant = {
   bytes: Uint8Array;
   metadata: ImageMetadata;
   transformed: boolean;
+};
+
+export type GeneratedVariantsResult = {
+  variants: GeneratedVariant[];
+  diagnostics: string[];
+  fallbackUsed: boolean;
+  degraded: boolean;
+  transformedVariants: number;
+  totalVariants: number;
 };
 
 export type AssetPipelineConfig = {

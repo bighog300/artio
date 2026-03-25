@@ -3,7 +3,6 @@ import { z } from "zod";
 import { requireAuth, isAuthError } from "@/lib/auth";
 import { apiError } from "@/lib/api";
 import { finalizeAssetCrop } from "@/lib/assets/save-asset";
-import { getImageTransformRuntimeStatus } from "@/lib/assets/transform-runtime";
 import { logImageTransformRuntimeStatusOnce } from "@/lib/assets/runtime-observability";
 import { db } from "@/lib/db";
 
@@ -32,33 +31,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return apiError(400, "invalid_request", "Invalid crop payload");
     }
 
-    const updated = await finalizeAssetCrop({
+    const finalized = await finalizeAssetCrop({
       dbClient: db,
       assetId: id,
       crop: parsed.data,
     });
-    const runtime = await getImageTransformRuntimeStatus();
 
     return NextResponse.json({
       ok: true,
       asset: {
-        id: updated.id,
-        url: updated.url,
-        processingStatus: updated.processingStatus,
-        processingError: updated.processingError,
-        cropJson: updated.cropJson,
+        id: finalized.asset.id,
+        url: finalized.asset.url,
+        processingStatus: finalized.asset.processingStatus,
+        processingError: finalized.asset.processingError,
+        cropJson: finalized.asset.cropJson,
       },
-      variants: updated.variants.map((variant) => ({
+      variants: finalized.asset.variants.map((variant) => ({
         variantName: variant.variantName,
         url: variant.url,
         width: variant.width,
         height: variant.height,
       })),
-      processing: {
-        runtime,
-        fallbackUsed: !runtime.available,
-        diagnostics: runtime.available ? [] : ["transform_runtime_unavailable_passthrough_used"],
-      },
+      processing: finalized.processing,
     });
   } catch (error) {
     if (isAuthError(error)) {

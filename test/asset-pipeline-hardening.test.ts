@@ -28,6 +28,7 @@ test("runtime status is explicit and stable", async () => {
   assert.equal(typeof status.available, "boolean");
   assert.ok(["sharp", "none"].includes(status.provider));
   assert.ok(["transform", "passthrough"].includes(status.mode));
+  assert.ok(["ok", "sharp_not_installed", "sharp_load_failed"].includes(status.reason));
 });
 
 test("processImage reports transform and fallback semantics", async () => {
@@ -37,23 +38,27 @@ test("processImage reports transform and fallback semantics", async () => {
 
   assert.equal(processed.runtime.mode, status.mode);
   assert.equal(processed.runtime.provider, status.provider);
+  assert.equal(typeof processed.optimizationAttempted, "boolean");
 
   if (!status.available) {
     assert.equal(processed.fallbackUsed, true);
     assert.equal(processed.transformApplied, false);
     assert.equal(processed.processingPartial, true);
+    assert.equal(processed.optimizationStatus, "skipped_runtime_unavailable");
   }
 });
 
 test("generateImageVariants marks transformed vs copied", async () => {
   const input = fakePngBytes(1200, 800);
   const processed = await processImage({ bytes: input, mimeType: "image/png" });
-  const variants = await generateImageVariants({ master: processed, crop: { x: 0, y: 0, width: 1000, height: 700, aspectRatio: 4 / 3, preset: "landscape", zoom: 1.4, focalPointX: 0.4, focalPointY: 0.6 } });
+  const variantResult = await generateImageVariants({ master: processed, crop: { x: 0, y: 0, width: 1000, height: 700, aspectRatio: 4 / 3, preset: "landscape", zoom: 1.4, focalPointX: 0.4, focalPointY: 0.6 } });
+  const variants = variantResult.variants;
 
   assert.ok(variants.length >= 4);
   const allTransformed = variants.every((variant) => variant.transformed);
   if (processed.fallbackUsed) {
     assert.equal(allTransformed, false);
+    assert.equal(variantResult.fallbackUsed, true);
   }
 });
 

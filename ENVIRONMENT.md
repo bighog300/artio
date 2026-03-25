@@ -176,6 +176,13 @@ Recommended scripts:
 - Keep `BLOB_READ_WRITE_TOKEN` server-side only; never expose it in `NEXT_PUBLIC_*` variables.
 - Local development supports uploads when `BLOB_READ_WRITE_TOKEN` is set.
 
+## 6.1 Image transform runtime (Sharp)
+
+- Centralized image optimization/crop transforms require the `sharp` runtime to be installed in the deployment image.
+- If `sharp` is unavailable or fails to load, asset processing remains available in explicit passthrough fallback mode.
+- Operators can verify current runtime mode via `GET /api/assets/runtime-status` (admin-only), which now includes runtime and fallback diagnostics.
+- Upload/crop processing responses include structured `processing` diagnostics so fallback mode is visible and not mistaken for successful optimization.
+
 ## Artist/Venue gallery client uploads (Vercel Blob)
 
 - Keep `BLOB_READ_WRITE_TOKEN` configured **server-side only**.
@@ -224,4 +231,3 @@ Optional batch size override:
 ```bash
 BATCH_SIZE=1000 pnpm backfill:venue-timezones
 ```
-

@@ -9,7 +9,15 @@ export async function GET() {
   try {
     await requireAdmin();
     const status = await getImageTransformRuntimeStatus();
-    return NextResponse.json({ runtime: status, fallbackMode: !status.available });
+    return NextResponse.json({
+      runtime: status,
+      fallbackMode: !status.available,
+      diagnostics: {
+        runtimeAvailable: status.available,
+        transformMode: status.mode,
+        fallbackReason: status.available ? null : status.reason,
+      },
+    });
   } catch (error) {
     if (isAuthError(error)) {
       return apiError(401, "unauthorized", "Authentication required");

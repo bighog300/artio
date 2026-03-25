@@ -1,6 +1,6 @@
 
 import type { PrismaClient } from "@prisma/client";
-import { logAssetProcessingFailure, logAssetProcessingStatus, logAssetTransformDecision, logAssetTransformRuntime } from "@/lib/assets/diagnostics";
+import { logAssetProcessingFailure, logAssetProcessingStatus, logAssetTransformDecision, logAssetTransformDegraded, logAssetTransformRuntime } from "@/lib/assets/diagnostics";
 import { generateImageVariants } from "@/lib/assets/generate-variants";
 import { processImage } from "@/lib/assets/process-image";
 import { saveAssetBinary } from "@/lib/assets/storage";
@@ -74,18 +74,26 @@ export async function saveImageAssetPipeline(params: {
       uploadToBlob,
     });
 
-    const variants = await generateImageVariants({ master: processed, crop });
-    const transformedVariants = variants.filter((variant) => variant.transformed).length;
+    const variantResult = await generateImageVariants({ master: processed, crop });
     logAssetTransformDecision({
       assetId: baseAsset.id,
-      optimizationSkipped: !processed.optimized,
-      fallbackUsed: processed.fallbackUsed || transformedVariants !== variants.length,
-      transformedVariants,
-      totalVariants: variants.length,
-      diagnostics: processed.diagnostics,
+      optimizationAttempted: processed.optimizationAttempted,
+      optimizationStatus: processed.optimizationStatus,
+      fallbackUsed: processed.fallbackUsed || variantResult.fallbackUsed,
+      transformed: processed.transformApplied,
+      transformedVariants: variantResult.transformedVariants,
+      totalVariants: variantResult.totalVariants,
+      diagnostics: [...processed.diagnostics, ...variantResult.diagnostics],
     });
+    if (processed.fallbackUsed || variantResult.degraded) {
+      logAssetTransformDegraded({
+        assetId: baseAsset.id,
+        context: "upload",
+        diagnostics: [...processed.diagnostics, ...variantResult.diagnostics],
+      });
+    }
 
-    const persistedVariants = await Promise.all(variants.map(async (variant) => {
+    const persistedVariants = await Promise.all(variantResult.variants.map(async (variant) => {
       const saved = await saveAssetBinary({
         ownerUserId,
         kind: "variant",
@@ -131,11 +139,13 @@ export async function saveImageAssetPipeline(params: {
       processed,
       processing: {
         transformApplied: processed.transformApplied,
-        fallbackUsed: processed.fallbackUsed || transformedVariants !== variants.length,
-        processingPartial: processed.processingPartial || transformedVariants !== variants.length,
-        transformedVariants,
-        totalVariants: variants.length,
-        diagnostics: processed.diagnostics,
+        fallbackUsed: processed.fallbackUsed || variantResult.fallbackUsed,
+        processingPartial: processed.processingPartial || variantResult.degraded,
+        optimizationAttempted: processed.optimizationAttempted,
+        optimizationStatus: processed.optimizationStatus,
+        transformedVariants: variantResult.transformedVariants,
+        totalVariants: variantResult.totalVariants,
+        diagnostics: [...processed.diagnostics, ...variantResult.diagnostics],
         runtime: processed.runtime,
       },
     };
@@ -202,19 +212,27 @@ export async function finalizeAssetCrop(params: {
       mimeType: processed.metadata.mimeType,
       uploadToBlob: params.uploadToBlob,
     });
-    const variants = await generateImageVariants({ master: processed, crop: params.crop });
-    const transformedVariants = variants.filter((variant) => variant.transformed).length;
+    const variantResult = await generateImageVariants({ master: processed, crop: params.crop });
     logAssetTransformDecision({
       assetId: asset.id,
-      optimizationSkipped: !processed.optimized,
-      fallbackUsed: processed.fallbackUsed || transformedVariants !== variants.length,
-      transformedVariants,
-      totalVariants: variants.length,
-      diagnostics: processed.diagnostics,
+      optimizationAttempted: processed.optimizationAttempted,
+      optimizationStatus: processed.optimizationStatus,
+      fallbackUsed: processed.fallbackUsed || variantResult.fallbackUsed,
+      transformed: processed.transformApplied,
+      transformedVariants: variantResult.transformedVariants,
+      totalVariants: variantResult.totalVariants,
+      diagnostics: [...processed.diagnostics, ...variantResult.diagnostics],
     });
+    if (processed.fallbackUsed || variantResult.degraded) {
+      logAssetTransformDegraded({
+        assetId: asset.id,
+        context: "crop",
+        diagnostics: [...processed.diagnostics, ...variantResult.diagnostics],
+      });
+    }
 
     await params.dbClient.assetVariant.deleteMany({ where: { assetId: asset.id } });
-    await Promise.all(variants.map(async (variant) => {
+    await Promise.all(variantResult.variants.map(async (variant) => {
       const saved = await saveAssetBinary({
         ownerUserId: asset.ownerUserId,
         kind: "variant",
@@ -254,7 +272,20 @@ export async function finalizeAssetCrop(params: {
       },
     });
     logAssetProcessingStatus({ assetId: updated.id, status: "READY", detail: "crop_finalize_ready" });
-    return updated;
+    return {
+      asset: updated,
+      processing: {
+        transformApplied: processed.transformApplied,
+        fallbackUsed: processed.fallbackUsed || variantResult.fallbackUsed,
+        processingPartial: processed.processingPartial || variantResult.degraded,
+        optimizationAttempted: processed.optimizationAttempted,
+        optimizationStatus: processed.optimizationStatus,
+        transformedVariants: variantResult.transformedVariants,
+        totalVariants: variantResult.totalVariants,
+        diagnostics: [...processed.diagnostics, ...variantResult.diagnostics],
+        runtime: processed.runtime,
+      },
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : "asset_crop_finalize_failed";
     await params.dbClient.asset.update({
