@@ -13,7 +13,6 @@ import { Card } from "@/components/ui/card";
 import { EventRailCard } from "@/components/events/event-rail-card";
 import { formatEventDateRange } from "@/components/events/event-format";
 import { buildDetailMetadata, getDetailUrl } from "@/lib/seo.public-profiles";
-import { getSessionUser } from "@/lib/auth";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
@@ -25,7 +24,7 @@ import { listPublishedEventsInSeriesWithDeps } from "@/lib/series-events";
 import { RsvpWidget } from "@/components/events/rsvp-widget";
 import { PaidTicketWidget } from "@/components/events/paid-ticket-widget";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -46,8 +45,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
   if (!hasDatabaseUrl()) return <PageShell><p className="type-caption">Set DATABASE_URL to view events locally.</p></PageShell>;
 
   const { slug } = await params;
-  const [event, user] = await Promise.all([
-    db.event.findFirst({
+  const event = await db.event.findFirst({
       where: { slug, isPublished: true, deletedAt: null },
       include: {
         venue: true,
@@ -61,9 +59,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
           select: { id: true, name: true, description: true, priceAmount: true, currency: true, capacity: true, registrations: { where: { status: { in: ["PENDING", "CONFIRMED", "WAITLISTED"] } }, select: { quantity: true } } },
         },
       },
-    }),
-    getSessionUser(),
-  ]);
+    });
   if (!event) notFound();
 
   const [artworks, artworkCount, similarEvents, seriesEvents] = await Promise.all([
@@ -80,8 +76,8 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
       : Promise.resolve([]),
 ]);
 
-  const isAuthenticated = Boolean(user);
-  const initialSaved = user ? Boolean(await db.favorite.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "EVENT", targetId: event.id } }, select: { id: true } })) : false;
+  const isAuthenticated = false;
+  const initialSaved = false;
   const primaryImage = resolveEntityPrimaryImage(event);
   const detailUrl = getDetailUrl("event", slug);
   const offers = event.ticketTiers.map((tier) => {

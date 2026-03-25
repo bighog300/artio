@@ -33,6 +33,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const items = await db.event.findMany({
     where: {
       isPublished: true,
+      deletedAt: null,
       ...(filters.query ? { OR: [{ title: { contains: filters.query, mode: "insensitive" } }, { description: { contains: filters.query, mode: "insensitive" } }] } : {}),
       ...(filters.from || filters.to ? { startAt: { gte: filters.from ? new Date(filters.from) : undefined, lte: filters.to ? new Date(filters.to) : undefined } } : {}),
       ...(filters.venue ? { venue: { slug: filters.venue } } : {}),

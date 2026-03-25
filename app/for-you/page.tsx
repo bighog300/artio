@@ -1,4 +1,3 @@
-import { unstable_noStore as noStore } from "next/cache";
 import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
@@ -13,10 +12,8 @@ import { getAuthDebugRequestMeta, logAuthDebug } from "@/lib/auth-debug";
 // reliably read session cookies in production deployments and avoid login redirect loops.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 export default async function ForYouPage() {
-  noStore();
   const user = await getSessionUser();
   if (!user) {
     const requestMeta = await getAuthDebugRequestMeta();

@@ -8,6 +8,8 @@ import { CuratedCollectionsRail } from "@/components/artwork/curated-collections
 import { TrendingRail } from "@/components/artwork/trending-rail";
 import { getTrendingArtworks30 } from "@/lib/artworks";
 
+export const dynamic = "force-dynamic";
+
 const publicTiles = [
   { title: "Browse events", description: "See what's coming up across exhibitions, openings, and talks.", href: "/events" },
   { title: "Find nearby", description: "Discover events around your current city or map area.", href: "/nearby" },

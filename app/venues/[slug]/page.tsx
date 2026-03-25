@@ -19,7 +19,7 @@ import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-sl
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
-import { buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
+import { buildDetailMetadata, buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { getVenueDescriptionExcerpt } from "@/lib/venues";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
@@ -33,11 +33,19 @@ export const revalidate = 300;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  if (!hasDatabaseUrl()) return { title: "Venue | Artio", description: "Discover venue details and upcoming events on Artio." };
+  if (!hasDatabaseUrl()) {
+    return buildDetailMetadata({ kind: "venue", slug });
+  }
   const venue = await db.venue.findFirst({ where: { slug, isPublished: true, deletedAt: null }, select: { name: true, description: true, featuredImageUrl: true, featuredAsset: { select: { url: true } } } });
-  if (!venue) return { title: "Venue | Artio", description: "Discover venue details and upcoming events on Artio." };
+  if (!venue) return buildDetailMetadata({ kind: "venue", slug });
   const imageUrl = resolveEntityPrimaryImage(venue)?.url ?? null;
-  return { title: `${venue.name} | Artio`, description: getVenueDescriptionExcerpt(venue.description, `Explore ${venue.name} on Artio.`), openGraph: { title: `${venue.name} | Artio`, description: getVenueDescriptionExcerpt(venue.description, `Explore ${venue.name} on Artio.`), images: imageUrl ? [{ url: imageUrl, alt: venue.name }] : undefined } };
+  return buildDetailMetadata({
+    kind: "venue",
+    slug,
+    title: venue.name,
+    description: getVenueDescriptionExcerpt(venue.description, `Explore ${venue.name} on Artio.`),
+    imageUrl,
+  });
 }
 
 export default async function VenueDetail({ params }: { params: Promise<{ slug: string }> }) {

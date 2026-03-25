@@ -6,6 +6,8 @@ import { CollectionSortMode, getPublishedCuratedCollectionBySlug } from "@/lib/c
 import { getArtworkPublicHref } from "@/lib/artworks";
 import { collectionPageQuerySchema } from "@/lib/validators";
 
+export const revalidate = 300; // 5 minutes, matches venue list
+
 const sortOptions: Array<{ label: string; value: CollectionSortMode }> = [
   { label: "Curated order", value: "CURATED" },
   { label: "Most viewed (30d)", value: "VIEWS_30D_DESC" },
