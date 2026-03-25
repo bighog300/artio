@@ -10,6 +10,7 @@ import { ArtworkRelatedSection } from "@/components/artwork/artwork-related-sect
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { EventRailCard } from "@/components/events/event-rail-card";
 import { formatEventDateRange } from "@/components/events/event-format";
 import { buildDetailMetadata, getDetailUrl } from "@/lib/seo.public-profiles";
@@ -189,6 +190,9 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
           ) : event.ticketUrl ? (
             <Link href={event.ticketUrl} className="text-sm underline" target="_blank" rel="noreferrer">Get tickets</Link>
           ) : null}
+          <Button asChild variant="secondary" size="sm">
+            <Link href={icalLink}>Add to calendar</Link>
+          </Button>
           {event.venue?.slug ? <Link href={`/venues/${event.venue.slug}`} className="text-sm underline">View details</Link> : null}
         </Card>
       </section>

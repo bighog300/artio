@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { guardUser } from "@/lib/auth-guard";
-import { buildIcalCalendar } from "@/lib/calendar/ical-format";
 import { getDetailUrl } from "@/lib/seo.public-profiles";
+import { buildVCalendar, buildVEvent } from "@/lib/ical/build";
 
 function venueLocation(name?: string | null, address?: string | null) {
   return [name?.trim(), address?.trim()].filter(Boolean).join(", ");
@@ -31,17 +31,24 @@ export async function handleIcalSavedGet(
 
   const eventIds = favorites.map((favorite) => favorite.targetId);
   if (eventIds.length === 0) {
-    const emptyCalendar = buildIcalCalendar("Artio Saved Events", []);
-    return new NextResponse(emptyCalendar, { headers: { "content-type": "text/calendar; charset=utf-8" } });
+    const emptyCalendar = buildVCalendar([]);
+    return new NextResponse(emptyCalendar, {
+      headers: {
+        "content-type": "text/calendar; charset=utf-8",
+        "content-disposition": 'attachment; filename="my-events.ics"',
+        "cache-control": "private, no-store",
+      },
+    });
   }
 
   const events = await deps.findEvents({
-    where: { id: { in: eventIds }, isPublished: true, deletedAt: null },
+    where: { id: { in: eventIds }, isPublished: true, deletedAt: null, startAt: { gte: new Date() } },
     orderBy: [{ startAt: "asc" }, { id: "asc" }],
     select: {
       id: true,
       title: true,
       slug: true,
+      timezone: true,
       description: true,
       startAt: true,
       endAt: true,
@@ -49,22 +56,23 @@ export async function handleIcalSavedGet(
     },
   });
 
-  const calendar = buildIcalCalendar(
-    "Artio Saved Events",
-    events.map((event) => ({
+  const calendar = buildVCalendar(events.map((event) =>
+    buildVEvent({
       uid: event.id,
       summary: event.title,
-      dtstart: event.startAt,
-      dtend: event.endAt,
+      startAt: event.startAt,
+      endAt: event.endAt,
+      timezone: event.timezone,
       location: venueLocation(event.venue?.name, event.venue?.addressLine1),
       description: event.description,
       url: getDetailUrl("event", event.slug),
-    })),
-  );
+    }),
+  ));
 
   return new NextResponse(calendar, {
     headers: {
       "content-type": "text/calendar; charset=utf-8",
+      "content-disposition": 'attachment; filename="my-events.ics"',
       "cache-control": "private, no-store",
     },
   });

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { buildIcalCalendar } from "@/lib/calendar/ical-format";
 import { getDetailUrl } from "@/lib/seo.public-profiles";
+import { buildVCalendar, buildVEvent } from "@/lib/ical/build";
 
 function venueLocation(name?: string | null, address?: string | null) {
   return [name?.trim(), address?.trim()].filter(Boolean).join(", ");
@@ -22,6 +22,7 @@ export async function handleEventIcalGet(
       id: true,
       title: true,
       slug: true,
+      timezone: true,
       description: true,
       startAt: true,
       endAt: true,
@@ -31,16 +32,17 @@ export async function handleEventIcalGet(
 
   if (!event) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  const calendar = buildIcalCalendar("Artio Event", [
-    {
+  const calendar = buildVCalendar([
+    buildVEvent({
       uid: event.id,
       summary: event.title,
-      dtstart: event.startAt,
-      dtend: event.endAt,
+      startAt: event.startAt,
+      endAt: event.endAt,
+      timezone: event.timezone,
       location: venueLocation(event.venue?.name, event.venue?.addressLine1),
       description: event.description,
       url: getDetailUrl("event", event.slug),
-    },
+    }),
   ]);
 
   return new NextResponse(calendar, {

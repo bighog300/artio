@@ -223,7 +223,7 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
                 )}
                 {isAuthenticated && scope === "saved" ? (
                   <a
-                    href="/api/calendar-events/saved"
+                    href="/api/calendar-events/saved/ical"
                     className="rounded border px-3 py-1 text-sm"
                     title="Subscribe to your saved events calendar feed"
                   >

@@ -88,7 +88,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
       <PersonalSection
         title="Your feed"
         description="Upcoming events from your followed artists and venues."
-        actions={<Link className="text-sm underline" href="/api/calendar-events/saved">Subscribe to your saved events calendar</Link>}
+        actions={<Link className="text-sm underline" href="/api/calendar-events/saved/ical">Subscribe to your saved events calendar</Link>}
       >
         <PersonalEventFeed items={result.items} selectedDays={String(days) as "7" | "30"} selectedType={type} hasNoFollows={hasNoFollows} />
       </PersonalSection>
