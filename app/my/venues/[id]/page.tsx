@@ -183,19 +183,21 @@ export default async function MyVenueEditPage({
                       <p className="font-medium">{event.title}</p>
                       <p className="text-xs text-muted-foreground">{event.startAt.toLocaleString()}</p>
                     </div>
-                    <div className="space-x-2 text-right">
-                      <Link className="underline" href={`/my/events/${event.id}`}>
-                        Edit
-                      </Link>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={`/my/events/${event.id}`}>Edit</Link>
+                      </Button>
                       {event.isPublished && event.slug ? (
-                        <Link className="underline" href={`/events/${event.slug}`}>
-                          View Public
-                        </Link>
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/events/${event.slug}`}>View public</Link>
+                        </Button>
                       ) : null}
                       {canCheckIn ? (
-                        <Link className="underline" href={`/my/venues/${venueId}/checkin/${event.id}`}>
-                          Check in
-                        </Link>
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/my/venues/${venueId}/checkin/${event.id}`}>
+                            Check in
+                          </Link>
+                        </Button>
                       ) : null}
                     </div>
                   </li>

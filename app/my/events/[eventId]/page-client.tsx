@@ -8,10 +8,6 @@ import { enqueueToast } from "@/lib/toast";
 import { FeaturedEventImagePanel } from "@/app/my/events/_components/FeaturedEventImagePanel";
 import { EVENT_TYPE_OPTIONS, type EventTypeOption, getEventTypeLabel } from "@/lib/event-types";
 
-function toUtcDatetimeLocal(isoString: string): string {
-  return isoString.slice(0, 16).replace("Z", "").split(".")[0]!.slice(0, 16);
-}
-
 function toLocalDatetimeInput(isoUtc: string, tz: string): string {
   return new Intl.DateTimeFormat("sv-SE", {
     timeZone: tz,
