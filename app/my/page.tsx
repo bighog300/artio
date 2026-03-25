@@ -3,6 +3,7 @@ import { redirectToLogin } from "@/lib/auth-redirect";
 import { getMyDashboard } from "@/lib/my/dashboard/get-my-dashboard";
 import NeedsAttentionPanel from "@/app/my/_components/NeedsAttentionPanel";
 import StatusTileGroups from "@/app/my/_components/StatusTileGroups";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,25 @@ export default async function MyDashboardPage({ searchParams }: { searchParams: 
       : undefined;
 
   const data = await getMyDashboard({ userId: user.id, venueId });
+  const hasAnyContent =
+    data.counts.venues.Draft > 0 || data.counts.venues.Published > 0 ||
+    data.counts.events.Draft > 0 || data.counts.events.Published > 0 ||
+    data.counts.artwork.Draft > 0 || data.counts.artwork.Published > 0;
+
+  if (!hasAnyContent) {
+    return (
+      <main className="space-y-6 p-6">
+        <EmptyState
+          title="Welcome to your publisher hub"
+          body="Start by creating a venue. Once you have a venue, you can publish events and manage your team."
+          actions={[
+            { label: "Create a venue", href: "/my/venues/new" },
+            { label: "Set up artist profile", href: "/my/artist", variant: "secondary" },
+          ]}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="space-y-6 p-6">

@@ -77,7 +77,11 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
         </p>
       </div>
 
-      <EventSetupHeader event={{ title: event.title, isPublished: event.isPublished, deletedAt: null }} submissionStatus={event.status} />
+      <EventSetupHeader
+        event={{ title: event.title, isPublished: event.isPublished, deletedAt: null }}
+        submissionStatus={event.status}
+        reviewNotes={event.reviewNotes}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="order-2 space-y-4 lg:order-1 lg:col-span-2">
