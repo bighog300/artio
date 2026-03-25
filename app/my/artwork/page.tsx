@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ActiveFiltersBar, type FilterPill } from "@/app/my/_components/ActiveFiltersBar";
 import { buildClearFiltersHref, buildRemoveFilterHref, getFirstSearchValue, toTitleCase, truncateFilterValue } from "@/app/my/_components/filter-href";
-import { MyArchiveActionButton } from "@/app/my/_components/MyArchiveActionButton";
-import { MyArtworkPublishToggleButton } from "@/app/my/_components/MyArtworkPublishToggleButton";
+import { ArtworkCardActions } from "@/app/my/artwork/_components/ArtworkCardActions";
 import { DEFAULT_CURRENCY, formatPrice } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -81,8 +80,22 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
     <main className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <form className="flex gap-2"><input name="q" defaultValue={query} className="h-9 rounded border px-2 text-sm" placeholder="Search artwork" /><Button size="sm">Search</Button></form>
-        {(["Draft", "Published", "Archived"] as const).map((chip) => <Link key={chip} className="rounded border px-2 py-1 text-xs" href={`/my/artwork?status=${chip}${chip === "Archived" ? "&showArchived=1" : ""}`}>{chip}</Link>)}
-        <Link className="rounded border px-2 py-1 text-xs" href="/my/artwork?sort=title">Sort: Title</Link>
+        {(["Draft", "Published", "Archived"] as const).map((chip) => {
+          const isActive = status?.toLowerCase() === chip.toLowerCase();
+          return (
+            <Link
+              key={chip}
+              className={isActive
+                ? "rounded border border-foreground bg-foreground px-2 py-1 text-xs text-background"
+                : "rounded border px-2 py-1 text-xs hover:bg-muted"}
+              href={`/my/artwork?status=${chip}${chip === "Archived" ? "&showArchived=1" : ""}`}
+            >
+              {chip}
+            </Link>
+          );
+        })}
+        <span className="select-none text-xs text-muted-foreground">Sort:</span>
+        <Link className="rounded border px-2 py-1 text-xs hover:bg-muted" href="/my/artwork?sort=title">Title</Link>
         <Button asChild size="sm"><Link href="/my/artwork/new">Add artwork</Link></Button>
       </div>
       <ActiveFiltersBar pills={pills} clearAllHref={buildClearFiltersHref("/my/artwork", params, ["status", "q", "query", "sort", "showArchived"], ["venueId"])} />
@@ -126,16 +139,13 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
                   .join(" · ")}
               </p>
             )}
-            <div className="mt-2 space-x-2 text-sm">
-              <Link className="underline" href={`/my/artwork/${item.id}`}>
-                Edit
-              </Link>
-              <MyArtworkPublishToggleButton artworkId={item.id} initialIsPublished={item.isPublished} status={item.status} />
-              <Link className="underline" href={`/artwork/${item.slug ?? item.id}`}>
-                View Public
-              </Link>
-              <MyArchiveActionButton entityLabel="artwork" endpointBase={`/api/my/artwork/${item.id}`} archived={!!item.deletedAt} />
-            </div>
+            <ArtworkCardActions
+              artworkId={item.id}
+              slug={item.slug ?? null}
+              isPublished={item.isPublished}
+              isArchived={!!item.deletedAt}
+              status={item.status ?? null}
+            />
           </article>
         ))}
       </div>

@@ -94,11 +94,27 @@ export function MyHeaderBar({ venues: initialVenues, hasArtistProfile: initialHa
             </DropdownMenuContent>
           </DropdownMenu>
           <Button asChild size="sm"><Link href={venueId ? `/my/events/new?venueId=${encodeURIComponent(venueId)}` : "/my/events/new"}>+ Event</Link></Button>
-          <Button asChild size="sm" variant="secondary"><Link href="/my/venues/new">+ Venue</Link></Button>
-          <Button asChild size="sm" variant="secondary"><Link href="/my/artwork/new">+ Artwork</Link></Button>
-          {!hasArtistProfile ? (
-            <Button asChild size="sm" variant="outline"><Link href="/my/artist">Create Artist Profile</Link></Button>
-          ) : null}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline">New...</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href="/my/venues/new">New venue</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/my/artwork/new">New artwork</Link>
+              </DropdownMenuItem>
+              {!hasArtistProfile ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/my/artist">Create artist profile</Link>
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

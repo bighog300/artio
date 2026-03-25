@@ -101,8 +101,22 @@ export default async function MyVenuesPage({ searchParams }: { searchParams: Ven
     <main className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <form className="flex gap-2"><input name="q" defaultValue={query} placeholder="Search venues" className="h-9 rounded border px-2 text-sm" /><Button size="sm" type="submit">Search</Button></form>
-        {(["Draft", "Submitted", "Published", "Rejected", "Archived"] as const).map((chip) => <Link key={chip} className="rounded border px-2 py-1 text-xs" href={`/my/venues?status=${chip}${chip === "Archived" ? "&showArchived=1" : ""}`}>{chip}</Link>)}
-        <Link className="rounded border px-2 py-1 text-xs" href="/my/venues?sort=name">Sort: Name</Link>
+        {(["Draft", "Submitted", "Published", "Rejected", "Archived"] as const).map((chip) => {
+          const isActive = status?.toLowerCase() === chip.toLowerCase();
+          return (
+            <Link
+              key={chip}
+              className={isActive
+                ? "rounded border border-foreground bg-foreground px-2 py-1 text-xs text-background"
+                : "rounded border px-2 py-1 text-xs hover:bg-muted"}
+              href={`/my/venues?status=${chip}${chip === "Archived" ? "&showArchived=1" : ""}`}
+            >
+              {chip}
+            </Link>
+          );
+        })}
+        <span className="select-none text-xs text-muted-foreground">Sort:</span>
+        <Link className="rounded border px-2 py-1 text-xs hover:bg-muted" href="/my/venues?sort=name">Name</Link>
         <Button asChild size="sm"><Link href="/my/venues/new">+ Create venue</Link></Button>
       </div>
       <ActiveFiltersBar pills={pills} clearAllHref={buildClearFiltersHref("/my/venues", params, ["status", "q", "query", "sort", "showArchived"], ["venueId"])} />

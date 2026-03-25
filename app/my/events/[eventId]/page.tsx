@@ -68,15 +68,6 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
 
   return (
     <main className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Event Setup</h1>
-        <p className="text-sm text-muted-foreground">
-          {canPublishDirectly
-            ? "Complete your event details. As a trusted publisher, you can publish directly."
-            : "Complete your event details and submit for review."}
-        </p>
-      </div>
-
       <EventSetupHeader
         event={{ title: event.title, isPublished: event.isPublished, deletedAt: null }}
         submissionStatus={event.status}

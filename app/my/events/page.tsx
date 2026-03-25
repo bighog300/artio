@@ -111,8 +111,22 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
           memberships={memberships.map((m) => ({ venueId: m.venueId, name: m.venue.name }))}
           currentVenueId={venueId}
         />
-        {(["Draft", "Submitted", "Published", "Rejected", "Archived"] as const).map((chip) => <Link key={chip} className="rounded border px-2 py-1 text-xs" href={`/my/events?status=${chip}${chip === "Archived" ? "&showArchived=1" : ""}`}>{chip}</Link>)}
-        <Link className="rounded border px-2 py-1 text-xs" href="/my/events?sort=updated">Sort: Updated</Link>
+        {(["Draft", "Submitted", "Published", "Rejected", "Archived"] as const).map((chip) => {
+          const isActive = status?.toLowerCase() === chip.toLowerCase();
+          return (
+            <Link
+              key={chip}
+              className={isActive
+                ? "rounded border border-foreground bg-foreground px-2 py-1 text-xs text-background"
+                : "rounded border px-2 py-1 text-xs hover:bg-muted"}
+              href={`/my/events?status=${chip}${chip === "Archived" ? "&showArchived=1" : ""}`}
+            >
+              {chip}
+            </Link>
+          );
+        })}
+        <span className="select-none text-xs text-muted-foreground">Sort:</span>
+        <Link className="rounded border px-2 py-1 text-xs hover:bg-muted" href="/my/events?sort=updated">Updated</Link>
         <Button asChild size="sm"><Link href="/my/events/new">+ Create event</Link></Button>
       </div>
       <ActiveFiltersBar pills={pills} clearAllHref={buildClearFiltersHref("/my/events", params, ["status", "q", "query", "sort", "dateFrom", "dateTo", "showArchived"], ["venueId"])} />
