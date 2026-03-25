@@ -3,12 +3,12 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminImageUpload from "@/app/(admin)/admin/_components/AdminImageUpload";
-import { uploadToBlob } from "@/lib/admin-upload";
+import { uploadImageAssetWithAutoFinalize } from "@/lib/assets/client-upload";
 import { validateImageFile } from "@/lib/image-validate";
 import { enqueueToast } from "@/lib/toast";
 
 type EntityType = "event" | "venue" | "artist";
-type GalleryItem = { id: string; url: string; alt: string | null; sortOrder: number; isPrimary: boolean };
+type GalleryItem = { id: string; url: string; alt: string | null; sortOrder: number; isPrimary: boolean; assetId?: string | null };
 type BulkUploadStatus = "queued" | "validating" | "uploading" | "saving" | "done" | "error";
 type BulkUploadItem = { id: string; fileName: string; progress: number; status: BulkUploadStatus; message?: string };
 
@@ -50,7 +50,7 @@ export default function ImageGalleryManager({ entityType, entityId, initialItems
     void fetchImages();
   }, [fetchImages, initialItems]);
 
-  async function createImage(payload: { url: string; alt?: string | null; setPrimary?: boolean }) {
+  async function createImage(payload: { assetId?: string | null; url?: string | null; alt?: string | null; setPrimary?: boolean }) {
     const res = await fetch(basePath, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -92,15 +92,17 @@ export default function ImageGalleryManager({ entityType, entityId, initialItems
 
       try {
         updateQueue({ status: "uploading", progress: 0 });
-        const uploaded = await uploadToBlob(file, {
-          targetType: entityType,
-          targetId: entityId,
-          role: "gallery",
-          onUploadProgress: (percentage) => updateQueue({ progress: percentage }),
+        const uploaded = await uploadImageAssetWithAutoFinalize(file, {
+          preset: "landscape",
+          onStatusChange: (status) => {
+            if (status === "uploading") updateQueue({ progress: 30 });
+            if (status === "processing") updateQueue({ progress: 80 });
+            if (status === "ready") updateQueue({ progress: 100 });
+          },
         });
 
         updateQueue({ status: "saving", progress: 100 });
-        const nextItem = await createImage({ url: uploaded.url, alt: "" });
+        const nextItem = await createImage({ assetId: uploaded.assetId, url: uploaded.url, alt: "" });
         updateQueue({ status: "done", progress: 100, message: nextItem.id });
       } catch (uploadError) {
         const message = uploadError instanceof Error ? uploadError.message : "Upload failed";
@@ -112,11 +114,11 @@ export default function ImageGalleryManager({ entityType, entityId, initialItems
     setIsBulkUploading(false);
   }
 
-  async function replaceImage(id: string, url: string) {
+  async function replaceImage(id: string, upload: { assetId: string; url: string }) {
     const prev = items;
     setBusyId(id);
-    setItems((curr) => curr.map((item) => (item.id === id ? { ...item, url } : item)));
-    const res = await fetch(`${basePath}/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ url }) });
+    setItems((curr) => curr.map((item) => (item.id === id ? { ...item, assetId: upload.assetId, url: upload.url } : item)));
+    const res = await fetch(`${basePath}/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ assetId: upload.assetId, url: upload.url }) });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
       setItems(prev);
@@ -282,7 +284,7 @@ export default function ImageGalleryManager({ entityType, entityId, initialItems
                   role="gallery"
                   mode="standalone"
                   title="Upload replacement"
-                  onUploaded={(url) => void replaceImage(item.id, url)}
+                  onUploaded={(upload) => void replaceImage(item.id, upload)}
                 />
               ) : null}
               <div className="flex gap-2">

@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { uploadToBlob } from "@/lib/admin-upload";
+import { uploadImageAssetWithAutoFinalize } from "@/lib/assets/client-upload";
 import { validateImageFile } from "@/lib/image-validate";
 
 type Props = {
   targetType: "event" | "artist" | "venue";
   targetId: string;
   role: "featured" | "gallery";
-  onUploaded: (url: string) => void;
+  onUploaded: (result: { assetId: string; url: string }) => void;
   multiple?: boolean;
   mode?: "default" | "standalone";
   title?: string;
@@ -25,6 +25,7 @@ export default function AdminImageUpload({
 }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [phase, setPhase] = useState<"uploading" | "processing" | "ready" | "failed" | null>(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +36,7 @@ export default function AdminImageUpload({
     setError(null);
     setProgress(0);
     setIsUploading(true);
+    setPhase("uploading");
 
     try {
       for (let index = 0; index < nextFiles.length; index += 1) {
@@ -45,19 +47,23 @@ export default function AdminImageUpload({
           continue;
         }
 
-        const result = await uploadToBlob(file, {
-          targetType,
-          targetId,
-          role,
-          onUploadProgress: (percentage) => setProgress(((index + percentage / 100) / nextFiles.length) * 100),
+        const result = await uploadImageAssetWithAutoFinalize(file, {
+          preset: role === "featured" ? "hero" : "landscape",
+          onStatusChange: (status) => {
+            setPhase(status);
+            if (status === "uploading") setProgress(((index + 0.2) / nextFiles.length) * 100);
+            if (status === "processing") setProgress(((index + 0.8) / nextFiles.length) * 100);
+            if (status === "ready") setProgress(((index + 1) / nextFiles.length) * 100);
+          },
         });
 
-        onUploaded(result.url);
+        onUploaded({ assetId: result.assetId, url: result.url });
       }
 
       setFiles([]);
       setProgress(100);
     } catch (uploadError) {
+      setPhase("failed");
       setError(uploadError instanceof Error ? uploadError.message : "Upload failed");
     } finally {
       setIsUploading(false);
@@ -91,8 +97,9 @@ export default function AdminImageUpload({
           {isUploading ? `Uploading ${Math.round(progress)}%` : `Upload${files.length > 1 ? ` (${files.length})` : ""}`}
         </button>
       ) : isUploading ? (
-        <p className="text-xs text-muted-foreground">Uploading {Math.round(progress)}%</p>
+        <p className="text-xs text-muted-foreground">{phase === "processing" ? "Processing image…" : "Uploading"} {Math.round(progress)}%</p>
       ) : null}
+      {phase === "ready" && !isUploading ? <p className="text-xs text-emerald-700">Ready</p> : null}
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
     </div>
   );

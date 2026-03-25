@@ -1,5 +1,6 @@
 import { del } from "@vercel/blob";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import type { Asset } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/assets";
@@ -18,6 +19,7 @@ type SessionUser = { id: string };
 type VenueImageRecord = {
   id: string;
   venueId: string;
+  assetId?: string | null;
   url: string;
   alt: string | null;
   sortOrder: number;
@@ -28,7 +30,8 @@ type HandleDeps = {
   requireAuth: () => Promise<SessionUser>;
   requireVenueMembership: (userId: string, venueId: string) => Promise<void>;
   findMaxSortOrder: (venueId: string) => Promise<number | null>;
-  createVenueImage: (input: { venueId: string; url: string; alt: string | null; sortOrder: number }) => Promise<VenueImageRecord>;
+  findAssetById?: (assetId: string) => Promise<Pick<Asset, "id" | "url" | "width" | "height" | "mime" | "mimeType" | "sizeBytes" | "byteSize"> | null>;
+  createVenueImage: (input: { venueId: string; assetId: string | null; url: string; alt: string | null; sortOrder: number; width?: number | null; height?: number | null; contentType?: string | null; sizeBytes?: number | null }) => Promise<VenueImageRecord>;
   findVenueImageForUser: (imageId: string, userId: string) => Promise<VenueImageRecord | null>;
   updateVenueImageAlt: (imageId: string, alt: string | null) => Promise<VenueImageRecord>;
   findVenueImageIds: (venueId: string, imageIds: string[]) => Promise<string[]>;
@@ -40,7 +43,7 @@ type HandleDeps = {
 };
 
 function mapImage(image: VenueImageRecord) {
-  return { id: image.id, url: image.url, alt: image.alt, sortOrder: image.sortOrder };
+  return { id: image.id, assetId: image.assetId ?? null, url: image.url, alt: image.alt, sortOrder: image.sortOrder };
 }
 
 function withNoStore(response: NextResponse) {
@@ -113,7 +116,7 @@ export async function handleVenueImageUploadUrl(
 export async function handleCreateVenueImage(
   req: NextRequest,
   params: Promise<{ id: string }>,
-  deps: Pick<HandleDeps, "requireAuth" | "requireVenueMembership" | "findMaxSortOrder" | "createVenueImage">,
+  deps: Pick<HandleDeps, "requireAuth" | "requireVenueMembership" | "findMaxSortOrder" | "findAssetById" | "createVenueImage">,
 ) {
   try {
     const parsedId = await parseVenueId(params);
@@ -134,11 +137,23 @@ export async function handleCreateVenueImage(
     }
 
     const maxSortOrder = await deps.findMaxSortOrder(parsedId.venueId);
+    let resolvedAsset: Awaited<ReturnType<NonNullable<HandleDeps["findAssetById"]>>> | null = null;
+    if (parsedBody.data.assetId) {
+      resolvedAsset = await deps.findAssetById?.(parsedBody.data.assetId) ?? null;
+      if (!resolvedAsset) {
+        return withNoStore(apiError(400, "invalid_request", "Asset not found"));
+      }
+    }
     const image = await deps.createVenueImage({
       venueId: parsedId.venueId,
-      url: parsedBody.data.url,
+      assetId: parsedBody.data.assetId ?? null,
+      url: resolvedAsset?.url ?? parsedBody.data.url ?? "",
       alt: parsedBody.data.alt ?? null,
       sortOrder: (maxSortOrder ?? -1) + 1,
+      width: resolvedAsset?.width ?? null,
+      height: resolvedAsset?.height ?? null,
+      contentType: resolvedAsset?.mime ?? resolvedAsset?.mimeType ?? null,
+      sizeBytes: resolvedAsset?.sizeBytes ?? resolvedAsset?.byteSize ?? null,
     });
 
     return withNoStore(NextResponse.json({ image: mapImage(image) }, { status: 201, headers: NO_STORE_HEADERS }));

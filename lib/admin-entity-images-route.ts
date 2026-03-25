@@ -8,6 +8,7 @@ import { isAdminImageAltRequired } from "@/lib/admin-policy";
 
 export type AdminImageItem = {
   id: string;
+  assetId?: string | null;
   url: string;
   alt: string | null;
   width: number | null;
@@ -53,8 +54,8 @@ async function ensureEntityExists(tx: Tx, entityType: AdminEntityType, entityId:
   return tx.artist.findUnique({ where: { id: entityId }, select: { id: true } });
 }
 
-function mapImage(row: { id: string; url: string; alt: string | null; width?: number | null; height?: number | null; contentType?: string | null; sizeBytes?: number | null; sortOrder: number; isPrimary: boolean }): AdminImageItem {
-  return { id: row.id, url: row.url, alt: row.alt, width: row.width ?? null, height: row.height ?? null, contentType: row.contentType ?? null, sizeBytes: row.sizeBytes ?? null, sortOrder: row.sortOrder, isPrimary: row.isPrimary };
+function mapImage(row: { id: string; assetId?: string | null; url: string; alt: string | null; width?: number | null; height?: number | null; contentType?: string | null; sizeBytes?: number | null; sortOrder: number; isPrimary: boolean }): AdminImageItem {
+  return { id: row.id, assetId: row.assetId ?? null, url: row.url, alt: row.alt, width: row.width ?? null, height: row.height ?? null, contentType: row.contentType ?? null, sizeBytes: row.sizeBytes ?? null, sortOrder: row.sortOrder, isPrimary: row.isPrimary };
 }
 
 async function listImages(tx: Tx, entityType: AdminEntityType, entityId: string) {
@@ -63,14 +64,13 @@ async function listImages(tx: Tx, entityType: AdminEntityType, entityId: string)
   return tx.artistImage.findMany({ where: { artistId: entityId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
 }
 
-async function updateFeaturedImageUrl(tx: Tx, entityType: AdminEntityType, entityId: string, url: string | null) {
+async function updateFeaturedImage(tx: Tx, entityType: AdminEntityType, entityId: string, payload: { featuredAssetId: string | null; featuredImageUrl: string | null }) {
   if (entityType === "event") return;
   if (entityType === "venue") {
-    // This path is URL-backed only; featuredAssetId is intentionally cleared here.
-    await tx.venue.update({ where: { id: entityId }, data: { featuredImageUrl: url, featuredAssetId: null } });
+    await tx.venue.update({ where: { id: entityId }, data: payload });
     return;
   }
-  await tx.artist.update({ where: { id: entityId }, data: { featuredImageUrl: url, featuredAssetId: null } });
+  await tx.artist.update({ where: { id: entityId }, data: payload });
 }
 
 async function setAllPrimaryFalse(tx: Tx, entityType: AdminEntityType, entityId: string) {
@@ -117,7 +117,8 @@ export async function getAdminEntityImages(entityType: AdminEntityType, entityId
 export async function addAdminEntityImage(input: {
   entityType: AdminEntityType;
   entityId: string;
-  url: string;
+  assetId?: string | null;
+  url?: string | null;
   alt?: string | null;
   makePrimary?: boolean;
   setPrimary?: boolean;
@@ -129,7 +130,7 @@ export async function addAdminEntityImage(input: {
   actorEmail: string;
   req: Request;
 }) {
-  const { entityType, entityId, url, alt, makePrimary, setPrimary, contentType, width, height, sizeBytes, size, actorEmail, req } = input;
+  const { entityType, entityId, url, assetId, alt, makePrimary, setPrimary, contentType, width, height, sizeBytes, size, actorEmail, req } = input;
   const created = await db.$transaction(async (tx) => {
     const entity = await ensureEntityExists(tx, entityType, entityId);
     if (!entity) return null;
@@ -140,14 +141,29 @@ export async function addAdminEntityImage(input: {
 
     if (shouldBePrimary) await setAllPrimaryFalse(tx, entityType, entityId);
 
-    const createData = { url, alt: alt ?? null, contentType: contentType ?? null, width: width ?? null, height: height ?? null, sizeBytes: sizeBytes ?? size ?? null, sortOrder: nextSortOrder, isPrimary: shouldBePrimary };
-    const item = entityType === "event"
-      ? await tx.eventImage.create({ data: { ...createData, eventId: entityId } })
-      : entityType === "venue"
-        ? await tx.venueImage.create({ data: { ...createData, venueId: entityId } })
-        : await tx.artistImage.create({ data: { ...createData, artistId: entityId } });
+    const sourceAsset = assetId ? await tx.asset.findUnique({ where: { id: assetId }, select: { id: true, url: true, width: true, height: true, mime: true, mimeType: true, sizeBytes: true, byteSize: true } }) : null;
+    if (assetId && !sourceAsset) return null;
+    const resolvedAssetId = sourceAsset?.id ?? null;
+    const resolvedUrl = sourceAsset?.url ?? url ?? null;
+    if (!resolvedUrl) return null;
 
-    if (shouldBePrimary) await updateFeaturedImageUrl(tx, entityType, entityId, item.url);
+    const createData = { url: resolvedUrl, alt: alt ?? null, contentType: contentType ?? null, width: width ?? null, height: height ?? null, sizeBytes: sizeBytes ?? size ?? null, sortOrder: nextSortOrder, isPrimary: shouldBePrimary };
+    const createDataWithAsset = {
+      ...createData,
+      assetId: resolvedAssetId,
+      url: resolvedUrl,
+      contentType: sourceAsset?.mime ?? sourceAsset?.mimeType ?? createData.contentType,
+      width: sourceAsset?.width ?? createData.width,
+      height: sourceAsset?.height ?? createData.height,
+      sizeBytes: sourceAsset?.sizeBytes ?? sourceAsset?.byteSize ?? createData.sizeBytes,
+    };
+    const item = entityType === "event"
+      ? await tx.eventImage.create({ data: { ...createDataWithAsset, eventId: entityId } })
+      : entityType === "venue"
+        ? await tx.venueImage.create({ data: { ...createDataWithAsset, venueId: entityId } })
+        : await tx.artistImage.create({ data: { ...createDataWithAsset, artistId: entityId } });
+
+    if (shouldBePrimary) await updateFeaturedImage(tx, entityType, entityId, { featuredAssetId: item.assetId ?? null, featuredImageUrl: item.assetId ? null : item.url });
     return mapImage(item);
   });
 
@@ -169,6 +185,7 @@ export async function patchAdminEntityImage(input: {
   entityType: AdminEntityType;
   entityId: string;
   imageId: string;
+  assetId?: string | null;
   url?: string;
   alt?: string | null;
   isPrimary?: true;
@@ -180,7 +197,7 @@ export async function patchAdminEntityImage(input: {
   actorEmail: string;
   req: Request;
 }) {
-  const { entityType, entityId, imageId, url, alt, isPrimary, contentType, width, height, sizeBytes, size, actorEmail, req } = input;
+  const { entityType, entityId, imageId, assetId, url, alt, isPrimary, contentType, width, height, sizeBytes, size, actorEmail, req } = input;
 
   const setPrimaryAttempt = async () => db.$transaction(async (tx) => {
     const entity = await ensureEntityExists(tx, entityType, entityId);
@@ -195,15 +212,20 @@ export async function patchAdminEntityImage(input: {
     if (!image) return { type: "image_not_found" as const };
 
     const oldUrl = image.url;
+    const sourceAsset = assetId ? await tx.asset.findUnique({ where: { id: assetId }, select: { id: true, url: true, width: true, height: true, mime: true, mimeType: true, sizeBytes: true, byteSize: true } }) : null;
+    if (assetId && !sourceAsset) return { type: "asset_not_found" as const };
+
     let next = image;
-    if (url !== undefined || alt !== undefined || contentType !== undefined || width !== undefined || height !== undefined || sizeBytes !== undefined || size !== undefined) {
-      const data: { url?: string; alt?: string | null; contentType?: string | null; width?: number | null; height?: number | null; sizeBytes?: number | null } = {};
+    if (url !== undefined || assetId !== undefined || alt !== undefined || contentType !== undefined || width !== undefined || height !== undefined || sizeBytes !== undefined || size !== undefined) {
+      const data: { assetId?: string | null; url?: string; alt?: string | null; contentType?: string | null; width?: number | null; height?: number | null; sizeBytes?: number | null } = {};
+      if (assetId !== undefined) data.assetId = sourceAsset?.id ?? null;
+      if (sourceAsset?.url) data.url = sourceAsset.url;
       if (url !== undefined) data.url = url;
       if (alt !== undefined) data.alt = alt;
-      if (contentType !== undefined) data.contentType = contentType;
-      if (width !== undefined) data.width = width;
-      if (height !== undefined) data.height = height;
-      if (sizeBytes !== undefined || size !== undefined) data.sizeBytes = sizeBytes ?? size;
+      if (contentType !== undefined || sourceAsset) data.contentType = sourceAsset?.mime ?? sourceAsset?.mimeType ?? contentType ?? null;
+      if (width !== undefined || sourceAsset) data.width = sourceAsset?.width ?? width ?? null;
+      if (height !== undefined || sourceAsset) data.height = sourceAsset?.height ?? height ?? null;
+      if (sizeBytes !== undefined || size !== undefined || sourceAsset) data.sizeBytes = sourceAsset?.sizeBytes ?? sourceAsset?.byteSize ?? sizeBytes ?? size ?? null;
 
       next = entityType === "event"
         ? await tx.eventImage.update({ where: { id: imageId }, data })
@@ -221,10 +243,10 @@ export async function patchAdminEntityImage(input: {
     }
 
     if (next.isPrimary) {
-      await updateFeaturedImageUrl(tx, entityType, entityId, next.url);
+      await updateFeaturedImage(tx, entityType, entityId, { featuredAssetId: next.assetId ?? null, featuredImageUrl: next.assetId ? null : next.url });
     }
 
-    return { type: "ok" as const, item: mapImage(next), oldUrl };
+    return { type: "ok" as const, item: mapImage(next), oldUrl, oldAssetId: image.assetId ?? null };
   });
 
   let updated: Awaited<ReturnType<typeof setPrimaryAttempt>>;
@@ -247,6 +269,7 @@ export async function patchAdminEntityImage(input: {
 
   if (updated.type === "entity_not_found") return apiError(404, "not_found", entityConfig[entityType].parentNotFoundMessage);
   if (updated.type === "image_not_found") return apiError(404, "not_found", "Image not found");
+  if (updated.type === "asset_not_found") return apiError(400, "invalid_request", "Asset not found");
   if (updated.type === "alt_required") return apiError(400, "invalid_request", "alt_required");
 
   const action = url ? `admin.${entityType}.image.replace` : isPrimary ? `admin.${entityType}.image.set_primary` : `admin.${entityType}.image.update`;
@@ -259,7 +282,7 @@ export async function patchAdminEntityImage(input: {
     req,
   });
 
-  if (url && updated.oldUrl !== updated.item.url) {
+  if ((url || assetId) && !updated.oldAssetId && updated.oldUrl !== updated.item.url) {
     await deleteBlobByUrl(updated.oldUrl).catch(() => undefined);
   }
 
@@ -340,16 +363,18 @@ export async function deleteAdminEntityImage(input: {
       if (nextPrimary) {
         await setPrimaryImageById(tx, entityType, nextPrimary.id);
       }
-      await updateFeaturedImageUrl(tx, entityType, entityId, nextPrimary?.url ?? null);
+      await updateFeaturedImage(tx, entityType, entityId, { featuredAssetId: nextPrimary?.assetId ?? null, featuredImageUrl: nextPrimary?.assetId ? null : nextPrimary?.url ?? null });
     }
 
-    return { type: "ok" as const, deletedUrl: image.url };
+    return { type: "ok" as const, deletedUrl: image.url, deletedAssetId: image.assetId ?? null };
   });
 
   if (result.type === "entity_not_found") return apiError(404, "not_found", entityConfig[entityType].parentNotFoundMessage);
   if (result.type === "image_not_found") return apiError(404, "not_found", "Image not found");
 
   await logAdminAction({ actorEmail, action: `admin.${entityType}.image.delete`, targetType: entityConfig[entityType].targetType, targetId: entityId, metadata: { imageId }, req });
-  await deleteBlobByUrl(result.deletedUrl).catch(() => undefined);
+  if (!result.deletedAssetId) {
+    await deleteBlobByUrl(result.deletedUrl).catch(() => undefined);
+  }
   return NextResponse.json({ ok: true });
 }

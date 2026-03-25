@@ -8,6 +8,7 @@ import { db } from "../lib/db";
 type VenueImageRow = {
   id: string;
   venueId: string;
+  assetId: string | null;
   url: string;
   alt: string | null;
   width: number | null;
@@ -68,6 +69,7 @@ function setupVenueImagesHarness() {
         const row = {
           id: `img-${idCounter++}`,
           venueId: data.venueId,
+          assetId: data.assetId ?? null,
           url: data.url,
           alt: data.alt,
           width: data.width ?? null,
@@ -91,6 +93,14 @@ function setupVenueImagesHarness() {
         const idx = images.findIndex((x) => x.id === where.id);
         const [removed] = images.splice(idx, 1);
         return removed;
+      },
+    },
+    asset: {
+      findUnique: async ({ where }: any) => {
+        if (where.id === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa") {
+          return { id: where.id, url: "https://cdn.example.com/asset.jpg", width: 900, height: 600, mime: "image/jpeg", mimeType: null, sizeBytes: 4096, byteSize: null };
+        }
+        return null;
       },
     },
   });
@@ -126,6 +136,24 @@ test("reorder rejects stale/malformed payloads with strict validation", async ()
 
   assert.equal(duplicateId.status, 400);
   assert.equal((await duplicateId.json()).error.message, "Order payload must include every image id exactly once.");
+});
+
+test("create with assetId persists asset linkage and updates featuredAssetId", async () => {
+  const { venue, images } = setupVenueImagesHarness();
+
+  const response = await addAdminEntityImage({
+    entityType: "venue",
+    entityId: venue.id,
+    assetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    actorEmail: "admin@example.com",
+    req: new Request("http://localhost"),
+  });
+
+  assert.equal(response.status, 201);
+  assert.equal(images[0]?.assetId, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+  assert.equal(images[0]?.url, "https://cdn.example.com/asset.jpg");
+  assert.equal(venue.featuredAssetId, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+  assert.equal(venue.featuredImageUrl, null);
 });
 
 test("replace updates URL while preserving order/primary and writes audit metadata", async () => {

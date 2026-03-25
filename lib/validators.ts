@@ -251,9 +251,14 @@ export const collectionPageQuerySchema = z.object({
 });
 
 export const venueImageCreateSchema = z.object({
-  url: httpUrlSchema,
+  assetId: z.string().uuid().optional().nullable(),
+  url: httpUrlSchema.optional().nullable(),
   key: z.string().trim().min(1).max(400).optional(),
   alt: z.string().trim().max(300).optional().nullable(),
+}).superRefine((data, ctx) => {
+  if (!data.assetId && !data.url) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["url"], message: "Either assetId or url is required" });
+  }
 });
 
 export const venueImageUpdateSchema = z.object({
@@ -277,7 +282,8 @@ export const venueCoverPatchSchema = z.object({
 
 
 export const adminEntityImageCreateSchema = z.object({
-  url: httpUrlSchema,
+  assetId: z.string().uuid().optional().nullable(),
+  url: httpUrlSchema.optional().nullable(),
   alt: z.string().trim().max(300).optional().nullable(),
   makePrimary: z.boolean().optional(),
   setPrimary: z.boolean().optional(),
@@ -288,9 +294,14 @@ export const adminEntityImageCreateSchema = z.object({
   size: z.number().int().positive().max(20 * 1024 * 1024).optional(),
 }).refine((data) => !(data.makePrimary !== undefined && data.setPrimary !== undefined), {
   message: "Provide only one of makePrimary or setPrimary",
+}).superRefine((data, ctx) => {
+  if (!data.assetId && !data.url) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["url"], message: "Either assetId or url is required" });
+  }
 });
 
 export const adminEntityImagePatchSchema = z.object({
+  assetId: z.string().uuid().optional().nullable(),
   url: httpsUrlSchema.optional(),
   alt: z.string().trim().max(300).optional().nullable(),
   contentType: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
@@ -299,7 +310,7 @@ export const adminEntityImagePatchSchema = z.object({
   sizeBytes: z.number().int().positive().max(20 * 1024 * 1024).optional(),
   size: z.number().int().positive().max(20 * 1024 * 1024).optional(),
   isPrimary: z.literal(true).optional(),
-}).refine((data) => data.alt !== undefined || data.isPrimary === true || data.url !== undefined || data.contentType !== undefined || data.width !== undefined || data.height !== undefined || data.sizeBytes !== undefined || data.size !== undefined, {
+}).refine((data) => data.alt !== undefined || data.isPrimary === true || data.url !== undefined || data.assetId !== undefined || data.contentType !== undefined || data.width !== undefined || data.height !== undefined || data.sizeBytes !== undefined || data.size !== undefined, {
   message: "At least one field must be provided",
 });
 

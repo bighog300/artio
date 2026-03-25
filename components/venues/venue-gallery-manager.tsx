@@ -3,8 +3,8 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { upload } from "@vercel/blob/client";
 import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
+import { uploadImageAssetWithAutoFinalize } from "@/lib/assets/client-upload";
 import { ASSET_PIPELINE_CONFIG } from "@/lib/assets/config";
 import { enqueueToast } from "@/lib/toast";
 
@@ -25,6 +25,7 @@ export function VenueGalleryManager({
   const [images, setImages] = useState<VenueImage[]>(initialImages);
   const [coverImageUrl, setCoverImageUrl] = useState(initialCover.featuredImageUrl);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<"uploading" | "processing" | "ready" | "failed" | null>(null);
   const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
 
   const sorted = useMemo(() => [...images].sort((a, b) => a.sortOrder - b.sortOrder), [images]);
@@ -42,6 +43,7 @@ export function VenueGalleryManager({
     if (!fileList?.length) return;
     const files = Array.from(fileList);
     setIsUploading(true);
+    setUploadPhase("uploading");
 
     try {
       for (const file of files) {
@@ -54,16 +56,15 @@ export function VenueGalleryManager({
           continue;
         }
 
-        const blob = await upload(`venues/${venueId}/${Date.now()}-${file.name}`, file, {
-          access: "public",
-          handleUploadUrl: `/api/my/venues/${venueId}/images/upload-url`,
-          clientPayload: JSON.stringify({ fileName: file.name, contentType: file.type, size: file.size }),
+        const uploaded = await uploadImageAssetWithAutoFinalize(file, {
+          preset: "landscape",
+          onStatusChange: (status) => setUploadPhase(status),
         });
 
         const createRes = await fetch(`/api/my/venues/${venueId}/images`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ url: blob.url, alt: null, key: blob.pathname }),
+          body: JSON.stringify({ assetId: uploaded.assetId, url: uploaded.url, alt: null }),
         });
 
         if (handleAuth(createRes)) return;
@@ -76,7 +77,9 @@ export function VenueGalleryManager({
         setImages((current) => [...current, data.image]);
       }
       enqueueToast({ title: "Gallery updated", variant: "success" });
+      setUploadPhase("ready");
     } catch {
+      setUploadPhase("failed");
       enqueueToast({ title: "Image upload failed", variant: "error" });
     } finally {
       setIsUploading(false);
@@ -219,6 +222,7 @@ export function VenueGalleryManager({
           disabled={isUploading}
           onChange={(event) => uploadFiles(event.target.files)}
         />
+        {uploadPhase ? <p className="text-xs text-muted-foreground">Status: {uploadPhase}</p> : null}
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">

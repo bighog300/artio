@@ -17,12 +17,46 @@ test("create venue image returns unauthorized for anonymous user", async () => {
     requireAuth: async () => { throw new Error("unauthorized"); },
     requireVenueMembership: async () => undefined,
     findMaxSortOrder: async () => 0,
-    createVenueImage: async () => ({ id: imageId, venueId, url: "https://example.com/a.jpg", alt: null, sortOrder: 1 }),
+    findAssetById: async () => null,
+    createVenueImage: async () => ({ id: imageId, venueId, assetId: null, url: "https://example.com/a.jpg", alt: null, sortOrder: 1 }),
   });
 
   assert.equal(res.status, 401);
   const body = await res.json();
   assert.equal(body.error.code, "unauthorized");
+});
+
+test("create venue image resolves assetId and stores asset-backed url", async () => {
+  const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/images`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ assetId: "33333333-3333-4333-8333-333333333333", alt: "cover" }),
+  });
+
+  const res = await handleCreateVenueImage(req, Promise.resolve({ id: venueId }), {
+    requireAuth: async () => ({ id: "user-1" }),
+    requireVenueMembership: async () => undefined,
+    findMaxSortOrder: async () => 1,
+    findAssetById: async () => ({
+      id: "33333333-3333-4333-8333-333333333333",
+      url: "https://cdn.example.com/venue.jpg",
+      width: 1200,
+      height: 800,
+      mime: "image/jpeg",
+      mimeType: null,
+      sizeBytes: 2200,
+      byteSize: null,
+    }),
+    createVenueImage: async (input) => {
+      assert.equal(input.assetId, "33333333-3333-4333-8333-333333333333");
+      assert.equal(input.url, "https://cdn.example.com/venue.jpg");
+      return { id: imageId, venueId, assetId: input.assetId, url: input.url, alt: input.alt, sortOrder: input.sortOrder };
+    },
+  });
+
+  assert.equal(res.status, 201);
+  const body = await res.json();
+  assert.equal(body.image.assetId, "33333333-3333-4333-8333-333333333333");
 });
 
 test("patch venue image returns forbidden when user is not venue member", async () => {
