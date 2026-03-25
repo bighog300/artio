@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { importApprovedArtistImage } from "@/lib/ingest/import-approved-artist-image";
 import { idParamSchema, zodDetails } from "@/lib/validators";
+import { resolveApiImageField } from "@/lib/assets/image-contract";
 
 export const runtime = "nodejs";
 
@@ -59,6 +60,7 @@ export async function POST(
     return NextResponse.json({
       attached: result.attached,
       imageUrl: result.imageUrl,
+      image: resolveApiImageField({ legacyUrl: result.imageUrl, requestedVariant: "card" }),
       warning: result.warning,
     });
   } catch (error) {

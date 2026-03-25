@@ -123,6 +123,9 @@ test("POST /api/admin/branding/logo/commit creates asset and updates settings", 
   assert.equal(state.asset?.url, "https://blob.vercel-storage.com/logo.png");
   assert.equal(state.settingsLogoAssetId, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
   assert.equal(state.deletedAssetId, "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+  const body = await res.json() as { logo?: { image?: { url: string | null; source: string } } };
+  assert.equal(body.logo?.image?.url, "https://blob.vercel-storage.com/logo.png");
+  assert.equal(body.logo?.image?.source, "asset");
 });
 
 

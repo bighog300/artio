@@ -23,6 +23,7 @@ type Candidate = {
   extractionProvider: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE";
   createdArtistId: string | null;
+  image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
   createdArtist?: {
     featuredAsset: { url: string } | null;
   } | null;
@@ -72,7 +73,7 @@ export default function ArtistsClient({
   const [importingImageFor, setImportingImageFor] = useState<string | null>(null);
   const [importedImageFor, setImportedImageFor] = useState<Set<string>>(new Set());
   const [importFailedFor, setImportFailedFor] = useState<Set<string>>(new Set());
-  const [importedImageUrlById, setImportedImageUrlById] = useState<Record<string, string>>({});
+  const [importedImageById, setImportedImageById] = useState<Record<string, { url: string | null; isProcessing?: boolean; hasFailure?: boolean }>>({});
   const [editingImageFor, setEditingImageFor] = useState<string | null>(null);
   const [editImageUrl, setEditImageUrl] = useState<Record<string, string>>({});
   const [editingImageLoading, setEditingImageLoading] = useState<string | null>(null);
@@ -195,10 +196,15 @@ export default function ArtistsClient({
         method: "POST",
       });
       if (res.ok) {
-        const body = await res.json() as { attached?: boolean; imageUrl?: string | null; warning?: string | null };
-        const importedImageUrl = body.imageUrl;
-        if (typeof importedImageUrl === "string" && importedImageUrl.length > 0) {
-          setImportedImageUrlById((prev) => ({ ...prev, [candidateId]: importedImageUrl }));
+        const body = await res.json() as {
+          attached?: boolean;
+          imageUrl?: string | null;
+          image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
+          warning?: string | null;
+        };
+        const importedImage = body.image ?? (body.imageUrl ? { url: body.imageUrl } : null);
+        if (importedImage) {
+          setImportedImageById((prev) => ({ ...prev, [candidateId]: importedImage }));
         }
         setImportedImageFor((prev) => new Set([...prev, candidateId]));
         setImportFailedFor((prev) => {
@@ -236,7 +242,7 @@ export default function ArtistsClient({
       const replaceBody = (await response.json().catch(() => ({}))) as { url?: string | null };
       const replacedImageUrl = replaceBody.url;
       if (typeof replacedImageUrl === "string" && replacedImageUrl.length > 0) {
-        setImportedImageUrlById((prev) => ({ ...prev, [candidateId]: replacedImageUrl }));
+        setImportedImageById((prev) => ({ ...prev, [candidateId]: { url: replacedImageUrl } }));
       }
       setEditImageUrl((prev) => ({ ...prev, [candidateId]: "" }));
       setEditingImageFor(null);
@@ -344,11 +350,8 @@ export default function ArtistsClient({
                   <td className="px-3 py-2">
                     <IngestImageCell
                       imageUrl={null}
-                      blobImageUrl={
-                        importedImageUrlById[candidate.id]
-                        ?? candidate.createdArtist?.featuredAsset?.url
-                        ?? null
-                      }
+                      blobImageUrl={importedImageById[candidate.id]?.url ?? candidate.createdArtist?.featuredAsset?.url ?? null}
+                      image={importedImageById[candidate.id] ?? candidate.image ?? null}
                       altText={candidate.name}
                       importStatus={
                         importedImageFor.has(candidate.id)

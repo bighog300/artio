@@ -5,7 +5,10 @@ import { enqueueToast } from "@/lib/toast";
 import { uploadBrandingLogoToBlob } from "@/lib/admin-upload";
 
 type Props = {
-  initialLogo: { assetId: string; url: string } | null;
+  initialLogo: {
+    assetId: string;
+    image: { url: string | null; isProcessing?: boolean; hasFailure?: boolean; failureMessage?: string | null };
+  } | null;
 };
 
 export default function BrandingClient({ initialLogo }: Props) {
@@ -40,8 +43,17 @@ export default function BrandingClient({ initialLogo }: Props) {
         }),
       });
       if (!response.ok) throw new Error("Commit failed");
-      const data = await response.json() as { logo: { assetId: string; url: string } };
-      setLogo(data.logo);
+      const data = await response.json() as {
+        logo: {
+          assetId: string;
+          url: string | null;
+          image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean };
+        };
+      };
+      setLogo({
+        assetId: data.logo.assetId,
+        image: data.logo.image ?? { url: data.logo.url },
+      });
       enqueueToast({ title: "Logo updated" });
     } catch (error) {
       enqueueToast({ title: "Upload failed", message: error instanceof Error ? error.message : "Please try again.", variant: "error" });
@@ -71,7 +83,9 @@ export default function BrandingClient({ initialLogo }: Props) {
       <h2 className="text-base font-medium">Site logo</h2>
       <p className="text-sm text-muted-foreground">Upload a site-wide logo (PNG or WEBP, max 2MB).</p>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {logo ? <img src={logo.url} alt="Current site logo" className="max-h-20 w-auto rounded border p-2" /> : <p className="text-sm text-muted-foreground">No logo set.</p>}
+      {logo?.image?.url ? <img src={logo.image.url} alt="Current site logo" className="max-h-20 w-auto rounded border p-2" /> : <p className="text-sm text-muted-foreground">No logo set.</p>}
+      {logo?.image?.isProcessing ? <p className="text-xs text-muted-foreground">Logo is processing…</p> : null}
+      {logo?.image?.hasFailure ? <p className="text-xs text-amber-700">Logo processing issue detected.</p> : null}
       <input
         type="file"
         accept="image/png,image/webp"

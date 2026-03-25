@@ -1,6 +1,7 @@
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import ArtistsClient from "@/app/(admin)/admin/ingest/artists/artists-client";
 import { BackfillArtistsTrigger } from "@/app/(admin)/admin/ingest/artists/backfill-trigger";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 import { getSessionUser, requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -32,7 +33,13 @@ export default async function AdminIngestArtistsPage() {
       createdArtist: {
         select: {
           featuredAsset: {
-            select: { url: true },
+            select: {
+              url: true,
+              originalUrl: true,
+              processingStatus: true,
+              processingError: true,
+              variants: { select: { variantName: true, url: true } },
+            },
           },
         },
       },
@@ -47,6 +54,14 @@ export default async function AdminIngestArtistsPage() {
     take: 50,
   });
 
+  const hydratedCandidates = candidates.map((candidate) => ({
+    ...candidate,
+    image: resolveAssetDisplay({
+      asset: candidate.createdArtist?.featuredAsset ?? null,
+      requestedVariant: "thumb",
+    }),
+  }));
+
   return (
     <>
       <AdminPageHeader
@@ -54,7 +69,7 @@ export default async function AdminIngestArtistsPage() {
         description="Pending AI-discovered artist profile candidates awaiting moderation."
       />
       <BackfillArtistsTrigger />
-      <ArtistsClient candidates={candidates} userRole={user?.role} />
+      <ArtistsClient candidates={hydratedCandidates} userRole={user?.role} />
     </>
   );
 }

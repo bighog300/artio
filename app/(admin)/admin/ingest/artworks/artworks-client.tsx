@@ -69,7 +69,7 @@ export default function ArtworksClient({
   const [importingImageFor, setImportingImageFor] = useState<string | null>(null);
   const [importedImageFor, setImportedImageFor] = useState<Set<string>>(new Set());
   const [importFailedFor, setImportFailedFor] = useState<Set<string>>(new Set());
-  const [importedImageUrlById, setImportedImageUrlById] = useState<Record<string, string>>({});
+  const [importedImageById, setImportedImageById] = useState<Record<string, { url: string | null; isProcessing?: boolean; hasFailure?: boolean }>>({});
   const [imageImportMessageById, setImageImportMessageById] = useState<Record<string, string>>({});
 
   function applyImageImportOutcome(candidateId: string, body: {
@@ -87,7 +87,7 @@ export default function ArtworksClient({
         return next;
       });
       if (body.imageUrl) {
-        setImportedImageUrlById((prev) => ({ ...prev, [candidateId]: body.imageUrl! }));
+        setImportedImageById((prev) => ({ ...prev, [candidateId]: { url: body.imageUrl! } }));
       }
       setImageImportMessageById((prev) => ({ ...prev, [candidateId]: "Image imported." }));
       return;
@@ -171,12 +171,20 @@ export default function ArtworksClient({
         method: "POST",
       });
       if (res.ok) {
-        const body = await res.json() as { attached?: boolean; imageUrl?: string | null; warning?: string | null };
+        const body = await res.json() as {
+          attached?: boolean;
+          imageUrl?: string | null;
+          image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
+          warning?: string | null;
+        };
         applyImageImportOutcome(candidateId, {
           imageImported: body.attached,
-          imageUrl: body.imageUrl,
+          imageUrl: body.image?.url ?? body.imageUrl,
           warning: body.warning,
         }, false);
+        if (body.image) {
+          setImportedImageById((prev) => ({ ...prev, [candidateId]: body.image! }));
+        }
       } else {
         setImportFailedFor((prev) => new Set([...prev, candidateId]));
       }
@@ -417,7 +425,8 @@ export default function ArtworksClient({
                   <td className="px-3 py-2">
                     <IngestImageCell
                       imageUrl={resolvedImageUrl}
-                      blobImageUrl={importedImageUrlById[candidate.id] ?? null}
+                      blobImageUrl={importedImageById[candidate.id]?.url ?? null}
+                      image={importedImageById[candidate.id] ?? null}
                       altText={candidate.title}
                       importStatus={
                         importedImageFor.has(candidate.id)

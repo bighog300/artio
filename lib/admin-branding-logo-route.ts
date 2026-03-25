@@ -2,6 +2,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
+import { resolveApiImageField } from "@/lib/assets/image-contract";
 import { getSiteSettings } from "@/lib/site-settings/get-site-settings";
 import { adminBrandingLogoCommitSchema, adminBrandingLogoUploadPayloadSchema, parseBody, zodDetails } from "@/lib/validators";
 
@@ -26,6 +27,7 @@ export async function handleAdminBrandingLogoGet(req: NextRequest, deps: Brandin
     return withNoStore(NextResponse.json({ logo: settings.logoAsset ? {
       assetId: settings.logoAsset.id,
       url: settings.logoAsset.url,
+      image: resolveApiImageField({ asset: settings.logoAsset, requestedVariant: "square", allowOriginalUrl: true }),
       contentType: settings.logoAsset.mime,
       size: settings.logoAsset.sizeBytes,
     } : null }, { headers: NO_STORE_HEADERS }));
@@ -114,7 +116,23 @@ export async function handleAdminBrandingLogoCommit(req: NextRequest, deps: Bran
       await appDb.asset.delete({ where: { id: previousAssetId } }).catch(() => null);
     }
 
-    return withNoStore(NextResponse.json({ ok: true, logo: { assetId: settings.logoAssetId, url: asset.url } }, { headers: NO_STORE_HEADERS }));
+    return withNoStore(NextResponse.json({
+      ok: true,
+      logo: {
+        assetId: settings.logoAssetId,
+        url: asset.url,
+        image: resolveApiImageField({
+          asset: {
+            url: asset.url,
+            processingStatus: null,
+            processingError: null,
+            variants: null,
+            originalUrl: null,
+          },
+          requestedVariant: "square",
+        }),
+      },
+    }, { headers: NO_STORE_HEADERS }));
   } catch (error) {
     if (error instanceof Error && error.message === "forbidden") return withNoStore(apiError(403, "forbidden", "Admin role required"));
     if (error instanceof Error && error.message === "unauthorized") return withNoStore(apiError(401, "unauthorized", "Authentication required"));
