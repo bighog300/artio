@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { CAMPAIGN_AUDIENCES, CAMPAIGN_STATUSES } from "@/lib/email/campaign-enums";
+import { CAMPAIGN_AUDIENCES, CAMPAIGN_STATUSES, CAMPAIGN_TYPES } from "@/lib/email/campaign-enums";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError } from "@/lib/api";
@@ -17,6 +17,7 @@ const campaignUpdateSchema = z.object({
   subject: z.string().trim().min(1).optional(),
   bodyHtml: z.string().min(1).optional(),
   bodyText: z.string().optional().nullable(),
+  campaignType: z.enum(CAMPAIGN_TYPES).optional(),
   audienceType: z.enum(CAMPAIGN_AUDIENCES).optional(),
   audienceFilter: z.record(z.string(), z.unknown()).optional().nullable(),
   scheduledFor: z.string().datetime().optional().nullable(),

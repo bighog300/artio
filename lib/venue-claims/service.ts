@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { VenueClaimRequestStatus, VenueClaimStatus, VenueMembershipRole } from "@prisma/client";
 
 export const CLAIM_TOKEN_TTL_MINUTES = 60;
@@ -43,6 +43,10 @@ type ClaimsDb = {
   venueMembership: {
     upsert: (args: unknown) => Promise<{ id: string }>;
     deleteMany: (args: unknown) => Promise<{ count: number }>;
+  };
+  venueClaimInvite?: {
+    findUnique: (args: unknown) => Promise<{ id: string; token: string; venueId: string; email: string; personalMessage?: string | null; expiresAt: Date; claimedAt: Date | null; claimId: string | null; venue?: { id: string; name: string; slug: string } } | null>;
+    update: (args: unknown) => Promise<{ id: string }>;
   };
   $transaction: <T>(fn: (tx: ClaimsDb) => Promise<T>) => Promise<T>;
 };
@@ -262,5 +266,63 @@ export async function approveClaim(db: ClaimsDb, claimId: string, now: Date) {
     });
 
     return claim;
+  });
+}
+
+function safeTokenMatch(expected: string, provided: string) {
+  const expectedBuffer = Buffer.from(expected);
+  const providedBuffer = Buffer.from(provided);
+  if (expectedBuffer.length !== providedBuffer.length) return false;
+  return timingSafeEqual(expectedBuffer, providedBuffer);
+}
+
+export async function getVenueClaimInviteByToken(args: { db: ClaimsDb; token: string; now?: Date }) {
+  const now = args.now ?? new Date();
+  const invite = await args.db.venueClaimInvite?.findUnique({
+    where: { token: args.token },
+    select: {
+      id: true,
+      token: true,
+      venueId: true,
+      email: true,
+      personalMessage: true,
+      expiresAt: true,
+      claimedAt: true,
+      claimId: true,
+      venue: { select: { id: true, name: true, slug: true } },
+    },
+  });
+  if (!invite || !safeTokenMatch(invite.token, args.token)) return { state: "invalid" as const };
+  if (invite.expiresAt <= now) return { state: "expired" as const };
+  if (invite.claimedAt || invite.claimId) return { state: "claimed" as const };
+  return { state: "valid" as const, invite };
+}
+
+export async function submitVenueClaimFromInvite(args: { db: ClaimsDb; token: string; userId: string; now?: Date }) {
+  const now = args.now ?? new Date();
+  return args.db.$transaction(async (tx) => {
+    const lookup = await getVenueClaimInviteByToken({ db: tx, token: args.token, now });
+    if (lookup.state !== "valid") throw new Error(lookup.state);
+
+    const claim = await tx.venueClaimRequest.create({
+      data: {
+        venueId: lookup.invite.venueId,
+        userId: args.userId,
+        roleAtVenue: "Owner",
+        message: lookup.invite.personalMessage ?? null,
+        tokenHash: null,
+        expiresAt: null,
+        status: VenueClaimRequestStatus.PENDING_VERIFICATION,
+      },
+      select: { id: true, venueId: true, status: true, expiresAt: true },
+    });
+
+    await tx.venue.update({ where: { id: lookup.invite.venueId }, data: { claimStatus: VenueClaimStatus.PENDING } });
+    await tx.venueClaimInvite?.update({
+      where: { id: lookup.invite.id },
+      data: { claimedAt: now, claimId: claim.id },
+    });
+
+    return { claimId: claim.id, venueId: claim.venueId };
   });
 }

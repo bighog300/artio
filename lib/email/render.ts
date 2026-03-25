@@ -85,6 +85,15 @@ export async function renderEmailTemplate(type: NotificationType, payload: Notif
         text: await render(React.createElement(VenueClaimRejectedEmail, payload as any), { plainText: true }),
       };
     }
+    case "VENUE_CLAIM_INVITE": {
+      const { default: VenueInviteClaimEmail, getSubject } = await import("./templates/venue-invite-claim");
+      const typedPayload = { ...(payload as any), expiresAt: new Date((payload as any).expiresAt) };
+      return {
+        subject: getSubject(typedPayload),
+        html: await render(React.createElement(VenueInviteClaimEmail, typedPayload)),
+        text: await render(React.createElement(VenueInviteClaimEmail, typedPayload), { plainText: true }),
+      };
+    }
     case "RSVP_CONFIRMED": {
       if (payload.type !== "RSVP_CONFIRMED") throw new Error("notification_template_payload_mismatch");
       const { default: RsvpConfirmationEmail, getSubject } = await import("./templates/rsvp-confirmation");

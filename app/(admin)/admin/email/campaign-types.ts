@@ -1,6 +1,7 @@
 export const CAMPAIGN_AUDIENCES = ["ALL_USERS", "VENUE_OWNERS", "ARTISTS", "NEW_USERS_7D", "CUSTOM"] as const;
 
 export type CampaignAudience = (typeof CAMPAIGN_AUDIENCES)[number];
+export type CampaignType = "BROADCAST" | "VENUE_CLAIM_INVITE";
 
 export type CampaignStatus = "DRAFT" | "SCHEDULED" | "SENDING" | "SENT" | "CANCELLED";
 
@@ -10,7 +11,9 @@ export type EmailCampaign = {
   subject: string;
   bodyHtml: string;
   bodyText: string | null;
+  campaignType: CampaignType;
   audienceType: CampaignAudience;
+  audienceFilter?: Record<string, unknown> | null;
   status: CampaignStatus;
   scheduledFor: string | null;
   sentAt: string | null;
@@ -23,4 +26,8 @@ export type EmailCampaign = {
 
 export function formatAudience(audience: CampaignAudience): string {
   return audience.toLowerCase().split("_").map((segment) => segment[0]?.toUpperCase() + segment.slice(1)).join(" ");
+}
+
+export function formatCampaignType(campaignType: CampaignType): string {
+  return campaignType === "VENUE_CLAIM_INVITE" ? "Venue claim invite" : "Broadcast";
 }
