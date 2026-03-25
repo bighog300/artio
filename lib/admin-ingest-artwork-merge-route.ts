@@ -5,6 +5,7 @@ import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
 import { importApprovedArtworkImage } from "@/lib/ingest/import-approved-artwork-image";
 import { parseBody, zodDetails } from "@/lib/validators";
+import { resolveApiImageField } from "@/lib/assets/image-contract";
 
 const paramsSchema = z.object({ id: z.string().uuid() });
 const bodySchema = z.object({ existingArtworkId: z.string().uuid() });
@@ -140,7 +141,7 @@ export async function handleAdminIngestArtworkMerge(req: NextRequest, params: { 
     return NextResponse.json({
       ...result,
       imageImported: imageImportResult.attached,
-      imageUrl: imageImportResult.imageUrl,
+      image: resolveApiImageField({ legacyUrl: imageImportResult.imageUrl, requestedVariant: "card" }),
       imageImportWarning: imageImportResult.warning,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

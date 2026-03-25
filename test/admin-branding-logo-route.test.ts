@@ -195,3 +195,35 @@ test("GET /api/admin/branding/logo returns 403 for non-admin", async () => {
 
   assert.equal(res.status, 403);
 });
+
+test("GET /api/admin/branding/logo returns structured image contract on success", async () => {
+  const req = new NextRequest("http://localhost/api/admin/branding/logo");
+  const res = await handleAdminBrandingLogoGet(req, {
+    requireAdminUser: async () => ({ email: "admin@example.com" }),
+    getSiteSettingsFn: async () => ({
+      logoAsset: {
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        url: "https://blob.vercel-storage.com/logo.png",
+        mime: "image/png",
+        sizeBytes: 2048,
+        processingStatus: null,
+        processingError: null,
+        originalUrl: null,
+        variants: [],
+      },
+    } as never),
+  });
+
+  assert.equal(res.status, 200);
+  const body = await res.json() as {
+    logo: {
+      assetId: string;
+      image: { url: string | null; source: string; isProcessing: boolean; hasFailure: boolean };
+    } | null;
+  };
+  assert.equal(body.logo?.assetId, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+  assert.equal(body.logo?.image.url, "https://blob.vercel-storage.com/logo.png");
+  assert.equal(body.logo?.image.source, "asset");
+  assert.equal(body.logo?.image.isProcessing, false);
+  assert.equal(body.logo?.image.hasFailure, false);
+});

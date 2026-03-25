@@ -65,7 +65,12 @@ test("POST merge approves candidate and sets createdArtworkId", async () => {
     artworkId: "44444444-4444-4444-8444-444444444444",
     merged: true,
     imageImported: false,
-    imageUrl: null,
+    image: {
+      hasFailure: false,
+      isProcessing: false,
+      source: "placeholder",
+      url: null,
+    },
     imageImportWarning: "image-import disabled: set AI_INGEST_IMAGE_ENABLED=1 to enable",
   });
   assert.equal(updatedCandidate?.status, "APPROVED");

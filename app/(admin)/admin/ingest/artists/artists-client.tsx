@@ -198,11 +198,10 @@ export default function ArtistsClient({
       if (res.ok) {
         const body = await res.json() as {
           attached?: boolean;
-          imageUrl?: string | null;
           image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
           warning?: string | null;
         };
-        const importedImage = body.image ?? (body.imageUrl ? { url: body.imageUrl } : null);
+        const importedImage = body.image ?? null;
         if (importedImage) {
           setImportedImageById((prev) => ({ ...prev, [candidateId]: importedImage }));
         }

@@ -47,7 +47,6 @@ export async function POST(
 
     return NextResponse.json({
       attached: result.attached,
-      imageUrl: result.imageUrl,
       image: resolveApiImageField({ legacyUrl: result.imageUrl, requestedVariant: "card" }),
       warning: result.warning,
     });

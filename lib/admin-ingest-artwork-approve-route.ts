@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthError } from "@/lib/auth";
 import { parseBody } from "@/lib/validators";
 import { z } from "zod";
+import { resolveApiImageField } from "@/lib/assets/image-contract";
 
 type ApproveArtworkDeps = {
   requireAdmin: typeof requireAdmin;
@@ -159,7 +160,7 @@ export async function handleAdminIngestArtworkApprove(
       eventId: candidate.sourceEventId,
       imageImportWarning: imageImportResult.warning,
       imageImported: imageImportResult.attached,
-      imageUrl: imageImportResult.imageUrl,
+      image: resolveApiImageField({ legacyUrl: imageImportResult.imageUrl, requestedVariant: "card" }),
       published: result.published,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

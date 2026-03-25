@@ -151,6 +151,13 @@ test("admin approval route also generates artwork slug", async () => {
   );
 
   assert.equal(response.status, 200);
+  const body = await response.json() as { image?: { source: string; url: string | null; isProcessing: boolean; hasFailure: boolean } };
+  assert.deepEqual(body.image, {
+    source: "placeholder",
+    url: null,
+    isProcessing: false,
+    hasFailure: false,
+  });
   assert.equal(calls.findUniqueSlug[0], "blue-sky");
   assert.equal(calls.artworkCreatePayloads[0]?.slug, "blue-sky");
 });

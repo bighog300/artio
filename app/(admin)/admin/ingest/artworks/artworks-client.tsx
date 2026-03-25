@@ -74,7 +74,7 @@ export default function ArtworksClient({
 
   function applyImageImportOutcome(candidateId: string, body: {
     imageImported?: boolean;
-    imageUrl?: string | null;
+    image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
     imageImportWarning?: string | null;
     warning?: string | null;
   }, markFailureWhenNotImported = true) {
@@ -86,8 +86,8 @@ export default function ArtworksClient({
         next.delete(candidateId);
         return next;
       });
-      if (body.imageUrl) {
-        setImportedImageById((prev) => ({ ...prev, [candidateId]: { url: body.imageUrl! } }));
+      if (body.image?.url) {
+        setImportedImageById((prev) => ({ ...prev, [candidateId]: body.image! }));
       }
       setImageImportMessageById((prev) => ({ ...prev, [candidateId]: "Image imported." }));
       return;
@@ -173,13 +173,12 @@ export default function ArtworksClient({
       if (res.ok) {
         const body = await res.json() as {
           attached?: boolean;
-          imageUrl?: string | null;
           image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
           warning?: string | null;
         };
         applyImageImportOutcome(candidateId, {
           imageImported: body.attached,
-          imageUrl: body.image?.url ?? body.imageUrl,
+          image: body.image,
           warning: body.warning,
         }, false);
         if (body.image) {
@@ -212,7 +211,7 @@ export default function ArtworksClient({
         artworkId?: string;
         artistId?: string;
         imageImported?: boolean;
-        imageUrl?: string | null;
+        image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
         imageImportWarning?: string | null;
       };
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
@@ -240,7 +239,7 @@ export default function ArtworksClient({
         artworkId?: string;
         artistId?: string;
         imageImported?: boolean;
-        imageUrl?: string | null;
+        image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
         imageImportWarning?: string | null;
       };
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
@@ -288,7 +287,7 @@ export default function ArtworksClient({
         artworkId?: string;
         artistId?: string;
         imageImported?: boolean;
-        imageUrl?: string | null;
+        image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
         imageImportWarning?: string | null;
       };
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));
@@ -319,7 +318,7 @@ export default function ArtworksClient({
         artworkId?: string;
         artistId?: string;
         imageImported?: boolean;
-        imageUrl?: string | null;
+        image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
         imageImportWarning?: string | null;
       };
       setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtworkId: body.artworkId ?? item.createdArtworkId, createdArtwork: body.artworkId ? { id: body.artworkId, artistId: body.artistId ?? item.createdArtwork?.artistId ?? "", artist: item.createdArtwork?.artist ?? null } : item.createdArtwork } : item));

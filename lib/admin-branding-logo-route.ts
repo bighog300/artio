@@ -12,6 +12,7 @@ type BrandingLogoDeps = {
   requireAdminUser: () => Promise<{ email: string }>;
   handleUploadFn?: typeof handleUpload;
   appDb?: typeof db;
+  getSiteSettingsFn?: typeof getSiteSettings;
 };
 
 function withNoStore(response: NextResponse) {
@@ -23,7 +24,7 @@ export async function handleAdminBrandingLogoGet(req: NextRequest, deps: Brandin
   void req;
   try {
     await deps.requireAdminUser();
-    const settings = await getSiteSettings();
+    const settings = await (deps.getSiteSettingsFn ?? getSiteSettings)();
     return withNoStore(NextResponse.json({ logo: settings.logoAsset ? {
       assetId: settings.logoAsset.id,
       url: settings.logoAsset.url,

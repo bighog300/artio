@@ -13,6 +13,15 @@ This map tracks flat image fields and compatibility upload routes that still exi
 | `avatarImageUrl` | Still actively required | Artist/profile surfaces still rely on this field for compatibility. |
 | direct `featuredAsset.url` reads | Removable after migration | New work should use `resolveAssetDisplay` / `resolveEntityPrimaryImage` to avoid bypassing variants and diagnostics. |
 
+### Confirmed removals in this sprint
+
+- Removed redundant `imageUrl` response aliases from admin ingest image import/approval/merge endpoints after migrating admin consumers to structured `image` reads:
+  - `POST /api/admin/ingest/artists/[id]/import-image`
+  - `POST /api/admin/ingest/artworks/[id]/import-image`
+  - `POST /api/admin/ingest/artworks/[id]/approve`
+  - `POST /api/admin/ingest/artworks/[id]/merge`
+- Added direct contract assertions for structured `image` on admin ingest artwork approve/merge paths and admin branding logo GET success path.
+
 ## Compatibility upload paths
 
 | Route / helper | Classification | Notes |
