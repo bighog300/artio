@@ -6,6 +6,7 @@ import { logAdminAction } from "@/lib/admin-audit";
 import { requireMyArtworkAccess } from "@/lib/my-artwork-access";
 import { idParamSchema, parseBody, zodDetails } from "@/lib/validators";
 import { z } from "zod";
+export const runtime = "nodejs";
 
 const bodySchema = z.object({ venueIds: z.array(z.string().uuid()) });
 

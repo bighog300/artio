@@ -5,6 +5,7 @@ import { isAuthError } from "@/lib/auth";
 import { logAdminAction } from "@/lib/admin-audit";
 import { requireMyArtworkAccess } from "@/lib/my-artwork-access";
 import { artworkImageCreateSchema, idParamSchema, parseBody, zodDetails } from "@/lib/validators";
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const parsedId = idParamSchema.safeParse(await params);

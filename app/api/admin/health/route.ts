@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withAdminRoute } from "@/lib/admin-route";
 import { logAdminAction } from "@/lib/admin-audit";
+export const runtime = "nodejs";
 
 async function dbStatus() {
   try {

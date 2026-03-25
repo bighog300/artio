@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth";
 import { idParamSchema, zodDetails } from "@/lib/validators";
 import { ok, parseModerationIntentBody, requireModerationAdmin } from "@/lib/admin-moderation-intent";
+export const runtime = "nodejs";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const adminCheck = await requireModerationAdmin();

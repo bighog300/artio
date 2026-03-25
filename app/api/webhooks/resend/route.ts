@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { createHash, timingSafeEqual } from "crypto";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,12 @@ function getCampaignId(event: ResendWebhookEvent) {
   return tag?.value;
 }
 
+function safeCompare(a: string, b: string): boolean {
+  const aBuf = createHash("sha256").update(a).digest();
+  const bBuf = createHash("sha256").update(b).digest();
+  return timingSafeEqual(aBuf, bBuf);
+}
+
 export async function POST(req: Request) {
   const secret = process.env.RESEND_WEBHOOK_SECRET;
   if (!secret) {
@@ -21,7 +28,7 @@ export async function POST(req: Request) {
   }
 
   const provided = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
-  if (provided !== secret) {
+  if (!provided || !safeCompare(provided, secret)) {
     return Response.json({ error: "invalid_signature" }, { status: 401 });
   }
 

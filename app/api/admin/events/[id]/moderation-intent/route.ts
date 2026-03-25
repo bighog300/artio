@@ -4,6 +4,7 @@ import { handleEventModerationIntent } from "@/lib/admin-events-moderation-inten
 import { notifySavedSearchMatches } from "@/lib/saved-searches/notify-saved-search-matches";
 import { notifyGoogleIndexing } from "@/lib/google-event-indexing";
 import { requireAdmin } from "@/lib/admin";
+export const runtime = "nodejs";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const parsedParams = await params;

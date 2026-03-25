@@ -9,6 +9,10 @@ import { publishedVenueWhere } from "@/lib/publish-status";
 export const runtime = "nodejs";
 
 export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
+  // GET only — returns follow status and follower count.
+  // Venue follow toggle is handled by POST /api/follows
+  // (not via this route). This asymmetry from the artist
+  // follow route is intentional.
   const parsed = slugParamSchema.safeParse(await params);
   if (!parsed.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsed.error));
 

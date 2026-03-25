@@ -5,6 +5,7 @@ import { deleteBlobByUrl } from "@/lib/blob-delete";
 import { logAdminAction } from "@/lib/admin-audit";
 import { requireAuth, isAuthError } from "@/lib/auth";
 import { artworkImageUpdateSchema, imageIdParamSchema, parseBody, zodDetails } from "@/lib/validators";
+export const runtime = "nodejs";
 
 async function canAccess(userId: string, role: "USER" | "EDITOR" | "ADMIN", imageId: string) {
   const image = await db.artworkImage.findUnique({ where: { id: imageId }, include: { artwork: { include: { artist: true } }, asset: true } });

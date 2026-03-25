@@ -4,6 +4,7 @@ import { z } from "zod";
 import { logAdminAction } from "@/lib/admin-audit";
 import { withAdminRoute } from "@/lib/admin-route";
 import { db } from "@/lib/db";
+export const runtime = "nodejs";
 
 const querySchema = z.object({
   name: z.string().trim().min(1).optional(),

@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { handleAdminEntityPatch } from "@/lib/admin-events-route";
 import { requireAdmin } from "@/lib/admin";
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const publishRequest = new NextRequest(req.url, {

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { handleAdminEntityPatch } from "@/lib/admin-venues-route";
 import { geocodeForVenueCreate } from "@/lib/venues/venue-geocode-flow";
 import { requireAdmin } from "@/lib/admin";
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
