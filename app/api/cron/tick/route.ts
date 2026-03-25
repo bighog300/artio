@@ -1,3 +1,5 @@
+// This route is triggered by an external uptime/ping service and is intentionally not
+// registered in vercel.json.
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { extractCronSecret, validateCronRequest } from "@/lib/cron-auth";

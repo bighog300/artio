@@ -1,3 +1,5 @@
+// This route is triggered manually and is intentionally not
+// registered in vercel.json.
 import { apiError } from "@/lib/api";
 import { requireAdmin } from "@/lib/admin";
 import { isAuthError } from "@/lib/auth";

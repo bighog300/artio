@@ -184,8 +184,17 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token }) {
+    async jwt({ token, trigger }) {
       if (!token.email) return token;
+
+      const shouldRefresh =
+        trigger === "signIn" ||
+        trigger === "update" ||
+        !token.sub ||
+        !token.role;
+
+      if (!shouldRefresh) return token;
+
       const normalizedEmail = normalizeEmail(token.email);
       const dbUser = await db.user.findUnique({ where: { email: normalizedEmail } });
       if (dbUser) {

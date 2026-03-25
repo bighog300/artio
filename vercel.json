@@ -21,6 +21,34 @@
     {
       "path": "/api/cron/ingest/discovery",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/digests/weekly",
+      "schedule": "20 2 * * 0"
+    },
+    {
+      "path": "/api/cron/editorial-notifications",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/geocode-venues",
+      "schedule": "30 4 * * *"
+    },
+    {
+      "path": "/api/cron/health",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/outbox/send",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/retention/engagement",
+      "schedule": "35 2 * * *"
+    },
+    {
+      "path": "/api/cron/sync-google-events",
+      "schedule": "0 * * * *"
     }
   ]
 }
