@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { requestArtworkPublishToggle } from "../app/my/_components/MyArtworkPublishToggleButton";
 
-test("my artwork page no longer renders a direct publish API link", () => {
+test("my artwork page uses ArtworkCardActions for card actions", () => {
   const source = readFileSync("app/my/artwork/page.tsx", "utf8");
   assert.doesNotMatch(source, /href=\{`\/api\/my\/artwork\/\$\{item\.id\}\/publish`\}/);
-  assert.match(source, /MyArtworkPublishToggleButton/);
+  assert.match(source, /ArtworkCardActions/);
 });
 
 test("publish toggle request uses PATCH with JSON body", async () => {
