@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 
 import { db } from "@/lib/db";
-import { handleAdminEntityRestore } from "@/lib/admin-entities-route";
+import { handleAdminEntityRestore } from "@/lib/admin-events-route";
 import { requireAdmin } from "@/lib/admin";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  return handleAdminEntityRestore(req, "events", await params, { requireAdminUser: requireAdmin, appDb: db });
+  return handleAdminEntityRestore(req, await params, { requireAdminUser: requireAdmin, appDb: db });
 }

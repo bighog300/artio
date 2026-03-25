@@ -3,14 +3,14 @@ import { isAuthError, requireEditor } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { adminArtistCreateSchema, parseBody, zodDetails } from "@/lib/validators";
-import { handleAdminEntityList } from "@/lib/admin-entities-route";
+import { handleAdminEntityList } from "@/lib/admin-artists-route";
 import { requireAdmin } from "@/lib/admin";
 import { isForbiddenError } from "@/lib/http-errors";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  return handleAdminEntityList(req, "artists", { requireAdminUser: requireAdmin, appDb: db });
+  return handleAdminEntityList(req, { requireAdminUser: requireAdmin, appDb: db });
 }
 
 export async function POST(req: NextRequest) {

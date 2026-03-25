@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { OutboxActionsClient } from "./outbox-actions-client";
 
@@ -9,6 +10,7 @@ function redactEmail(email: string) {
 }
 
 export default async function AdminOpsEmailPage() {
+  await requireAdmin({ redirectOnFail: true });
   const since = new Date(Date.now() - 24 * HOUR_MS);
 
   const [counts, failedRows] = await Promise.all([

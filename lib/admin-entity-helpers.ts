@@ -13,7 +13,7 @@ type AdminActor = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN"
 
 type EntityName = "venues" | "events" | "artists" | "artwork";
 
-type AdminEntitiesDeps = {
+export type AdminEntitiesDeps = {
   requireAdminUser: () => Promise<AdminActor>;
   appDb: typeof db;
 };

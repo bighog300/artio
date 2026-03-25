@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { idParamSchema, zodDetails } from "@/lib/validators";
-import { handleAdminEntityPatch } from "@/lib/admin-entities-route";
+import { handleAdminEntityPatch } from "@/lib/admin-artists-route";
 import { requireAdmin } from "@/lib/admin";
 import { withAdminRoute } from "@/lib/admin-route";
 import { logAdminAction as writeAdminAuditLog } from "@/lib/admin-audit";
@@ -10,7 +10,7 @@ import { logAdminAction as writeAdminAuditLog } from "@/lib/admin-audit";
 export const runtime = "nodejs";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  return handleAdminEntityPatch(req, "artists", await params, { requireAdminUser: requireAdmin, appDb: db });
+  return handleAdminEntityPatch(req, await params, { requireAdminUser: requireAdmin, appDb: db });
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {

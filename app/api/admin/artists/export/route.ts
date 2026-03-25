@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 
 import { db } from "@/lib/db";
-import { handleAdminEntityExport } from "@/lib/admin-entities-route";
+import { handleAdminEntityExport } from "@/lib/admin-artists-route";
 import { requireAdmin } from "@/lib/admin";
 
 export async function GET(req: NextRequest) {
-  return handleAdminEntityExport(req, "artists", { requireAdminUser: requireAdmin, appDb: db });
+  return handleAdminEntityExport(req, { requireAdminUser: requireAdmin, appDb: db });
 }

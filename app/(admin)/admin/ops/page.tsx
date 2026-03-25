@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { requireAdmin } from "@/lib/admin";
 import { getServerBaseUrl } from "@/lib/server/get-base-url";
+import { CronTriggerButtons } from "./cron-trigger-buttons";
 
 async function fetchJson(path: string, token?: string) {
   const res = await fetch(path, { cache: "no-store", headers: token ? { authorization: `Bearer ${token}` } : undefined });
@@ -8,6 +10,7 @@ async function fetchJson(path: string, token?: string) {
 }
 
 export default async function AdminOpsPage() {
+  await requireAdmin({ redirectOnFail: true });
   const baseUrl = await getServerBaseUrl();
   const health = await fetchJson(`${baseUrl}/api/health`);
   const ops = process.env.OPS_SECRET
@@ -31,9 +34,13 @@ export default async function AdminOpsPage() {
       <section className="space-x-3">
         <Link href="/admin/ops/jobs" className="underline">Open Jobs Panel</Link>
         <Link href="/admin/ops/audit" className="underline">View Admin Audit Log</Link>
-        <Link href="/api/cron/outbox/send?dryRun=1" className="underline">Run Outbox Dry Run</Link>
+        <CronTriggerButtons />
         <Link href="/admin/ops/email" className="underline">Open Outbox Monitoring</Link>
-        <Link href="/api/cron/digests/weekly?dryRun=1" className="underline">Run Digest Dry Run</Link>
+        <p className="text-xs text-muted-foreground">
+          Dry runs use the Jobs panel for authenticated triggering.
+          {" "}These buttons call the cron endpoint directly and require
+          {" "}CRON_SECRET to be configured.
+        </p>
       </section>
     </main>
   );

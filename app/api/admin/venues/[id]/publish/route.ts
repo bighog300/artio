@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { db } from "@/lib/db";
-import { handleAdminEntityPatch } from "@/lib/admin-entities-route";
+import { handleAdminEntityPatch } from "@/lib/admin-venues-route";
 import { geocodeForVenueCreate } from "@/lib/venues/venue-geocode-flow";
 import { requireAdmin } from "@/lib/admin";
 
@@ -25,5 +25,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status: "PUBLISHED" }),
   });
-  return handleAdminEntityPatch(publishRequest, "venues", { id }, { requireAdminUser: requireAdmin, appDb: db });
+  return handleAdminEntityPatch(publishRequest, { id }, { requireAdminUser: requireAdmin, appDb: db });
 }

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { db } from "@/lib/db";
-import { handleAdminEntityPatch } from "@/lib/admin-entities-route";
+import { handleAdminEntityPatch } from "@/lib/admin-events-route";
 import { requireAdmin } from "@/lib/admin";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -10,5 +10,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status: "PUBLISHED" }),
   });
-  return handleAdminEntityPatch(publishRequest, "events", await params, { requireAdminUser: requireAdmin, appDb: db });
+  return handleAdminEntityPatch(publishRequest, await params, { requireAdminUser: requireAdmin, appDb: db });
 }

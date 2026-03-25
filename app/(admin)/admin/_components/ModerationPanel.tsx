@@ -97,9 +97,12 @@ export default function ModerationPanel({
       {reasonAction ? (
         <div className="space-y-2 rounded border p-3">
           <p className="text-sm font-medium">Reason</p>
-          <textarea className="w-full rounded border p-2 text-sm" rows={4} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Add a short reason" />
+          <textarea className="w-full rounded border p-2 text-sm" rows={4} maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Add a short reason" />
+          <p className="text-right text-xs text-muted-foreground">
+            {reason.length}/1000
+          </p>
           <div className="flex gap-2">
-            <Button size="sm" onClick={() => void runAction(reasonAction, reason.trim())} disabled={Boolean(busy) || reason.trim().length < 3}>{busy === reasonAction ? "Working…" : "Submit"}</Button>
+            <Button size="sm" onClick={() => void runAction(reasonAction, reason.trim())} disabled={Boolean(busy) || reason.trim().length < 3 || reason.length > 1000}>{busy === reasonAction ? "Working…" : "Submit"}</Button>
             <Button size="sm" variant="outline" onClick={() => setReasonAction(null)} disabled={Boolean(busy)}>Cancel</Button>
           </div>
         </div>
