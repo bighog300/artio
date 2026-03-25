@@ -5,6 +5,13 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
 import { enqueueNotification } from "@/lib/notifications";
+import {
+  RATE_LIMITS,
+  enforceRateLimit,
+  isRateLimitError,
+  principalRateLimitKey,
+  rateLimitErrorResponse,
+} from "@/lib/rate-limit";
 import { parseBody, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -17,7 +24,14 @@ const claimSchema = z.object({
 const TTL_MS = 60 * 60 * 1000;
 
 function getSecret() {
-  return process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "artist-claim-dev-secret";
+  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production" || process.env.VERCEL === "1") {
+      throw new Error("AUTH_SECRET must be set in production");
+    }
+    return "artist-claim-dev-secret"; // dev/test only
+  }
+  return secret;
 }
 
 function signToken(payload: object) {
@@ -29,6 +43,11 @@ function signToken(payload: object) {
 export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: string }> }) {
   noStore();
   try {
+    await enforceRateLimit({
+      key: principalRateLimitKey(req, "public:artists:claim"),
+      ...RATE_LIMITS.publicWrite,
+    });
+
     const { slug } = await ctx.params;
     const parsed = claimSchema.safeParse(await parseBody(req));
     if (!parsed.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsed.error));
@@ -57,7 +76,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
     });
 
     return NextResponse.json({ sent: true }, { headers: { "Cache-Control": "no-store" } });
-  } catch {
+  } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }

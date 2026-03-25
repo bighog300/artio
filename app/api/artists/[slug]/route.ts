@@ -22,7 +22,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   const parsed = slugParamSchema.safeParse(await params);
   if (!parsed.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsed.error));
   const artist = await db.artist.findFirst({
-    where: { slug: parsed.data.slug, isPublished: true },
+    where: {
+      slug: parsed.data.slug,
+      isPublished: true,
+      deletedAt: null,
+    },
     select: {
       id: true,
       slug: true,
