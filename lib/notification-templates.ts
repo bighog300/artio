@@ -57,6 +57,16 @@ export type NotificationTemplatePayload =
       reason?: string | null;
     }
   | {
+      type: "VENUE_CLAIM_INVITE";
+      venueName: string;
+      venueSlug: string;
+      venueDescription?: string | null;
+      upcomingEventCount: number;
+      personalMessage?: string | null;
+      claimUrl: string;
+      expiresAt: string;
+    }
+  | {
       type: "RSVP_CONFIRMED";
       eventTitle: string;
       venueName: string;
@@ -213,6 +223,15 @@ export function buildNotification({ type, payload }: { type: NotificationType | 
       body: payload.reason ?? `Your claim for @${payload.venueSlug} was rejected.`,
       href: `/venues/${payload.venueSlug}`,
       dedupeKey: `venue-claim:${payload.venueSlug}:rejected`,
+    };
+  }
+
+  if (type === "VENUE_CLAIM_INVITE" && payload.type === "VENUE_CLAIM_INVITE") {
+    return {
+      title: `Claim your venue: ${payload.venueName}`,
+      body: `You've been invited to manage ${payload.venueName} on Artpulse.`,
+      href: payload.claimUrl,
+      dedupeKey: `venue-claim-invite:${payload.venueSlug}:${payload.expiresAt}`,
     };
   }
 

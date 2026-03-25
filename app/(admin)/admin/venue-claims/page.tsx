@@ -10,6 +10,7 @@ export default async function AdminVenueClaimsPage() {
     include: {
       venue: { select: { id: true, name: true, slug: true } },
       user: { select: { id: true, email: true } },
+      invite: { select: { id: true, personalMessage: true } },
     },
   });
 

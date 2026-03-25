@@ -82,6 +82,7 @@ enum NotificationType {
   VENUE_CLAIM_VERIFY
   VENUE_CLAIM_APPROVED
   VENUE_CLAIM_REJECTED
+  VENUE_CLAIM_INVITE
   RSVP_CONFIRMED
   RSVP_CANCELLED
   EVENT_CHANGE_NOTIFY
@@ -90,6 +91,11 @@ enum NotificationType {
   BROADCAST
   ARTWORK_INQUIRY_BUYER
   ARTWORK_INQUIRY_ARTIST
+}
+
+enum CampaignType {
+  BROADCAST
+  VENUE_CLAIM_INVITE
 }
 
 enum ArtistVenueAssociationStatus {
@@ -346,6 +352,7 @@ model User {
   pageViewEvents       PageViewEvent[]
   venueGenerationRunsTriggered VenueGenerationRun[]
   venueClaimRequests   VenueClaimRequest[]
+  venueClaimInvitesCreated VenueClaimInvite[]
   selectedHomepageImageCandidates VenueHomepageImageCandidate[]
   emailCampaignsCreated EmailCampaign[]
   registrations       Registration[]
@@ -516,6 +523,7 @@ model Venue {
   ingestRuns         IngestRun[]
   ingestExtractedEvents IngestExtractedEvent[]
   claimRequests      VenueClaimRequest[]
+  claimInvites       VenueClaimInvite[]
   generationRunItems VenueGenerationRunItem[]
   homepageImageCandidates VenueHomepageImageCandidate[]
   enrichmentLogs     VenueEnrichmentLog[]
@@ -639,9 +647,31 @@ model VenueClaimRequest {
   verifiedAt  DateTime?
   venue       Venue                   @relation(fields: [venueId], references: [id], onDelete: Cascade)
   user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invite      VenueClaimInvite?
 
   @@index([venueId])
   @@index([userId])
+}
+
+model VenueClaimInvite {
+  id              String            @id @default(uuid()) @db.Uuid
+  venueId         String            @db.Uuid
+  email           String
+  token           String            @unique
+  personalMessage String?
+  sentAt          DateTime?
+  expiresAt       DateTime
+  claimedAt       DateTime?
+  claimId         String?           @unique @db.Uuid
+  createdByUserId String            @db.Uuid
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  venue           Venue             @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  claim           VenueClaimRequest? @relation(fields: [claimId], references: [id], onDelete: SetNull)
+  createdBy       User              @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, createdAt])
+  @@index([email, createdAt])
 }
 
 model Artist {
@@ -1215,6 +1245,7 @@ model EmailCampaign {
   subject         String
   bodyHtml        String
   bodyText        String?
+  campaignType    CampaignType     @default(BROADCAST)
   audienceType    CampaignAudience
   audienceFilter  Json?
   status          CampaignStatus   @default(DRAFT)

@@ -16,6 +16,7 @@ type Claim = {
   verifiedAt: string | null;
   venue: { id: string; name: string; slug: string };
   user: { id: string; email: string };
+  invite: { id: string; personalMessage: string | null } | null;
 };
 
 type TabValue = "ALL" | VenueClaimRequestStatus;
@@ -129,6 +130,7 @@ export default function VenueClaimsClient({ claims }: { claims: Claim[] }) {
             <th>Status</th>
             <th>Role</th>
             <th>Message</th>
+            <th>Invite note</th>
             <th>Created</th>
             <th>Verified</th>
             <th>Actions</th>
@@ -143,9 +145,10 @@ export default function VenueClaimsClient({ claims }: { claims: Claim[] }) {
               <tr key={claim.id} className="border-t align-top">
                 <td className="py-2">{claim.venue.name}</td>
                 <td>{claim.user.email}</td>
-                <td>{claim.status}</td>
+                <td>{claim.status} {claim.invite ? <span className="ml-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">Via invite</span> : null}</td>
                 <td>{claim.roleAtVenue}</td>
                 <td><MessageCell message={claim.message} /></td>
+                <td><MessageCell message={claim.invite?.personalMessage ?? null} /></td>
                 <td>{new Date(claim.createdAt).toLocaleString()}</td>
                 <td>{claim.verifiedAt ? new Date(claim.verifiedAt).toLocaleString() : "—"}</td>
                 <td>

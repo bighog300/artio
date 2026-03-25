@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CAMPAIGN_AUDIENCES, type CampaignAudience, type EmailCampaign, formatAudience } from "./campaign-types";
+import { CAMPAIGN_AUDIENCES, type CampaignAudience, type CampaignType, type EmailCampaign, formatAudience } from "./campaign-types";
 
 type CampaignEditorClientProps = {
   campaignId?: string;
@@ -28,6 +28,12 @@ export default function CampaignEditorClient({ campaignId }: CampaignEditorClien
   const [subject, setSubject] = useState("");
   const [bodyHtml, setBodyHtml] = useState("<p>Hello from Artio.</p>");
   const [audienceType, setAudienceType] = useState<CampaignAudience>("ALL_USERS");
+  const [campaignType, setCampaignType] = useState<CampaignType>("BROADCAST");
+  const [venueQuery, setVenueQuery] = useState("");
+  const [venueOptions, setVenueOptions] = useState<Array<{ id: string; name: string; city: string | null; contactEmail: string | null; upcomingEventCount: number }>>([]);
+  const [selectedVenueId, setSelectedVenueId] = useState<string>("");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [personalMessage, setPersonalMessage] = useState("");
   const [scheduledEnabled, setScheduledEnabled] = useState(false);
   const [scheduledFor, setScheduledFor] = useState("");
   const [estimatedRecipients, setEstimatedRecipients] = useState<number | null>(null);
@@ -54,6 +60,12 @@ export default function CampaignEditorClient({ campaignId }: CampaignEditorClien
           setSubject(campaign.subject);
           setBodyHtml(campaign.bodyHtml);
           setAudienceType(campaign.audienceType);
+          setCampaignType(campaign.campaignType);
+          const filter = (campaign.audienceFilter ?? {}) as { venueId?: string; recipientEmail?: string; personalMessage?: string; venueName?: string };
+          setSelectedVenueId(filter.venueId ?? "");
+          setRecipientEmail(filter.recipientEmail ?? "");
+          setPersonalMessage(filter.personalMessage ?? "");
+          setVenueQuery(filter.venueName ?? "");
           setScheduledEnabled(Boolean(campaign.scheduledFor));
           setScheduledFor(toDateTimeLocal(campaign.scheduledFor));
         }
@@ -98,6 +110,37 @@ export default function CampaignEditorClient({ campaignId }: CampaignEditorClien
 
   const previewHtml = useMemo(() => bodyHtml, [bodyHtml]);
 
+  useEffect(() => {
+    if (campaignType !== "VENUE_CLAIM_INVITE") return;
+    let isMounted = true;
+
+    async function searchVenues() {
+      const query = venueQuery.trim();
+      if (!query) {
+        setVenueOptions([]);
+        return;
+      }
+      const res = await fetch(`/api/admin/email/venue-claim/venues?q=${encodeURIComponent(query)}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const body = await res.json() as { venues: Array<{ id: string; name: string; city: string | null; contactEmail: string | null; upcomingEventCount: number }> };
+      if (isMounted) setVenueOptions(body.venues);
+    }
+
+    void searchVenues();
+    return () => { isMounted = false; };
+  }, [campaignType, venueQuery]);
+
+  const selectedVenue = useMemo(
+    () => venueOptions.find((entry) => entry.id === selectedVenueId) ?? null,
+    [selectedVenueId, venueOptions],
+  );
+
+  useEffect(() => {
+    if (selectedVenue?.contactEmail && !recipientEmail) {
+      setRecipientEmail(selectedVenue.contactEmail);
+    }
+  }, [selectedVenue, recipientEmail]);
+
   async function saveCampaign(): Promise<string | undefined> {
     setSaveState("saving");
     setError(null);
@@ -106,7 +149,16 @@ export default function CampaignEditorClient({ campaignId }: CampaignEditorClien
       name,
       subject,
       bodyHtml,
+      campaignType,
       audienceType,
+      audienceFilter: campaignType === "VENUE_CLAIM_INVITE"
+        ? {
+            venueId: selectedVenueId,
+            recipientEmail: recipientEmail.trim(),
+            personalMessage: personalMessage.trim() || null,
+            venueName: selectedVenue?.name ?? venueQuery,
+          }
+        : null,
       scheduledFor: scheduledEnabled ? toIsoOrNull(scheduledFor) : null,
       status: scheduledEnabled ? "SCHEDULED" : "DRAFT",
     };
@@ -180,11 +232,23 @@ export default function CampaignEditorClient({ campaignId }: CampaignEditorClien
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1 text-sm">
+          <span className="font-medium">Campaign type</span>
+          <select
+            className="w-full rounded border bg-background p-2"
+            value={campaignType}
+            onChange={(event) => setCampaignType(event.target.value as CampaignType)}
+          >
+            <option value="BROADCAST">Broadcast</option>
+            <option value="VENUE_CLAIM_INVITE">Venue claim invite</option>
+          </select>
+        </label>
+        <label className="space-y-1 text-sm">
           <span className="font-medium">Audience</span>
           <select
             className="w-full rounded border bg-background p-2"
             value={audienceType}
             onChange={(event) => setAudienceType(event.target.value as CampaignAudience)}
+            disabled={campaignType === "VENUE_CLAIM_INVITE"}
           >
             {CAMPAIGN_AUDIENCES.map((audience) => (
               <option key={audience} value={audience}>
@@ -198,6 +262,48 @@ export default function CampaignEditorClient({ campaignId }: CampaignEditorClien
           <p className="rounded border bg-muted/20 p-2">{estimatedRecipients ?? "—"}</p>
         </div>
       </div>
+
+      {campaignType === "VENUE_CLAIM_INVITE" ? (
+        <div className="grid gap-4 rounded border p-3 md:grid-cols-2">
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Venue selector</span>
+            <input
+              className="w-full rounded border p-2"
+              list="venue-options"
+              value={venueQuery}
+              onChange={(event) => setVenueQuery(event.target.value)}
+              placeholder="Search venue name"
+            />
+            <datalist id="venue-options">
+              {venueOptions.map((venue) => (
+                <option key={venue.id} value={venue.name} />
+              ))}
+            </datalist>
+            <div className="flex flex-wrap gap-2">
+              {venueOptions.map((venue) => (
+                <button key={venue.id} type="button" className={`rounded border px-2 py-1 text-xs ${selectedVenueId === venue.id ? "bg-muted" : ""}`} onClick={() => { setSelectedVenueId(venue.id); setVenueQuery(venue.name); }}>
+                  {venue.name} {venue.city ? `(${venue.city})` : ""}
+                </button>
+              ))}
+            </div>
+          </label>
+
+          <div className="space-y-3 text-sm">
+            <label className="block space-y-1">
+              <span className="font-medium">Recipient email</span>
+              <input className="w-full rounded border p-2" value={recipientEmail} onChange={(event) => setRecipientEmail(event.target.value)} />
+            </label>
+            <label className="block space-y-1">
+              <span className="font-medium">Personal message (optional)</span>
+              <textarea maxLength={500} className="min-h-24 w-full rounded border p-2" value={personalMessage} onChange={(event) => setPersonalMessage(event.target.value)} />
+            </label>
+            <div className="rounded border bg-muted/20 p-2">
+              <p className="font-medium">Invite stats preview</p>
+              <p>Upcoming event count: {selectedVenue?.upcomingEventCount ?? "—"}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="space-y-2 rounded border p-3">
         <label className="flex items-center gap-2 text-sm">
@@ -229,10 +335,10 @@ export default function CampaignEditorClient({ campaignId }: CampaignEditorClien
       </details>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={saveCampaign} disabled={!name || !subject || !bodyHtml || saveState === "saving"}>
+        <Button onClick={saveCampaign} disabled={!name || !subject || !bodyHtml || saveState === "saving" || (campaignType === "VENUE_CLAIM_INVITE" && (!selectedVenueId || !recipientEmail.trim()))}>
           {saveState === "saving" ? "Saving…" : "Save draft"}
         </Button>
-        <Button variant="secondary" onClick={sendCampaign} disabled={!name || !subject || !bodyHtml}>
+        <Button variant="secondary" onClick={sendCampaign} disabled={!name || !subject || !bodyHtml || (campaignType === "VENUE_CLAIM_INVITE" && (!selectedVenueId || !recipientEmail.trim()))}>
           {scheduledEnabled ? "Schedule" : "Send"}
         </Button>
         {activeCampaignId ? (

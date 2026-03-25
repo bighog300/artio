@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { CAMPAIGN_AUDIENCES } from "@/lib/email/campaign-enums";
+import { CAMPAIGN_AUDIENCES, CAMPAIGN_TYPES } from "@/lib/email/campaign-enums";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError } from "@/lib/api";
@@ -17,6 +17,7 @@ const campaignCreateSchema = z.object({
   subject: z.string().trim().min(1),
   bodyHtml: z.string().min(1),
   bodyText: z.string().optional().nullable(),
+  campaignType: z.enum(CAMPAIGN_TYPES).optional(),
   audienceType: z.enum(CAMPAIGN_AUDIENCES),
   audienceFilter: z.record(z.string(), z.unknown()).optional().nullable(),
   scheduledFor: z.string().datetime().optional().nullable(),
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
         subject: parsed.data.subject,
         bodyHtml: parsed.data.bodyHtml,
         bodyText: parsed.data.bodyText ?? null,
+        campaignType: parsed.data.campaignType ?? "BROADCAST",
         audienceType: parsed.data.audienceType,
         audienceFilter: parsed.data.audienceFilter === null ? Prisma.JsonNull : (parsed.data.audienceFilter as Prisma.InputJsonValue | undefined),
         status: parsed.data.scheduledFor ? "SCHEDULED" : "DRAFT",
