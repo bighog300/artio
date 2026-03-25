@@ -22,6 +22,7 @@ import { db } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
 import { buildArtworkJsonLd, getSiteUrl } from "@/lib/seo.public-profiles";
 
+export const dynamic = "force-dynamic";
 
 const FALLBACK_METADATA: Metadata = {
   title: "Artwork | Artio",

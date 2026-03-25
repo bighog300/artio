@@ -15,8 +15,6 @@ import { PageShell } from "@/components/ui/page-shell";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { EntityPageViewTracker } from "@/components/analytics/entity-page-view-tracker";
 import { SectionHeader } from "@/components/ui/section-header";
-import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
-import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { buildDetailMetadata, buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
@@ -53,7 +51,6 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
 
   const { slug } = await params;
   const now = new Date();
-  const user = await getSessionUser();
 
   const venue = await db.venue.findFirst({
     where: { slug, isPublished: true, deletedAt: null },
@@ -148,10 +145,8 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
 
   if (!venue) notFound();
 
-  const [followersCount, existingFollow, existingMembership, artworks, artworkCount, pastEventsRaw] = await Promise.all([
+  const [followersCount, artworks, artworkCount, pastEventsRaw] = await Promise.all([
     db.follow.count({ where: { targetType: "VENUE", targetId: venue.id } }),
-    user ? db.follow.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "VENUE", targetId: venue.id } }, select: { id: true } }) : Promise.resolve(null),
-    user ? db.venueMembership.findUnique({ where: { userId_venueId: { userId: user.id, venueId: venue.id } }, select: { id: true } }) : Promise.resolve(null),
     listPublishedArtworksByVenue(venue.id, 6),
     countPublishedArtworksByVenue(venue.id),
     db.event.findMany({
@@ -231,7 +226,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
     claimStatus: venue.claimStatus,
     aiGenerated: venue.aiGenerated,
     membershipsCount: venue._count.memberships,
-    isCurrentUserMember: Boolean(existingMembership),
+    isCurrentUserMember: false,
   });
 
   const detailUrl = getDetailUrl("venue", slug);
@@ -253,12 +248,10 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
         imageUrl={coverUrl}
         coverImage={cover}
         coverUrl={coverUrl}
-        primaryAction={<FollowButton targetType="VENUE" targetId={venue.id} initialIsFollowing={Boolean(existingFollow)} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={venue.slug} />}
+        primaryAction={<FollowButton targetType="VENUE" targetId={venue.id} initialIsFollowing={false} initialFollowersCount={followersCount} isAuthenticated={false} analyticsSlug={venue.slug} />}
         secondaryAction={mapHref ? <a className="inline-flex rounded-md border px-3 py-1 text-sm" href={mapHref} target="_blank" rel="noreferrer">Open in Maps</a> : undefined}
         meta={<ArtworkCountBadge count={artworkCount} href={`/artwork?venueId=${venue.id}`} />}
       />
-
-            {Boolean(user) ? <ContextualNudgeSlot page="venue_detail" type="entity_save_search" nudgeId="nudge_entity_save_search" title="Turn this into alerts" body="Save a search like this to get weekly updates." destination={`/search?q=${encodeURIComponent(venue.name)}`} /> : null}
 
       <EntityTabs
         upcoming={(
