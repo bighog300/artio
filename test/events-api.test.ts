@@ -83,3 +83,57 @@ test("GET /api/events includes image fields for cards", async () => {
     db.artworkEvent.groupBy = originalArtworkEventGroupBy;
   }
 });
+
+test("GET /api/events returns structured image with failure/processing semantics and legacy flat fields", async () => {
+  const originalFindMany = db.event.findMany;
+  const originalArtworkEventGroupBy = db.artworkEvent.groupBy;
+
+  db.event.findMany = (async () => ([{
+    id: "evt_2",
+    slug: "event-2",
+    title: "Event 2",
+    description: null,
+    startAt: new Date("2026-02-01T20:00:00.000Z"),
+    endAt: null,
+    timezone: "UTC",
+    venueId: null,
+    lat: null,
+    lng: null,
+    isPublished: true,
+    publishedAt: null,
+    createdAt: new Date("2026-02-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-02-01T00:00:00.000Z"),
+    featuredImageUrl: "https://legacy.example/featured.jpg",
+    venue: null,
+    images: [{
+      url: "https://legacy.example/gallery.jpg",
+      isPrimary: true,
+      sortOrder: 0,
+      asset: {
+        url: null,
+        originalUrl: "https://blob.example/original.jpg",
+        processingStatus: "UPLOADED",
+        processingError: null,
+        variants: [],
+      },
+    }],
+    eventTags: [],
+    eventArtists: [],
+  } as any])) as typeof db.event.findMany;
+  db.artworkEvent.groupBy = (async () => []) as typeof db.artworkEvent.groupBy;
+
+  try {
+    const res = await getEvents(new NextRequest("http://localhost/api/events?limit=1"));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.items[0].image.url, "https://blob.example/original.jpg");
+    assert.equal(body.items[0].image.source, "original");
+    assert.equal(body.items[0].image.isProcessing, true);
+    assert.equal(body.items[0].image.hasFailure, false);
+    assert.equal(body.items[0].featuredImageUrl, "https://blob.example/original.jpg");
+    assert.equal(body.items[0].primaryImageUrl, "https://blob.example/original.jpg");
+  } finally {
+    db.event.findMany = originalFindMany;
+    db.artworkEvent.groupBy = originalArtworkEventGroupBy;
+  }
+});
