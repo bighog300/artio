@@ -12,6 +12,25 @@ function toUtcDatetimeLocal(isoString: string): string {
   return isoString.slice(0, 16).replace("Z", "").split(".")[0]!.slice(0, 16);
 }
 
+function toLocalDatetimeInput(isoUtc: string, tz: string): string {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(isoUtc)).replace(" ", "T");
+}
+
+function localInputToUtcIso(localValue: string, tz: string): string {
+  const date = new Date(localValue + ":00");
+  const utcDate = new Date(date.toLocaleString("en-US", { timeZone: "UTC" }));
+  const tzDate = new Date(date.toLocaleString("en-US", { timeZone: tz }));
+  const offset = utcDate.getTime() - tzDate.getTime();
+  return new Date(date.getTime() + offset).toISOString();
+}
+
 type VenueOption = { id: string; name: string };
 type SeriesOption = { id: string; title: string; slug: string };
 type TicketingMode = "EXTERNAL" | "RSVP" | "PAID" | null;
@@ -33,6 +52,7 @@ type EventEditorProps = {
     ticketingMode: TicketingMode;
     capacity: number | null;
     rsvpClosesAt: string | null;
+    venueTimezone: string;
   };
   venues: VenueOption[];
 };
@@ -45,12 +65,12 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
   const [seriesOptions, setSeriesOptions] = useState<SeriesOption[]>([]);
   const [newSeriesTitle, setNewSeriesTitle] = useState("");
   const [isCreatingSeries, setIsCreatingSeries] = useState(false);
-  const [startAt, setStartAt] = useState(toUtcDatetimeLocal(event.startAt));
-  const [endAt, setEndAt] = useState(event.endAt ? toUtcDatetimeLocal(event.endAt) : "");
+  const [startAt, setStartAt] = useState(toLocalDatetimeInput(event.startAt, event.venueTimezone));
+  const [endAt, setEndAt] = useState(event.endAt ? toLocalDatetimeInput(event.endAt, event.venueTimezone) : "");
   const [ticketUrl, setTicketUrl] = useState(event.ticketUrl ?? "");
   const [description, setDescription] = useState(event.description ?? "");
   const [eventType, setEventType] = useState<EventTypeOption>(event.eventType ?? "OTHER");
-  const [ticketingMode, setTicketingMode] = useState<"EXTERNAL" | "RSVP">(event.ticketingMode === "RSVP" ? "RSVP" : "EXTERNAL");
+  const [ticketingMode, setTicketingMode] = useState<"EXTERNAL" | "RSVP" | "PAID">(event.ticketingMode === "RSVP" ? "RSVP" : event.ticketingMode === "PAID" ? "PAID" : "EXTERNAL");
   const [capacity, setCapacity] = useState(event.capacity != null ? String(event.capacity) : "");
   const [rsvpClosesAt, setRsvpClosesAt] = useState(event.rsvpClosesAt ? toUtcDatetimeLocal(event.rsvpClosesAt) : "");
   const [tiers, setTiers] = useState<Tier[]>([]);
@@ -58,6 +78,7 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
   const [tierCapacity, setTierCapacity] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stripeConnectActive, setStripeConnectActive] = useState(false);
 
   useEffect(() => {
     async function loadSeries() {
@@ -90,9 +111,26 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
   }, [event.id]);
 
   useEffect(() => {
-    if (ticketingMode !== "RSVP") return;
+    if (ticketingMode !== "RSVP" && ticketingMode !== "PAID") return;
     void loadTiers();
   }, [event.id, ticketingMode, loadTiers]);
+
+  useEffect(() => {
+    async function loadStripeStatus() {
+      if (!venueId || ticketingMode !== "PAID") {
+        setStripeConnectActive(false);
+        return;
+      }
+      const res = await fetch(`/api/my/venues/${venueId}/stripe/status`, { cache: "no-store" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStripeConnectActive(false);
+        return;
+      }
+      setStripeConnectActive(Boolean(body?.connected && body?.status === "ACTIVE" && body?.chargesEnabled && body?.payoutsEnabled));
+    }
+    void loadStripeStatus();
+  }, [ticketingMode, venueId]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -142,8 +180,8 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
         title,
         venueId: venueId || null,
         seriesId: seriesId || null,
-        startAt: new Date(startAt + ":00Z").toISOString(),
-        endAt: endAt ? new Date(endAt + ":00Z").toISOString() : null,
+        startAt: localInputToUtcIso(startAt, event.venueTimezone),
+        endAt: endAt ? localInputToUtcIso(endAt, event.venueTimezone) : null,
         ticketUrl: ticketUrl || null,
         description: description || null,
         eventType,
@@ -222,8 +260,8 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
       </section>
 
       <section className="space-y-3 rounded border p-4">
-        <label className="block" id="startAt"><span className="text-sm">Start at (UTC)</span><input className="w-full rounded border p-2" type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} /></label>
-        <label className="block" id="endAt"><span className="text-sm">End at (UTC, optional)</span><input className="w-full rounded border p-2" type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} /></label>
+        <label className="block" id="startAt"><span className="text-sm">Start ({event.venueTimezone})</span><input className="w-full rounded border p-2" type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} /><p className="mt-1 text-xs text-muted-foreground">Stored as: {startAt ? localInputToUtcIso(startAt, event.venueTimezone) : "—"} UTC</p></label>
+        <label className="block" id="endAt"><span className="text-sm">End ({event.venueTimezone}, optional)</span><input className="w-full rounded border p-2" type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} /><p className="mt-1 text-xs text-muted-foreground">Stored as: {endAt ? localInputToUtcIso(endAt, event.venueTimezone) : "—"} UTC</p></label>
       </section>
 
       <section className="space-y-3 rounded border p-4">
@@ -232,10 +270,11 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
 
       <section className="space-y-3 rounded border p-4">
         <h3 className="text-sm font-semibold">Ticketing</h3>
-        <Tabs value={ticketingMode} onValueChange={(value) => setTicketingMode(value as "EXTERNAL" | "RSVP")}>
+        <Tabs value={ticketingMode} onValueChange={(value) => setTicketingMode(value as "EXTERNAL" | "RSVP" | "PAID")}>
           <TabsList>
             <TabsTrigger value="EXTERNAL">External URL</TabsTrigger>
             <TabsTrigger value="RSVP">Free RSVP</TabsTrigger>
+            <TabsTrigger value="PAID">Paid tickets</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -243,8 +282,28 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
           <label className="block" id="ticketUrl"><span className="text-sm">Ticket URL</span><input className="w-full rounded border p-2" type="url" value={ticketUrl} onChange={(e) => setTicketUrl(e.target.value)} /></label>
         ) : (
           <div className="space-y-3">
-            <label className="block text-sm">Capacity (blank = unlimited)<input className="mt-1 w-full rounded border p-2" type="number" min={1} value={capacity} onChange={(e) => setCapacity(e.target.value)} /></label>
-            <label className="block text-sm">RSVP close at (UTC)<input className="mt-1 w-full rounded border p-2" type="datetime-local" value={rsvpClosesAt} onChange={(e) => setRsvpClosesAt(e.target.value)} /></label>
+            {ticketingMode === "RSVP" ? (
+              <>
+                <label className="block text-sm">Capacity (blank = unlimited)<input className="mt-1 w-full rounded border p-2" type="number" min={1} value={capacity} onChange={(e) => setCapacity(e.target.value)} /></label>
+                <label className="block text-sm">RSVP close at (UTC)<input className="mt-1 w-full rounded border p-2" type="datetime-local" value={rsvpClosesAt} onChange={(e) => setRsvpClosesAt(e.target.value)} /></label>
+              </>
+            ) : (
+              <div className="rounded border bg-muted/30 p-3 text-sm">
+                {venueId ? (
+                  stripeConnectActive ? (
+                    <p>Stripe Connect is active for this venue.</p>
+                  ) : (
+                    <p>
+                      Paid ticketing requires Stripe Connect.{" "}
+                      <a className="underline" href={`/my/venues/${venueId}`}>Connect Stripe account</a>.
+                    </p>
+                  )
+                ) : (
+                  <p>Select a venue to enable paid ticketing.</p>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground">Requires Stripe Connect on the venue.</p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <p className="text-sm font-medium">Tiers</p>

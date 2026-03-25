@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ActiveFiltersBar, type FilterPill } from "@/app/my/_components/ActiveFiltersBar";
 import { buildClearFiltersHref, buildRemoveFilterHref, getFirstSearchValue, toTitleCase, truncateFilterValue } from "@/app/my/_components/filter-href";
 import { resolveVenueFilterLabel } from "@/app/my/_components/resolve-venue-filter-label";
@@ -18,6 +19,10 @@ export const dynamic = "force-dynamic";
 type EventsSearchParams = Promise<{ q?: string; query?: string; status?: string; venueId?: string; sort?: string; dateFrom?: string; dateTo?: string; showArchived?: string }>;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function formatDate(value: Date): string {
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(value);
+}
 
 function buildEventStatusWhere(status: string | undefined, showArchived: boolean): object {
   if (showArchived || status?.toLowerCase() === "archived") return { deletedAt: { not: null } };
@@ -110,9 +115,16 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
       <table className="w-full text-sm"><thead><tr className="border-b"><th className="p-2 text-left">Event</th><th className="p-2">Status</th><th className="p-2 text-right">Actions</th></tr></thead><tbody>
         {rows.map((event) => {
           const submitted = event.submissions[0]?.status;
-          return <tr className="border-b" key={event.id}><td className="p-2">{event.title}<div className="text-xs text-muted-foreground">{event.venue?.name ?? "No venue"}</div></td><td className="p-2">{getPublisherStatusLabel(
+          return <tr className="border-b" key={event.id}><td className="p-2"><p className="font-medium">{event.title}</p><p className="text-xs text-muted-foreground">{event.venue?.name ?? "No venue"} · {formatDate(event.startAt)}</p></td><td className="p-2">{getPublisherStatusLabel(
   (event.deletedAt ? "ARCHIVED" : event.isPublished ? "PUBLISHED" : (submitted ?? "DRAFT")) as UnifiedPublishStatus
-)}</td><td className="p-2 text-right space-x-2"><Link className="underline" href={`/my/events/${event.id}`}>Edit</Link><MyEventDuplicateButton eventId={event.id} /><MyEventSubmitButton eventId={event.id} initialLabel="Submit/Resubmit" />{event.isPublished && event.slug ? <Link className="underline" href={`/events/${event.slug}`}>View Public</Link> : null}{event.isPublished ? <MyEventCreateRevisionButton eventId={event.id} /> : null}<MyArchiveActionButton entityLabel="event" endpointBase={`/api/my/events/${event.id}`} archived={!!event.deletedAt} /></td></tr>;
+)}</td><td className="p-2 text-right"><div className="inline-flex items-center gap-1"><Button asChild size="sm"><Link href={`/my/events/${event.id}`}>Edit</Link></Button><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" size="icon" variant="ghost" aria-label="More actions">⋯</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><>
+  {event.isPublished && event.slug ? <DropdownMenuItem asChild><Link href={`/events/${event.slug}`}>View public page</Link></DropdownMenuItem> : null}
+  <div className="px-2 py-1"><MyEventDuplicateButton eventId={event.id} /></div>
+  <div className="px-2 py-1"><MyEventSubmitButton eventId={event.id} initialLabel="Submit / Resubmit" /></div>
+  {event.isPublished ? <div className="px-2 py-1"><MyEventCreateRevisionButton eventId={event.id} /></div> : null}
+  <DropdownMenuSeparator />
+  <div className="px-2 py-1"><MyArchiveActionButton entityLabel="event" endpointBase={`/api/my/events/${event.id}`} archived={!!event.deletedAt} /></div>
+</></DropdownMenuContent></DropdownMenu></div></td></tr>;
         })}
       </tbody></table>
     </main>

@@ -46,7 +46,7 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
       featuredAssetId: true,
       eventType: true,
       featuredAsset: { select: { url: true } },
-      venue: { select: { id: true, name: true, city: true, postcode: true, lat: true, lng: true } },
+      venue: { select: { id: true, name: true, city: true, postcode: true, lat: true, lng: true, timezone: true } },
     },
   });
 
@@ -102,6 +102,7 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
                 eventType: event.eventType,
                 featuredAssetId: event.featuredAssetId,
                 featuredAsset: event.featuredAsset,
+                venueTimezone: event.venue?.timezone ?? "UTC",
               }}
               venues={editableVenues}
             />

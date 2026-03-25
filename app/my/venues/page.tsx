@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ActiveFiltersBar, type FilterPill } from "@/app/my/_components/ActiveFiltersBar";
 import { buildClearFiltersHref, buildRemoveFilterHref, getFirstSearchValue, toTitleCase, truncateFilterValue } from "@/app/my/_components/filter-href";
 import { MyArchiveActionButton } from "@/app/my/_components/MyArchiveActionButton";
@@ -107,12 +108,26 @@ export default async function MyVenuesPage({ searchParams }: { searchParams: Ven
               <tr key={item.id} className="border-b">
                 <td className="p-2">{item.venue.name}</td>
                 <td className="p-2">{statusLabel}</td>
-                <td className="p-2 text-right space-x-2">
-                  <Link className="underline" href={`/my/venues/${item.venue.id}`}>Edit Venue</Link>
-                  <Link className="underline" href={`/my/venues/${item.venue.id}/submit-event`}>Submit Event</Link>
-                  <Link className="underline" href={`/venues/${item.venue.slug}`}>View Public</Link>
-                  <Link className="underline" href={`/my/team?venueId=${item.venue.id}`}>Manage Team</Link>
-                  <MyArchiveActionButton entityLabel="venue" endpointBase={`/api/my/venues/${item.venue.id}`} archived={!!item.venue.deletedAt} />
+                <td className="p-2 text-right">
+                  <div className="inline-flex items-center gap-1">
+                    <Button asChild size="sm">
+                      <Link href={`/my/venues/${item.venue.id}`}>Edit venue</Link>
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" size="icon" variant="ghost" aria-label="More actions">⋯</Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild><Link href={`/my/venues/${item.venue.id}/submit-event`}>Submit Event</Link></DropdownMenuItem>
+                        {item.venue.slug ? <DropdownMenuItem asChild><Link href={`/venues/${item.venue.slug}`}>View Public</Link></DropdownMenuItem> : null}
+                        <DropdownMenuItem asChild><Link href={`/my/team?venueId=${item.venue.id}`}>Manage Team</Link></DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <div className="px-2 py-1">
+                          <MyArchiveActionButton entityLabel="venue" endpointBase={`/api/my/venues/${item.venue.id}`} archived={!!item.venue.deletedAt} />
+                        </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </td>
               </tr>
             );
