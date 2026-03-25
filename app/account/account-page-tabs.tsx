@@ -32,6 +32,8 @@ export function AccountPageTabs({
   const [past, setPast] = useState<RegistrationItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showPast, setShowPast] = useState(false);
+  const [cancellingCode, setCancellingCode] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   async function load() {
     setIsLoading(true);
@@ -47,12 +49,19 @@ export function AccountPageTabs({
   const loaded = useMemo(() => upcoming.length > 0 || past.length > 0, [past.length, upcoming.length]);
 
   async function cancelRegistration(confirmationCode: string, guestEmail: string) {
-    await fetch(`/api/registrations/${confirmationCode}`, {
+    setCancellingCode(confirmationCode);
+    setCancelError(null);
+    const res = await fetch(`/api/registrations/${confirmationCode}`, {
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ guestEmail }),
     });
-    await load();
+    if (!res.ok) {
+      setCancelError("Could not cancel registration. Please try again.");
+    } else {
+      await load();
+    }
+    setCancellingCode(null);
   }
 
   return (
@@ -86,12 +95,21 @@ export function AccountPageTabs({
                   <p className="text-muted-foreground">Code: {item.confirmationCode}</p>
                   <div className="flex gap-2">
                     <Button asChild type="button" variant="outline" size="sm"><Link href={`/my/registrations/${item.confirmationCode}/transfer`}>Transfer</Link></Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => void cancelRegistration(item.confirmationCode, item.guestEmail)}>Cancel</Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={cancellingCode === item.confirmationCode}
+                      onClick={() => void cancelRegistration(item.confirmationCode, item.guestEmail)}
+                    >
+                      {cancellingCode === item.confirmationCode ? "Cancelling..." : "Cancel"}
+                    </Button>
                   </div>
                 </li>
               ))}
             </ul>
           )}
+          {cancelError ? <p className="text-sm text-destructive">{cancelError}</p> : null}
         </section>
 
         <section className="space-y-2">
