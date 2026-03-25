@@ -18,7 +18,7 @@
 - Sensitive scopes include favorites/follows writes, expensive read endpoints, recommendations events, and admin perf explain.
 
 ## Cron endpoint protections
-- Cron routes require `x-cron-secret` matching `CRON_SECRET`.
+- Cron routes require `Authorization: Bearer <CRON_SECRET>` (legacy `x-cron-secret` is also accepted).
 - Unauthorized cron calls return 401 with minimal detail.
 - Cron handlers log request metadata (requestId, route, method) without exposing secrets.
 

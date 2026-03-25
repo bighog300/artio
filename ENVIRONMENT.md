@@ -135,9 +135,10 @@ Optional:
   - `pnpm run vercel:build`
 - `vercel:build` runs `scripts/check-env.mjs --mode=vercel-build` before `next build`.
 - The check prints only variable names with set status (`true` / `false`), never secret values.
-- Required at build/deploy time: `AUTH_SECRET`, `DATABASE_URL`, and `CRON_SECRET` (when cron jobs are configured in `vercel.json`).
+- Required at build/deploy time: `AUTH_SECRET` and `DATABASE_URL`.
 - Also required at build/deploy time when `GEOCODER_PROVIDER=google`: `GOOGLE_MAPS_API_KEY`.
 - Optional at build/deploy time: `DIRECT_URL` (reported for parity visibility, not required).
+- Cron scheduling is DB-driven via `/api/cron/tick` and external pings (UptimeRobot/Better Uptime/GitHub Actions), not `vercel.json` cron entries.
 
 ## 3. OAuth Configuration Notes
 

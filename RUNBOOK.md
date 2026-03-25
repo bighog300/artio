@@ -20,7 +20,9 @@
 - Build does not require external font downloads; system fonts are used by default.
 
 ## Vercel plan limits
-- On Vercel Hobby, cron must be daily. This repo uses daily schedules in `vercel.json`.
+- Vercel Hobby does not support high-frequency `vercel.json` cron schedules.
+- This repo does **not** use Vercel-managed cron entries; `vercel.json` only defines install/build commands.
+- Cron execution is driven by external pings to `POST /api/cron/tick` with `Authorization: Bearer $CRON_SECRET`.
 - Log drains are Pro/Enterprise-only. This sprint does not rely on drains.
 
 ## Smoke test locally
@@ -40,6 +42,10 @@ AUTH_SECRET=dev-secret pnpm build
 - Ops metrics (protected):
   ```bash
   curl -H "Authorization: Bearer $OPS_SECRET" http://localhost:3000/api/ops/metrics
+  ```
+- Scheduler tick (protected, external uptime monitor target):
+  ```bash
+  curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/tick
   ```
 
 ## Cron verification

@@ -32,6 +32,14 @@ type PrismaResult = {
   output: string;
 };
 
+
+function requireEnv(name: string) {
+  const value = process.env[name];
+  if (!value || value.trim() === "") {
+    throw new Error(`[prisma-safe-deploy] Missing required env var: ${name}`);
+  }
+}
+
 type StatusSummary = {
   failedMigrations: string[];
   pendingMigrations: string[];
@@ -258,6 +266,9 @@ async function runDeployWithRetry() {
 }
 
 async function main() {
+  requireEnv("DATABASE_URL");
+  requireEnv("DIRECT_URL");
+
   console.log(
     "[prisma-safe-deploy] Starting safe Prisma migration deploy flow.",
   );
