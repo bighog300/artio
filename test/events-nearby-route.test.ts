@@ -141,3 +141,36 @@ test("GET /api/events/nearby sort=distance uses haversine ordering", async () =>
     db.event.findMany = originalFindMany;
   }
 });
+
+test("GET /api/events/nearby exposes structured image contract with legacy primaryImageUrl compatibility", async () => {
+  const originalFindMany = db.event.findMany;
+  db.event.findMany = (async () => [
+    {
+      ...baseEvent,
+      id: "evt_img",
+      images: [{
+        url: "https://legacy.example/event.jpg",
+        asset: {
+          url: "https://blob.example/event-master.jpg",
+          originalUrl: "https://blob.example/event-original.jpg",
+          processingStatus: "FAILED",
+          processingError: "variant_generation_failed",
+          variants: [{ variantName: "card", url: "https://blob.example/event-card.jpg" }],
+        },
+      }],
+    },
+  ] as any) as typeof db.event.findMany;
+
+  try {
+    const req = new NextRequest("http://localhost/api/events/nearby?lat=51.5&lng=-2.6&radiusKm=10&limit=1");
+    const res = await getNearby(req);
+    const body = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(body.items[0].image.url, "https://blob.example/event-card.jpg");
+    assert.equal(body.items[0].image.source, "variant");
+    assert.equal(body.items[0].image.hasFailure, true);
+    assert.equal(body.items[0].primaryImageUrl, "https://blob.example/event-card.jpg");
+  } finally {
+    db.event.findMany = originalFindMany;
+  }
+});

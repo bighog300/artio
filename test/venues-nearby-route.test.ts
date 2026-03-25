@@ -40,3 +40,36 @@ test("GET /api/venues/nearby returns only published in-radius venues", async () 
     db.venue.findMany = originalFindMany;
   }
 });
+
+test("GET /api/venues/nearby includes structured image field and legacy primaryImageUrl", async () => {
+  const originalFindMany = db.venue.findMany;
+  db.venue.findMany = (async () => [
+    {
+      ...baseVenue,
+      id: "venue-image",
+      slug: "venue-image",
+      images: [{
+        url: "https://legacy.example/venue.jpg",
+        asset: {
+          url: null,
+          originalUrl: "https://blob.example/venue-original.jpg",
+          processingStatus: "PROCESSING",
+          processingError: null,
+          variants: [],
+        },
+      }],
+    },
+  ] as any) as typeof db.venue.findMany;
+
+  try {
+    const res = await getNearbyVenues(new NextRequest("http://localhost/api/venues/nearby?lat=51.5&lng=-2.6&radiusKm=10"));
+    const body = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(body.items[0].image.url, "https://blob.example/venue-original.jpg");
+    assert.equal(body.items[0].image.source, "original");
+    assert.equal(body.items[0].image.isProcessing, true);
+    assert.equal(body.items[0].primaryImageUrl, "https://blob.example/venue-original.jpg");
+  } finally {
+    db.venue.findMany = originalFindMany;
+  }
+});

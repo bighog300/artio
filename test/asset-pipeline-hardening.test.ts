@@ -82,10 +82,72 @@ test("resolveAssetDisplay handles variant fallback, failure state, and legacy UR
   assert.match(resolved.failureMessage ?? "", /unavailable/);
 });
 
+test("resolveAssetDisplay uses exact requested variant without fallback flag", () => {
+  const resolved = resolveAssetDisplay({
+    asset: {
+      url: "https://blob/master.jpg",
+      variants: [{ variantName: "hero", url: "https://blob/hero.jpg" }],
+    },
+    requestedVariant: "hero",
+    legacyUrl: "https://legacy/item.jpg",
+  });
+
+  assert.equal(resolved.url, "https://blob/hero.jpg");
+  assert.equal(resolved.source, "variant");
+  assert.equal(resolved.variantNameUsed, "hero");
+  assert.equal(resolved.usedFallback, false);
+});
+
+test("resolveAssetDisplay falls through asset, original, and placeholder precedence", () => {
+  const assetUrl = resolveAssetDisplay({
+    asset: { url: "https://blob/master.jpg", originalUrl: "https://blob/original.jpg", variants: [] },
+    requestedVariant: "card",
+    legacyUrl: "https://legacy/item.jpg",
+    placeholderUrl: "https://placeholder/item.jpg",
+  });
+  assert.equal(assetUrl.source, "asset");
+  assert.equal(assetUrl.url, "https://blob/master.jpg");
+
+  const originalUrl = resolveAssetDisplay({
+    asset: { url: null, originalUrl: "https://blob/original.jpg", variants: [] },
+    requestedVariant: "card",
+    legacyUrl: "https://legacy/item.jpg",
+    placeholderUrl: "https://placeholder/item.jpg",
+  });
+  assert.equal(originalUrl.source, "original");
+  assert.equal(originalUrl.url, "https://blob/original.jpg");
+  assert.equal(originalUrl.usedFallback, true);
+
+  const placeholder = resolveAssetDisplay({
+    requestedVariant: "card",
+    placeholderUrl: "https://placeholder/item.jpg",
+  });
+  assert.equal(placeholder.source, "placeholder");
+  assert.equal(placeholder.url, "https://placeholder/item.jpg");
+});
+
+test("resolveAssetDisplay propagates processing states", () => {
+  const processing = resolveAssetDisplay({
+    asset: { processingStatus: "PROCESSING", variants: [] },
+    requestedVariant: "card",
+  });
+  assert.equal(processing.isProcessing, true);
+  assert.equal(processing.hasFailure, false);
+  assert.equal(processing.failureMessage, null);
+
+  const uploaded = resolveAssetDisplay({
+    asset: { processingStatus: "UPLOADED", variants: [] },
+    requestedVariant: "card",
+  });
+  assert.equal(uploaded.isProcessing, true);
+  assert.equal(uploaded.hasFailure, false);
+});
+
 test("resolveAssetDisplay falls back to legacy URL for unmigrated records", () => {
   const resolved = resolveAssetDisplay({ requestedVariant: "card", legacyUrl: "https://legacy/item.jpg" });
   assert.equal(resolved.url, "https://legacy/item.jpg");
   assert.equal(resolved.source, "legacy");
+  assert.equal(resolved.usedFallback, true);
 });
 
 test(">500 KB image gets optimization suggestion and hero warning for small dimensions", () => {
