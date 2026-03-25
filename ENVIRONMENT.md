@@ -183,6 +183,12 @@ Recommended scripts:
 - Operators can verify current runtime mode via `GET /api/assets/runtime-status` (admin-only), which now includes runtime and fallback diagnostics.
 - Upload/crop processing responses include structured `processing` diagnostics so fallback mode is visible and not mistaken for successful optimization.
 
+## 6.2 Centralized image contract guidance
+
+- Structured `image` contracts are the default API shape for new work.
+- Flat image URL fields (`imageUrl`, `primaryImageUrl`, `coverUrl`, `avatarImageUrl`, `thumbUrl`) are transitional compatibility fields and should not be introduced in new endpoints unless required for backward compatibility.
+- New uploads should use centralized asset pipeline routes; compatibility wrappers are temporary and tracked in `docs/image-legacy-deprecation-map.md`.
+
 ## Artist/Venue gallery client uploads (Vercel Blob)
 
 - Keep `BLOB_READ_WRITE_TOKEN` configured **server-side only**.

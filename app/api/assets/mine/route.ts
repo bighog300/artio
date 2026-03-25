@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
           ...item,
           image: toApiImageField(thumb),
           thumb,
+          // Transitional compatibility field; prefer `image` and remove after full asset pipeline rollout.
           thumbUrl: thumb.url,
         };
       }),

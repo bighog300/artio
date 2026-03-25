@@ -103,6 +103,7 @@ export async function GET(req: NextRequest) {
       name: artist.name,
       slug: artist.slug,
       bio: artist.bio,
+      // Transitional compatibility field; prefer `image` and remove after full asset pipeline rollout.
       avatarImageUrl: displayImage.url ?? legacyPrimaryImage?.url ?? artist.avatarImageUrl,
       image: toApiImageField(displayImage),
       primaryImage: legacyPrimaryImage,

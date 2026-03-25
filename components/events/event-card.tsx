@@ -14,6 +14,7 @@ type EventCardProps = {
   endAt?: string | Date | null | undefined;
   venueName?: string | null | undefined;
   venueSlug?: string | null | undefined;
+  /** @deprecated Transitional compatibility prop; prefer structured `image`. */
   imageUrl?: string | null;
   image?: {
     url: string | null;

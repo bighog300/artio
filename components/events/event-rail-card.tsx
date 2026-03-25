@@ -11,6 +11,7 @@ type EventRailCardProps = {
   startAt: string | Date;
   endAt?: string | Date | null;
   venueName?: string | null;
+  /** @deprecated Transitional compatibility prop; prefer structured `image`. */
   imageUrl?: string | null;
   image?: {
     url: string | null;

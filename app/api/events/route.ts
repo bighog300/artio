@@ -166,7 +166,9 @@ export async function GET(req: NextRequest) {
         return {
           ...e,
           image: toApiImageField(displayImage),
+          // Transitional compatibility field; prefer `image` and remove after full asset pipeline rollout.
           featuredImageUrl: imageUrl,
+          // Transitional compatibility field; prefer `image` and remove after full asset pipeline rollout.
           primaryImageUrl: displayImage.url ?? imageUrl,
           primaryImageAlt: image?.alt ?? null,
           primaryImageWidth: image?.width ?? null,

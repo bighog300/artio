@@ -6,8 +6,10 @@ import { cn } from "@/lib/utils";
 type EntityHeaderProps = {
   title: string;
   subtitle?: ReactNode;
+  /** @deprecated Transitional compatibility prop; prefer structured `image`. */
   imageUrl?: string | null;
   image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
+  /** @deprecated Transitional compatibility prop; prefer structured `coverImage`. */
   coverUrl?: string | null;
   coverImage?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
   tags?: string[];

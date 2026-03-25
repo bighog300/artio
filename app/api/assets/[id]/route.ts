@@ -31,6 +31,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({
       asset,
       image: toApiImageField(image),
+      // Transitional compatibility field; prefer `image` and remove after full asset pipeline rollout.
       thumbUrl: image.url,
     });
   } catch (error) {

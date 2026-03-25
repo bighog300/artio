@@ -7,6 +7,8 @@ import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey,
 
 export const runtime = "nodejs";
 
+// Transitional compatibility upload route.
+// New upload flows should use `/api/assets/upload/process` (or feature-specific wrappers) backed by the asset pipeline.
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth();

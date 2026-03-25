@@ -10,6 +10,7 @@ const PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg
 type ArtistCardProps = {
   href: string;
   name: string;
+  /** @deprecated Transitional compatibility prop; prefer structured `image`. */
   imageUrl?: string | null;
   image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
   bio?: string | null;

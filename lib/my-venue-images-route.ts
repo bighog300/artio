@@ -14,6 +14,7 @@ import {
 } from "@/lib/rate-limit";
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+// Transitional compatibility helper: preserves venue self-serve handshake routes while uploads converge on asset pipeline.
 
 type SessionUser = { id: string };
 type VenueImageRecord = {

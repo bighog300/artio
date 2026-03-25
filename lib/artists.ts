@@ -1,4 +1,5 @@
 import { resolveImageUrl } from "@/lib/assets";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 import { DEFAULT_CURRENCY } from "@/lib/format";
 import { db } from "@/lib/db";
 import {
@@ -39,12 +40,14 @@ export function deriveArtistTags(mediums: string[], eventTagGroups: string[][]):
 }
 
 export function resolveArtistCoverUrl(artist: ArtistCoverSource): string | null {
-  if (artist.featuredAsset?.url) return artist.featuredAsset.url;
-  if (artist.featuredImageUrl) return artist.featuredImageUrl;
-  if (artist.avatarImageUrl) return artist.avatarImageUrl;
-
   const firstImage = artist.images?.find((image) => image.asset?.url || image.url);
-  return firstImage?.asset?.url || firstImage?.url || null;
+  const display = resolveAssetDisplay({
+    asset: artist.featuredAsset ?? firstImage?.asset ?? null,
+    requestedVariant: "card",
+    // Transitional compatibility fallbacks; remove once artist clients only consume structured `image`.
+    legacyUrl: artist.featuredImageUrl ?? artist.avatarImageUrl ?? firstImage?.url ?? null,
+  });
+  return display.url;
 }
 
 type GetArtistArtworksOptions = {

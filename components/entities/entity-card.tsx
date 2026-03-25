@@ -10,6 +10,7 @@ type EntityCardProps = {
   name: string;
   subtitle?: string | null;
   description?: string | null;
+  /** @deprecated Transitional compatibility prop; prefer structured `image`. */
   imageUrl?: string | null;
   image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
   imageAlt?: string | null;

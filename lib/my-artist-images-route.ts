@@ -23,6 +23,7 @@ import {
 import { ForbiddenError, isForbiddenError, isUnauthorizedError } from "@/lib/http-errors";
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+// Transitional compatibility helper: preserves artist self-serve handshake routes while uploads converge on asset pipeline.
 
 type SessionUser = { id: string };
 type ArtistImageRecord = {

@@ -112,6 +112,8 @@ export function resolveEntityPrimaryImage(entity: EntityWithImages): Omit<Public
     };
   }
 
+  // Transitional compatibility fallback for entities that still persist featuredImageUrl.
+  // Prefer relation-backed images + asset variants and remove this fallback after migration.
   const display = resolveAssetDisplay({ legacyUrl: toHttpsUrl(entity.featuredImageUrl), requestedVariant: "card" });
   const featured = toHttpsUrl(display.url);
   if (!featured) return null;

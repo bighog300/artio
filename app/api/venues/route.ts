@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
       return {
         ...venue,
         image: toApiImageField(imageDisplay),
+        // Transitional compatibility field; prefer `image` and remove after full asset pipeline rollout.
         primaryImageUrl: imageDisplay.url ?? venue.featuredImageUrl ?? null,
       };
     }),
