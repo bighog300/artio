@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { idParamSchema, zodDetails } from "@/lib/validators";
+import { resolveApiImageField } from "@/lib/assets/image-contract";
 
 export const runtime = "nodejs";
 
@@ -30,7 +31,11 @@ export async function GET(
         linkedArtists: [],
         artistCandidates: [],
         artworkCandidates: [],
-        imageStatus: { attached: false, url: null },
+        imageStatus: {
+          attached: false,
+          url: null,
+          image: resolveApiImageField({ legacyUrl: null, requestedVariant: "card" }),
+        },
       });
     }
 
@@ -63,10 +68,14 @@ export async function GET(
       eventId,
       linkedArtists: linkedArtists.map((r) => r.artist),
       artistCandidates: artistCandidates.map((r) => r.artistCandidate),
-      artworkCandidates,
+      artworkCandidates: artworkCandidates.map((candidate) => ({
+        ...candidate,
+        image: resolveApiImageField({ legacyUrl: candidate.imageUrl, requestedVariant: "card" }),
+      })),
       imageStatus: {
         attached: eventImages.length > 0,
         url: eventImages[0]?.url ?? null,
+        image: resolveApiImageField({ legacyUrl: eventImages[0]?.url ?? null, requestedVariant: "card" }),
       },
     });
   } catch (error) {

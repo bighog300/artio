@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
+import { toApiImageField } from "@/lib/assets/image-contract";
 import { apiError } from "@/lib/api";
 import { listPublishedArtworkIdsByViews30 } from "@/lib/artworks";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
@@ -19,8 +20,8 @@ type ArtworkListItem = {
   currency: string | null;
   updatedAt: Date;
   artist: { id: string; name: string; slug: string };
-  featuredAsset: { url: string } | null;
-  images: Array<{ asset: { url: string } | null }>;
+  featuredAsset: { url: string | null; originalUrl: string | null; processingStatus: string | null; processingError: string | null; variants: Array<{ variantName: string; url: string | null }> } | null;
+  images: Array<{ asset: { url: string | null; originalUrl: string | null; processingStatus: string | null; processingError: string | null; variants: Array<{ variantName: string; url: string | null }> } | null }>;
 };
 
 function buildWhere(input: ReturnType<typeof artworkListQuerySchema.parse>): Prisma.ArtworkWhereInput {
@@ -87,8 +88,12 @@ export async function GET(req: NextRequest) {
     currency: true,
     updatedAt: true,
     artist: { select: { id: true, name: true, slug: true } },
-    featuredAsset: { select: { url: true } },
-    images: { orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }], take: 1, select: { asset: { select: { url: true } } } },
+    featuredAsset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } },
+    images: {
+      orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
+      take: 1,
+      select: { asset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } } },
+    },
   } satisfies Prisma.ArtworkSelect;
 
   if (input.sort === "VIEWS_30D_DESC") {
@@ -101,7 +106,9 @@ export async function GET(req: NextRequest) {
     const items = ids.map((id) => itemsById.get(id)).filter(Boolean) as ArtworkListItem[];
 
     return NextResponse.json({
-      items: items.map((item) => ({
+      items: items.map((item) => {
+        const imageDisplay = resolveAssetDisplay({ asset: item.featuredAsset, legacyUrl: item.images[0]?.asset?.url ?? null, requestedVariant: "card" });
+        return ({
         id: item.id,
         slug: item.slug,
         title: item.title,
@@ -110,9 +117,11 @@ export async function GET(req: NextRequest) {
         priceAmount: item.priceAmount,
         currency: item.currency,
         artist: item.artist,
-        coverUrl: resolveAssetDisplay({ asset: item.featuredAsset, legacyUrl: item.images[0]?.asset?.url ?? null, requestedVariant: "card" }).url,
+        image: toApiImageField(imageDisplay),
+        coverUrl: imageDisplay.url,
         ...(includeViews ? { views30: viewsById.get(item.id) ?? 0 } : {}),
-      })),
+      });
+      }),
       page: input.page,
       pageSize: input.pageSize,
       total,
@@ -146,18 +155,22 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    items: items.map((item) => ({
+    items: items.map((item) => {
+      const imageDisplay = resolveAssetDisplay({ asset: item.featuredAsset, legacyUrl: item.images[0]?.asset?.url ?? null, requestedVariant: "card" });
+      return ({
       id: item.id,
       slug: item.slug,
       title: item.title,
       artist: item.artist,
-      coverUrl: resolveAssetDisplay({ asset: item.featuredAsset, legacyUrl: item.images[0]?.asset?.url ?? null, requestedVariant: "card" }).url,
+      image: toApiImageField(imageDisplay),
+      coverUrl: imageDisplay.url,
       year: item.year,
       medium: item.medium,
       priceAmount: item.priceAmount,
       currency: item.currency,
       ...(includeViews ? { views30: viewsById.get(item.id) ?? 0 } : {}),
-    })),
+    });
+    }),
     page: input.page,
     pageSize: input.pageSize,
     total,

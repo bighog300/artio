@@ -55,6 +55,11 @@ test("GET /api/artwork uses views sorting query path and returns views30", async
     const body = await res.json();
     assert.equal(Array.isArray(body.items), true);
     assert.equal(body.items[0]?.views30, 42);
+    assert.equal(body.items[0]?.coverUrl, null);
+    assert.equal(body.items[0]?.image?.url, null);
+    assert.equal(body.items[0]?.image?.source, "placeholder");
+    assert.equal(body.items[0]?.image?.isProcessing, false);
+    assert.equal(body.items[0]?.image?.hasFailure, false);
   } finally {
     db.$queryRaw = oq;
     db.artwork.findMany = of;

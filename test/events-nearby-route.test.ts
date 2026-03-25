@@ -135,6 +135,8 @@ test("GET /api/events/nearby sort=distance uses haversine ordering", async () =>
     assert.equal(res.status, 200);
     assert.equal(body.items[0].id, "evt_near");
     assert.equal(typeof body.items[0].distanceKm, "number");
+    assert.equal(body.items[0].image?.url, null);
+    assert.equal(body.items[0].primaryImageUrl, null);
   } finally {
     db.event.findMany = originalFindMany;
   }

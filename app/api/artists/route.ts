@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { artistListQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
+import { toApiImageField } from "@/lib/assets/image-contract";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -50,7 +52,18 @@ export async function GET(req: NextRequest) {
       avatarImageUrl: true,
       featuredImageUrl: true,
       mediums: true,
-      images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } },
+      images: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: {
+          url: true,
+          alt: true,
+          sortOrder: true,
+          isPrimary: true,
+          width: true,
+          height: true,
+          asset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } },
+        },
+      },
       eventArtists: { where: { event: { isPublished: true, deletedAt: null } }, take: 8, select: { event: { select: { eventTags: { select: { tag: { select: { slug: true } } } } } } } },
     },
   });
@@ -79,14 +92,20 @@ export async function GET(req: NextRequest) {
   const forSaleCountByArtistId = new Map(forSaleCounts.map((entry) => [entry.artistId, entry._count._all]));
 
   let items = dbArtists.map((artist) => {
-    const image = resolveEntityPrimaryImage(artist);
+    const legacyPrimaryImage = resolveEntityPrimaryImage(artist);
+    const displayImage = resolveAssetDisplay({
+      asset: artist.images[0]?.asset ?? null,
+      requestedVariant: "card",
+      legacyUrl: artist.images[0]?.url ?? legacyPrimaryImage?.url ?? artist.avatarImageUrl,
+    });
     return {
       id: artist.id,
       name: artist.name,
       slug: artist.slug,
       bio: artist.bio,
-      avatarImageUrl: image?.url ?? artist.avatarImageUrl,
-      image,
+      avatarImageUrl: displayImage.url ?? legacyPrimaryImage?.url ?? artist.avatarImageUrl,
+      image: toApiImageField(displayImage),
+      primaryImage: legacyPrimaryImage,
       imageAlt: artist.name,
       tags:
         artist.mediums.length > 0

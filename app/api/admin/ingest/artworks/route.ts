@@ -4,6 +4,7 @@ import { apiError } from "@/lib/api";
 import { isAuthError } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin";
+import { resolveApiImageField } from "@/lib/assets/image-contract";
 
 export const runtime = "nodejs";
 
@@ -52,7 +53,18 @@ export async function GET(req: NextRequest) {
       db.ingestExtractedArtwork.count({ where }),
     ]);
 
-    return NextResponse.json({ candidates, total, page: pageNumber, pageSize }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({
+      candidates: candidates.map((candidate) => ({
+        ...candidate,
+        image: resolveApiImageField({
+          legacyUrl: candidate.imageUrl,
+          requestedVariant: "card",
+        }),
+      })),
+      total,
+      page: pageNumber,
+      pageSize,
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Forbidden");

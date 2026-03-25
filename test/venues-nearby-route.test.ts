@@ -34,6 +34,8 @@ test("GET /api/venues/nearby returns only published in-radius venues", async () 
     assert.equal(res.status, 200);
     assert.equal(body.items.length, 1);
     assert.equal(body.items[0].id, "inside");
+    assert.equal(body.items[0].image?.url, null);
+    assert.equal(body.items[0].primaryImageUrl, null);
   } finally {
     db.venue.findMany = originalFindMany;
   }

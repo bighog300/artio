@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
-import { resolveImageUrl } from "@/lib/assets";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
+import { toApiImageField } from "@/lib/assets/image-contract";
 import { START_AT_ID_ORDER_BY } from "@/lib/cursor-predicate";
 import { distanceKm, getBoundingBox, isWithinRadiusKm } from "@/lib/geo";
 import { buildNearbyEventsFilters } from "@/lib/nearby-events";
@@ -19,7 +20,7 @@ type NearbyEventWithJoin = {
   lng: number | null;
   startAt: Date;
   venue?: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null;
-  images?: Array<{ url: string | null; asset?: { url: string } | null }>;
+  images?: Array<{ url: string | null; asset?: { url: string | null; originalUrl?: string | null; processingStatus?: string | null; processingError?: string | null; variants?: Array<{ variantName: string; url: string | null }> } | null }>;
   eventTags?: Array<{ tag: { name: string; slug: string } }>;
 };
 
@@ -98,7 +99,7 @@ export async function GET(req: NextRequest) {
       orderBy: START_AT_ID_ORDER_BY,
       include: {
         venue: { select: { name: true, slug: true, city: true, lat: true, lng: true } },
-        images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
+        images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } } } },
         eventTags: { include: { tag: { select: { name: true, slug: true } } } },
       },
     })) as NearbyEventWithJoin[];
@@ -134,7 +135,13 @@ export async function GET(req: NextRequest) {
     : pageItems;
 
   const response = NextResponse.json({
-    items: sortedItems.map((event) => ({
+    items: sortedItems.map((event) => {
+      const imageDisplay = resolveAssetDisplay({
+        asset: event.images?.[0]?.asset ?? null,
+        requestedVariant: "card",
+        legacyUrl: event.images?.[0]?.url ?? null,
+      });
+      return ({
       ...event,
       venueName: event.venue?.name ?? null,
       mapLat: event.lat ?? event.venue?.lat ?? null,
@@ -144,9 +151,11 @@ export async function GET(req: NextRequest) {
         const effectiveLng = event.lng ?? event.venue?.lng;
         return effectiveLat != null && effectiveLng != null ? Number(distanceKm(lat, lng, effectiveLat, effectiveLng).toFixed(2)) : null;
       })(),
-      primaryImageUrl: resolveImageUrl(event.images?.[0]?.asset?.url, event.images?.[0]?.url ?? undefined),
+      image: toApiImageField(imageDisplay),
+      primaryImageUrl: imageDisplay.url,
       tags: (event.eventTags ?? []).map((eventTag) => ({ name: eventTag.tag.name, slug: eventTag.tag.slug })),
-    })),
+    });
+    }),
     nextCursor: dbHasMore && workingCursor ? encodeNearbyCursor(workingCursor) : null,
   });
   response.headers.set("Cache-Control", "no-store");
