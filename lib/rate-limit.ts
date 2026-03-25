@@ -50,8 +50,12 @@ function getWindowKey(key: string, windowMs: number, nowMs: number) {
 }
 
 async function redisIncr(key: string, windowMs: number) {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url =
+    process.env.UPSTASH_REDIS_REST_URL ??
+    process.env.KV_REST_API_URL;
+  const token =
+    process.env.UPSTASH_REDIS_REST_TOKEN ??
+    process.env.KV_REST_API_TOKEN;
   if (!url || !token) return null;
 
   const nowMs = Date.now();
@@ -95,7 +99,11 @@ async function consumeRateLimit(options: RateLimitOptions) {
   if (redisResult) return redisResult;
 
   if (isProductionLikeEnv()) {
-    throw new Error("[rate-limit] Upstash Redis is unavailable in production. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.");
+    throw new Error(
+      "[rate-limit] Upstash Redis is unavailable in production. " +
+      "Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN, " +
+      "or connect Vercel KV (KV_REST_API_URL / KV_REST_API_TOKEN).",
+    );
   }
 
   warnRateLimitMemoryFallbackOnce();

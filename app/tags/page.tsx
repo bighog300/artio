@@ -1,8 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { getSiteUrl } from "@/lib/seo.public-profiles";
 import { TAG_CATEGORIES } from "@/lib/tag-categories";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600; // 1 hour
+
+export const metadata: Metadata = {
+  title: "Browse by Tags | Artio",
+  description:
+    "Explore art events by medium, genre, movement, and mood.",
+  alternates: {
+    canonical: `${getSiteUrl()}/tags`,
+  },
+};
 
 export default async function TagsBrowsePage() {
   const tags = await db.tag.findMany({

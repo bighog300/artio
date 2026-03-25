@@ -2,13 +2,35 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
+import { getSiteUrl } from "@/lib/seo.public-profiles";
 import { isTagCategory } from "@/lib/tag-categories";
 
 export async function generateMetadata({ params }: { params: Promise<{ category: string }> }): Promise<Metadata> {
   const { category } = await params;
-  const title = `${category.charAt(0).toUpperCase()}${category.slice(1)} — Browse Art Events`;
-  return { title };
+  if (!isTagCategory(category)) {
+    return { title: "Tags | Artio" };
+  }
+
+  const capitalized =
+    category.charAt(0).toUpperCase() + category.slice(1);
+  const siteUrl = getSiteUrl();
+
+  return {
+    title: `${capitalized} Art Events | Artio`,
+    description:
+      `Browse ${category} art events and exhibitions on Artio.`,
+    alternates: {
+      canonical: `${siteUrl}/tags/${category}`,
+    },
+    openGraph: {
+      title: `${capitalized} Art Events | Artio`,
+      description:
+        `Browse ${category} art events and exhibitions on Artio.`,
+    },
+  };
 }
+
+export const revalidate = 3600; // 1 hour
 
 export default async function TagsByCategoryPage({ params }: { params: Promise<{ category: string }> }) {
   const { category } = await params;
