@@ -19,7 +19,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ slug: string 
     const venue = await db.venue.findUnique({ where: { slug }, select: { name: true, slug: true } });
     if (!venue) return apiError(404, "not_found", "Venue not found");
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
     const verifyUrl = `${baseUrl}/venues/${encodeURIComponent(slug)}/claim/verify?token=${encodeURIComponent(result.token)}`;
     await enqueueNotification({
       type: "VENUE_CLAIM_VERIFY",

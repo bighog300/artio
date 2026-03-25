@@ -75,7 +75,7 @@ export async function handleArtistClaimVerify(
   });
 
   const adminRecipients = await resolveAdminRecipients(deps.appDb);
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
   await Promise.all(
     adminRecipients.map((email) =>
       deps.notify({

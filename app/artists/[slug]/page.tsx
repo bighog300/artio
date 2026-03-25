@@ -34,10 +34,25 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!hasDatabaseUrl()) return FALLBACK_METADATA;
   const artist = await db.artist.findFirst({ where: { slug, isPublished: true, deletedAt: null }, select: { name: true, bio: true, avatarImageUrl: true, featuredImageUrl: true, images: { take: 4, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } } } });
   if (!artist) return FALLBACK_METADATA;
-  const description = (artist.bio ?? "").trim().slice(0, 160) || FALLBACK_METADATA.description;
+  const metaDescription = (artist.bio ?? "").trim().slice(0, 160) || FALLBACK_METADATA.description;
+  const ogDescription = (artist.bio ?? "").trim().slice(0, 300) || FALLBACK_METADATA.description;
   const artistImage = resolveEntityPrimaryImage(artist);
   const imageUrl = artistImage?.url ?? null;
-  return { title: `${artist.name} | Artio`, description, openGraph: { title: `${artist.name} | Artio`, description, images: imageUrl ? [{ url: imageUrl, alt: artist.name }] : undefined } };
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  return {
+    title: `${artist.name} | Artio`,
+    description: metaDescription,
+    alternates: {
+      canonical: `${siteUrl}/artists/${slug}`,
+    },
+    openGraph: { title: `${artist.name} | Artio`, description: ogDescription, images: imageUrl ? [{ url: imageUrl, alt: artist.name }] : undefined },
+    twitter: {
+      card: "summary_large_image",
+      title: `${artist.name} | Artio`,
+      description: ogDescription,
+      images: imageUrl ? [imageUrl] : undefined,
+    },
+  };
 }
 export default async function ArtistDetail({ params }: { params: Promise<{ slug: string }> }) {
   if (!hasDatabaseUrl()) return <main className="p-6">Set DATABASE_URL to view artists locally.</main>;

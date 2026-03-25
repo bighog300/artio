@@ -93,6 +93,11 @@ function memoryIncr(key: string, windowMs: number) {
 async function consumeRateLimit(options: RateLimitOptions) {
   const redisResult = await redisIncr(options.key, options.windowMs).catch(() => null);
   if (redisResult) return redisResult;
+
+  if (isProductionLikeEnv()) {
+    throw new Error("[rate-limit] Upstash Redis is unavailable in production. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.");
+  }
+
   warnRateLimitMemoryFallbackOnce();
   return memoryIncr(options.key, options.windowMs);
 }

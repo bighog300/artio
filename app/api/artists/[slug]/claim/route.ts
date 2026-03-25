@@ -48,6 +48,19 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
       ...RATE_LIMITS.publicWrite,
     });
 
+    const origin = req.headers.get("origin");
+    const host = req.headers.get("host");
+    if (origin && host) {
+      try {
+        const originHost = new URL(origin).host;
+        if (originHost !== host) {
+          return apiError(403, "forbidden", "Cross-origin requests are not permitted");
+        }
+      } catch {
+        return apiError(400, "invalid_request", "Invalid origin");
+      }
+    }
+
     const { slug } = await ctx.params;
     const parsed = claimSchema.safeParse(await parseBody(req));
     if (!parsed.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsed.error));
@@ -61,7 +74,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
 
     const expiresAt = Date.now() + TTL_MS;
     const token = signToken({ slug: artist.slug, email: parsed.data.email.toLowerCase(), claimantName: parsed.data.name, exp: expiresAt });
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
     const verifyUrl = `${baseUrl}/artists/${encodeURIComponent(artist.slug)}/claim/verify?token=${encodeURIComponent(token)}`;
 
     await enqueueNotification({

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
       roleAtVenue: parsed.data.roleAtVenue,
       message: parsed.data.message,
       notify: async ({ toEmail, token, slug: venueSlug, venueName, expiresAt }) => {
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000";
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
         const verifyUrl = `${baseUrl}/venues/${encodeURIComponent(venueSlug)}/claim/verify?token=${encodeURIComponent(token)}`;
         await enqueueNotification({
           type: "VENUE_CLAIM_VERIFY",
