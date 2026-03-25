@@ -12,14 +12,8 @@
 
 ### Conditionally required when feature is enabled
 - `DIRECT_URL` (if direct Prisma connection is used)
-- `CRON_SECRET` (required when `vercel.json` defines `crons`)
+- `CRON_SECRET` (required for externally triggered `/api/cron/*` endpoints)
 - `NEXT_PUBLIC_MAPBOX_TOKEN` (canonical; `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` also supported)
-
-## Vercel cron schedules
-Configured cron jobs in `vercel.json`:
-- `/api/cron/ingest/discovery` → `0 * * * *`
-
-> Hourly cron schedules require a Vercel plan that supports hourly frequency.
 
 ## Private beta env vars
 

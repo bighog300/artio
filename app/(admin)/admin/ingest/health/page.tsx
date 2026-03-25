@@ -8,7 +8,7 @@ import { getAdminIngestHealthData } from "@/lib/ingest/health-query";
 export default async function AdminIngestHealthPage() {
   const data = await getAdminIngestHealthData(db);
   const cronConfig = {
-    schedule: "02:50 UTC daily (vercel.json)",
+    schedule: "02:50 UTC daily (DB scheduler via /api/cron/tick)",
     maxVenues: process.env.AI_INGEST_CRON_MAX_VENUES ?? "10",
     timeBudgetMs: process.env.AI_INGEST_CRON_TIME_BUDGET_MS ?? "120000",
     maxTotalCandidates: process.env.AI_INGEST_CRON_MAX_TOTAL_CREATED_CANDIDATES ?? "100",
