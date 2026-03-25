@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { getBetaConfig, isEmailAllowed } from "@/lib/beta/access";
 import { BetaPageClient } from "./beta-page-client";
+import { BetaSignOutButton } from "./beta-signout-button";
 
 export default async function BetaPage() {
   const user = await getSessionUser();
@@ -15,11 +16,7 @@ export default async function BetaPage() {
       <p>Please request access below. You can still send feedback during beta.</p>
       <div className="flex gap-3">
         {!user ? <Link className="rounded border px-3 py-2 text-sm" href="/login">Sign in</Link> : null}
-        {user ? (
-          <form action="/api/auth/logout" method="POST">
-            <button className="rounded border px-3 py-2 text-sm" type="submit">Sign out</button>
-          </form>
-        ) : null}
+        {user ? <BetaSignOutButton /> : null}
       </div>
       <BetaPageClient initialEmail={user?.email ?? ""} requestsEnabled={betaConfig.requestsEnabled} />
     </main>

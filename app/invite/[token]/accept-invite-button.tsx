@@ -6,8 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 export function AcceptInviteButton({ token }: { token: string }) {
-  const session = useSession();
-  const status = session?.status ?? "unauthenticated";
+  const { status, update } = useSession();
   const [state, setState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -25,7 +24,11 @@ export function AcceptInviteButton({ token }: { token: string }) {
       if (!response.ok) throw new Error(body?.error?.message ?? "Could not accept invite");
 
       setState("success");
-      setMessage(`Invite accepted. Your role is now ${body.role}.`);
+      setMessage(
+        `Invite accepted. Your role is now ${body.role}. ` +
+        "If you don't see your new permissions, sign out and back in."
+      );
+      await update();
     } catch (error) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "Could not accept invite");

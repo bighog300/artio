@@ -163,7 +163,7 @@ export const authOptions: NextAuthOptions = {
         },
       });
 
-      const isFirstSignIn = dbUser.createdAt instanceof Date && dbUser.updatedAt instanceof Date && dbUser.createdAt.getTime() === dbUser.updatedAt.getTime();
+      const isFirstSignIn = dbUser.createdAt instanceof Date && Date.now() - dbUser.createdAt.getTime() < 10_000;
       if (isFirstSignIn) {
         try {
           await enqueueNotification({
