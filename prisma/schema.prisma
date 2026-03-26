@@ -104,6 +104,16 @@ enum ArtistVenueAssociationStatus {
   REJECTED
 }
 
+enum CvEntryType {
+  EXHIBITION_SOLO
+  EXHIBITION_GROUP
+  RESIDENCY
+  AWARD
+  EDUCATION
+  PUBLICATION
+  OTHER
+}
+
 enum SavedSearchType {
   NEARBY
   EVENTS_FILTER
@@ -711,6 +721,7 @@ model Artist {
   featuredAsset     Asset?                   @relation("ArtistFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
   venueAssociations ArtistVenueAssociation[]
   eventAssociations ArtistEventAssociation[]
+  cvEntries         ArtistCvEntry[]
   artworks          Artwork[]
   featuredArtworks  ArtistFeaturedArtwork[]
   ingestCandidates  IngestExtractedArtist[]  @relation("IngestExtractedArtistCreated")
@@ -720,6 +731,27 @@ model Artist {
   @@index([featuredAssetId])
   @@index([deletedAt])
   @@index([canonicalUrl])
+}
+
+model ArtistCvEntry {
+  id           String      @id @default(uuid()) @db.Uuid
+  artistId     String      @db.Uuid
+  entryType    CvEntryType
+  title        String
+  organisation String?
+  location     String?
+  year         Int
+  endYear      Int?
+  description  String?
+  url          String?
+  sortOrder    Int         @default(0)
+  createdAt    DateTime    @default(now()) @db.Timestamptz
+  updatedAt    DateTime    @updatedAt @db.Timestamptz
+
+  artist       Artist      @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@index([artistId, year(sort: Desc)])
+  @@index([artistId, entryType])
 }
 
 model ArtistVenueAssociation {

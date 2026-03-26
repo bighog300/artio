@@ -13,6 +13,7 @@ import { EntityPageViewTracker } from "@/components/analytics/entity-page-view-t
 import { SectionHeader } from "@/components/ui/section-header";
 import { ArtistArtworkShowcase } from "@/components/artists/artist-artwork-showcase";
 import { ArtistAssociatedVenuesSection } from "@/components/artists/artist-associated-venues-section";
+import { ArtistCvSection } from "@/components/artists/artist-cv-section";
 import { dedupeAssociatedVenues } from "@/lib/artist-associated-venues";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
@@ -101,6 +102,21 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
           id: true,
           role: true,
           venue: { select: { id: true, name: true, slug: true } },
+        },
+      },
+      cvEntries: {
+        orderBy: [{ year: "desc" }, { sortOrder: "asc" }],
+        select: {
+          id: true,
+          entryType: true,
+          title: true,
+          organisation: true,
+          location: true,
+          year: true,
+          endYear: true,
+          description: true,
+          url: true,
+          sortOrder: true,
         },
       },
     },
@@ -208,8 +224,19 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
   const { verified, derived } = dedupeAssociatedVenues(approvedAssociations, eventDerivedVenues);
 
   const artistTags = deriveArtistTags(artist.mediums, events.map((event) => event.tags));
+  const selectedExhibitions = artist.cvEntries
+    .filter((e) => e.entryType === "EXHIBITION_SOLO" || e.entryType === "EXHIBITION_GROUP")
+    .slice(0, 3);
   const detailUrl = getDetailUrl("artist", slug);
-  const jsonLd = buildArtistJsonLd({ name: artist.name, description: artist.bio, detailUrl, imageUrl, websiteUrl: artist.websiteUrl });
+  const jsonLd = buildArtistJsonLd({
+    name: artist.name,
+    description: artist.bio,
+    detailUrl,
+    imageUrl,
+    websiteUrl: artist.websiteUrl,
+    mediums: artist.mediums,
+    cvEntries: artist.cvEntries,
+  });
   const showClaimCta = artist.isAiDiscovered && !artist.userId && artist.status !== "IN_REVIEW";
 
   return (
@@ -270,11 +297,31 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         about={(
           <>
             <EntityAboutCard description={artist.bio} websiteUrl={artist.websiteUrl} instagramUrl={artist.instagramUrl} twitterUrl={artist.twitterUrl} linkedinUrl={artist.linkedinUrl} tiktokUrl={artist.tiktokUrl} youtubeUrl={artist.youtubeUrl} tags={artistTags} />
+            {selectedExhibitions.length > 0 ? (
+              <div className="space-y-2 rounded-lg border bg-card p-4">
+                <p className="text-sm font-medium">Selected exhibitions</p>
+                <ul className="space-y-1">
+                  {selectedExhibitions.map((entry) => (
+                    <li key={entry.id} className="text-sm text-muted-foreground">
+                      {entry.year} · {entry.title}
+                      {entry.organisation ? `, ${entry.organisation}` : ""}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={`/artists/${artist.slug}?tab=cv`}
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                >
+                  View full CV →
+                </Link>
+              </div>
+            ) : null}
             {verified.length > 0 || derived.length > 0 ? (
               <ArtistAssociatedVenuesSection verified={verified} derived={derived} />
             ) : null}
           </>
         )}
+        cv={artist.cvEntries.length > 0 ? <ArtistCvSection entries={artist.cvEntries} /> : undefined}
       />
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />

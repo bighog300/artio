@@ -40,6 +40,13 @@ type ArtistJsonLdInput = {
   detailUrl: string;
   imageUrl?: string | null;
   websiteUrl?: string | null;
+  mediums?: string[] | null;
+  cvEntries?: Array<{
+    title: string;
+    organisation?: string | null;
+    year: number;
+    entryType?: string | null;
+  }> | null;
 };
 
 type ArtworkJsonLdInput = {
@@ -155,6 +162,7 @@ export function buildVenueJsonLd(input: VenueJsonLdInput) {
 }
 
 export function buildArtistJsonLd(input: ArtistJsonLdInput) {
+  const exhibitionEntries = (input.cvEntries ?? []).filter((entry) => entry.entryType === "EXHIBITION_SOLO" || entry.entryType === "EXHIBITION_GROUP");
   return {
     "@context": "https://schema.org",
     "@type": "Person",
@@ -163,6 +171,34 @@ export function buildArtistJsonLd(input: ArtistJsonLdInput) {
     url: input.detailUrl,
     image: input.imageUrl ? [input.imageUrl] : undefined,
     sameAs: input.websiteUrl || undefined,
+    ...(input.mediums?.length
+      ? {
+          hasOccupation: {
+            "@type": "Occupation",
+            name: "Visual Artist",
+            skills: input.mediums.join(", "),
+          },
+        }
+      : {}),
+    ...(exhibitionEntries.length
+      ? {
+          performerIn: exhibitionEntries
+            .slice(0, 5)
+            .map((entry) => ({
+              "@type": "Event",
+              name: entry.title,
+              ...(entry.organisation
+                ? {
+                    organizer: {
+                      "@type": "Organization",
+                      name: entry.organisation,
+                    },
+                  }
+                : {}),
+              startDate: String(entry.year),
+            })),
+        }
+      : {}),
   };
 }
 

@@ -59,6 +59,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
           },
         },
       },
+      cvEntries: {
+        orderBy: [
+          { year: "desc" },
+          { sortOrder: "asc" },
+        ],
+        select: {
+          id: true,
+          entryType: true,
+          title: true,
+          organisation: true,
+          location: true,
+          year: true,
+          endYear: true,
+          description: true,
+          url: true,
+          sortOrder: true,
+        },
+      },
     },
   });
   if (!artist) return apiError(404, "not_found", "Artist not found");

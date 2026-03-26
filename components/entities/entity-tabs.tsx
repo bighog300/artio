@@ -1,14 +1,16 @@
 "use client";
 import type { ReactNode } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSearchParams } from "next/navigation";
 
 type EntityTabsProps = {
   artworks?: ReactNode;
   upcoming: ReactNode;
   past?: ReactNode;
   artists?: ReactNode;
+  cv?: ReactNode;
   about: ReactNode;
-  defaultTab?: "artworks" | "upcoming" | "past" | "artists" | "about";
+  defaultTab?: "artworks" | "upcoming" | "past" | "artists" | "cv" | "about";
   counts?: TabCounts;
 };
 
@@ -32,8 +34,12 @@ function TabLabel({ label, count }: { label: string; count?: number }) {
   );
 }
 
-export function EntityTabs({ artworks, upcoming, past, artists, about, defaultTab, counts }: EntityTabsProps) {
-  const defaultValue = defaultTab ?? (artworks ? "artworks" : "upcoming");
+export function EntityTabs({ artworks, upcoming, past, artists, cv, about, defaultTab, counts }: EntityTabsProps) {
+  const searchParams = useSearchParams();
+  const urlTab = searchParams.get("tab");
+  const allowedTabs = new Set(["artworks", "upcoming", "past", "artists", "cv", "about"]);
+  const requestedTab = urlTab && allowedTabs.has(urlTab) ? urlTab : null;
+  const defaultValue = requestedTab ?? defaultTab ?? (artworks ? "artworks" : "upcoming");
   return (
     <Tabs defaultValue={defaultValue} className="space-y-4">
       <TabsList>
@@ -41,12 +47,14 @@ export function EntityTabs({ artworks, upcoming, past, artists, about, defaultTa
         <TabsTrigger value="upcoming"><TabLabel label="Upcoming" count={counts?.upcoming} /></TabsTrigger>
         {past ? <TabsTrigger value="past"><TabLabel label="Past" count={counts?.past} /></TabsTrigger> : null}
         {artists ? <TabsTrigger value="artists"><TabLabel label="Artists" count={counts?.artists} /></TabsTrigger> : null}
+        {cv ? <TabsTrigger value="cv">CV</TabsTrigger> : null}
         <TabsTrigger value="about">About</TabsTrigger>
       </TabsList>
       {artworks ? <TabsContent value="artworks">{artworks}</TabsContent> : null}
       <TabsContent value="upcoming">{upcoming}</TabsContent>
       {past ? <TabsContent value="past">{past}</TabsContent> : null}
       {artists ? <TabsContent value="artists">{artists}</TabsContent> : null}
+      {cv ? <TabsContent value="cv">{cv}</TabsContent> : null}
       <TabsContent value="about">{about}</TabsContent>
     </Tabs>
   );

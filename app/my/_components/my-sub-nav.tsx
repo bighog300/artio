@@ -14,6 +14,7 @@ const secondaryTabs = [
   ["Artwork", "/my/artwork"],
   ["Collection", "/my/collection"],
   ["Artist Profile", "/my/artist"],
+  ["CV & history", "/my/artist/cv"],
   ["Inquiries", "/my/artist/inquiries"],
   ["Team", "/my/team"],
   ["Analytics", "/my/analytics"],
