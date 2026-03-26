@@ -6,7 +6,6 @@ import { EntityHeader } from "@/components/entities/entity-header";
 import { EntityTabs } from "@/components/entities/entity-tabs";
 import { EventCard } from "@/components/events/event-card";
 import { FollowButton } from "@/components/follows/follow-button";
-import { ArtworkRelatedSection } from "@/components/artwork/artwork-related-section";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
@@ -20,7 +19,7 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { buildArtistJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
-import { countPublishedArtworksByArtist, listFeaturedArtworksByArtist } from "@/lib/artworks";
+import { countPublishedArtworksByArtist } from "@/lib/artworks";
 import { deriveArtistTags, getArtistArtworks } from "@/lib/artists";
 
 const FALLBACK_METADATA = { title: "Artist | Artio", description: "Browse artist profiles and related events on Artio." };
@@ -138,10 +137,9 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
     _count: { _all: true },
   }));
 
-  const [followersCount, artworkCount, featuredArtworks, showcaseResult, forSaleCount, pastEventArtists, artworkCountsByEvent] = await Promise.all([
+  const [followersCount, artworkCount, showcaseResult, forSaleCount, pastEventArtists, artworkCountsByEvent] = await Promise.all([
     db.follow.count({ where: { targetType: "ARTIST", targetId: artist.id } }),
     countPublishedArtworksByArtist(artist.id),
-    listFeaturedArtworksByArtist(artist.id, 6),
     getArtistArtworks(slug, { limit: 24, sort: "newest", resolvedArtistId: artist.id }),
     db.artwork.count({ where: { artistId: artist.id, isPublished: true, deletedAt: null, priceAmount: { not: null } } }),
     pastEventArtistsPromise,
@@ -227,7 +225,18 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         coverUrl={imageUrl}
         tags={artistTags}
         primaryAction={<FollowButton targetType="ARTIST" targetId={artist.id} initialIsFollowing={false} initialFollowersCount={followersCount} isAuthenticated={false} analyticsSlug={artist.slug} />}
-        meta={<div className="flex items-center gap-2"><ArtworkCountBadge count={artworkCount} href={`/artwork?artistId=${artist.id}`} /><span className="text-xs text-muted-foreground">{forSaleCount} for sale</span></div>}
+        meta={(
+          <div className="flex items-center gap-2">
+            <ArtworkCountBadge count={artworkCount} href={`/artwork?artistId=${artist.id}`} />
+            {forSaleCount > 0 ? (
+              <Link href={`/artwork?artistId=${artist.id}`} className="text-xs text-muted-foreground underline hover:text-foreground">
+                {forSaleCount} for sale
+              </Link>
+            ) : (
+              <span className="text-xs text-muted-foreground">{forSaleCount} for sale</span>
+            )}
+          </div>
+        )}
       />
       {showClaimCta ? (
         <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
@@ -246,19 +255,6 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
                 {events.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={event.venueName} venueSlug={event.venueSlug} image={event.image} imageUrl={event.imageUrl} imageAlt={event.imageAlt} tags={event.tags} artworkCount={event.artworkCount} viewArtworksHref={(event.artworkCount ?? 0) > 0 ? `/artwork?eventId=${event.id}` : undefined} />)}
               </div>
             )}
-            {featuredArtworks.length > 0 ? <ArtworkRelatedSection title="Featured artworks" subtitle="Selected by the artist." items={featuredArtworks} viewAllHref={artworkCount > 6 ? `/artwork?artistId=${artist.id}` : undefined} /> : null}
-            <ArtworkRelatedSection
-              title={`Artworks by ${artist.name}`}
-              subtitle="Published works from this artist."
-              items={showcaseResult.artworks.map((a) => ({
-                id: a.id,
-                slug: a.key,
-                title: a.title,
-                coverUrl: a.images[0]?.url ?? null,
-                artist: { id: artist.id, name: a.artist.name },
-              }))}
-              viewAllHref={artworkCount > 6 ? `/artwork?artistId=${artist.id}` : undefined}
-            />
           </section>
         )}
         past={(
