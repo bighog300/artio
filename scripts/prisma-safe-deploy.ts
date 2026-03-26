@@ -4,8 +4,16 @@ const RESOLVABLE_AS_ROLLED_BACK = new Set([
   "20260706120000_unified_content_status",
   "20261206110000_add_region_id_to_discovery_job",
   "20260320120000_per_entity_ingest_prompts",
-  // Renamed to 20261201110000 to fix ordering after EmailCampaign
+  // Renamed to 20261201110000 to fix ordering
   "20260325130000_venue_claim_invites_campaign_type",
+  // Renamed from 20260326 to fix ordering (after ArtworkInquiry)
+  "20260326120000_add_artwork_inquiry_read_at",
+  // May be recorded as failed on first apply
+  "20270403120000_add_artwork_inquiry_read_at",
+  // Old name before timestamp dedup rename
+  "20260326120000_add_artist_cv_entries",
+  // May be recorded as failed on first apply
+  "20260327120000_add_artist_cv_entries",
 ]);
 
 const RESOLVABLE_AS_APPLIED = new Set(["20261203105000_enrichment_provenance"]);
@@ -14,8 +22,12 @@ const ALWAYS_RESOLVE_AS_ROLLED_BACK = new Set([
   "20260320120000_per_entity_ingest_prompts",
   "20270103120000_venue_ingest_frequency",
   "20261204110000_artwork_order",
-  // Renamed to 20261201110000 to fix ordering after EmailCampaign
+  // Renamed to 20261201110000 to fix ordering
   "20260325130000_venue_claim_invites_campaign_type",
+  // Renamed from 20260326 to fix ordering (after ArtworkInquiry)
+  "20260326120000_add_artwork_inquiry_read_at",
+  // Old name before timestamp dedup rename
+  "20260326120000_add_artist_cv_entries",
 ]);
 
 const RESOLVABLE_FAILED_MIGRATIONS = new Set([
