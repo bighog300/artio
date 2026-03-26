@@ -296,6 +296,41 @@ export async function handleAdminIngestReject(req: NextRequest, params: { id?: s
   }
 }
 
+export async function handleAdminIngestRestore(req: NextRequest, params: { id?: string }, deps: Partial<AdminIngestDeps> = {}) {
+  const resolved = { ...defaultDeps, ...deps };
+  const requestId = getRequestId(req.headers);
+
+  try {
+    const actor = await resolved.requireEditorUser();
+    const parsedParams = candidateIdSchema.safeParse(params);
+    if (!parsedParams.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedParams.error), requestId);
+
+    const candidate = await resolved.appDb.ingestExtractedEvent.update({
+      where: { id: parsedParams.data.id },
+      data: {
+        status: "PENDING",
+        rejectionReason: null,
+      },
+      select: { id: true, runId: true, venueId: true, status: true, rejectionReason: true },
+    });
+
+    await resolved.logAction({
+      actorEmail: actor.email,
+      action: "ADMIN_INGEST_CANDIDATE_RESTORED",
+      targetType: "ingest_extracted_event",
+      targetId: candidate.id,
+      metadata: { runId: candidate.runId, venueId: candidate.venueId } satisfies Prisma.InputJsonValue,
+      req,
+    });
+
+    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required", undefined, requestId);
+    if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required", undefined, requestId);
+    return apiError(500, "internal_error", "Unexpected server error", undefined, requestId);
+  }
+}
+
 export async function handleAdminIngestApprove(req: NextRequest, params: { id?: string }, deps: Partial<AdminIngestDeps> = {}) {
   const resolved = { ...defaultDeps, ...deps };
   const requestId = getRequestId(req.headers);

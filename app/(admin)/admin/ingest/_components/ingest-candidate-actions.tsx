@@ -68,7 +68,7 @@ export default function IngestCandidateActions({
   const router = useRouter();
   const [openRejectModal, setOpenRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [loadingAction, setLoadingAction] = useState<"approve" | "reject" | "approve_publish" | null>(null);
+  const [loadingAction, setLoadingAction] = useState<"approve" | "reject" | "approve_publish" | "restore" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [missingTimezone, setMissingTimezone] = useState(false);
   const [linkedArtistCount, setLinkedArtistCount] = useState<number | null>(null);
@@ -217,6 +217,23 @@ export default function IngestCandidateActions({
     }
   }
 
+  async function restore() {
+    setLoadingAction("restore");
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/ingest/extracted-events/${candidateId}/restore`, { method: "POST" });
+      if (!res.ok) {
+        setError(getActionError(res.status));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Action failed. Please try again.");
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
   async function replaceEventImage(localCandidateId: string, eventId: string) {
     setEditingImageLoading(localCandidateId);
     setEditImageError((prev) => ({ ...prev, [localCandidateId]: "" }));
@@ -276,6 +293,11 @@ export default function IngestCandidateActions({
         <Button data-action="reject" size="sm" variant="outline" onClick={() => setOpenRejectModal(true)} disabled={status !== "PENDING" || loadingAction !== null}>
           {loadingAction === "reject" ? "Rejecting…" : "Reject"}
         </Button>
+        {status === "REJECTED" ? (
+          <Button size="sm" variant="outline" onClick={restore} disabled={loadingAction !== null}>
+            {loadingAction === "restore" ? "Restoring…" : "Restore"}
+          </Button>
+        ) : null}
         {status === "REJECTED" && rejectionReason ? <span className="text-xs text-muted-foreground" title={rejectionReason}>Reason: {rejectionReason}</span> : null}
       </div>
       {approvedEventId ? (
