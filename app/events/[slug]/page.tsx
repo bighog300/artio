@@ -49,7 +49,16 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
   const event = await db.event.findFirst({
       where: { slug, isPublished: true, deletedAt: null },
       include: {
-        venue: true,
+        venue: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            addressLine1: true,
+            city: true,
+            country: true,
+          },
+        },
         series: { select: { id: true, title: true } },
         eventTags: { include: { tag: true } },
         eventArtists: { include: { artist: { select: { id: true, slug: true, name: true } } } },
@@ -79,6 +88,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
 
   const isAuthenticated = false;
   const initialSaved = false;
+  const showFreeEntryLabel = event.isFree && event.ticketingMode !== "RSVP" && event.ticketingMode !== "PAID" && !event.ticketUrl;
   const primaryImage = resolveEntityPrimaryImage(event);
   const detailUrl = getDetailUrl("event", slug);
   const offers = event.ticketTiers.map((tier) => {
@@ -128,6 +138,11 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
 
   const endForCalendar = event.endAt ?? new Date(new Date(event.startAt).getTime() + 60 * 60 * 1000);
   const calendarLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${new Date(event.startAt).toISOString().replace(/[-:]|\.\d{3}/g, "")}/${new Date(endForCalendar).toISOString().replace(/[-:]|\.\d{3}/g, "")}`;
+  const directionsUrl = event.venue
+    ? `https://maps.google.com/?q=${encodeURIComponent(
+        [event.venue.addressLine1, event.venue.city, event.venue.country].filter(Boolean).join(", "),
+      )}`
+    : null;
   const outlookCalendarLink = `https://outlook.live.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(event.title)}&startdt=${new Date(event.startAt).toISOString()}&enddt=${endForCalendar.toISOString()}${event.venue?.name ? `&location=${encodeURIComponent(event.venue.name)}` : ""}&path=%2Fcalendar%2Faction%2Fcompose&rru=addevent`;
   const icalLink = `/api/events/${event.slug}/ical`;
 
@@ -143,9 +158,10 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
           <div className="absolute bottom-0 left-0 w-full section-stack p-5 text-white">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="type-h2 text-white">{event.title}</h1>
+              {showFreeEntryLabel ? <Badge className="border-white/30 bg-white/20 text-white text-xs">Free</Badge> : null}
               <ArtworkCountBadge count={artworkCount} href={`/artwork?eventId=${event.id}`} badgeClassName="border-white/40 bg-white/10 text-white" />
             </div>
-            <p className="type-caption text-white/90">{formatEventDateRange(event.startAt, event.endAt)} · {event.venue?.name ?? "Venue TBA"}</p>
+            <p className="type-caption text-white/90">{formatEventDateRange(event.startAt, event.endAt, event.timezone ?? undefined)} · {event.venue?.name ?? "Venue TBA"}</p>
             <EventDetailActions eventId={event.id} eventSlug={event.slug} nextUrl={`/events/${slug}`} isAuthenticated={isAuthenticated} initialSaved={initialSaved} calendarLink={calendarLink} outlookCalendarLink={outlookCalendarLink} icalLink={icalLink} subscribeFeedLink={event.venue?.slug ? `/api/venues/${event.venue.slug}/calendar` : null} ticketingMode={event.ticketingMode} />
             {isAuthenticated && (event.venue?.slug || event.eventArtists[0]?.artist.slug) ? (
               <ContextualNudgeSlot
@@ -174,21 +190,34 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
             <p className="type-caption whitespace-pre-wrap">{event.description || "Details coming soon."}</p>
           </article>
           <ArtworkRelatedSection title="Artworks at this event" subtitle="Published works linked to this event." items={artworks} viewAllHref={artworkCount > 6 ? `/artwork?eventId=${event.id}` : undefined} showArtistName />
-          {event.eventArtists.length ? <article className="section-stack"><SectionHeader title="Lineup" /><div className="flex flex-wrap gap-2">{event.eventArtists.map((entry) => <Badge key={entry.artistId} variant="secondary">{entry.artist.name}</Badge>)}</div></article> : null}
+          {event.eventArtists.length ? <article className="section-stack"><SectionHeader title="Lineup" /><div className="flex flex-wrap gap-2">{event.eventArtists.map((entry) => <Link key={entry.artistId} href={`/artists/${entry.artist.slug}`}><Badge variant="secondary" className="cursor-pointer hover:bg-secondary/60 transition-colors">{entry.artist.name}</Badge></Link>)}</div></article> : null}
           {event.eventTags.length ? <article className="section-stack"><SectionHeader title="Tags" /><div className="flex flex-wrap gap-2">{event.eventTags.map((eventTag) => <Badge key={eventTag.tag.id} variant="outline">{eventTag.tag.name}</Badge>)}</div></article> : null}
         </div>
 
         <Card className="section-stack h-fit p-6">
           <h3 className="type-h3">At a glance</h3>
-          <p className="type-caption">{formatEventDateRange(event.startAt, event.endAt)}</p>
+          <p className="type-caption">{formatEventDateRange(event.startAt, event.endAt, event.timezone ?? undefined)}</p>
+          {event.timezone ? <p className="text-xs text-muted-foreground">Times shown in {event.timezone}</p> : null}
           <p className="type-caption">{event.venue?.name ?? "Venue TBA"}</p>
-          <p className="type-caption">{event.venue?.addressLine1 ?? "Address unavailable"}</p>
+          {event.venue?.addressLine1 ? (
+            directionsUrl ? (
+              <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground underline hover:text-foreground">
+                {event.venue.addressLine1}
+              </a>
+            ) : (
+              <p className="type-caption">{event.venue.addressLine1}</p>
+            )
+          ) : (
+            <p className="type-caption">Address unavailable</p>
+          )}
           {event.ticketingMode === "RSVP" ? (
             <RsvpWidget eventSlug={event.slug} initialAvailability={{ available: null, isSoldOut: false, isRsvpClosed: false, tiers: [] }} />
           ) : event.ticketingMode === "PAID" ? (
             <PaidTicketWidget eventSlug={event.slug} tiers={event.ticketTiers.map((tier) => ({ ...tier, registered: tier.registrations.reduce((sum, registration) => sum + registration.quantity, 0) }))} />
           ) : event.ticketUrl ? (
             <Link href={event.ticketUrl} className="text-sm underline" target="_blank" rel="noreferrer">Get tickets</Link>
+          ) : showFreeEntryLabel ? (
+            <p className="text-sm font-medium text-emerald-700">Free entry</p>
           ) : null}
           <Button asChild variant="secondary" size="sm">
             <Link href={icalLink}>Add to calendar</Link>

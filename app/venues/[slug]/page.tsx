@@ -29,6 +29,15 @@ import { countPublishedArtworksByVenue, listPublishedArtworksByVenue } from "@/l
 
 export const revalidate = 300;
 
+function formatOpeningHours(value: unknown): string | null {
+  if (typeof value === "string") return value || null;
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    return (typeof obj.raw === "string" ? obj.raw : null) ?? (typeof obj.text === "string" ? obj.text : null) ?? null;
+  }
+  return null;
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   if (!hasDatabaseUrl()) {
@@ -60,6 +69,9 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
       slug: true,
       description: true,
       websiteUrl: true,
+      instagramUrl: true,
+      facebookUrl: true,
+      openingHours: true,
       addressLine1: true,
       city: true,
       region: true,
@@ -290,7 +302,27 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
             ? <VenueArtistsSection verifiedArtists={verifiedArtists} derivedArtists={derivedArtists} />
             : undefined
         }
-        about={<EntityAboutCard description={venue.description} websiteUrl={venue.websiteUrl} address={address || null} mapHref={mapHref} />}
+        about={(
+          <section className="space-y-3">
+            <EntityAboutCard
+              description={venue.description}
+              websiteUrl={venue.websiteUrl}
+              instagramUrl={venue.instagramUrl ?? undefined}
+              address={address || null}
+              mapHref={mapHref}
+            />
+            {(() => {
+              const hours = formatOpeningHours(venue.openingHours);
+              if (!hours) return null;
+              return (
+                <div className="rounded-lg border bg-card p-4 text-sm space-y-1">
+                  <p className="font-medium text-foreground">Opening hours</p>
+                  <p className="whitespace-pre-wrap text-muted-foreground">{hours}</p>
+                </div>
+              );
+            })()}
+          </section>
+        )}
       />
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
