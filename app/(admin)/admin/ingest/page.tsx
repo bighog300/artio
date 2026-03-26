@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 export default async function AdminIngestPage() {
   const user = await getSessionUser();
 
-  const candidates = await db.ingestExtractedEvent.findMany({
+  const [candidates, totalPending] = await Promise.all([
+    db.ingestExtractedEvent.findMany({
       where: {
         status: "PENDING",
         duplicateOfId: null,
@@ -34,7 +35,14 @@ export default async function AdminIngestPage() {
       },
       orderBy: [{ confidenceScore: "desc" }, { startAt: "asc" }, { id: "asc" }],
       take: 100,
-    });
+    }),
+    db.ingestExtractedEvent.count({
+      where: {
+        status: "PENDING",
+        duplicateOfId: null,
+      },
+    }),
+  ]);
   const venues = Array.from(
     new Map(candidates.map((c) => [c.venue.id, c.venue])).values()
   ).sort((a, b) => a.name.localeCompare(b.name));
@@ -47,6 +55,7 @@ export default async function AdminIngestPage() {
       />
       <IngestEventQueueClient
         candidates={candidates}
+        totalPending={totalPending}
         venues={venues}
         userRole={user?.role}
       />
