@@ -12,6 +12,7 @@ type Props = {
     failedLast24h: number;
     pendingArtists: number;
     pendingArtworks: number;
+    readyToPublish: number;
     activeRegions: number;
     venueGenRuns7d: number;
     pendingVenueImages: number;
@@ -215,122 +216,162 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
         ))}
       </div>
 
-      <nav className="flex items-center gap-2 border-b">
-        <Link
-          href="/admin/ingest"
-          className={`rounded-t-md px-3 py-2 text-sm ${pathname === "/admin/ingest" ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          <span className="flex items-center gap-1.5">
-            Event Queue
-            {stats.total > 0 ? (
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
-                {stats.total}
-              </span>
-            ) : null}
+      <nav className="flex items-end gap-0 overflow-x-auto border-b">
+        <div className="flex flex-col">
+          <span className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Review
           </span>
-        </Link>
-        <Link
-          href="/admin/ingest/artists"
-          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artists") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          <span className="flex items-center gap-1.5">
-            Artists
-            {stats.pendingArtists > 0 ? (
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
-                {stats.pendingArtists}
+          <div className="flex items-end">
+            <Link
+              href="/admin/ingest"
+              className={`rounded-t-md px-3 py-2 text-sm ${pathname === "/admin/ingest" ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <span className="flex items-center gap-1.5">
+                Event Queue
+                {stats.total > 0 ? (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                    {stats.total}
+                  </span>
+                ) : null}
               </span>
-            ) : null}
-          </span>
-        </Link>
-        <Link
-          href="/admin/ingest/artworks"
-          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artworks") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          <span className="flex items-center gap-1.5">
-            Artworks
-            {stats.pendingArtworks > 0 ? (
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
-                {stats.pendingArtworks}
+            </Link>
+            <Link
+              href="/admin/ingest/artists"
+              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artists") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <span className="flex items-center gap-1.5">
+                Artists
+                {stats.pendingArtists > 0 ? (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                    {stats.pendingArtists}
+                  </span>
+                ) : null}
               </span>
-            ) : null}
-          </span>
-        </Link>
-        <Link
-          href="/admin/ingest/discovery"
-          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/discovery") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          Discovery
-        </Link>
-        <Link
-          href="/admin/ingest/regions"
-          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/regions") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          Regions
-        </Link>
-        <Link
-          href="/admin/ingest/venue-generation"
-          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/venue-generation") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          Venue Gen
-        </Link>
-        <Link
-          href="/admin/ingest/venue-images"
-          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/venue-images") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          <span className="flex items-center gap-1.5">
-            Venue Images
-            {stats.pendingVenueImages > 0 ? (
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
-                {stats.pendingVenueImages}
+            </Link>
+            <Link
+              href="/admin/ingest/artworks"
+              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artworks") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <span className="flex items-center gap-1.5">
+                Artworks
+                {stats.pendingArtworks > 0 ? (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                    {stats.pendingArtworks}
+                  </span>
+                ) : null}
               </span>
-            ) : null}
-          </span>
-        </Link>
-        <Link
-          href="/admin/ingest/venue-onboarding"
-          className={`rounded-t-md px-3 py-2 text-sm ${
-            pathname.startsWith("/admin/ingest/venue-onboarding")
-              ? "bg-muted font-medium text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <span className="flex items-center gap-1.5">
-            Onboarding
-            {stats.pendingOnboarding > 0 ? (
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
-                {stats.pendingOnboarding}
+            </Link>
+            <Link
+              href="/admin/ingest/ready-to-publish"
+              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/ready-to-publish") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <span className="flex items-center gap-1.5">
+                Ready to Publish
+                {stats.readyToPublish > 0 ? (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                    {stats.readyToPublish}
+                  </span>
+                ) : null}
               </span>
-            ) : null}
+            </Link>
+          </div>
+        </div>
+
+        <div className="mx-2 mb-1 h-5 w-px flex-shrink-0 bg-border" />
+
+        <div className="flex flex-col">
+          <span className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Pipeline
           </span>
-        </Link>
-        <Link
-          href="/admin/ingest/runs"
-          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/runs") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          Trigger / Runs
-        </Link>
-        <Link
-          href="/admin/ingest/venue-map"
-          className={`rounded-t-md px-3 py-2 text-sm ${
-            pathname.startsWith("/admin/ingest/venue-map")
-              ? "bg-muted font-medium text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Venue Map
-        </Link>
-        <Link
-          href="/admin/ingest/logs"
-          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/logs") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          Logs
-        </Link>
-        <Link
-          href="/admin/ingest/health"
-          className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/health") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          Health
-        </Link>
+          <div className="flex items-end">
+            <Link
+              href="/admin/ingest/discovery"
+              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/discovery") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Discovery
+            </Link>
+            <Link
+              href="/admin/ingest/regions"
+              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/regions") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Regions
+            </Link>
+            <Link
+              href="/admin/ingest/venue-generation"
+              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/venue-generation") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Venue Gen
+            </Link>
+            <Link
+              href="/admin/ingest/venue-images"
+              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/venue-images") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <span className="flex items-center gap-1.5">
+                Venue Images
+                {stats.pendingVenueImages > 0 ? (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                    {stats.pendingVenueImages}
+                  </span>
+                ) : null}
+              </span>
+            </Link>
+            <Link
+              href="/admin/ingest/venue-onboarding"
+              className={`rounded-t-md px-3 py-2 text-sm ${
+                pathname.startsWith("/admin/ingest/venue-onboarding")
+                  ? "bg-muted font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                Onboarding
+                {stats.pendingOnboarding > 0 ? (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                    {stats.pendingOnboarding}
+                  </span>
+                ) : null}
+              </span>
+            </Link>
+          </div>
+        </div>
+
+        <div className="mx-2 mb-1 h-5 w-px flex-shrink-0 bg-border" />
+
+        <div className="flex flex-col">
+          <span className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Operations
+          </span>
+          <div className="flex items-end">
+            <Link
+              href="/admin/ingest/runs"
+              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/runs") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Trigger / Runs
+            </Link>
+            <Link
+              href="/admin/ingest/venue-map"
+              className={`rounded-t-md px-3 py-2 text-sm ${
+                pathname.startsWith("/admin/ingest/venue-map")
+                  ? "bg-muted font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Venue Map
+            </Link>
+            <Link
+              href="/admin/ingest/logs"
+              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/logs") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Logs
+            </Link>
+            <Link
+              href="/admin/ingest/health"
+              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/health") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Health
+            </Link>
+          </div>
+        </div>
       </nav>
 
       {children}

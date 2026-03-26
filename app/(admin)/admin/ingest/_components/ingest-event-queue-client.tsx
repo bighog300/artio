@@ -42,11 +42,13 @@ function getConfidenceReasons(value: unknown): string[] | null {
 export default function IngestEventQueueClient({
   candidates,
   totalPending,
+  digestSummary,
   venues = [],
   userRole,
 }: {
   candidates: QueueCandidate[];
   totalPending?: number;
+  digestSummary?: string;
   venues?: Array<{ id: string; name: string }>;
   userRole?: "USER" | "EDITOR" | "ADMIN";
 }) {
@@ -318,6 +320,9 @@ export default function IngestEventQueueClient({
 
   return (
     <section className="rounded-lg border bg-background p-4">
+      {digestSummary ? (
+        <p className="mb-3 text-sm text-muted-foreground">{digestSummary}</p>
+      ) : null}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-base font-semibold">Pending Candidates</h2>

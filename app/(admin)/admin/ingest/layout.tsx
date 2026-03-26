@@ -53,6 +53,7 @@ export default async function AdminIngestLayout({ children }: { children: React.
         failedLast24h,
         pendingArtists,
         pendingArtworks,
+        readyToPublish: pendingArtists + pendingArtworks,
         activeRegions,
         venueGenRuns7d,
         pendingVenueImages,
