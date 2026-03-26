@@ -1654,16 +1654,18 @@ model ArtworkOrder {
 
 
 model ArtworkInquiry {
-  id        String   @id @default(uuid()) @db.Uuid
-  artworkId String   @db.Uuid
-  buyerName String
+  id         String    @id @default(uuid()) @db.Uuid
+  artworkId  String    @db.Uuid
+  buyerName  String
   buyerEmail String
-  message   String?
-  createdAt DateTime @default(now()) @db.Timestamptz
-  artwork   Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  message    String?
+  readAt     DateTime? @db.Timestamptz
+  createdAt  DateTime  @default(now()) @db.Timestamptz
+  artwork    Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
 
   @@index([artworkId])
   @@index([createdAt])
+  @@index([readAt])
 }
 
 model ArtworkOffer {

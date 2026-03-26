@@ -94,7 +94,7 @@ export function ArtworkEnquireCard({
             </Button>
           </div>
         ) : (
-          <Button onClick={() => setView("open")}>Enquire about this work</Button>
+          <Button variant="outline" onClick={() => setView("open")}>Enquire about this work</Button>
         )}
       </CardContent>
     </Card>

@@ -45,7 +45,13 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
           deletedAt: true,
           priceAmount: true,
           currency: true,
-          _count: { select: { venues: true, events: true } },
+          _count: {
+            select: {
+              venues: true,
+              events: true,
+              inquiries: { where: { readAt: null } },
+            },
+          },
           featuredAsset: { select: { url: true } },
           images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true } } } },
         },
@@ -106,7 +112,14 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
                 <div className="mb-2 h-28 w-full rounded bg-muted" />
               );
             })()}
-            <h3 className="font-medium">{item.title}</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-medium">{item.title}</h3>
+              {item._count.inquiries > 0 ? (
+                <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                  {item._count.inquiries} enquir{item._count.inquiries === 1 ? "y" : "ies"}
+                </Badge>
+              ) : null}
+            </div>
             {(() => {
               const label = item.deletedAt ? "Archived"
                 : item.isPublished ? "Published"

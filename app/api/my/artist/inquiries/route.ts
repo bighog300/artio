@@ -23,6 +23,7 @@ export async function GET() {
       buyerName: true,
       buyerEmail: true,
       message: true,
+      readAt: true,
       createdAt: true,
     },
   });

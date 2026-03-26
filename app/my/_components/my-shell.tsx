@@ -9,6 +9,7 @@ export async function MyShell({ children }: { children: ReactNode }) {
 
   let venues: Array<{ id: string; name: string; role: "OWNER" | "EDITOR" }> = [];
   let hasArtistProfile = false;
+  let unreadInquiryCount = 0;
 
   if (user) {
     const [memberships, artist] = await Promise.all([
@@ -21,12 +22,21 @@ export async function MyShell({ children }: { children: ReactNode }) {
     ]);
     venues = memberships.map((m) => ({ id: m.venueId, name: m.venue.name, role: m.role }));
     hasArtistProfile = Boolean(artist);
+
+    if (artist) {
+      unreadInquiryCount = await db.artworkInquiry.count({
+        where: {
+          artwork: { artistId: artist.id },
+          readAt: null,
+        },
+      });
+    }
   }
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <MyHeaderBar venues={venues} hasArtistProfile={hasArtistProfile} />
-      <MySubNav />
+      <MySubNav unreadInquiryCount={unreadInquiryCount} />
       <div>{children}</div>
     </div>
   );

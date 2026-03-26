@@ -319,22 +319,33 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
       ) : null}
 
       {artwork.priceAmount != null && artwork.currency ? (
-        <ArtworkPurchaseCard
-          artworkKey={artwork.slug ?? artwork.id}
-          artworkTitle={artwork.title}
-          priceFormatted={formatPrice(artwork.priceAmount, artwork.currency)}
-          artistName={artwork.artist.name}
-          artistStripeReady={
-            artwork.artist.stripeAccount?.status === "ACTIVE" &&
-            artwork.artist.stripeAccount?.chargesEnabled === true
-          }
-          isSold={false}
-          priceAmount={artwork.priceAmount}
-          currency={artwork.currency}
-          initialOfferAmountMajor={artwork.offers[0] ? artwork.offers[0].offerAmount / 100 : undefined}
-          initialBuyerName={user?.name ?? ""}
-          initialBuyerEmail={user?.email ?? ""}
-        />
+        <div className="space-y-3">
+          <ArtworkPurchaseCard
+            artworkKey={artwork.slug ?? artwork.id}
+            artworkTitle={artwork.title}
+            priceFormatted={formatPrice(artwork.priceAmount, artwork.currency)}
+            artistName={artwork.artist.name}
+            artistStripeReady={
+              artwork.artist.stripeAccount?.status === "ACTIVE" &&
+              artwork.artist.stripeAccount?.chargesEnabled === true
+            }
+            isSold={false}
+            priceAmount={artwork.priceAmount}
+            currency={artwork.currency}
+            initialOfferAmountMajor={artwork.offers[0] ? artwork.offers[0].offerAmount / 100 : undefined}
+            initialBuyerName={user?.name ?? ""}
+            initialBuyerEmail={user?.email ?? ""}
+          />
+          <ArtworkEnquireCard
+            artworkKey={artwork.slug ?? artwork.id}
+            artworkTitle={artwork.title}
+            priceFormatted={formatPrice(artwork.priceAmount, artwork.currency)}
+            artistName={artwork.artist.name}
+            note="Prefer to enquire before buying?"
+            initialBuyerName={user?.name ?? ""}
+            initialBuyerEmail={user?.email ?? ""}
+          />
+        </div>
       ) : (
         <ArtworkEnquireCard
           artworkKey={artwork.slug ?? artwork.id}

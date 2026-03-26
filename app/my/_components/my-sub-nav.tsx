@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { usePathname, useSearchParams } from "next/navigation";
 
 const primaryTabs = [
@@ -13,12 +14,17 @@ const secondaryTabs = [
   ["Artwork", "/my/artwork"],
   ["Collection", "/my/collection"],
   ["Artist Profile", "/my/artist"],
+  ["Inquiries", "/my/artist/inquiries"],
   ["Team", "/my/team"],
   ["Analytics", "/my/analytics"],
   ["Settings", "/my/settings"],
 ] as const;
 
-export function MySubNav() {
+type MySubNavProps = {
+  unreadInquiryCount?: number;
+};
+
+export function MySubNav({ unreadInquiryCount = 0 }: MySubNavProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const venueId = searchParams.get("venueId");
@@ -32,8 +38,16 @@ export function MySubNav() {
 
     return (
       <li key={href}>
-        <Link href={`${href}${suffix}`} className={`rounded px-3 py-1 text-sm ${active ? "bg-foreground text-background" : inactiveClass}`}>
-          {label}
+        <Link href={`${href}${suffix}`} className={`inline-flex items-center gap-1 rounded px-3 py-1 text-sm ${active ? "bg-foreground text-background" : inactiveClass}`}>
+          <span>{label}</span>
+          {href === "/my/artist/inquiries" && unreadInquiryCount > 0 ? (
+            <Badge
+              variant="secondary"
+              className="h-5 min-w-5 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold leading-none text-amber-800"
+            >
+              {unreadInquiryCount}
+            </Badge>
+          ) : null}
         </Link>
       </li>
     );
