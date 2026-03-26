@@ -295,9 +295,19 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
 
   const detailUrl = getDetailUrl("venue", slug);
   const structuredHours = parseOpeningHours(venue.openingHours);
-  const openNowStatus = structuredHours
-    ? getOpenNowStatus(structuredHours, venue.timezone ?? null)
-    : null;
+  let openNowStatus: ReturnType<typeof getOpenNowStatus> | null = null;
+  if (structuredHours) {
+    try {
+      openNowStatus = getOpenNowStatus(
+        structuredHours,
+        venue.timezone ?? null,
+      );
+    } catch {
+      // Invalid timezone or unexpected Intl error —
+      // degrade gracefully, omit open-now indicator.
+      openNowStatus = null;
+    }
+  }
   const jsonLd = buildVenueJsonLd({
     name: venue.name,
     description: venue.description,

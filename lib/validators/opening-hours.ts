@@ -42,6 +42,15 @@ export const DAY_NAMES = [
   "Saturday",
 ] as const;
 
+function isValidTimezone(tz: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Returns the opening hours entry for the current day
  * in the venue's timezone, and whether the venue is
@@ -56,7 +65,8 @@ export function getOpenNowStatus(
   currentTime: string;
 } {
   const now = new Date();
-  const tz = timezone ?? "UTC";
+  // Validate timezone — fall back to UTC if invalid or empty.
+  const tz = timezone && isValidTimezone(timezone) ? timezone : "UTC";
 
   const dayNum = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(
     new Intl.DateTimeFormat("en-US", {
