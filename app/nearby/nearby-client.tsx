@@ -47,7 +47,10 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const viewedImpressionKeys = useRef<Set<string>>(new Set());
-  const filters = useMemo(() => parseNearbyFilters(searchParams), [searchParams]);
+  const searchParamsKey = searchParams?.toString() ?? "";
+  const filters = useMemo(() => parseNearbyFilters(searchParams), [searchParamsKey]);
+  const tagsKey = useMemo(() => filters.tags.join(","), [filters.tags]);
+  const selectedTags = useMemo(() => (tagsKey ? tagsKey.split(",") : []), [tagsKey]);
   const canSearch = useMemo(() => form.lat.trim() !== "" && form.lng.trim() !== "", [form.lat, form.lng]);
 
   const updateView = useCallback((nextView: NearbyView) => {
@@ -76,13 +79,13 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
           lng: targetLng,
           radiusKm: radiusNum,
           cursor,
-          filters: { sort: filters.sort, q: filters.q, tags: filters.tags, from: filters.from, to: filters.to, days: filters.days },
+          filters: { sort: filters.sort, q: filters.q, tags: selectedTags, from: filters.from, to: filters.to, days: filters.days },
         }),
         fetchNearbyVenues<{ items: NearbyVenueItem[]; nextCursor: string | null }>({
           lat: targetLat,
           lng: targetLng,
           radiusKm: radiusNum,
-          filters: { sort: filters.sort, q: filters.q, tags: filters.tags, from: filters.from, to: filters.to, days: filters.days },
+          filters: { sort: filters.sort, q: filters.q, tags: selectedTags, from: filters.from, to: filters.to, days: filters.days },
         }),
       ]);
 
@@ -111,7 +114,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
     } finally {
       setIsLoading(false);
     }
-  }, [filters.days, filters.from, filters.q, filters.sort, filters.tags, filters.to, form.lat, form.lng, form.radiusKm]);
+  }, [filters.days, filters.from, filters.q, filters.sort, filters.to, form.lat, form.lng, form.radiusKm, selectedTags]);
 
   useEffect(() => {
     if (searchParams?.get("view")) return;

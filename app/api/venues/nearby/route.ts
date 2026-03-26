@@ -28,49 +28,52 @@ function isPrismaSchemaMismatch(error: unknown): boolean {
 }
 
 export async function GET(req: NextRequest) {
-  const parsed = nearbyVenuesQuerySchema.safeParse(paramsToObject(req.nextUrl.searchParams));
-  if (!parsed.success) return apiError(400, "invalid_request", "Invalid query parameters", zodDetails(parsed.error));
-  const { lat, lng, radiusKm, limit, cursor, q, tags, from, to, days } = parsed.data;
   try {
+    if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL && !process.env.DIRECT_URL) {
+      console.error("venues_nearby_config_error", {
+        route: "/api/venues/nearby",
+        missingEnvVars: ["DATABASE_URL", "DIRECT_URL"],
+      });
+      return apiError(500, "server_config_error", "Server database configuration is missing (DATABASE_URL or DIRECT_URL).");
+    }
+
+    const parsed = nearbyVenuesQuerySchema.safeParse(paramsToObject(req.nextUrl.searchParams));
+    if (!parsed.success) return apiError(400, "invalid_request", "Invalid query parameters", zodDetails(parsed.error));
+    const { lat, lng, radiusKm, limit, cursor, q, tags, from, to, days } = parsed.data;
+
     await enforceRateLimit({
       key: principalRateLimitKey(req, "venues:nearby"),
       limit: RATE_LIMITS.expensiveReads.limit,
       windowMs: RATE_LIMITS.expensiveReads.windowMs,
     });
-  } catch (error) {
-    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
-    throw error;
-  }
-
-  const now = new Date();
-  const windowStart = from ? new Date(from) : now;
-  const windowEnd = to ? new Date(to) : (days ? new Date(now.getTime() + days * 24 * 60 * 60 * 1000) : undefined);
-  const eventWindowFilter: Prisma.VenueWhereInput = (tags.length || from || to || days)
-    ? {
-      events: {
-        some: {
-          isPublished: true,
-          startAt: {
-            gte: windowStart,
-            ...(windowEnd ? { lte: windowEnd } : {}),
+    const now = new Date();
+    const windowStart = from ? new Date(from) : now;
+    const windowEnd = to ? new Date(to) : (days ? new Date(now.getTime() + days * 24 * 60 * 60 * 1000) : undefined);
+    const eventWindowFilter: Prisma.VenueWhereInput = (tags.length || from || to || days)
+      ? {
+        events: {
+          some: {
+            isPublished: true,
+            startAt: {
+              gte: windowStart,
+              ...(windowEnd ? { lte: windowEnd } : {}),
+            },
+            ...(tags.length ? { eventTags: { some: { tag: { slug: { in: tags } } } } } : {}),
           },
-          ...(tags.length ? { eventTags: { some: { tag: { slug: { in: tags } } } } } : {}),
         },
-      },
-    }
-    : {};
-  const box = getBoundingBox(lat, lng, radiusKm);
+      }
+      : {};
+    const box = getBoundingBox(lat, lng, radiusKm);
 
-  const commonWhere: Prisma.VenueWhereInput = {
-    ...publishedVenueWhere(),
-    lat: { gte: box.minLat, lte: box.maxLat },
-    lng: { gte: box.minLng, lte: box.maxLng },
-    ...(q ? { name: { contains: q, mode: Prisma.QueryMode.insensitive } } : {}),
-    ...(cursor ? { id: { gt: cursor } } : {}),
-    ...eventWindowFilter,
-  };
+    const commonWhere: Prisma.VenueWhereInput = {
+      ...publishedVenueWhere(),
+      lat: { gte: box.minLat, lte: box.maxLat },
+      lng: { gte: box.minLng, lte: box.maxLng },
+      ...(q ? { name: { contains: q, mode: Prisma.QueryMode.insensitive } } : {}),
+      ...(cursor ? { id: { gt: cursor } } : {}),
+      ...eventWindowFilter,
+    };
 
-  try {
     let batch: NearbyVenueRow[];
     try {
       batch = (await db.venue.findMany({
@@ -134,13 +137,13 @@ export async function GET(req: NextRequest) {
     response.headers.set("Cache-Control", "no-store");
     return response;
   } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     console.error("venues_nearby_unexpected_error", {
       message: error instanceof Error ? error.message : String(error),
-      lat,
-      lng,
-      radiusKm,
-      limit,
-      cursor: cursor ?? null,
+      route: "/api/venues/nearby",
+      method: req.method,
+      query: req.nextUrl.searchParams.toString(),
+      stack: error instanceof Error ? error.stack : undefined,
     });
     return apiError(500, "internal_error", "Unexpected server error");
   }
