@@ -41,10 +41,12 @@ function getConfidenceReasons(value: unknown): string[] | null {
 }
 export default function IngestEventQueueClient({
   candidates,
+  totalPending,
   venues = [],
   userRole,
 }: {
   candidates: QueueCandidate[];
+  totalPending?: number;
   venues?: Array<{ id: string; name: string }>;
   userRole?: "USER" | "EDITOR" | "ADMIN";
 }) {
@@ -368,6 +370,13 @@ export default function IngestEventQueueClient({
           </label>
         </div>
       </div>
+      {(totalPending ?? 0) > candidates.length ? (
+        <div className="mb-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Showing {candidates.length} of {totalPending} pending candidates. Use
+          the venue filter to work through the full backlog, or approve/reject
+          visible candidates to reveal more.
+        </div>
+      ) : null}
       {importImageError ? (
         <div className="mb-3 flex items-center justify-between rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
           <span>{importImageError}</span>
