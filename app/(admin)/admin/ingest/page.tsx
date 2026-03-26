@@ -35,6 +35,9 @@ export default async function AdminIngestPage() {
       orderBy: [{ confidenceScore: "desc" }, { startAt: "asc" }, { id: "asc" }],
       take: 100,
     });
+  const venues = Array.from(
+    new Map(candidates.map((c) => [c.venue.id, c.venue])).values()
+  ).sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <>
@@ -42,7 +45,11 @@ export default async function AdminIngestPage() {
         title="Ingest"
         description="Pending extracted event candidates, ordered by confidence. Use the Runs tab to trigger a manual extraction."
       />
-      <IngestEventQueueClient candidates={candidates} userRole={user?.role} />
+      <IngestEventQueueClient
+        candidates={candidates}
+        venues={venues}
+        userRole={user?.role}
+      />
     </>
   );
 }
