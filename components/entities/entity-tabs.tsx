@@ -8,17 +8,39 @@ type EntityTabsProps = {
   past?: ReactNode;
   artists?: ReactNode;
   about: ReactNode;
+  defaultTab?: "artworks" | "upcoming" | "past" | "artists" | "about";
+  counts?: TabCounts;
 };
 
-export function EntityTabs({ artworks, upcoming, past, artists, about }: EntityTabsProps) {
-  const defaultValue = artworks ? "artworks" : "upcoming";
+type TabCounts = {
+  artworks?: number;
+  upcoming?: number;
+  past?: number;
+  artists?: number;
+};
+
+function TabLabel({ label, count }: { label: string; count?: number }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      {label}
+      {count != null && count > 0 ? (
+        <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+          {count}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+export function EntityTabs({ artworks, upcoming, past, artists, about, defaultTab, counts }: EntityTabsProps) {
+  const defaultValue = defaultTab ?? (artworks ? "artworks" : "upcoming");
   return (
     <Tabs defaultValue={defaultValue} className="space-y-4">
       <TabsList>
-        {artworks ? <TabsTrigger value="artworks">Artworks</TabsTrigger> : null}
-        <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-        {past ? <TabsTrigger value="past">Past</TabsTrigger> : null}
-        {artists ? <TabsTrigger value="artists">Artists</TabsTrigger> : null}
+        {artworks ? <TabsTrigger value="artworks"><TabLabel label="Artworks" count={counts?.artworks} /></TabsTrigger> : null}
+        <TabsTrigger value="upcoming"><TabLabel label="Upcoming" count={counts?.upcoming} /></TabsTrigger>
+        {past ? <TabsTrigger value="past"><TabLabel label="Past" count={counts?.past} /></TabsTrigger> : null}
+        {artists ? <TabsTrigger value="artists"><TabLabel label="Artists" count={counts?.artists} /></TabsTrigger> : null}
         <TabsTrigger value="about">About</TabsTrigger>
       </TabsList>
       {artworks ? <TabsContent value="artworks">{artworks}</TabsContent> : null}

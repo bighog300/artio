@@ -243,6 +243,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
 
   const detailUrl = getDetailUrl("venue", slug);
   const jsonLd = buildVenueJsonLd({ name: venue.name, description: venue.description, detailUrl, imageUrl: coverUrl, websiteUrl: venue.websiteUrl, address: venue.addressLine1 });
+  const defaultTab = events.length === 0 && pastEvents.length > 0 ? "past" : "upcoming";
 
   return (
     <PageShell className="page-stack">
@@ -266,6 +267,11 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
       />
 
       <EntityTabs
+        defaultTab={defaultTab}
+        counts={{
+          upcoming: events.length,
+          past: pastEvents.length,
+        }}
         upcoming={(
           <section className="space-y-3">
             <SectionHeader title="Upcoming events" subtitle="What’s happening at this venue next." />
@@ -308,6 +314,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
               description={venue.description}
               websiteUrl={venue.websiteUrl}
               instagramUrl={venue.instagramUrl ?? undefined}
+              facebookUrl={venue.facebookUrl ?? undefined}
               address={address || null}
               mapHref={mapHref}
             />
