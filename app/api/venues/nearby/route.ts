@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   const windowStart = from ? new Date(from) : now;
   const windowEnd = to ? new Date(to) : (days ? new Date(now.getTime() + days * 24 * 60 * 60 * 1000) : undefined);
-  const eventWindowFilter = (tags.length || from || to || days)
+  const eventWindowFilter: Prisma.VenueWhereInput = (tags.length || from || to || days)
     ? {
       events: {
         some: {
@@ -60,11 +61,11 @@ export async function GET(req: NextRequest) {
     : {};
   const box = getBoundingBox(lat, lng, radiusKm);
 
-  const commonWhere = {
+  const commonWhere: Prisma.VenueWhereInput = {
     ...publishedVenueWhere(),
     lat: { gte: box.minLat, lte: box.maxLat },
     lng: { gte: box.minLng, lte: box.maxLng },
-    ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
+    ...(q ? { name: { contains: q, mode: Prisma.QueryMode.insensitive } } : {}),
     ...(cursor ? { id: { gt: cursor } } : {}),
     ...eventWindowFilter,
   };
