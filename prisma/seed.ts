@@ -87,8 +87,20 @@ async function run() {
   ] as const;
 
   const venues = [
-    { slug: "modern-gallery", name: "Modern Gallery", city: "London" },
-    { slug: "riverfront-arts", name: "Riverfront Arts", city: "Manchester" },
+    {
+      slug: "modern-gallery",
+      name: "Modern Gallery",
+      city: "London",
+      country: "GB",
+      addressLine1: "1 Modern Street",
+    },
+    {
+      slug: "riverfront-arts",
+      name: "Riverfront Arts",
+      city: "Manchester",
+      country: "GB",
+      addressLine1: "2 Riverfront Road",
+    },
   ];
 
   const artists = [
@@ -124,8 +136,15 @@ async function run() {
   for (const venue of venues) {
     const result = await trackedUpsert(db.venue, {
       where: { slug: venue.slug },
-      update: { name: venue.name, city: venue.city, isPublished: true },
-      create: { ...venue, isPublished: true },
+      update: {
+        name: venue.name,
+        city: venue.city,
+        country: venue.country,
+        addressLine1: venue.addressLine1,
+        isPublished: true,
+        status: "PUBLISHED",
+      },
+      create: { ...venue, isPublished: true, status: "PUBLISHED" },
     });
     venueBySlug.set(venue.slug, { id: result.id });
   }
@@ -134,8 +153,8 @@ async function run() {
   for (const artist of artists) {
     const result = await trackedUpsert(db.artist, {
       where: { slug: artist.slug },
-      update: { name: artist.name, bio: artist.bio, isPublished: true },
-      create: { ...artist, isPublished: true },
+      update: { name: artist.name, bio: artist.bio, isPublished: true, status: "PUBLISHED" },
+      create: { ...artist, isPublished: true, status: "PUBLISHED" },
     });
     artistBySlug.set(artist.slug, { id: result.id });
   }
@@ -167,7 +186,16 @@ async function run() {
   }
 
   const now = Date.now();
-  const events = Array.from({ length: 10 }, (_, i) => {
+  const events: Array<{
+    slug: string;
+    title: string;
+    startAt: Date;
+    venueSlug: string;
+    artistSlug: string;
+    tagSlugs: string[];
+    ticketingMode?: "EXTERNAL" | "RSVP" | "PAID";
+    isFree?: boolean;
+  }> = Array.from({ length: 10 }, (_, i) => {
     const day = i + 1;
     const startAt = new Date(now + (7 + day) * 24 * 60 * 60 * 1000);
     startAt.setUTCHours(18, 0, 0, 0);
@@ -180,6 +208,16 @@ async function run() {
       artistSlug: artists[i % artists.length].slug,
       tagSlugs: i % 2 === 0 ? ["photography", "free-entry"] : ["sculpture", "performance"],
     };
+  });
+  events.push({
+    slug: "preview-rsvp-event",
+    title: "Preview RSVP Event",
+    startAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    venueSlug: "modern-gallery",
+    artistSlug: artists[0].slug,
+    tagSlugs: ["free-entry"],
+    ticketingMode: "RSVP" as const,
+    isFree: true,
   });
 
   for (const event of events) {
@@ -194,6 +232,9 @@ async function run() {
         startAt: event.startAt,
         venueId,
         isPublished: true,
+        status: "PUBLISHED",
+        ticketingMode: event.ticketingMode,
+        isFree: event.isFree,
         publishedAt: { set: new Date("2026-02-01T00:00:00.000Z") },
       },
       create: {
@@ -203,6 +244,9 @@ async function run() {
         startAt: event.startAt,
         venueId,
         isPublished: true,
+        status: "PUBLISHED",
+        ticketingMode: event.ticketingMode,
+        isFree: event.isFree,
         publishedAt: new Date("2026-02-01T00:00:00.000Z"),
       },
     });

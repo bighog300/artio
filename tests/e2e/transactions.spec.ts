@@ -122,6 +122,64 @@ test.describe('Transactions', () => {
     ).toBeVisible();
   });
 
+  test('RSVP registration happy path', async ({ page }) => {
+    await page.goto('/events');
+    await page.waitForLoadState('networkidle');
+
+    const rsvpEventLink = page
+      .locator('a[href*="/events/"]')
+      .filter({ hasText: /preview rsvp event/i })
+      .first();
+
+    if (!(await rsvpEventLink.isVisible().catch(() => false))) {
+      const response = await page.goto('/events/preview-rsvp-event');
+      if (response?.status() === 404) {
+        test.skip(true, 'RSVP seed event not found');
+        return;
+      }
+    } else {
+      await rsvpEventLink.click();
+    }
+
+    await page.waitForLoadState('networkidle');
+    await expect(page).toHaveURL(/\/events\/preview-rsvp-event/);
+
+    const rsvpForm = page
+      .locator('form, [data-testid="rsvp-widget"]')
+      .filter({ hasText: /reserve your spot|rsvp|waitlist/i })
+      .first();
+    await expect(rsvpForm).toBeVisible({ timeout: 8000 });
+
+    const nameInput = rsvpForm
+      .locator('input[placeholder*="name" i], input[type="text"]')
+      .first();
+    const emailInput = rsvpForm
+      .locator('input[type="email"], input[placeholder*="email" i]')
+      .first();
+
+    await expect(nameInput).toBeVisible();
+    await expect(emailInput).toBeVisible();
+
+    await nameInput.fill('E2E Test Attendee');
+    await emailInput.fill('e2e-rsvp@test.local');
+
+    const submitButton = rsvpForm
+      .locator('button[type="submit"], button')
+      .filter({ hasText: /rsvp|reserve|submit|join/i })
+      .first();
+    await submitButton.click();
+
+    await page.waitForLoadState('networkidle');
+
+    const confirmation = page
+      .locator('p, div, [role="alert"]')
+      .filter({ hasText: /confirmed|confirmation|waitlist|check your email|success/i })
+      .first();
+    await expect(confirmation).toBeVisible({ timeout: 10000 });
+
+    await expect(page.locator('text=/500|internal server error|application error/i')).toHaveCount(0);
+  });
+
   test('Ticket transfer form', async ({ userPage }) => {
     const registrationsResponse = await userPage.goto('/my/registrations');
     await userPage.waitForLoadState('networkidle');

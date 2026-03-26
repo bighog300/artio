@@ -7,6 +7,13 @@ on:
         description: 'Branch to run tests against (defaults to the branch you dispatch from)'
         required: false
         default: ''
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - 'prisma/**'
 
 jobs:
   e2e:
@@ -86,7 +93,12 @@ jobs:
 
       - name: Run Playwright tests
         timeout-minutes: 15
-        run: pnpm test:e2e
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            pnpm test:e2e --grep "Public discovery|Auth & onboarding"
+          else
+            pnpm test:e2e
+          fi
 
       - name: Upload Playwright HTML report
         if: always()
