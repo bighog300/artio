@@ -12,6 +12,7 @@ import VenueEnrichmentLogPanel from "@/components/admin/venue-enrichment-log-pan
 import { DetectEventsPageButton } from "@/app/(admin)/admin/venues/[id]/detect-events-page-button";
 import { IngestFrequencySelect } from "@/app/(admin)/admin/venues/[id]/ingest-frequency-select";
 import { WikipediaLookupButton } from "@/app/(admin)/admin/venues/[id]/wikipedia-lookup-button";
+import { OpeningHoursEditor } from "@/components/venues/opening-hours-editor";
 
 export default async function AdminVenue({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -92,6 +93,15 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
         venueId={id}
         initial={venue.ingestFrequency ?? "WEEKLY"}
       />
+      <section className="space-y-3 rounded-lg border p-4">
+        <h2 className="text-base font-semibold">
+          Opening hours
+        </h2>
+        <OpeningHoursEditor
+          initialHours={venue.openingHours}
+          saveUrl={`/api/admin/venues/${venue.id}`}
+        />
+      </section>
       <DetectEventsPageButton
         venueId={id}
         initialUrl={venue?.eventsPageUrl ?? null}

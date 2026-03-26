@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { EVENT_TYPE_OPTIONS } from "@/lib/event-types";
 import { normalizeAssociationRole } from "@/lib/association-roles";
+import { openingHoursSchema } from "@/lib/validators/opening-hours";
 
 export const slugSchema = z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Must be lowercase and hyphenated");
 export const artworkSlugSchema = z.string().trim().min(2).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Must be lowercase and hyphenated");
@@ -556,6 +557,7 @@ export const myVenuePatchSchema = z.object({
   autoDetectTimezone: z.boolean().optional(),
   websiteUrl: httpUrlSchema.optional().nullable(),
   instagramUrl: httpUrlSchema.optional().nullable(),
+  openingHours: openingHoursSchema.optional(),
   featuredImageUrl: httpUrlSchema.optional().nullable(),
   featuredAssetId: z.string().uuid().optional().nullable(),
   submitForApproval: z.boolean().optional(),

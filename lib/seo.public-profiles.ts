@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { parseOpeningHours } from "@/lib/validators/opening-hours";
 
 type DetailKind = "event" | "venue" | "artist";
 
@@ -30,6 +31,7 @@ type VenueJsonLdInput = {
   imageUrl?: string | null;
   address?: string | null;
   websiteUrl?: string | null;
+  openingHours?: unknown;
 };
 
 type ArtistJsonLdInput = {
@@ -126,6 +128,19 @@ export function buildEventJsonLd(input: EventJsonLdInput) {
 }
 
 export function buildVenueJsonLd(input: VenueJsonLdInput) {
+  const schemaDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const structured = parseOpeningHours(input.openingHours);
+  const openingHoursSpec = structured
+    ? structured
+      .filter((h) => !h.closed && h.open && h.close)
+      .map((h) => ({
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: `https://schema.org/${schemaDays[h.day]}`,
+        opens: h.open,
+        closes: h.close,
+      }))
+    : undefined;
+
   return {
     "@context": "https://schema.org",
     "@type": "Place",
@@ -135,6 +150,7 @@ export function buildVenueJsonLd(input: VenueJsonLdInput) {
     image: input.imageUrl ? [input.imageUrl] : undefined,
     address: input.address || undefined,
     sameAs: input.websiteUrl || undefined,
+    ...(openingHoursSpec?.length ? { openingHoursSpecification: openingHoursSpec } : {}),
   };
 }
 

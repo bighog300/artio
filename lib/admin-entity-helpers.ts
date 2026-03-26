@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { computeEventPublishBlockers, computeReadiness, computeVenuePublishBlockers } from "@/lib/publish-readiness";
 import { allowedTransitions, validateModerationTransition } from "@/lib/moderation-decision-service";
 import { adminEventPatchSchema, idParamSchema, zodDetails } from "@/lib/validators";
+import { openingHoursSchema } from "@/lib/validators/opening-hours";
 
 type AdminActor = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN" };
 
@@ -65,6 +66,7 @@ const venuePatchSchema = z.object({
   isPublished: z.boolean().optional(),
   status: z.enum(["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "CHANGES_REQUESTED", "ARCHIVED"]).optional(),
   description: z.string().trim().max(5000).nullable().optional(),
+  openingHours: openingHoursSchema.optional(),
   featuredAssetId: z.string().uuid().nullable().optional(),
 }).strict();
 

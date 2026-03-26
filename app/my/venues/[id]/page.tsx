@@ -19,6 +19,7 @@ import VenueCompletionProgress from "@/app/my/_components/VenueCompletionProgres
 import VenueSetupSection from "@/app/my/_components/VenueSetupSection";
 import VenueCreatedDraftBanner from "@/app/my/_components/VenueCreatedDraftBanner";
 import { getVenueCompletionChecks } from "@/lib/venues/venue-completion";
+import { OpeningHoursEditor } from "@/components/venues/opening-hours-editor";
 
 export default async function MyVenueEditPage({
   params,
@@ -97,6 +98,7 @@ export default async function MyVenueEditPage({
     lat: true,
     lng: true,
     timezone: true,
+    openingHours: true,
     websiteUrl: true,
     instagramUrl: true,
     artistAssociations: {
@@ -264,7 +266,16 @@ export default async function MyVenueEditPage({
 
           <div id={`contact-section-${venue.id}`}>
             <VenueSetupSection title="Contact & details" description="Optional but recommended for trust and discovery." complete={checks.contact} defaultOpen={!isCreatedFirstVisit}>
-              <p className="text-sm text-muted-foreground">Add website or Instagram in the form above.</p>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Add website or Instagram in the form above.</p>
+                <section className="space-y-3 rounded-lg border p-4">
+                  <h2 className="text-base font-semibold">Opening hours</h2>
+                  <OpeningHoursEditor
+                    initialHours={venue.openingHours}
+                    saveUrl={`/api/my/venues/${venue.id}`}
+                  />
+                </section>
+              </div>
             </VenueSetupSection>
           </div>
         </section>

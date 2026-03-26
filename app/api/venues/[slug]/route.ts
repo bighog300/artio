@@ -31,6 +31,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
   });
   return NextResponse.json({
     ...venue,
+    openingHours: venue.openingHours,
     image: toApiImageField(imageDisplay),
     // Transitional compatibility field; prefer `image` and remove after full asset pipeline rollout.
     primaryImageUrl: imageDisplay.url ?? venue.featuredImageUrl ?? null,

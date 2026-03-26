@@ -23,18 +23,69 @@ import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
 import { shouldShowVenueClaimCta } from "@/lib/venue-claims/cta";
 import { dedupeAssociatedArtists } from "@/lib/venue-associated-artists";
+import { DAY_NAMES, getOpenNowStatus, parseOpeningHours, type OpeningHours } from "@/lib/validators/opening-hours";
 
 import Link from "next/link";
 import { countPublishedArtworksByVenue, listPublishedArtworksByVenue } from "@/lib/artworks";
 
 export const revalidate = 300;
 
-function formatOpeningHours(value: unknown): string | null {
-  if (typeof value === "string") return value || null;
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    const obj = value as Record<string, unknown>;
-    return (typeof obj.raw === "string" ? obj.raw : null) ?? (typeof obj.text === "string" ? obj.text : null) ?? null;
+function OpeningHoursDisplay({
+  structuredHours,
+  openNowStatus,
+  rawHours,
+}: {
+  structuredHours: OpeningHours | null;
+  openNowStatus: ReturnType<typeof getOpenNowStatus> | null;
+  rawHours: unknown;
+}) {
+  if (structuredHours && openNowStatus) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <span
+            className={`h-2 w-2 rounded-full ${openNowStatus.isOpen ? "bg-emerald-500" : "bg-rose-400"}`}
+          />
+          <span
+            className={`text-sm font-medium ${openNowStatus.isOpen ? "text-emerald-700" : "text-muted-foreground"}`}
+          >
+            {openNowStatus.isOpen ? "Open now" : "Closed now"}
+          </span>
+        </div>
+        <table className="w-full text-sm">
+          <tbody>
+            {[1, 2, 3, 4, 5, 6, 0].map((day) => {
+              const entry = structuredHours.find((h) => h.day === day);
+              const isToday = openNowStatus.todayEntry?.day === day;
+              return (
+                <tr key={day} className={isToday ? "font-medium" : ""}>
+                  <td className="w-28 py-0.5 pr-4 text-muted-foreground">
+                    {DAY_NAMES[day]}
+                  </td>
+                  <td className="py-0.5">
+                    {!entry || entry.closed
+                      ? "Closed"
+                      : entry.open && entry.close
+                        ? `${entry.open} – ${entry.close}`
+                        : "Hours not set"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
   }
+
+  if (typeof rawHours === "string" && rawHours) {
+    return (
+      <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+        {rawHours}
+      </p>
+    );
+  }
+
   return null;
 }
 
@@ -72,6 +123,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
       instagramUrl: true,
       facebookUrl: true,
       openingHours: true,
+      timezone: true,
       addressLine1: true,
       city: true,
       region: true,
@@ -242,7 +294,19 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
   });
 
   const detailUrl = getDetailUrl("venue", slug);
-  const jsonLd = buildVenueJsonLd({ name: venue.name, description: venue.description, detailUrl, imageUrl: coverUrl, websiteUrl: venue.websiteUrl, address: venue.addressLine1 });
+  const structuredHours = parseOpeningHours(venue.openingHours);
+  const openNowStatus = structuredHours
+    ? getOpenNowStatus(structuredHours, venue.timezone ?? null)
+    : null;
+  const jsonLd = buildVenueJsonLd({
+    name: venue.name,
+    description: venue.description,
+    detailUrl,
+    imageUrl: coverUrl,
+    websiteUrl: venue.websiteUrl,
+    address: venue.addressLine1,
+    openingHours: venue.openingHours,
+  });
   const defaultTab = events.length === 0 && pastEvents.length > 0 ? "past" : "upcoming";
 
   return (
@@ -319,12 +383,15 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
               mapHref={mapHref}
             />
             {(() => {
-              const hours = formatOpeningHours(venue.openingHours);
-              if (!hours) return null;
+              if (!structuredHours && !venue.openingHours) return null;
               return (
-                <div className="rounded-lg border bg-card p-4 text-sm space-y-1">
-                  <p className="font-medium text-foreground">Opening hours</p>
-                  <p className="whitespace-pre-wrap text-muted-foreground">{hours}</p>
+                <div className="rounded-lg border bg-card p-4 space-y-2">
+                  <p className="text-sm font-medium">Opening hours</p>
+                  <OpeningHoursDisplay
+                    structuredHours={structuredHours}
+                    openNowStatus={openNowStatus}
+                    rawHours={venue.openingHours}
+                  />
                 </div>
               );
             })()}
