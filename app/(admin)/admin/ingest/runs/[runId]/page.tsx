@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { headers } from "next/headers";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import IngestStatusBadge from "@/app/(admin)/admin/ingest/_components/ingest-status-badge";
 import IngestRunCandidates from "@/app/(admin)/admin/ingest/_components/ingest-run-candidates";
 import IngestVenueSnapshot from "@/app/(admin)/admin/ingest/_components/ingest-venue-snapshot";
 import { InlineBanner } from "@/components/ui/inline-banner";
+import { getAdminIngestRunDetail } from "@/lib/admin-ingest-route";
 import { db } from "@/lib/db";
-import { getServerBaseUrl } from "@/lib/server/get-base-url";
 
 export const dynamic = "force-dynamic";
 
@@ -23,75 +22,23 @@ function normalizeOpeningHours(value: unknown): string | null {
   return null;
 }
 
-type RunDetailResponse = {
-  ok: true;
-  run: {
-    id: string;
-    status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
-    sourceUrl: string;
-    fetchStatus: string | null;
-    errorCode: string | null;
-    errorMessage: string | null;
-    errorDetail: string | null;
-    model: string | null;
-    usagePromptTokens: number | null;
-    usageCompletionTokens: number | null;
-    usageTotalTokens: number | null;
-    stopReason: string | null;
-    venueSnapshot: {
+export default async function AdminIngestRunDetailPage({ params }: { params: Promise<{ runId: string }> }) {
+  const { runId } = await params;
+  const detail = await getAdminIngestRunDetail(db, runId);
+
+  if (!detail) notFound();
+
+  const { run, counts } = detail;
+  const runSnapshot = run.venueSnapshot && typeof run.venueSnapshot === "object" && !Array.isArray(run.venueSnapshot)
+    ? run.venueSnapshot as {
       venueDescription?: string | null;
       venueCoverImageUrl?: string | null;
       venueOpeningHours?: string | null;
       venueContactEmail?: string | null;
       venueInstagramUrl?: string | null;
       venueFacebookUrl?: string | null;
-    } | null;
-    fetchFinalUrl: string | null;
-    fetchContentType: string | null;
-    fetchBytes: number | null;
-    startedAt: string | null;
-    finishedAt: string | null;
-    venue: { id: string; name: string };
-    extractedEvents: Array<{
-      id: string;
-      title: string;
-      artistNames: string[];
-      imageUrl: string | null;
-      blobImageUrl: string | null;
-      startAt: string | null;
-      locationText: string | null;
-      status: "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE";
-      rejectionReason: string | null;
-      createdEventId: string | null;
-      duplicateOfId: string | null;
-      similarityScore: number | null;
-      similarityKey: string;
-      clusterKey: string;
-      confidenceScore: number;
-      confidenceBand: "HIGH" | "MEDIUM" | "LOW" | null;
-      confidenceReasons: string[] | null;
-    }>;
-  };
-  counts: { total: number; pending: number; approved: number; rejected: number; duplicates: number; primaries: number };
-};
-
-async function fetchRun(runId: string): Promise<RunDetailResponse | null> {
-  const baseUrl = await getServerBaseUrl();
-  const requestHeaders = await headers();
-  const cookie = requestHeaders.get("cookie") ?? "";
-  const res = await fetch(`${baseUrl}/api/admin/ingest/runs/${runId}`, { cache: "no-store", headers: cookie ? { cookie } : undefined });
-  if (res.status === 404) return null;
-  if (!res.ok) return null;
-  return res.json() as Promise<RunDetailResponse>;
-}
-
-export default async function AdminIngestRunDetailPage({ params }: { params: Promise<{ runId: string }> }) {
-  const { runId } = await params;
-  const detail = await fetchRun(runId);
-
-  if (!detail) notFound();
-
-  const { run, counts } = detail;
+    }
+    : null;
   const venueDetails = run.venueSnapshot
     ? await db.venue.findUnique({
       where: { id: run.venue.id },
@@ -112,7 +59,22 @@ export default async function AdminIngestRunDetailPage({ params }: { params: Pro
     }
     : null;
 
-  const snapshotHasAnyData = Boolean(run.venueSnapshot && Object.values(run.venueSnapshot).some((value) => typeof value === "string" && value.trim().length > 0));
+  const snapshotHasAnyData = Boolean(runSnapshot && Object.values(runSnapshot).some((value) => typeof value === "string" && value.trim().length > 0));
+  const candidates: Parameters<typeof IngestRunCandidates>[0]["candidates"] = run.extractedEvents.map((candidate) => {
+    const confidenceBand =
+      candidate.confidenceBand === "HIGH" || candidate.confidenceBand === "MEDIUM" || candidate.confidenceBand === "LOW"
+        ? candidate.confidenceBand
+        : null;
+    const confidenceReasons = Array.isArray(candidate.confidenceReasons)
+      ? candidate.confidenceReasons.filter((reason): reason is string => typeof reason === "string")
+      : null;
+    return {
+      ...candidate,
+      startAt: candidate.startAt ? candidate.startAt.toISOString() : null,
+      confidenceBand,
+      confidenceReasons,
+    };
+  });
 
   return (
     <main className="space-y-4">
@@ -163,12 +125,12 @@ export default async function AdminIngestRunDetailPage({ params }: { params: Pro
         ) : null}
       </section>
 
-      {run.venueSnapshot && snapshotHasAnyData && venueDetailsForSnapshot ? (
+      {runSnapshot && snapshotHasAnyData && venueDetailsForSnapshot ? (
         <section className="rounded-lg border bg-background p-4">
           <IngestVenueSnapshot
             runId={run.id}
             venueId={run.venue.id}
-            snapshot={run.venueSnapshot}
+            snapshot={runSnapshot}
             venue={venueDetailsForSnapshot}
           />
         </section>
@@ -179,7 +141,7 @@ export default async function AdminIngestRunDetailPage({ params }: { params: Pro
           <h2 className="text-base font-semibold">Extracted Candidates</h2>
           <p className="text-sm text-muted-foreground">Approve or reject pending candidates. Approval creates an unpublished event and submission.</p>
         </div>
-        <IngestRunCandidates candidates={run.extractedEvents} venueId={run.venue.id} runId={run.id} />
+        <IngestRunCandidates candidates={candidates} venueId={run.venue.id} runId={run.id} />
 </section>
     </main>
   );
