@@ -4,6 +4,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { isAuthError } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { listIngestRegions } from "@/lib/ingest/regions-list";
 import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
@@ -21,20 +22,10 @@ export async function GET(req: NextRequest) {
       req.nextUrl.searchParams.get("page") ?? "1",
       10,
     );
-    const pageNumber = Number.isFinite(page) && page > 0 ? page : 1;
-    const pageSize = 20;
-
-    const [regions, total] = await Promise.all([
-      db.ingestRegion.findMany({
-        orderBy: { createdAt: "desc" },
-        skip: (pageNumber - 1) * pageSize,
-        take: pageSize,
-      }),
-      db.ingestRegion.count(),
-    ]);
+    const payload = await listIngestRegions({ db, page });
 
     return NextResponse.json(
-      { regions, total, page: pageNumber, pageSize },
+      payload,
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

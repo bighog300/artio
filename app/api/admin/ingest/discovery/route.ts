@@ -4,6 +4,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { isAuthError } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { listDiscoveryJobs } from "@/lib/ingest/discovery-list";
 import { runDiscoveryJob } from "@/lib/ingest/run-discovery-job";
 import { requireAdmin } from "@/lib/admin";
 
@@ -22,20 +23,9 @@ export async function GET(req: NextRequest) {
   try {
     await requireAdmin();
     const page = Number.parseInt(req.nextUrl.searchParams.get("page") ?? "1", 10);
-    const pageNumber = Number.isFinite(page) && page > 0 ? page : 1;
-    const pageSize = 20;
+    const payload = await listDiscoveryJobs({ db, page });
 
-    const [jobs, total] = await Promise.all([
-      db.ingestDiscoveryJob.findMany({
-        orderBy: { createdAt: "desc" },
-        include: { _count: { select: { candidates: true } } },
-        skip: (pageNumber - 1) * pageSize,
-        take: pageSize,
-      }),
-      db.ingestDiscoveryJob.count(),
-    ]);
-
-    return NextResponse.json({ jobs, total, page: pageNumber, pageSize }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(payload, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Forbidden");
