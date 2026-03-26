@@ -181,20 +181,29 @@ export default function IngestEventQueueClient({
     let approved = 0;
     let failed = 0;
 
-    for (const candidate of highCandidates) {
-      try {
-        const res = await fetch(
-          `/api/admin/ingest/extracted-events/${candidate.id}/approve`,
-          { method: "POST" },
-        );
-        if (res.ok) {
+    const BATCH_SIZE = 5;
+
+    for (let i = 0; i < highCandidates.length; i += BATCH_SIZE) {
+      const batch = highCandidates.slice(i, i + BATCH_SIZE);
+
+      const results = await Promise.allSettled(
+        batch.map((candidate) =>
+          fetch(`/api/admin/ingest/extracted-events/${candidate.id}/approve`, {
+            method: "POST",
+          })
+            .then((res) => (res.ok ? ("ok" as const) : ("fail" as const)))
+            .catch(() => "fail" as const),
+        ),
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled" && result.value === "ok") {
           approved += 1;
         } else {
           failed += 1;
         }
-      } catch {
-        failed += 1;
       }
+
       setBulkProgress({ done: approved + failed, total: highCandidates.length });
     }
 
