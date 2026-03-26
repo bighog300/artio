@@ -1,5 +1,6 @@
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import IngestEventQueueClient from "@/app/(admin)/admin/ingest/_components/ingest-event-queue-client";
+import { IngestHowItWorks } from "@/app/(admin)/admin/ingest/_components/ingest-how-it-works";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 
@@ -37,7 +38,7 @@ function buildDigestSummary({
 export default async function AdminIngestPage() {
   const user = await getSessionUser();
 
-  const [candidates, totalPending] = await Promise.all([
+  const [candidates, totalPending, failedLast24h] = await Promise.all([
     db.ingestExtractedEvent.findMany({
       where: {
         status: "PENDING",
@@ -71,6 +72,14 @@ export default async function AdminIngestPage() {
         duplicateOfId: null,
       },
     }),
+    db.ingestRun.count({
+      where: {
+        status: "FAILED",
+        createdAt: {
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
+      },
+    }),
   ]);
   const venues = Array.from(
     new Map(candidates.map((c) => [c.venue.id, c.venue])).values()
@@ -81,7 +90,7 @@ export default async function AdminIngestPage() {
   const digestSummary = buildDigestSummary({
     totalPending,
     high,
-    failedLast24h: 0,
+    failedLast24h,
   });
 
   return (
@@ -90,6 +99,7 @@ export default async function AdminIngestPage() {
         title="Ingest"
         description="Pending extracted event candidates, ordered by confidence. Use the Runs tab to trigger a manual extraction."
       />
+      <IngestHowItWorks />
       <IngestEventQueueClient
         candidates={candidates}
         totalPending={totalPending}

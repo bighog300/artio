@@ -116,7 +116,17 @@ export function VenueImagesClient(props: VenueImagesClientProps) {
     : groups;
 
   if (groups.length === 0) {
-    return <p className="text-sm text-muted-foreground">No pending homepage image candidates.</p>;
+    return (
+      <div>
+        <p className="text-sm text-muted-foreground">No pending homepage image candidates.</p>
+        <p className="mt-4 text-xs text-muted-foreground">
+          Reviewing newly generated venues?{" "}
+          <Link href="/admin/ingest/venue-onboarding" className="underline hover:text-foreground">
+            Go to Venue Onboarding →
+          </Link>
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -241,6 +251,12 @@ export function VenueImagesClient(props: VenueImagesClientProps) {
           </section>
         );
       })}
+      <p className="mt-4 text-xs text-muted-foreground">
+        Reviewing newly generated venues?{" "}
+        <Link href="/admin/ingest/venue-onboarding" className="underline hover:text-foreground">
+          Go to Venue Onboarding →
+        </Link>
+      </p>
     </div>
   );
 }
