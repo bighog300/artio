@@ -370,21 +370,25 @@ export default function ArtworksClient({
       } else if (e.key === "a" || e.key === "A") {
         if (focusedIndex === null) return;
         const candidate = pending[focusedIndex];
-        if (!candidate) return;
+        if (!candidate || candidate.status !== "PENDING") return;
         e.preventDefault();
-        void approve(candidate.id);
+        const row = document.querySelector(`[data-candidate-id="${candidate.id}"]`);
+        const approveBtn = row?.querySelector<HTMLButtonElement>("button[data-action='approve']");
+        approveBtn?.click();
       } else if (e.key === "r" || e.key === "R") {
         if (focusedIndex === null) return;
         const candidate = pending[focusedIndex];
-        if (!candidate) return;
+        if (!candidate || candidate.status !== "PENDING") return;
         e.preventDefault();
-        void reject(candidate.id);
+        const row = document.querySelector(`[data-candidate-id="${candidate.id}"]`);
+        const rejectBtn = row?.querySelector<HTMLButtonElement>("button[data-action='reject']");
+        rejectBtn?.click();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [candidates, focusedIndex, approve, reject]);
+  }, [candidates, focusedIndex]);
 
   const pendingCandidates = candidates.filter((c) => c.status === "PENDING");
   const focusedCandidateId =
@@ -490,11 +494,11 @@ export default function ArtworksClient({
                   <td className="px-3 py-2">
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap gap-2">
-                        <button className="rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => approve(candidate.id)}>Approve</button>
+                        <button data-action="approve" className="rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => approve(candidate.id)}>Approve</button>
                         {userRole === "ADMIN" ? (
                           <button className="rounded border border-emerald-600 px-2 py-1 text-xs text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => approveAndPublish(candidate.id)}>Approve & Publish</button>
                         ) : null}
-                        <button className="rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => reject(candidate.id)}>Reject</button>
+                        <button data-action="reject" className="rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => reject(candidate.id)}>Reject</button>
                         <button
                           className="rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                           disabled={workingId === candidate.id || candidate.status !== "PENDING"}

@@ -79,21 +79,31 @@ export default function IngestTriggerClient({ venues }: { venues: VenueOption[] 
     let succeeded = 0;
     let failed = 0;
 
-    for (const venue of toRun) {
-      try {
-        const res = await fetch(`/api/admin/ingest/venues/${venue.id}/run`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: "{}",
-        });
-        if (res.ok) {
+    const BATCH_SIZE = 3;
+
+    for (let i = 0; i < toRun.length; i += BATCH_SIZE) {
+      const batch = toRun.slice(i, i + BATCH_SIZE);
+
+      const results = await Promise.allSettled(
+        batch.map((venue) =>
+          fetch(`/api/admin/ingest/venues/${venue.id}/run`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+          })
+            .then((res) => (res.ok ? ("ok" as const) : ("fail" as const)))
+            .catch(() => "fail" as const),
+        ),
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled" && result.value === "ok") {
           succeeded += 1;
         } else {
           failed += 1;
         }
-      } catch {
-        failed += 1;
       }
+
       setBatchProgress({
         done: succeeded + failed,
         total: toRun.length,

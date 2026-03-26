@@ -292,21 +292,25 @@ export default function ArtistsClient({
       } else if (e.key === "a" || e.key === "A") {
         if (focusedIndex === null) return;
         const candidate = pending[focusedIndex];
-        if (!candidate) return;
+        if (!candidate || candidate.status !== "PENDING") return;
         e.preventDefault();
-        void approve(candidate.id);
+        const row = document.querySelector(`[data-candidate-id="${candidate.id}"]`);
+        const approveBtn = row?.querySelector<HTMLButtonElement>("button[data-action='approve']");
+        approveBtn?.click();
       } else if (e.key === "r" || e.key === "R") {
         if (focusedIndex === null) return;
         const candidate = pending[focusedIndex];
-        if (!candidate) return;
+        if (!candidate || candidate.status !== "PENDING") return;
         e.preventDefault();
-        void reject(candidate.id);
+        const row = document.querySelector(`[data-candidate-id="${candidate.id}"]`);
+        const rejectBtn = row?.querySelector<HTMLButtonElement>("button[data-action='reject']");
+        rejectBtn?.click();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [candidates, focusedIndex, approve, reject]);
+  }, [candidates, focusedIndex]);
 
   const pendingCandidates = candidates.filter((c) => c.status === "PENDING");
   const focusedCandidateId =
@@ -401,14 +405,14 @@ export default function ArtistsClient({
                   <td className="px-3 py-2">{candidate.eventLinks.length}</td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => approve(candidate.id)}>Approve</Button>
+                      <Button data-action="approve" size="sm" variant="outline" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => approve(candidate.id)}>Approve</Button>
                       {userRole === "ADMIN" ? (
                         <Button size="sm" variant="outline" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => approveAndPublish(candidate.id)}>Approve & Publish</Button>
                       ) : null}
                       <Button size="sm" variant="outline" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => toggleEdit(candidate)}>
                         {editOpenById[candidate.id] ? "Close edit" : "Edit"}
                       </Button>
-                      <Button size="sm" variant="outline" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => reject(candidate.id)}>Reject</Button>
+                      <Button data-action="reject" size="sm" variant="outline" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => reject(candidate.id)}>Reject</Button>
                     </div>
                     {candidate.createdArtistId ? (
                       <div className="mt-2 space-y-1">
