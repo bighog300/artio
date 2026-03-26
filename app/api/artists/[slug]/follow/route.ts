@@ -13,6 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     await enforceRateLimit({
       key: principalRateLimitKey(req, "public:artists:follow-status"),
       ...RATE_LIMITS.publicRead,
+      fallbackToMemory: true,
     });
   } catch (error) {
     if (isRateLimitError(error)) return rateLimitErrorResponse(error);

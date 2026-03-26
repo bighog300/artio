@@ -25,6 +25,9 @@ type RateLimitOptions = {
   key: string;
   limit: number;
   windowMs: number;
+  // When true: use in-memory fallback if Redis is unavailable.
+  // When false/omitted: throw in production-like environments.
+  fallbackToMemory?: boolean;
 };
 
 export class RateLimitError extends Error {
@@ -98,7 +101,7 @@ async function consumeRateLimit(options: RateLimitOptions) {
   const redisResult = await redisIncr(options.key, options.windowMs).catch(() => null);
   if (redisResult) return redisResult;
 
-  if (isProductionLikeEnv()) {
+  if (isProductionLikeEnv() && !options.fallbackToMemory) {
     throw new Error(
       "[rate-limit] Upstash Redis is unavailable in production. " +
       "Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN, " +

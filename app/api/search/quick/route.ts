@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       key: principalRateLimitKey(req, "search:quick"),
       limit: RATE_LIMITS.expensiveReads.limit,
       windowMs: RATE_LIMITS.expensiveReads.windowMs,
+      fallbackToMemory: true,
     });
 
     const [events, venues, artists] = await Promise.all([

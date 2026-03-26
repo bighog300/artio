@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
       key: principalRateLimitKey(req, "tags:list"),
       limit: RATE_LIMITS.expensiveReads.limit,
       windowMs: RATE_LIMITS.expensiveReads.windowMs,
+      fallbackToMemory: true,
     });
     const category = req.nextUrl.searchParams.get("category");
     const items = await db.tag.findMany({

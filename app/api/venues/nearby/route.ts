@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
       key: principalRateLimitKey(req, "venues:nearby"),
       limit: RATE_LIMITS.expensiveReads.limit,
       windowMs: RATE_LIMITS.expensiveReads.windowMs,
+      fallbackToMemory: true,
     });
     const now = new Date();
     const windowStart = from ? new Date(from) : now;

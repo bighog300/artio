@@ -14,6 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ key:
     await enforceRateLimit({
       key: principalRateLimitKey(req, "public:artwork:detail"),
       ...RATE_LIMITS.publicRead,
+      fallbackToMemory: true,
     });
   } catch (error) {
     if (isRateLimitError(error)) return rateLimitErrorResponse(error);

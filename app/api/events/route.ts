@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
         key: principalRateLimitKey(req, "events:expensive-read"),
         limit: RATE_LIMITS.expensiveReads.limit,
         windowMs: RATE_LIMITS.expensiveReads.windowMs,
+        fallbackToMemory: true,
       });
     }
     const tagList = (tags || "").split(",").map((t) => t.trim()).filter(Boolean);
