@@ -71,6 +71,72 @@ const eventApprovePatchSchema = z.object({
   locationText: z.string().trim().max(300).nullable().optional(),
 }).strict();
 
+export async function getAdminIngestRunDetail(appDb: typeof db, runId: string) {
+  const run = await appDb.ingestRun.findUnique({
+    where: { id: runId },
+    select: {
+      id: true,
+      status: true,
+      sourceUrl: true,
+      fetchStatus: true,
+      fetchFinalUrl: true,
+      fetchContentType: true,
+      fetchBytes: true,
+      errorCode: true,
+      errorMessage: true,
+      errorDetail: true,
+      model: true,
+      usagePromptTokens: true,
+      usageCompletionTokens: true,
+      usageTotalTokens: true,
+      stopReason: true,
+      venueSnapshot: true,
+      startedAt: true,
+      finishedAt: true,
+      venue: { select: { id: true, name: true } },
+      extractedEvents: {
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: {
+          id: true,
+          status: true,
+          title: true,
+          artistNames: true,
+          imageUrl: true,
+          blobImageUrl: true,
+          startAt: true,
+          endAt: true,
+          locationText: true,
+          sourceUrl: true,
+          fingerprint: true,
+          similarityKey: true,
+          clusterKey: true,
+          duplicateOfId: true,
+          similarityScore: true,
+          confidenceScore: true,
+          confidenceBand: true,
+          confidenceReasons: true,
+          rejectionReason: true,
+          createdEventId: true,
+        },
+      },
+    },
+  });
+
+  if (!run) return null;
+
+  const counts = run.extractedEvents.reduce((acc, candidate) => {
+    acc.total += 1;
+    if (candidate.status === "PENDING") acc.pending += 1;
+    if (candidate.status === "APPROVED") acc.approved += 1;
+    if (candidate.status === "REJECTED") acc.rejected += 1;
+    if (candidate.status === "DUPLICATE") acc.duplicates += 1;
+    if (candidate.status !== "DUPLICATE") acc.primaries += 1;
+    return acc;
+  }, { total: 0, pending: 0, approved: 0, rejected: 0, duplicates: 0, primaries: 0 });
+
+  return { run, counts };
+}
+
 export async function handleAdminIngestRun(req: NextRequest, params: { venueId?: string }, deps: Partial<AdminIngestDeps> = {}) {
   const resolved = { ...defaultDeps, ...deps };
   const requestId = getRequestId(req.headers);
@@ -171,69 +237,10 @@ export async function handleAdminIngestRunGet(req: NextRequest, params: { runId?
     const parsedParams = runIdSchema.safeParse(params);
     if (!parsedParams.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedParams.error), requestId);
 
-    const run = await resolved.appDb.ingestRun.findUnique({
-      where: { id: parsedParams.data.runId },
-      select: {
-        id: true,
-        status: true,
-        sourceUrl: true,
-        fetchStatus: true,
-        fetchFinalUrl: true,
-        fetchContentType: true,
-        fetchBytes: true,
-        errorCode: true,
-        errorMessage: true,
-        errorDetail: true,
-        model: true,
-        usagePromptTokens: true,
-        usageCompletionTokens: true,
-        usageTotalTokens: true,
-        stopReason: true,
-        venueSnapshot: true,
-        startedAt: true,
-        finishedAt: true,
-        venue: { select: { id: true, name: true } },
-        extractedEvents: {
-          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          select: {
-            id: true,
-            status: true,
-            title: true,
-            artistNames: true,
-            imageUrl: true,
-            blobImageUrl: true,
-            startAt: true,
-            endAt: true,
-            locationText: true,
-            sourceUrl: true,
-            fingerprint: true,
-            similarityKey: true,
-            clusterKey: true,
-            duplicateOfId: true,
-            similarityScore: true,
-            confidenceScore: true,
-            confidenceBand: true,
-            confidenceReasons: true,
-            rejectionReason: true,
-            createdEventId: true,
-          },
-        },
-      },
-    });
+    const detail = await getAdminIngestRunDetail(resolved.appDb, parsedParams.data.runId);
+    if (!detail) return apiError(404, "not_found", "Ingest run not found", undefined, requestId);
 
-    if (!run) return apiError(404, "not_found", "Ingest run not found", undefined, requestId);
-
-    const counts = run.extractedEvents.reduce((acc, candidate) => {
-      acc.total += 1;
-      if (candidate.status === "PENDING") acc.pending += 1;
-      if (candidate.status === "APPROVED") acc.approved += 1;
-      if (candidate.status === "REJECTED") acc.rejected += 1;
-      if (candidate.status === "DUPLICATE") acc.duplicates += 1;
-      if (candidate.status !== "DUPLICATE") acc.primaries += 1;
-      return acc;
-    }, { total: 0, pending: 0, approved: 0, rejected: 0, duplicates: 0, primaries: 0 });
-
-    return NextResponse.json({ ok: true, run, counts }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ ok: true, run: detail.run, counts: detail.counts }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required", undefined, requestId);
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Editor role required", undefined, requestId);
