@@ -28,6 +28,10 @@ export default async function AdminIngestArtworksPage() {
       confidenceReasons: true,
       extractionProvider: true,
       createdArtworkId: true,
+      lastApprovalAttemptAt: true,
+      lastApprovalError: true,
+      imageImportStatus: true,
+      imageImportWarning: true,
       createdAt: true,
       sourceEvent: { select: { id: true, title: true, slug: true } },
       createdArtwork: {

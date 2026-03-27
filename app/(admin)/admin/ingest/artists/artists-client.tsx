@@ -21,6 +21,10 @@ type Candidate = {
   confidenceBand: string | null;
   confidenceReasons: unknown;
   extractionProvider: string;
+  lastApprovalAttemptAt: string | Date | null;
+  lastApprovalError: string | null;
+  imageImportStatus: string | null;
+  imageImportWarning: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE";
   createdArtistId: string | null;
   image?: { url: string | null; isProcessing?: boolean; hasFailure?: boolean } | null;
@@ -36,6 +40,64 @@ type Candidate = {
     };
   }>;
 };
+
+function formatCompactTimestamp(value: string | Date | null): string | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function truncateWithTitle(value: string, max = 80): { text: string; title?: string } {
+  if (value.length <= max) return { text: value };
+  return { text: `${value.slice(0, max - 1)}…`, title: value };
+}
+
+function getApprovalState(candidate: Candidate): { tone: "muted" | "ok" | "warn"; label: string; detail?: string } {
+  if (!candidate.lastApprovalAttemptAt) {
+    return { tone: "muted", label: "Approval: Not attempted" };
+  }
+  if (candidate.lastApprovalError) {
+    const at = formatCompactTimestamp(candidate.lastApprovalAttemptAt);
+    return {
+      tone: "warn",
+      label: at ? `Approval failed (${at})` : "Approval failed",
+      detail: candidate.lastApprovalError,
+    };
+  }
+  const at = formatCompactTimestamp(candidate.lastApprovalAttemptAt);
+  return {
+    tone: "ok",
+    label: at ? `Approval attempted (${at})` : "Approval attempted",
+  };
+}
+
+function getPersistedImageStatusLabel(status: string | null): { tone: "muted" | "ok" | "warn"; label: string } {
+  switch (status) {
+    case "imported":
+      return { tone: "ok", label: "Image: Imported" };
+    case "failed":
+      return { tone: "warn", label: "Image: Failed" };
+    case "no_image_found":
+      return { tone: "muted", label: "Image: No image found" };
+    case "not_attempted":
+    case null:
+      return { tone: "muted", label: "Image: Not attempted" };
+    default:
+      return { tone: "muted", label: `Image: ${status}` };
+  }
+}
+
+function getStatusToneClass(tone: "muted" | "ok" | "warn"): string {
+  if (tone === "ok") return "text-emerald-700";
+  if (tone === "warn") return "text-amber-700";
+  return "text-muted-foreground";
+}
 
 type EditDraft = {
   name: string;
@@ -436,6 +498,7 @@ export default function ArtistsClient({
               <th className="px-3 py-2">Source</th>
               <th className="px-3 py-2">Provider</th>
               <th className="px-3 py-2">Events waiting</th>
+              <th className="px-3 py-2">Observability</th>
               <th className="px-3 py-2">Actions</th>
             </tr>
           </thead>
@@ -525,6 +588,32 @@ export default function ArtistsClient({
                       <span className="text-sm text-muted-foreground">—</span>
                     )}
                   </td>
+                  <td className="min-w-[260px] px-3 py-2">
+                    {(() => {
+                      const approval = getApprovalState(candidate);
+                      const image = getPersistedImageStatusLabel(candidate.imageImportStatus);
+                      const approvalError = approval.detail ? truncateWithTitle(approval.detail, 100) : null;
+                      const imageWarning = candidate.imageImportWarning
+                        ? truncateWithTitle(candidate.imageImportWarning, 100)
+                        : null;
+                      return (
+                        <div className="space-y-1 text-xs leading-tight">
+                          <p className={getStatusToneClass(approval.tone)}>{approval.label}</p>
+                          <p className={getStatusToneClass(image.tone)}>{image.label}</p>
+                          {approvalError ? (
+                            <p className="text-amber-700" title={approvalError.title ?? undefined}>
+                              {approvalError.text}
+                            </p>
+                          ) : null}
+                          {imageWarning ? (
+                            <p className="text-muted-foreground" title={imageWarning.title ?? undefined}>
+                              {imageWarning.text}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
                       <Button data-action="approve" size="sm" variant="outline" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => approve(candidate.id)}>Approve</Button>
@@ -580,7 +669,7 @@ export default function ArtistsClient({
                 </tr>
                 {expandedEventLinks[candidate.id] && candidate.eventLinks.length > 0 ? (
                   <tr className="border-b bg-muted/20">
-                    <td colSpan={10} className="px-4 py-2">
+                    <td colSpan={11} className="px-4 py-2">
                       <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Events featuring this artist
                       </p>
@@ -603,7 +692,7 @@ export default function ArtistsClient({
                 ) : null}
                 {editOpenById[candidate.id] ? (
                   <tr className="border-b">
-                    <td colSpan={10} className="px-3 pb-3">
+                    <td colSpan={11} className="px-3 pb-3">
                       <div className="grid grid-cols-2 gap-2 rounded border bg-muted/30 p-3 text-sm">
                         <label className="flex flex-col gap-1">
                           Name
@@ -667,7 +756,7 @@ export default function ArtistsClient({
             ))}
             {candidates.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-muted-foreground" colSpan={10}>No artist candidates.</td>
+                <td className="px-3 py-6 text-muted-foreground" colSpan={11}>No artist candidates.</td>
               </tr>
             ) : null}
           </tbody>

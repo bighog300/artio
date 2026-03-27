@@ -29,6 +29,10 @@ export default async function AdminIngestArtistsPage() {
       confidenceReasons: true,
       extractionProvider: true,
       createdArtistId: true,
+      lastApprovalAttemptAt: true,
+      lastApprovalError: true,
+      imageImportStatus: true,
+      imageImportWarning: true,
       createdAt: true,
       createdArtist: {
         select: {

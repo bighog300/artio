@@ -22,6 +22,10 @@ type Candidate = {
   confidenceBand: string | null;
   confidenceReasons: unknown;
   extractionProvider: string;
+  lastApprovalAttemptAt: string | Date | null;
+  lastApprovalError: string | null;
+  imageImportStatus: string | null;
+  imageImportWarning: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE";
   createdArtworkId: string | null;
   sourceEvent: { id: string; title: string; slug: string } | null;
@@ -31,6 +35,59 @@ type Candidate = {
     artist: { id: string; name: string; slug: string; status: string } | null;
   } | null;
 };
+
+function formatCompactTimestamp(value: string | Date | null): string | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function truncateWithTitle(value: string, max = 90): { text: string; title?: string } {
+  if (value.length <= max) return { text: value };
+  return { text: `${value.slice(0, max - 1)}…`, title: value };
+}
+
+function getStatusToneClass(tone: "muted" | "ok" | "warn"): string {
+  if (tone === "ok") return "text-emerald-700";
+  if (tone === "warn") return "text-amber-700";
+  return "text-muted-foreground";
+}
+
+function getApprovalState(candidate: Candidate): { tone: "muted" | "ok" | "warn"; label: string; detail?: string } {
+  if (!candidate.lastApprovalAttemptAt) return { tone: "muted", label: "Approval: Not attempted" };
+  if (candidate.lastApprovalError) {
+    const at = formatCompactTimestamp(candidate.lastApprovalAttemptAt);
+    return {
+      tone: "warn",
+      label: at ? `Approval failed (${at})` : "Approval failed",
+      detail: candidate.lastApprovalError,
+    };
+  }
+  const at = formatCompactTimestamp(candidate.lastApprovalAttemptAt);
+  return { tone: "ok", label: at ? `Approval attempted (${at})` : "Approval attempted" };
+}
+
+function getImageStatusState(status: string | null): { tone: "muted" | "ok" | "warn"; label: string } {
+  switch (status) {
+    case "imported":
+      return { tone: "ok", label: "Image: Imported" };
+    case "failed":
+      return { tone: "warn", label: "Image: Failed" };
+    case "no_image_found":
+      return { tone: "muted", label: "Image: No image found" };
+    case "not_attempted":
+    case null:
+      return { tone: "muted", label: "Image: Not attempted" };
+    default:
+      return { tone: "muted", label: `Image: ${status}` };
+  }
+}
 
 type EditDraft = {
   title: string;
@@ -494,7 +551,7 @@ export default function ArtworksClient({
         ) : null}
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1300px] text-sm">
+        <table className="w-full min-w-[1480px] text-sm">
           <thead>
             <tr className="border-b text-left">
               <th className="px-3 py-2">img</th>
@@ -505,6 +562,7 @@ export default function ArtworksClient({
               <th className="px-3 py-2">Year</th>
               <th className="px-3 py-2">Source event</th>
               <th className="px-3 py-2">Provider</th>
+              <th className="px-3 py-2">Observability</th>
               <th className="px-3 py-2">Actions</th>
             </tr>
           </thead>
@@ -602,6 +660,32 @@ export default function ArtworksClient({
                     ) : null}
                   </td>
                   <td className="px-3 py-2">{candidate.extractionProvider}</td>
+                  <td className="min-w-[250px] px-3 py-2">
+                    {(() => {
+                      const approval = getApprovalState(candidate);
+                      const image = getImageStatusState(candidate.imageImportStatus);
+                      const approvalError = approval.detail ? truncateWithTitle(approval.detail) : null;
+                      const imageWarning = candidate.imageImportWarning
+                        ? truncateWithTitle(candidate.imageImportWarning)
+                        : null;
+                      return (
+                        <div className="space-y-1 text-xs leading-tight">
+                          <p className={getStatusToneClass(approval.tone)}>{approval.label}</p>
+                          <p className={getStatusToneClass(image.tone)}>{image.label}</p>
+                          {approvalError ? (
+                            <p className="text-amber-700" title={approvalError.title ?? undefined}>
+                              {approvalError.text}
+                            </p>
+                          ) : null}
+                          {imageWarning ? (
+                            <p className="text-muted-foreground" title={imageWarning.title ?? undefined}>
+                              {imageWarning.text}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap gap-2">
@@ -666,7 +750,7 @@ export default function ArtworksClient({
                 </tr>
                 {editOpenById[candidate.id] ? (
                   <tr className="border-b">
-                    <td colSpan={9} className="px-3 pb-3">
+                    <td colSpan={10} className="px-3 pb-3">
                       <div className="grid grid-cols-2 gap-2 rounded border bg-muted/30 p-3 text-sm">
                         <label className="flex flex-col gap-1">
                           Title

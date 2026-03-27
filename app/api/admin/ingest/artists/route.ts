@@ -42,6 +42,10 @@ export async function GET(req: NextRequest) {
           confidenceBand: true,
           confidenceReasons: true,
           extractionProvider: true,
+          lastApprovalAttemptAt: true,
+          lastApprovalError: true,
+          imageImportStatus: true,
+          imageImportWarning: true,
           createdAt: true,
           eventLinks: {
             select: {
