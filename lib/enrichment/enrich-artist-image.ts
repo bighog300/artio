@@ -47,6 +47,12 @@ export async function enrichArtistImage(
     requestId: `enrich-artist-image-${artist.id}`,
   });
 
+  // Reset completeness so scoring cron rescores
+  await args.db.artist.update({
+    where: { id: args.entityId },
+    data: { completenessUpdatedAt: null },
+  });
+
   const afterArtist = await args.db.artist.findUnique({ where: { id: artist.id }, select: { featuredAssetId: true } });
   const after = afterArtist?.featuredAssetId ?? null;
 

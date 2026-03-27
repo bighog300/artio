@@ -26,6 +26,7 @@ export const DEFAULT_CRON_JOBS: CronJobCreateInput[] = [
   { name: "artwork_recover_images", displayName: "Artwork: Recover Images", endpoint: "/api/cron/artworks/recover-images", schedule: "20 3 * * *", enabled: true },
   { name: "artwork_enrich_descriptions", displayName: "Artwork: Enrich Descriptions", endpoint: "/api/cron/artworks/enrich-descriptions", schedule: "30 3 * * *", enabled: true },
   { name: "artwork_autotag", displayName: "Artwork: Auto-tag", endpoint: "/api/cron/artworks/autotag", schedule: "40 3 * * *", enabled: true },
+  { name: "artist_score_completeness", displayName: "Artist: Score Completeness", endpoint: "/api/cron/artists/score-completeness", schedule: "0 4 * * *", enabled: true },
   { name: "health", displayName: "Health Check", endpoint: "/api/cron/health", schedule: "*/15 * * * *", enabled: true },
 ];
 
