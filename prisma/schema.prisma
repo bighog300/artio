@@ -1123,6 +1123,10 @@ model IngestExtractedArtistRun {
   searchResults     Json                  @default("{}")
   model             String
   usageTotalTokens  Int?
+  errorCode         String?
+  errorMessage      String?
+  attemptedAt       DateTime              @default(now()) @db.Timestamptz
+  durationMs        Int?
   createdAt         DateTime              @default(now()) @db.Timestamptz
   artistCandidate   IngestExtractedArtist @relation(fields: [artistCandidateId], references: [id], onDelete: Cascade)
 }
@@ -1170,6 +1174,10 @@ model IngestDiscoveryJob {
   status         DiscoveryJobStatus         @default(PENDING)
   resultsCount   Int?
   errorMessage   String?
+  durationMs     Int?
+  candidatesQueued Int?
+  candidatesSkipped Int?
+  queryFailCount Int?
   createdAt      DateTime                   @default(now()) @db.Timestamptz
   updatedAt      DateTime                   @updatedAt @db.Timestamptz
   candidates     IngestDiscoveryCandidate[]
