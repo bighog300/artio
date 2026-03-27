@@ -47,6 +47,39 @@ function statusClassName(status: string): string {
   return "bg-muted text-muted-foreground hover:bg-muted";
 }
 
+function parseSearchErrorHint(
+  msg: string | null,
+): string | null {
+  if (!msg) return null;
+  if (
+    msg.includes("accessNotConfigured") ||
+    msg.includes("API has not been used")
+  )
+    return "Enable Custom Search API in Google Cloud";
+  if (
+    msg.includes("keyInvalid") ||
+    msg.includes("API key not valid")
+  )
+    return "Invalid API key — check Settings";
+  if (msg.includes("quota") || msg.includes("429"))
+    return "Daily quota exceeded (100/day free tier)";
+  if (msg.includes("403"))
+    return "Permission denied — check API key & CX";
+  if (msg.includes("400"))
+    return "Bad request — verify CX in Settings";
+  if (
+    msg.includes("not set") ||
+    msg.includes("not configured")
+  )
+    return "Keys not saved — check Settings";
+  if (
+    msg.includes("ECONNREFUSED") ||
+    msg.includes("fetch failed")
+  )
+    return "Network error — outbound fetch blocked";
+  return null;
+}
+
 export default function DiscoveryClient({ initial }: { initial: DiscoveryListResponse }) {
   const [jobs, setJobs] = useState(initial.jobs);
   const [submitting, setSubmitting] = useState(false);
@@ -539,6 +572,7 @@ export default function DiscoveryClient({ initial }: { initial: DiscoveryListRes
               <TableHead>Provider</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Results count</TableHead>
+              <TableHead>Error</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -553,13 +587,38 @@ export default function DiscoveryClient({ initial }: { initial: DiscoveryListRes
                   <TableCell>{job.searchProvider}</TableCell>
                   <TableCell><Badge className={statusClassName(job.status)}>{job.status}</Badge></TableCell>
                   <TableCell>{job.resultsCount ?? "—"}</TableCell>
+                  <TableCell className="max-w-[260px]">
+                    {job.errorMessage ? (
+                      <div className="space-y-0.5">
+                        <p
+                          className="truncate text-xs
+            text-rose-700 font-mono"
+                          title={job.errorMessage}
+                        >
+                          {job.errorMessage}
+                        </p>
+                        {parseSearchErrorHint(job.errorMessage)
+                          ? (
+                            <p className="text-xs
+            text-muted-foreground">
+                              → {parseSearchErrorHint(
+                                job.errorMessage)}
+                            </p>
+                          ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        —
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Button type="button" variant="outline" size="sm" onClick={() => toggleCandidates(job.id)}>View candidates</Button>
                   </TableCell>
                 </TableRow>
                 {expanded[job.id] ? (
                   <TableRow key={`${job.id}-panel`}>
-                    <TableCell colSpan={8}>
+                    <TableCell colSpan={9}>
                       {renderCandidateRows(job, candidateCache[job.id] ?? [])}
                     </TableCell>
                   </TableRow>
@@ -568,7 +627,7 @@ export default function DiscoveryClient({ initial }: { initial: DiscoveryListRes
             ))}
             {jobs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-muted-foreground">No discovery jobs yet.</TableCell>
+                <TableCell colSpan={9} className="text-muted-foreground">No discovery jobs yet.</TableCell>
               </TableRow>
             ) : null}
           </TableBody>
