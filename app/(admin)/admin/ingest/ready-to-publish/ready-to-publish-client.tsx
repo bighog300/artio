@@ -276,14 +276,20 @@ export default function ReadyToPublishClient({
       ) : null}
 
       <div className="space-y-2">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-10 flex-shrink-0 text-xs text-muted-foreground">
+            Type
+          </span>
           <ChipButton active={typeFilter === "ALL"} label={`All (${rows.length})`} onClick={() => setTypeFilter("ALL")} />
           {typeCounts.EVENT > 0 ? <ChipButton active={typeFilter === "EVENT"} label={`Events (${typeCounts.EVENT})`} onClick={() => setTypeFilter("EVENT")} /> : null}
           {typeCounts.ARTIST > 0 ? <ChipButton active={typeFilter === "ARTIST"} label={`Artists (${typeCounts.ARTIST})`} onClick={() => setTypeFilter("ARTIST")} /> : null}
           {typeCounts.ARTWORK > 0 ? <ChipButton active={typeFilter === "ARTWORK"} label={`Artworks (${typeCounts.ARTWORK})`} onClick={() => setTypeFilter("ARTWORK")} /> : null}
           {typeCounts.VENUE > 0 ? <ChipButton active={typeFilter === "VENUE"} label={`Venues (${typeCounts.VENUE})`} onClick={() => setTypeFilter("VENUE")} /> : null}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-10 flex-shrink-0 text-xs text-muted-foreground">
+            Origin
+          </span>
           <ChipButton active={originFilter === "ALL"} label={`All (${rows.length})`} onClick={() => setOriginFilter("ALL")} />
           {originCounts.ingest > 0 ? <ChipButton active={originFilter === "ingest"} label={`Via ingest (${originCounts.ingest})`} onClick={() => setOriginFilter("ingest")} /> : null}
           {originCounts.venue_generation > 0 ? <ChipButton active={originFilter === "venue_generation"} label={`Via venue generation (${originCounts.venue_generation})`} onClick={() => setOriginFilter("venue_generation")} /> : null}

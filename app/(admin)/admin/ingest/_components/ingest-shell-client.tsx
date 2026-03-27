@@ -128,7 +128,7 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
 
   return (
     <main className="space-y-4">
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-10">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-11">
         <StatCard
           label="Pending"
           value={stats.total}
@@ -234,7 +234,14 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
       </div>
 
       <nav className="flex items-end gap-0 overflow-x-auto border-b">
-        <div className="flex items-end">
+        <div className="flex flex-col">
+          <span
+            className="hidden select-none px-2 pb-0.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 lg:block"
+            aria-hidden="true"
+          >
+            Review
+          </span>
+          <div className="flex items-end">
             <Link
               href="/admin/ingest"
               className={`rounded-t-md px-3 py-2 text-sm ${pathname === "/admin/ingest" ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
@@ -287,6 +294,7 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
                 ) : null}
               </span>
             </Link>
+          </div>
         </div>
 
         <span

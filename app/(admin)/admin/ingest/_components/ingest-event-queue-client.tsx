@@ -483,44 +483,66 @@ export default function IngestEventQueueClient({
       {digestSummary ? (
         <p className="mb-3 text-sm text-muted-foreground">{digestSummary}</p>
       ) : null}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-base font-semibold">Pending Candidates</h2>
-          <select
-            className="rounded border px-2 py-1 text-sm"
-            value={venueFilter}
-            onChange={(e) => setVenueFilter(e.target.value)}
-          >
-            <option value="all">All venues ({candidates.length})</option>
-            {venues.map((venue) => {
-              const count = candidates.filter(
-                (c) =>
-                  c.venue.id === venue.id &&
-                  (confidenceFilter === "all" ||
-                    c.confidenceBand === confidenceFilter),
-              ).length;
-              if (count === 0) return null;
-              return (
-                <option key={venue.id} value={venue.id}>
-                  {venue.name} ({count})
-                </option>
-              );
-            })}
-          </select>
-          <select
-            className="rounded border px-2 py-1 text-sm"
-            value={confidenceFilter}
-            onChange={(e) =>
-              setConfidenceFilter(
-                e.target.value as "all" | "HIGH" | "MEDIUM" | "LOW",
-              )
-            }
-          >
-            <option value="all">All confidence</option>
-            <option value="HIGH">HIGH only</option>
-            <option value="MEDIUM">MEDIUM only</option>
-            <option value="LOW">LOW only</option>
-          </select>
+      <div className="mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-base font-semibold">Pending candidates</h2>
+            <select
+              className="rounded border px-2 py-1 text-sm"
+              value={venueFilter}
+              onChange={(e) => setVenueFilter(e.target.value)}
+            >
+              <option value="all">All venues ({candidates.length})</option>
+              {venues.map((venue) => {
+                const count = candidates.filter(
+                  (c) =>
+                    c.venue.id === venue.id &&
+                    (confidenceFilter === "all" ||
+                      c.confidenceBand === confidenceFilter),
+                ).length;
+                if (count === 0) return null;
+                return (
+                  <option key={venue.id} value={venue.id}>
+                    {venue.name} ({count})
+                  </option>
+                );
+              })}
+            </select>
+            <select
+              className="rounded border px-2 py-1 text-sm"
+              value={confidenceFilter}
+              onChange={(e) =>
+                setConfidenceFilter(
+                  e.target.value as "all" | "HIGH" | "MEDIUM" | "LOW",
+                )
+              }
+            >
+              <option value="all">All confidence</option>
+              <option value="HIGH">HIGH only</option>
+              <option value="MEDIUM">MEDIUM only</option>
+              <option value="LOW">LOW only</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <p className="text-sm text-muted-foreground">
+              {venueFilter === "all"
+                ? "Showing up to 100 primary pending candidates from all venues."
+                : `Showing ${filteredCandidates.length} pending candidate${filteredCandidates.length === 1 ? "" : "s"} for this venue.`}
+            </p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showReasons}
+                onChange={(e) => setShowReasons(e.target.checked)}
+              />
+              Show confidence reasons
+            </label>
+          </div>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+          <span className="mr-auto hidden text-xs text-muted-foreground sm:block">
+            J/K navigate · A approve · R reject · S skip
+          </span>
           {(() => {
             const highCount = filteredCandidates.filter(
               (c) => c.confidenceBand === "HIGH" && c.status === "PENDING",
@@ -574,21 +596,22 @@ export default function IngestEventQueueClient({
               </div>
             );
           })()}
-        </div>
-        <div className="flex flex-col gap-1">
-          <p className="text-sm text-muted-foreground">
-            {venueFilter === "all"
-              ? "Showing up to 100 primary pending candidates from all venues."
-              : `Showing ${filteredCandidates.length} pending candidate${filteredCandidates.length === 1 ? "" : "s"} for this venue.`}
-          </p>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={showReasons}
-              onChange={(e) => setShowReasons(e.target.checked)}
-            />
-            Show confidence reasons
-          </label>
+          {candidates.filter((c) => c.confidenceBand === "MEDIUM" && c.status === "PENDING").length >
+          0 ? (
+            <button
+              type="button"
+              className="text-xs text-muted-foreground underline"
+              onClick={selectAllVisible}
+            >
+              Select all MEDIUM (
+              {
+                candidates.filter(
+                  (c) => c.confidenceBand === "MEDIUM" && c.status === "PENDING",
+                ).length
+              }
+              )
+            </button>
+          ) : null}
         </div>
       </div>
       {(totalPending ?? 0) > candidates.length ? (
@@ -644,95 +667,83 @@ export default function IngestEventQueueClient({
           </button>
         </div>
       ) : null}
-      {candidates.filter((c) => c.confidenceBand === "MEDIUM" && c.status === "PENDING").length >
-      0 ? (
-        <button
-          type="button"
-          className="mb-3 text-xs text-muted-foreground underline"
-          onClick={selectAllVisible}
-        >
-          Select all MEDIUM (
-          {
-            candidates.filter(
-              (c) => c.confidenceBand === "MEDIUM" && c.status === "PENDING",
-            ).length
-          }
-          )
-        </button>
-      ) : null}
       {selectedIds.size > 0 ? (
-        <div className="mb-3 flex items-center gap-3 rounded border border-blue-200 bg-blue-50 px-3 py-2">
-          <span className="text-sm text-blue-800">{selectedIds.size} selected</span>
-          <button
-            type="button"
-            className="text-sm text-blue-800 underline"
-            onClick={() => setBulkEditOpen(true)}
-          >
-            Edit shared fields
-          </button>
-          <button
-            type="button"
-            className="ml-auto text-xs text-blue-600"
-            onClick={clearSelection}
-          >
-            Clear selection
-          </button>
+        <div className="sticky top-0 z-10 bg-background pb-2 pt-1">
+          <div className="mb-3 flex items-center gap-3 rounded border border-blue-200 bg-blue-50 px-3 py-2">
+            <span className="text-sm text-blue-800">{selectedIds.size} selected</span>
+            <button
+              type="button"
+              className="text-sm text-blue-800 underline"
+              onClick={() => setBulkEditOpen(true)}
+            >
+              Edit shared fields
+            </button>
+            <button
+              type="button"
+              className="ml-auto text-xs text-blue-600"
+              onClick={clearSelection}
+            >
+              Clear selection
+            </button>
+          </div>
         </div>
       ) : null}
       {bulkEditOpen ? (
-        <div className="mb-3 space-y-3 rounded-lg border bg-background p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">
-              Edit {selectedIds.size} selected event{selectedIds.size !== 1 ? "s" : ""}
-            </h3>
-            <button
-              type="button"
-              onClick={() => setBulkEditOpen(false)}
-              className="text-sm text-muted-foreground"
-            >
-              ×
-            </button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Only non-empty fields will be applied. Leave blank to skip that field.
-          </p>
-
-          <label className="block space-y-1 text-sm">
-            <span>Timezone (IANA)</span>
-            <input
-              className="w-full rounded border bg-background px-3 py-1.5 text-sm"
-              placeholder="e.g. Europe/London"
-              value={bulkEditDraft.timezone}
-              onChange={(e) =>
-                setBulkEditDraft((prev) => ({ ...prev, timezone: e.target.value }))
-              }
-            />
-          </label>
-
-          <div className="flex gap-2 pt-1">
-            <button
-              type="button"
-              className="rounded bg-foreground px-3 py-1.5 text-sm text-background disabled:opacity-50"
-              disabled={bulkEditing || !bulkEditDraft.timezone.trim()}
-              onClick={() => void applyBulkEdit()}
-            >
-              {bulkEditing ? "Applying…" : "Apply to selected"}
-            </button>
-            <button
-              type="button"
-              className="rounded border px-3 py-1.5 text-sm"
-              onClick={() => setBulkEditOpen(false)}
-            >
-              Cancel
-            </button>
-          </div>
-
-          {bulkEditResult ? (
-            <p className="text-xs text-emerald-700">
-              Updated {bulkEditResult.updated} events
-              {bulkEditResult.failed > 0 ? `, ${bulkEditResult.failed} failed` : ""}
+        <div className="sticky top-0 z-10 bg-background pb-2">
+          <div className="mb-3 space-y-3 rounded-lg border bg-background p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">
+                Edit {selectedIds.size} selected event{selectedIds.size !== 1 ? "s" : ""}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setBulkEditOpen(false)}
+                className="text-sm text-muted-foreground"
+              >
+                ×
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Only non-empty fields will be applied. Leave blank to skip that field.
             </p>
-          ) : null}
+
+            <label className="block space-y-1 text-sm">
+              <span>Timezone (IANA)</span>
+              <input
+                className="w-full rounded border bg-background px-3 py-1.5 text-sm"
+                placeholder="e.g. Europe/London"
+                value={bulkEditDraft.timezone}
+                onChange={(e) =>
+                  setBulkEditDraft((prev) => ({ ...prev, timezone: e.target.value }))
+                }
+              />
+            </label>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                className="rounded bg-foreground px-3 py-1.5 text-sm text-background disabled:opacity-50"
+                disabled={bulkEditing || !bulkEditDraft.timezone.trim()}
+                onClick={() => void applyBulkEdit()}
+              >
+                {bulkEditing ? "Applying…" : "Apply to selected"}
+              </button>
+              <button
+                type="button"
+                className="rounded border px-3 py-1.5 text-sm"
+                onClick={() => setBulkEditOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+
+            {bulkEditResult ? (
+              <p className="text-xs text-emerald-700">
+                Updated {bulkEditResult.updated} events
+                {bulkEditResult.failed > 0 ? `, ${bulkEditResult.failed} failed` : ""}
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : null}
       <div className="overflow-x-auto">
