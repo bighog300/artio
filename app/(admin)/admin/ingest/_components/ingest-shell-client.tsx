@@ -217,11 +217,7 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
       </div>
 
       <nav className="flex items-end gap-0 overflow-x-auto border-b">
-        <div className="flex flex-col">
-          <span className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Review
-          </span>
-          <div className="flex items-end">
+        <div className="flex items-end">
             <Link
               href="/admin/ingest"
               className={`rounded-t-md px-3 py-2 text-sm ${pathname === "/admin/ingest" ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
@@ -274,13 +270,17 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
                 ) : null}
               </span>
             </Link>
-          </div>
         </div>
 
-        <div className="mx-2 mb-1 h-5 w-px flex-shrink-0 bg-border" />
-
+        <span
+          className="mx-2 self-stretch border-l border-border/60"
+          aria-hidden="true"
+        />
         <div className="flex flex-col">
-          <span className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span
+            className="hidden select-none px-2 pb-0.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 lg:block"
+            aria-hidden="true"
+          >
             Pipeline
           </span>
           <div className="flex items-end">
@@ -335,10 +335,15 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
           </div>
         </div>
 
-        <div className="mx-2 mb-1 h-5 w-px flex-shrink-0 bg-border" />
-
+        <span
+          className="mx-2 self-stretch border-l border-border/60"
+          aria-hidden="true"
+        />
         <div className="flex flex-col">
-          <span className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span
+            className="hidden select-none px-2 pb-0.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 lg:block"
+            aria-hidden="true"
+          >
             Operations
           </span>
           <div className="flex items-end">

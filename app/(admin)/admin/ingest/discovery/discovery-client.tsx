@@ -34,6 +34,12 @@ type Candidate = {
   skipReason: string | null;
 };
 
+const DEFAULT_TEMPLATES: Record<"VENUE" | "ARTIST" | "EVENT", string> = {
+  VENUE: "[region] contemporary art gallery exhibition 2026",
+  ARTIST: "[region] contemporary visual artist painter sculptor",
+  EVENT: "[region] art exhibition opening event 2026",
+};
+
 function statusClassName(status: string): string {
   if (status === "RUNNING") return "bg-blue-100 text-blue-800 hover:bg-blue-100";
   if (status === "DONE") return "bg-green-100 text-green-800 hover:bg-green-100";
@@ -45,12 +51,38 @@ export default function DiscoveryClient({ initial }: { initial: DiscoveryListRes
   const [jobs, setJobs] = useState(initial.jobs);
   const [submitting, setSubmitting] = useState(false);
   const [entityType, setEntityType] = useState<"VENUE" | "ARTIST" | "EVENT">("VENUE");
-  const [queryTemplate, setQueryTemplate] = useState("[region] contemporary art gallery exhibition 2026");
+  const [queryTemplate, setQueryTemplate] = useState(DEFAULT_TEMPLATES.VENUE);
   const [region, setRegion] = useState("");
   const [searchProvider, setSearchProvider] = useState<"google_pse" | "brave">("google_pse");
   const [maxResults, setMaxResults] = useState("10");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [candidateCache, setCandidateCache] = useState<Record<string, Candidate[]>>({});
+  const [refreshing, setRefreshing] = useState(false);
+
+  function handleEntityTypeChange(next: "VENUE" | "ARTIST" | "EVENT") {
+    setEntityType(next);
+    setQueryTemplate((prev) => {
+      const currentDefault = DEFAULT_TEMPLATES[entityType];
+      if (prev === currentDefault) {
+        return DEFAULT_TEMPLATES[next];
+      }
+      return prev;
+    });
+  }
+
+  async function refreshJobs() {
+    setRefreshing(true);
+    try {
+      const res = await fetch("/api/admin/ingest/discovery");
+      if (!res.ok) return;
+      const data = await res.json() as DiscoveryListResponse;
+      setJobs(data.jobs);
+    } catch {
+      // silent
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   async function createJob(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -108,7 +140,9 @@ export default function DiscoveryClient({ initial }: { initial: DiscoveryListRes
         <form className="grid gap-3 md:grid-cols-2" onSubmit={createJob}>
           <label className="space-y-1 text-sm">
             <span>Entity type</span>
-            <select className="w-full rounded-md border bg-background px-3 py-2" value={entityType} onChange={(e) => setEntityType(e.target.value as "VENUE" | "ARTIST" | "EVENT")}> 
+            <select className="w-full rounded-md border bg-background px-3 py-2" value={entityType} onChange={(e) =>
+                handleEntityTypeChange(e.target.value as "VENUE" | "ARTIST" | "EVENT")
+              }> 
               <option value="VENUE">Venue</option>
               <option value="ARTIST">Artist</option>
               <option value="EVENT">Event</option>
@@ -127,7 +161,7 @@ export default function DiscoveryClient({ initial }: { initial: DiscoveryListRes
           </label>
           <label className="space-y-1 text-sm">
             <span>Region</span>
-            <input className="w-full rounded-md border bg-background px-3 py-2" value={region} onChange={(e) => setRegion(e.target.value)} />
+            <input className="w-full rounded-md border bg-background px-3 py-2" value={region} placeholder="e.g. London, UK" onChange={(e) => setRegion(e.target.value)} />
           </label>
           <label className="space-y-1 text-sm">
             <span>Max results</span>
@@ -140,6 +174,17 @@ export default function DiscoveryClient({ initial }: { initial: DiscoveryListRes
       </section>
 
       <section className="rounded-lg border bg-background p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-medium">Recent discovery jobs</p>
+          <button
+            type="button"
+            className="text-sm text-muted-foreground underline hover:text-foreground disabled:opacity-50"
+            disabled={refreshing}
+            onClick={() => void refreshJobs()}
+          >
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
