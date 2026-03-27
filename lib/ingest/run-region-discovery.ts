@@ -1,4 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
+import { scoreTemplates, rankTemplates } from "@/lib/discovery/query-ranker";
+import { generateTemplateVariants } from "@/lib/discovery/template-variants";
 import { runDiscoveryJob } from "@/lib/ingest/run-discovery-job";
 import { logWarn } from "@/lib/logging";
 
@@ -19,13 +21,25 @@ export async function runRegionDiscovery(args: {
   }
 
   try {
-    const templates = [
+    const baseVenueTemplates = [
       `art gallery ${region.region} ${region.country}`,
-      `contemporary art museum ${region.region} ${region.country}`,
+      `contemporary art gallery ${region.region} ${region.country}`,
       `artist-run space ${region.region} ${region.country}`,
-      `sculpture park foundation ${region.region} ${region.country}`,
       `visual art centre ${region.region} ${region.country}`,
+      `exhibition space ${region.region} ${region.country}`,
     ];
+    const [scores, variants] = await Promise.all([
+      scoreTemplates(args.db, baseVenueTemplates),
+      generateTemplateVariants(args.db, {
+        region: region.region,
+        country: region.country,
+        entityType: "VENUE",
+        maxVariants: 3,
+      }),
+    ]);
+
+    const rankedTemplates = rankTemplates(scores);
+    const templates = [...variants, ...rankedTemplates].slice(0, 8);
 
     const jobIds: string[] = [];
     let queryFailCount = 0;

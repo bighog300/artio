@@ -1,5 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { checkAndCompleteGoal, getGoalProgress } from "@/lib/discovery/goal-service";
+import { scoreTemplates, rankTemplates } from "@/lib/discovery/query-ranker";
+import { generateTemplateVariants } from "@/lib/discovery/template-variants";
 import { runDiscoveryJob } from "@/lib/ingest/run-discovery-job";
 import { logWarn } from "@/lib/logging";
 
@@ -25,13 +27,25 @@ export async function runGoalDiscovery(args: {
     return { jobIds: [], totalQueued: 0, skipped: true };
   }
 
-  const templates = [
+  const baseVenueTemplates = [
     `art gallery ${goal.region} ${goal.country}`,
     `contemporary art gallery ${goal.region} ${goal.country}`,
     `artist-run space ${goal.region} ${goal.country}`,
     `visual art centre ${goal.region} ${goal.country}`,
     `exhibition space ${goal.region} ${goal.country}`,
   ];
+  const [scores, variants] = await Promise.all([
+    scoreTemplates(args.db, baseVenueTemplates),
+    generateTemplateVariants(args.db, {
+      region: goal.region,
+      country: goal.country,
+      entityType: "VENUE",
+      maxVariants: 3,
+    }),
+  ]);
+
+  const rankedTemplates = rankTemplates(scores);
+  const templates = [...variants, ...rankedTemplates].slice(0, 8);
 
   const jobIds: string[] = [];
 
