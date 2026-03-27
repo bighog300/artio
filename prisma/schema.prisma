@@ -1368,6 +1368,7 @@ model Tag {
   category  String     @default("medium")
   createdAt DateTime   @default(now())
   eventTags EventTag[]
+  artworkTags ArtworkTag[]
 
   @@index([category])
 }
@@ -1382,6 +1383,30 @@ model EventTag {
   @@index([tagId])
   @@index([eventId])
   @@index([tagId, eventId])
+}
+
+model ArtworkTag {
+  artworkId String  @db.Uuid
+  tagId     String  @db.Uuid
+  artwork   Artwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([artworkId, tagId])
+  @@index([tagId])
+  @@index([artworkId])
+  @@index([tagId, artworkId])
+}
+
+model DismissedDuplicate {
+  id            String   @id @default(uuid()) @db.Uuid
+  artworkId1    String   @db.Uuid
+  artworkId2    String   @db.Uuid
+  dismissedAt   DateTime @default(now())
+  dismissedById String?  @db.Uuid
+
+  @@unique([artworkId1, artworkId2])
+  @@index([artworkId1])
+  @@index([artworkId2])
 }
 
 model EventArtist {
@@ -1654,6 +1679,7 @@ model Artwork {
   orders         ArtworkOrder[]
   offers         ArtworkOffer[]
   ingestCandidate IngestExtractedArtwork?  @relation("IngestExtractedArtworkCreated")
+  tags            ArtworkTag[]
 
   @@index([artistId])
   @@index([isPublished])
