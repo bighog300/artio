@@ -34,6 +34,8 @@ export async function GET() {
         description: true,
         year: true,
         medium: true,
+        dimensions: true,
+        provenance: true,
         featuredAssetId: true,
         featuredAsset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } },
         images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } } } },

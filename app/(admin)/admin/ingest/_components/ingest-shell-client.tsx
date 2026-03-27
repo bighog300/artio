@@ -17,6 +17,7 @@ type Props = {
     venueGenRuns7d: number;
     pendingVenueImages: number;
     pendingOnboarding: number;
+    artworksWithGaps: number;
   };
   pipelineFlags: {
     ingestEnabled: boolean;
@@ -387,6 +388,23 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
               }`}
             >
               Venue Map
+            </Link>
+            <Link
+              href="/admin/ingest/data-gaps"
+              className={`rounded-t-md px-3 py-2 text-sm ${
+                pathname.startsWith("/admin/ingest/data-gaps")
+                  ? "bg-muted font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                Data Gaps
+                {stats.artworksWithGaps > 0 ? (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
+                    {stats.artworksWithGaps}
+                  </span>
+                ) : null}
+              </span>
             </Link>
             <Link
               href="/admin/ingest/logs"

@@ -12,7 +12,7 @@ export default async function AdminIngestLayout({ children }: { children: React.
     redirect("/admin");
   }
 
-  const [bandCounts, failedLast24h, pendingArtists, pendingArtworks, activeRegions, venueGenRuns7d, pendingVenueImages, pendingOnboarding, pendingVenuesInReview, pendingBlockedEvents] = await Promise.all([
+  const [bandCounts, failedLast24h, pendingArtists, pendingArtworks, activeRegions, venueGenRuns7d, pendingVenueImages, pendingOnboarding, pendingVenuesInReview, pendingBlockedEvents, artworksWithGaps] = await Promise.all([
     db.ingestExtractedEvent.groupBy({
       by: ["confidenceBand"],
       where: { status: "PENDING", duplicateOfId: null },
@@ -50,6 +50,12 @@ export default async function AdminIngestLayout({ children }: { children: React.
         venue: { isPublished: false },
       },
     }),
+    db.artwork.count({
+      where: {
+        deletedAt: null,
+        completenessFlags: { isEmpty: false },
+      },
+    }),
   ]);
 
   const high = bandCounts.find((band) => band.confidenceBand === "HIGH")?._count.id ?? 0;
@@ -72,6 +78,7 @@ export default async function AdminIngestLayout({ children }: { children: React.
         venueGenRuns7d,
         pendingVenueImages,
         pendingOnboarding,
+        artworksWithGaps,
       }}
       pipelineFlags={{
         ingestEnabled: process.env.AI_INGEST_ENABLED === "1",
