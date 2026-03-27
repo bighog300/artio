@@ -254,6 +254,13 @@ enum DiscoveryEntityType {
   EVENT
 }
 
+enum DiscoveryGoalStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
 enum DiscoveryJobStatus {
   PENDING
   RUNNING
@@ -382,6 +389,7 @@ model User {
   savedSearches        SavedSearch[]
   digestRuns           DigestRun[]
   ingestRegionsTriggered IngestRegion[]
+  discoveryGoals        DiscoveryGoal[]
   engagementEvents     EngagementEvent[]
   onboardingState      OnboardingState?
   artistProfile        Artist?
@@ -570,6 +578,7 @@ model Venue {
   artistAssociations ArtistVenueAssociation[]
   artworkVenues      ArtworkVenue[]
   ingestRuns         IngestRun[]
+  discoverySeeds     IngestDiscoveryCandidate[]
   ingestExtractedEvents IngestExtractedEvent[]
   claimRequests      VenueClaimRequest[]
   claimInvites       VenueClaimInvite[]
@@ -1166,40 +1175,65 @@ model IngestExtractedArtwork {
 
 
 model IngestDiscoveryJob {
-  id             String                     @id @default(uuid()) @db.Uuid
-  entityType     DiscoveryEntityType
-  queryTemplate  String
-  region         String                     @default("")
-  regionId       String?                    @db.Uuid
-  searchProvider String                     @default("google_pse")
-  maxResults     Int                        @default(10)
-  status         DiscoveryJobStatus         @default(PENDING)
-  resultsCount   Int?
-  errorMessage   String?
-  durationMs     Int?
-  candidatesQueued Int?
+  id                String                     @id @default(uuid()) @db.Uuid
+  entityType        DiscoveryEntityType
+  queryTemplate     String
+  region            String                     @default("")
+  regionId          String?                    @db.Uuid
+  searchProvider    String                     @default("google_pse")
+  maxResults        Int                        @default(10)
+  status            DiscoveryJobStatus         @default(PENDING)
+  resultsCount      Int?
+  errorMessage      String?
+  durationMs        Int?
+  candidatesQueued  Int?
   candidatesSkipped Int?
-  queryFailCount Int?
-  createdAt      DateTime                   @default(now()) @db.Timestamptz
-  updatedAt      DateTime                   @updatedAt @db.Timestamptz
-  candidates     IngestDiscoveryCandidate[]
-  ingestRegion   IngestRegion?              @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  queryFailCount    Int?
+  goalId            String?                    @db.Uuid
+  queryYield        Float?
+  createdAt         DateTime                   @default(now()) @db.Timestamptz
+  updatedAt         DateTime                   @updatedAt @db.Timestamptz
+  candidates        IngestDiscoveryCandidate[]
+  goal              DiscoveryGoal?             @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  ingestRegion      IngestRegion?              @relation(fields: [regionId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt(sort: Desc)])
+  @@index([goalId, status])
+}
+
+model DiscoveryGoal {
+  id          String               @id @default(uuid()) @db.Uuid
+  entityType  DiscoveryEntityType
+  region      String
+  country     String
+  targetCount Int
+  status      DiscoveryGoalStatus  @default(ACTIVE)
+  notes       String?
+  createdById String               @db.Uuid
+  createdAt   DateTime             @default(now()) @db.Timestamptz
+  updatedAt   DateTime             @updatedAt @db.Timestamptz
+  createdBy   User                 @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  jobs        IngestDiscoveryJob[]
+
+  @@index([status, entityType])
+  @@index([region, country, entityType])
+  @@index([createdAt(sort: Desc)])
 }
 
 model IngestDiscoveryCandidate {
-  id         String                   @id @default(uuid()) @db.Uuid
-  jobId      String                   @db.Uuid
-  url        String
-  canonicalUrl String?
-  title      String?
-  snippet    String?
-  status     DiscoveryCandidateStatus @default(PENDING)
-  skipReason String?
-  createdAt  DateTime                 @default(now()) @db.Timestamptz
-  updatedAt  DateTime                 @updatedAt @db.Timestamptz
-  job        IngestDiscoveryJob       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  id            String                   @id @default(uuid()) @db.Uuid
+  jobId         String                   @db.Uuid
+  url           String
+  canonicalUrl  String?
+  title         String?
+  snippet       String?
+  status        DiscoveryCandidateStatus @default(PENDING)
+  skipReason    String?
+  seededVenueId String?                  @db.Uuid
+  createdAt     DateTime                 @default(now()) @db.Timestamptz
+  updatedAt     DateTime                 @updatedAt @db.Timestamptz
+  job           IngestDiscoveryJob       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  seededVenue   Venue?                   @relation(fields: [seededVenueId], references: [id], onDelete: SetNull)
 
   @@index([jobId, status])
   @@index([status, createdAt])

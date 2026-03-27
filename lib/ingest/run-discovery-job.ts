@@ -155,6 +155,9 @@ export async function runDiscoveryJob(args: {
     data: {
       status: "DONE",
       resultsCount: queued + skipped,
+      queryYield: results.length > 0
+        ? (queued / results.length)
+        : null,
       durationMs: Date.now() - startedAt,
       candidatesQueued: queued,
       candidatesSkipped: skipped,
