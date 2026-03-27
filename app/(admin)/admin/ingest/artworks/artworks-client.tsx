@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import IngestConfidenceBadge from "@/app/(admin)/admin/ingest/_components/ingest-confidence-badge";
 import IngestImageCell from "@/app/(admin)/admin/ingest/_components/ingest-image-cell";
@@ -139,10 +140,19 @@ function getConfidenceReasons(value: unknown): string[] {
 export default function ArtworksClient({
   candidates: initial,
   userRole,
+  initialApprovalFilter = "all",
+  initialImageFilter = "all",
+  initialReasonCodeFilter = "",
 }: {
   candidates: Candidate[];
   userRole?: "USER" | "EDITOR" | "ADMIN";
+  initialApprovalFilter?: ApprovalFilter;
+  initialImageFilter?: ImageFilter;
+  initialReasonCodeFilter?: string;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [candidates, setCandidates] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
@@ -160,9 +170,39 @@ export default function ArtworksClient({
   const [bulkApproving, setBulkApproving] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [bulkResults, setBulkResults] = useState<{ approved: number; failed: number } | null>(null);
-  const [approvalFilter, setApprovalFilter] = useState<ApprovalFilter>("all");
-  const [imageFilter, setImageFilter] = useState<ImageFilter>("all");
-  const [reasonCodeFilter, setReasonCodeFilter] = useState("");
+  const [approvalFilter, setApprovalFilter] = useState<ApprovalFilter>(initialApprovalFilter);
+  const [imageFilter, setImageFilter] = useState<ImageFilter>(initialImageFilter);
+  const [reasonCodeFilter, setReasonCodeFilter] = useState(initialReasonCodeFilter);
+
+  const pushFilterState = useCallback(
+    (nextApproval: ApprovalFilter, nextImage: ImageFilter, nextReason: string) => {
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      if (nextApproval === "all") params.delete("approval");
+      else params.set("approval", nextApproval);
+      if (nextImage === "all") params.delete("image");
+      else params.set("image", nextImage);
+      if (nextReason.trim()) params.set("reason", nextReason.trim());
+      else params.delete("reason");
+      params.delete("page");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  useEffect(() => {
+    setCandidates(initial);
+    setApprovalFilter(initialApprovalFilter);
+    setImageFilter(initialImageFilter);
+    setReasonCodeFilter(initialReasonCodeFilter);
+  }, [initial, initialApprovalFilter, initialImageFilter, initialReasonCodeFilter]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      pushFilterState(approvalFilter, imageFilter, reasonCodeFilter);
+    }, 250);
+    return () => window.clearTimeout(timeoutId);
+  }, [approvalFilter, imageFilter, reasonCodeFilter, pushFilterState]);
 
   function applyImageImportOutcome(candidateId: string, body: {
     imageImported?: boolean;

@@ -1,18 +1,35 @@
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import ArtistsClient from "@/app/(admin)/admin/ingest/artists/artists-client";
 import { BackfillArtistsTrigger } from "@/app/(admin)/admin/ingest/artists/backfill-trigger";
+import { buildArtistQueueWhere, getQueueOrderBy, parseQueueQueryParams } from "@/lib/admin-ingest-queue-query";
 import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 import { getSessionUser, requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminIngestArtistsPage() {
+function toURLSearchParams(
+  searchParams: Record<string, string | string[] | undefined> | undefined,
+): URLSearchParams {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams ?? {})) {
+    if (typeof value === "string") params.set(key, value);
+    else if (Array.isArray(value) && value[0]) params.set(key, value[0]);
+  }
+  return params;
+}
+
+export default async function AdminIngestArtistsPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   await requireAdmin();
   const user = await getSessionUser();
+  const query = parseQueueQueryParams(toURLSearchParams(searchParams));
 
   const candidates = await db.ingestExtractedArtist.findMany({
-    where: { status: "PENDING" },
+    where: buildArtistQueueWhere(query),
     select: {
       id: true,
       name: true,
@@ -65,7 +82,7 @@ export default async function AdminIngestArtistsPage() {
         },
       },
     },
-    orderBy: [{ confidenceScore: "desc" }, { createdAt: "desc" }],
+    orderBy: getQueueOrderBy(query.sort),
     take: 50,
   });
 
@@ -84,7 +101,13 @@ export default async function AdminIngestArtistsPage() {
         description="Pending AI-discovered artist profile candidates awaiting moderation."
       />
       <BackfillArtistsTrigger />
-      <ArtistsClient candidates={hydratedCandidates} userRole={user?.role} />
+      <ArtistsClient
+        candidates={hydratedCandidates}
+        userRole={user?.role}
+        initialApprovalFilter={query.approval}
+        initialImageFilter={query.image}
+        initialReasonCodeFilter={query.reason}
+      />
     </>
   );
 }
