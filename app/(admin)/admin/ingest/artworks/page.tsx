@@ -131,6 +131,7 @@ export default async function AdminIngestArtworksPage({
         initialApprovalFilter={query.approval}
         initialImageFilter={query.image}
         initialReasonCodeFilter={query.reason}
+        initialSort={query.sort}
       />
     </>
   );

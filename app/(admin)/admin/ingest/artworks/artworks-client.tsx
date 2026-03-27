@@ -101,6 +101,7 @@ type EditDraft = {
 
 type ApprovalFilter = "all" | "failed" | "attempted" | "not_attempted";
 type ImageFilter = "all" | "failed" | "no_image_found" | "imported" | "not_attempted";
+type QueueSort = "updated_desc" | "approval_attempt_desc";
 
 function matchesApprovalFilter(candidate: Candidate, filter: ApprovalFilter): boolean {
   if (filter === "all") return true;
@@ -143,12 +144,14 @@ export default function ArtworksClient({
   initialApprovalFilter = "all",
   initialImageFilter = "all",
   initialReasonCodeFilter = "",
+  initialSort = "updated_desc",
 }: {
   candidates: Candidate[];
   userRole?: "USER" | "EDITOR" | "ADMIN";
   initialApprovalFilter?: ApprovalFilter;
   initialImageFilter?: ImageFilter;
   initialReasonCodeFilter?: string;
+  initialSort?: QueueSort;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -173,9 +176,10 @@ export default function ArtworksClient({
   const [approvalFilter, setApprovalFilter] = useState<ApprovalFilter>(initialApprovalFilter);
   const [imageFilter, setImageFilter] = useState<ImageFilter>(initialImageFilter);
   const [reasonCodeFilter, setReasonCodeFilter] = useState(initialReasonCodeFilter);
+  const [sort, setSort] = useState<QueueSort>(initialSort);
 
   const pushFilterState = useCallback(
-    (nextApproval: ApprovalFilter, nextImage: ImageFilter, nextReason: string) => {
+    (nextApproval: ApprovalFilter, nextImage: ImageFilter, nextReason: string, nextSort: QueueSort) => {
       const params = new URLSearchParams(searchParams?.toString() ?? "");
       if (nextApproval === "all") params.delete("approval");
       else params.set("approval", nextApproval);
@@ -183,6 +187,8 @@ export default function ArtworksClient({
       else params.set("image", nextImage);
       if (nextReason.trim()) params.set("reason", nextReason.trim());
       else params.delete("reason");
+      if (nextSort === "updated_desc") params.delete("sort");
+      else params.set("sort", nextSort);
       params.delete("page");
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
@@ -195,14 +201,15 @@ export default function ArtworksClient({
     setApprovalFilter(initialApprovalFilter);
     setImageFilter(initialImageFilter);
     setReasonCodeFilter(initialReasonCodeFilter);
-  }, [initial, initialApprovalFilter, initialImageFilter, initialReasonCodeFilter]);
+    setSort(initialSort);
+  }, [initial, initialApprovalFilter, initialImageFilter, initialReasonCodeFilter, initialSort]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      pushFilterState(approvalFilter, imageFilter, reasonCodeFilter);
+      pushFilterState(approvalFilter, imageFilter, reasonCodeFilter, sort);
     }, 250);
     return () => window.clearTimeout(timeoutId);
-  }, [approvalFilter, imageFilter, reasonCodeFilter, pushFilterState]);
+  }, [approvalFilter, imageFilter, reasonCodeFilter, pushFilterState, sort]);
 
   function applyImageImportOutcome(candidateId: string, body: {
     imageImported?: boolean;
@@ -628,6 +635,17 @@ export default function ArtworksClient({
           </div>
         ) : null}
         <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Sort
+            <select
+              value={sort}
+              onChange={(event) => setSort(event.target.value as QueueSort)}
+              className="rounded border bg-background px-2 py-1 text-sm text-foreground"
+            >
+              <option value="updated_desc">Recently updated</option>
+              <option value="approval_attempt_desc">Recent approval attempts</option>
+            </select>
+          </label>
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
             Approval
             <select
