@@ -32,6 +32,20 @@ type Props = {
   cronState: Record<string, CronRuntimeState>;
   initialRunFailures: RunFailure[];
   initialCandidateRejections: CandidateRejection[];
+  initialArtistArtworkPipeline: ArtistArtworkPipelineItem[];
+};
+
+type ArtistArtworkPipelineItem = {
+  type: "artist" | "artwork";
+  id: string;
+  displayName: string;
+  status: string;
+  updatedAt: string;
+  lastApprovalAttemptAt: string | null;
+  lastApprovalError: string | null;
+  imageImportStatus: string | null;
+  imageImportWarning: string | null;
+  relatedEvents: Array<{ id: string; title: string }>;
 };
 
 const CRON_LABELS: Record<string, string> = {
@@ -67,14 +81,22 @@ function DaysFilter({ value, onChange }: { value: number; onChange: (v: number) 
   );
 }
 
-export default function LogsClient({ cronState, initialRunFailures, initialCandidateRejections }: Props) {
+export default function LogsClient({
+  cronState,
+  initialRunFailures,
+  initialCandidateRejections,
+  initialArtistArtworkPipeline,
+}: Props) {
   const [runFailures, setRunFailures] = useState(initialRunFailures);
   const [candidateRejections, setCandidateRejections] = useState(initialCandidateRejections);
+  const [artistArtworkPipeline, setArtistArtworkPipeline] = useState(initialArtistArtworkPipeline);
   const [runDays, setRunDays] = useState(7);
   const [candidateDays, setCandidateDays] = useState(7);
+  const [artistArtworkDays, setArtistArtworkDays] = useState(7);
   const [errorCodeFilter, setErrorCodeFilter] = useState("");
   const [loadingRuns, setLoadingRuns] = useState(false);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [loadingArtistArtwork, setLoadingArtistArtwork] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryProgress, setRetryProgress] = useState<{
     done: number;
@@ -108,6 +130,19 @@ export default function LogsClient({ cronState, initialRunFailures, initialCandi
       }
     } finally {
       setLoadingCandidates(false);
+    }
+  }
+
+  async function fetchArtistArtworkPipeline(days: number) {
+    setLoadingArtistArtwork(true);
+    try {
+      const res = await fetch(`/api/admin/ingest/logs/artist-artwork?days=${days}`);
+      if (res.ok) {
+        const data = (await res.json()) as { items: ArtistArtworkPipelineItem[] };
+        setArtistArtworkPipeline(data.items);
+      }
+    } finally {
+      setLoadingArtistArtwork(false);
     }
   }
 
@@ -379,6 +414,106 @@ export default function LogsClient({ cronState, initialRunFailures, initialCandi
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Panel 4 — Artist & Artwork Pipeline */}
+      <section className="rounded-lg border bg-background p-4">
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <h2 className="text-sm font-semibold">Artist &amp; artwork pipeline</h2>
+          <DaysFilter
+            value={artistArtworkDays}
+            onChange={(d) => {
+              setArtistArtworkDays(d);
+              void fetchArtistArtworkPipeline(d);
+            }}
+          />
+          {loadingArtistArtwork ? <span className="text-xs text-muted-foreground">Loading…</span> : null}
+        </div>
+        {artistArtworkPipeline.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No artist/artwork pipeline activity in this period.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1100px] text-xs">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="px-2 py-2">Type</th>
+                  <th className="px-2 py-2">Candidate</th>
+                  <th className="px-2 py-2">Related event</th>
+                  <th className="px-2 py-2">Status</th>
+                  <th className="px-2 py-2">Updated</th>
+                  <th className="px-2 py-2">Approval attempt</th>
+                  <th className="px-2 py-2">Approval error</th>
+                  <th className="px-2 py-2">Image import</th>
+                  <th className="px-2 py-2">Image warning</th>
+                </tr>
+              </thead>
+              <tbody>
+                {artistArtworkPipeline.map((item) => {
+                  const statusClass = item.lastApprovalError
+                    ? "text-destructive"
+                    : item.imageImportStatus?.toLowerCase().includes("fail")
+                      ? "text-amber-700"
+                      : item.status === "APPROVED"
+                        ? "text-emerald-700"
+                        : "text-foreground";
+                  const imageClass =
+                    item.imageImportStatus?.toLowerCase().includes("success") ||
+                    item.imageImportStatus?.toLowerCase().includes("imported")
+                      ? "text-emerald-700"
+                      : item.imageImportStatus?.toLowerCase().includes("fail")
+                        ? "text-destructive"
+                        : "text-muted-foreground";
+
+                  return (
+                    <tr key={`${item.type}:${item.id}`} className="border-b align-top">
+                      <td className="px-2 py-2 capitalize">{item.type}</td>
+                      <td className="max-w-[260px] px-2 py-2">
+                        <div className="font-medium">{item.displayName || "—"}</div>
+                        <div className="font-mono text-[11px] text-muted-foreground">{item.id.slice(0, 8)}…</div>
+                        <Link className="underline text-[11px]" href={item.type === "artist" ? "/admin/ingest/artists" : "/admin/ingest/artworks"}>
+                          Open queue
+                        </Link>
+                      </td>
+                      <td className="max-w-[220px] px-2 py-2">
+                        {item.relatedEvents.length > 0 ? (
+                          <>
+                            <span title={item.relatedEvents.map((event) => `${event.title} (${event.id.slice(0, 8)})`).join(", ")}>
+                              {item.relatedEvents[0]!.title}
+                            </span>
+                            <div className="font-mono text-[11px] text-muted-foreground">{item.relatedEvents[0]!.id.slice(0, 8)}…</div>
+                            {item.relatedEvents.length > 1 ? (
+                              <div className="text-[11px] text-muted-foreground">+{item.relatedEvents.length - 1} more</div>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className={`px-2 py-2 font-medium ${statusClass}`}>{item.status}</td>
+                      <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">{relativeTime(item.updatedAt)}</td>
+                      <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
+                        {item.lastApprovalAttemptAt ? relativeTime(item.lastApprovalAttemptAt) : "never"}
+                      </td>
+                      <td className="max-w-[220px] px-2 py-2">
+                        <span title={item.lastApprovalError ?? ""} className={item.lastApprovalError ? "text-destructive" : "text-muted-foreground"}>
+                          {(item.lastApprovalError ?? "—").slice(0, 80)}
+                          {(item.lastApprovalError ?? "").length > 80 ? "…" : ""}
+                        </span>
+                      </td>
+                      <td className={`px-2 py-2 whitespace-nowrap ${imageClass}`}>{item.imageImportStatus ?? "—"}</td>
+                      <td className="max-w-[220px] px-2 py-2">
+                        <span title={item.imageImportWarning ?? ""} className="text-muted-foreground">
+                          {(item.imageImportWarning ?? "—").slice(0, 80)}
+                          {(item.imageImportWarning ?? "").length > 80 ? "…" : ""}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

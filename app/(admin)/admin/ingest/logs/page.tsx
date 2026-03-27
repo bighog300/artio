@@ -12,7 +12,7 @@ export default async function AdminIngestLogsPage() {
 
   const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  const [cronState, recentRunFailures, recentCandidateRejections] = await Promise.all([
+  const [cronState, recentRunFailures, recentCandidateRejections, recentArtistArtworkPipeline] = await Promise.all([
     getCronStatusSnapshot().catch(() => ({})),
     db.ingestRun.findMany({
       where: { status: "FAILED", createdAt: { gte: since7d } },
@@ -46,6 +46,110 @@ export default async function AdminIngestLogsPage() {
         run: { select: { id: true } },
       },
     }),
+    (async () => {
+      const statusFilter: Array<"PENDING" | "APPROVED" | "REJECTED"> = ["PENDING", "APPROVED", "REJECTED"];
+      const relevanceWhere = {
+        OR: [
+          { lastApprovalError: { not: null } },
+          { imageImportStatus: { not: null } },
+          { imageImportWarning: { not: null } },
+          { updatedAt: { gte: since7d } },
+        ],
+      };
+
+      const [artists, artworks] = await Promise.all([
+        db.ingestExtractedArtist.findMany({
+          where: {
+            status: { in: statusFilter },
+            ...relevanceWhere,
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 80,
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            updatedAt: true,
+            lastApprovalAttemptAt: true,
+            lastApprovalError: true,
+            imageImportStatus: true,
+            imageImportWarning: true,
+          },
+        }),
+        db.ingestExtractedArtwork.findMany({
+          where: {
+            status: { in: statusFilter },
+            ...relevanceWhere,
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 80,
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            updatedAt: true,
+            lastApprovalAttemptAt: true,
+            lastApprovalError: true,
+            imageImportStatus: true,
+            imageImportWarning: true,
+            sourceEventId: true,
+          },
+        }),
+      ]);
+      const [artistEvents, artworkEvents] = await Promise.all([
+        db.ingestExtractedArtistEvent.findMany({
+          where: { artistCandidateId: { in: artists.map((artist) => artist.id) } },
+          orderBy: { createdAt: "desc" },
+          select: {
+            artistCandidateId: true,
+            event: { select: { id: true, title: true } },
+          },
+          take: 200,
+        }),
+        db.event.findMany({
+          where: { id: { in: artworks.map((artwork) => artwork.sourceEventId) } },
+          select: { id: true, title: true },
+        }),
+      ]);
+
+      const artistEventsByCandidateId = new Map<string, Array<{ id: string; title: string }>>();
+      for (const link of artistEvents) {
+        const current = artistEventsByCandidateId.get(link.artistCandidateId) ?? [];
+        if (current.length < 2) current.push(link.event);
+        artistEventsByCandidateId.set(link.artistCandidateId, current);
+      }
+
+      const artworkEventById = new Map(artworkEvents.map((event) => [event.id, event]));
+
+      return [
+        ...artists.map((artist) => ({
+          type: "artist" as const,
+          id: artist.id,
+          displayName: artist.name,
+          status: artist.status,
+          updatedAt: artist.updatedAt.toISOString(),
+          lastApprovalAttemptAt: artist.lastApprovalAttemptAt?.toISOString() ?? null,
+          lastApprovalError: artist.lastApprovalError,
+          imageImportStatus: artist.imageImportStatus,
+          imageImportWarning: artist.imageImportWarning,
+          relatedEvents: artistEventsByCandidateId.get(artist.id) ?? [],
+        })),
+        ...artworks.map((artwork) => ({
+          type: "artwork" as const,
+          id: artwork.id,
+          displayName: artwork.title,
+          status: artwork.status,
+          updatedAt: artwork.updatedAt.toISOString(),
+          lastApprovalAttemptAt: artwork.lastApprovalAttemptAt?.toISOString() ?? null,
+          lastApprovalError: artwork.lastApprovalError,
+          imageImportStatus: artwork.imageImportStatus,
+          imageImportWarning: artwork.imageImportWarning,
+          relatedEvents: artworkEventById.get(artwork.sourceEventId) ? [artworkEventById.get(artwork.sourceEventId)!] : [],
+        })),
+      ]
+        .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
+        .slice(0, 100);
+    })(),
   ]);
 
   return (
@@ -64,6 +168,7 @@ export default async function AdminIngestLogsPage() {
           ...c,
           createdAt: c.createdAt.toISOString(),
         }))}
+        initialArtistArtworkPipeline={recentArtistArtworkPipeline}
       />
     </>
   );
