@@ -3,6 +3,7 @@ import { getSearchProvider } from "@/lib/ingest/search";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
 import { canonicalizeUrl } from "@/lib/ingest/canonical-url";
 import { resolveArtistCandidate } from "@/lib/ingest/artist-resolution";
+import { logError } from "@/lib/logging";
 
 function buildQuery(queryTemplate: string, region: string): string {
   const trimmedRegion = region.trim();
@@ -39,6 +40,17 @@ export async function runDiscoveryJob(args: {
     results = await provider.search(query, job.maxResults);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+
+    logError({
+      message: "discovery_job_search_failed",
+      jobId: job.id,
+      provider: job.searchProvider,
+      query,
+      region: job.region,
+      entityType: job.entityType,
+      errorDetail: message,
+    });
+
     await args.db.ingestDiscoveryJob.update({
       where: { id: job.id },
       data: {
