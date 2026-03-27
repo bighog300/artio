@@ -93,7 +93,11 @@ export async function enrichVenueDescription(
 
   await args.db.venue.update({
     where: { id: venue.id },
-    data: { description: nextDescription },
+    data: {
+      description: nextDescription,
+      lastEnrichedAt: new Date(),
+      completenessUpdatedAt: null,
+    },
   });
 
   return {

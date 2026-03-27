@@ -1,53 +1,83 @@
-export type VenueCompletenessInput = {
-  lat: number | null;
-  lng: number | null;
-  description: string | null;
-  openingHours: unknown;
-  contactEmail: string | null;
-  instagramUrl: string | null;
-  featuredAssetId: string | null;
-  eventsPageUrl: string | null;
+export type VenueCompletenessFlag =
+  | "MISSING_IMAGE"
+  | "MISSING_DESCRIPTION"
+  | "INCOMPLETE";
+
+export type VenueCompletenessResult = {
+  score: number;
+  scorePct: number;
+  missing: string[];
+  flags: VenueCompletenessFlag[];
 };
 
-const FIELDS: Array<{
-  key: keyof VenueCompletenessInput;
-  label: string;
-}> = [
-  { key: "lat", label: "Coordinates" },
-  { key: "description", label: "Description" },
-  { key: "openingHours", label: "Opening hours" },
-  { key: "contactEmail", label: "Contact email" },
-  { key: "instagramUrl", label: "Instagram" },
-  { key: "featuredAssetId", label: "Cover image" },
-  { key: "eventsPageUrl", label: "Events page URL" },
-];
+export function computeVenueCompleteness(venue: {
+  description: string | null;
+  featuredAssetId: string | null;
+  websiteUrl: string | null;
+  contactEmail: string | null;
+  openingHours: unknown;
+  addressLine1: string | null;
+  city: string | null;
+  country: string | null;
+}): VenueCompletenessResult {
+  const checksTotal = 8;
+  let checksPassed = 0;
 
-function isPresent(value: unknown): boolean {
-  if (value === null || value === undefined) return false;
-  if (typeof value === "string") return value.trim().length > 0;
-  if (typeof value === "object" && !Array.isArray(value)) {
-    return Object.keys(value as object).length > 0;
+  const descriptionLength = (venue.description ?? "").trim().length;
+  if (descriptionLength >= 50) {
+    checksPassed += 1;
   }
-  return Boolean(value);
-}
 
-export function computeVenueCompleteness(venue: VenueCompletenessInput): {
-  score: number;
-  missing: string[];
-} {
+  if (venue.featuredAssetId) {
+    checksPassed += 1;
+  }
+
+  if ((venue.websiteUrl ?? "").trim()) {
+    checksPassed += 1;
+  }
+
+  if ((venue.contactEmail ?? "").trim()) {
+    checksPassed += 1;
+  }
+
+  const openingHoursSerialized = JSON.stringify(venue.openingHours);
+  const hasOpeningHours =
+    venue.openingHours !== null
+    && openingHoursSerialized !== "{}"
+    && openingHoursSerialized !== "[]"
+    && openingHoursSerialized !== "null";
+  if (hasOpeningHours) {
+    checksPassed += 1;
+  }
+
+  if ((venue.addressLine1 ?? "").trim()) {
+    checksPassed += 1;
+  }
+
+  if ((venue.city ?? "").trim()) {
+    checksPassed += 1;
+  }
+
+  if ((venue.country ?? "").trim()) {
+    checksPassed += 1;
+  }
+
+  const scorePct = Math.round((checksPassed / checksTotal) * 100);
+  const flags: VenueCompletenessFlag[] = [];
+
+  if (!venue.featuredAssetId) flags.push("MISSING_IMAGE");
+  if (descriptionLength < 50) flags.push("MISSING_DESCRIPTION");
+  if (scorePct < 60) flags.push("INCOMPLETE");
+
   const missing: string[] = [];
-  let present = 0;
+  if (descriptionLength < 50) missing.push("description");
+  if (!venue.featuredAssetId) missing.push("image");
+  if (!(venue.websiteUrl ?? "").trim()) missing.push("website");
+  if (!(venue.contactEmail ?? "").trim()) missing.push("contact email");
+  if (!hasOpeningHours) missing.push("opening hours");
+  if (!(venue.addressLine1 ?? "").trim()) missing.push("address");
+  if (!(venue.city ?? "").trim()) missing.push("city");
+  if (!(venue.country ?? "").trim()) missing.push("country");
 
-  for (const field of FIELDS) {
-    if (isPresent(venue[field.key])) {
-      present += 1;
-    } else {
-      missing.push(field.label);
-    }
-  }
-
-  return {
-    score: Math.round((present / FIELDS.length) * 100),
-    missing,
-  };
+  return { score: scorePct, scorePct, missing, flags };
 }

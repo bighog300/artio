@@ -588,6 +588,9 @@ model Venue {
   enrichmentLogs     VenueEnrichmentLog[]
   stripeAccount      StripeAccount?
   enrichmentRunItems EnrichmentRunItem[]      @relation("EnrichmentRunItemVenue")
+  completenessScore     Int       @default(0)
+  completenessFlags     String[]  @default([])
+  completenessUpdatedAt DateTime?
 
   @@index([isPublished])
   @@index([status])
@@ -595,6 +598,8 @@ model Venue {
   @@index([deletedAt])
   @@index([timezone])
   @@index([canonicalUrl])
+  @@index([completenessScore])
+  @@index([completenessFlags])
 }
 
 model EventSeries {
