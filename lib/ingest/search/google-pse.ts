@@ -27,7 +27,25 @@ export function createGooglePseProvider(apiKey: string, cx: string): SearchProvi
 
       const response = await fetch(endpoint.toString());
       if (!response.ok) {
-        throw new Error(`Google PSE search failed: ${response.status}`);
+        let detail = "";
+        try {
+          const errBody = await response.json() as {
+            error?: {
+              message?: string;
+              reason?: string;
+              status?: string;
+            };
+          };
+          const e = errBody.error;
+          if (e?.message) detail = ` — ${e.message}`;
+          if (e?.reason) detail += ` (reason: ${e.reason})`;
+          if (e?.status) detail += ` [${e.status}]`;
+        } catch {
+          // ignore JSON parse failure — status code is sufficient
+        }
+        throw new Error(
+          `Google PSE search failed: ${response.status}${detail}`,
+        );
       }
 
       const body = await response.json() as { items?: Array<{ link?: string; title?: string; snippet?: string }> };

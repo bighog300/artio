@@ -16,7 +16,22 @@ export function createBraveProvider(apiKey: string): SearchProvider {
       });
 
       if (!response.ok) {
-        throw new Error(`Brave search failed: ${response.status}`);
+        let detail = "";
+        try {
+          const errBody = await response.json() as {
+            message?: string;
+            error?: string;
+            type?: string;
+          };
+          if (errBody.message) detail = ` — ${errBody.message}`;
+          if (errBody.error) detail += ` (${errBody.error})`;
+          if (errBody.type) detail += ` [${errBody.type}]`;
+        } catch {
+          // ignore JSON parse failure
+        }
+        throw new Error(
+          `Brave search failed: ${response.status}${detail}`,
+        );
       }
 
       const body = await response.json() as { web?: { results?: Array<{ url?: string; title?: string; description?: string }> } };
