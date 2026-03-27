@@ -70,6 +70,31 @@ function asInteger(value: unknown): number | null {
   return typeof value === "number" && Number.isInteger(value) ? value : null;
 }
 
+function normalizeDiscoveryErrorCode(error: unknown, fallback: string): string {
+  if (error instanceof IngestError) {
+    const mapped = error.code.toLowerCase();
+    switch (mapped) {
+      case "fetch_timeout":
+        return "provider_timeout";
+      case "fetch_failed":
+      case "provider_error":
+        return "provider_failed";
+      case "config_error":
+        return "model_failed";
+      default:
+        return mapped;
+    }
+  }
+
+  return fallback;
+}
+
+function toErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
+
 type SearchItem = { link: string; title: string; snippet: string };
 
 type ArtistDiscoveryDb = Pick<Prisma.TransactionClient, "artist" | "eventArtist" | "ingestExtractedArtist" | "ingestExtractedArtistEvent" | "ingestExtractedArtistRun"> & {
@@ -143,7 +168,11 @@ export async function discoverArtist(args: {
   }
 
   const searchQuery = `${args.artistName} artist`;
+  const attemptedAt = new Date();
+  const attemptStart = Date.now();
   let searchItems: SearchItem[] = [];
+  let errorCode: string | null = null;
+  let errorMessage: string | null = null;
 
   if (args.settings.googlePseApiKey && args.settings.googlePseCx) {
     try {
@@ -160,8 +189,10 @@ export async function discoverArtist(args: {
           .filter((item): item is { link: string; title?: string; snippet?: string } => typeof item.link === "string")
           .map((item) => ({ link: item.link, title: item.title ?? "", snippet: item.snippet ?? "" }));
       }
-    } catch {
+    } catch (error) {
       searchItems = [];
+      errorCode = normalizeDiscoveryErrorCode(error, "search_failed");
+      errorMessage = toErrorMessage(error, "Search provider request failed");
     }
   } else {
     logWarn({ message: "artist_discovery_google_pse_missing" });
@@ -191,9 +222,14 @@ export async function discoverArtist(args: {
   let apiKey = "";
   try {
     apiKey = resolveProviderApiKey(provider.name, args.settings, process.env);
-  } catch {
-    chosenProvider = getProvider("openai");
-    apiKey = resolveProviderApiKey("openai", args.settings, process.env);
+  } catch (error) {
+    try {
+      chosenProvider = getProvider("openai");
+      apiKey = resolveProviderApiKey("openai", args.settings, process.env);
+    } catch {
+      errorCode = normalizeDiscoveryErrorCode(error, "model_failed");
+      errorMessage = toErrorMessage(error, "Model provider configuration failed");
+    }
   }
 
   let extracted: {
@@ -222,33 +258,48 @@ export async function discoverArtist(args: {
   const artistBioSystemPrompt =
     args.settings.artistBioSystemPrompt?.trim() || DEFAULT_ARTIST_BIO_SYSTEM_PROMPT;
 
-  try {
-    const result = await chosenProvider.extract({
-      html: html || `Artist name: ${args.artistName}`,
-      sourceUrl,
-      systemPrompt: artistBioSystemPrompt,
-      jsonSchema: artistExtractionSchema,
-      model: "",
-      apiKey,
-    });
+  if (apiKey) {
+    try {
+      const result = await chosenProvider.extract({
+        html: html || `Artist name: ${args.artistName}`,
+        sourceUrl,
+        systemPrompt: artistBioSystemPrompt,
+        jsonSchema: artistExtractionSchema,
+        model: "",
+        apiKey,
+      });
 
-    extractedModel = result.model;
-    usageTotalTokens = result.usage.totalTokens ?? null;
+      extractedModel = result.model;
+      usageTotalTokens = result.usage.totalTokens ?? null;
 
-    if (result.raw && typeof result.raw === "object") {
-      const raw = result.raw as Record<string, unknown>;
+      if (result.raw && typeof result.raw === "object") {
+        const raw = result.raw as Record<string, unknown>;
+        extracted = {
+          name: asString(raw.name),
+          bio: asString(raw.bio),
+          mediums: asStringArray(raw.mediums),
+          websiteUrl: asString(raw.websiteUrl),
+          instagramUrl: asString(raw.instagramUrl),
+          twitterUrl: asString(raw.twitterUrl),
+          nationality: asString(raw.nationality),
+          birthYear: asInteger(raw.birthYear),
+        };
+      }
+    } catch (error) {
+      errorCode = normalizeDiscoveryErrorCode(error, "model_failed");
+      errorMessage = toErrorMessage(error, "Model extraction failed");
       extracted = {
-        name: asString(raw.name),
-        bio: asString(raw.bio),
-        mediums: asStringArray(raw.mediums),
-        websiteUrl: asString(raw.websiteUrl),
-        instagramUrl: asString(raw.instagramUrl),
-        twitterUrl: asString(raw.twitterUrl),
-        nationality: asString(raw.nationality),
-        birthYear: asInteger(raw.birthYear),
+        name: null,
+        bio: null,
+        mediums: [],
+        websiteUrl: null,
+        instagramUrl: null,
+        twitterUrl: null,
+        nationality: null,
+        birthYear: null,
       };
     }
-  } catch {
+  } else {
     extracted = {
       name: null,
       bio: null,
@@ -305,6 +356,10 @@ export async function discoverArtist(args: {
         searchResults: searchItems as Prisma.JsonArray,
         model: extractedModel || chosenProvider.name,
         usageTotalTokens,
+        attemptedAt,
+        durationMs: Date.now() - attemptStart,
+        errorCode,
+        errorMessage,
       },
     });
 

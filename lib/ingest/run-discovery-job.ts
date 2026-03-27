@@ -24,6 +24,7 @@ export async function runDiscoveryJob(args: {
 }): Promise<{ found: number; queued: number; skipped: number }> {
   const job = await args.db.ingestDiscoveryJob.findUnique({ where: { id: args.jobId } });
   if (!job || job.status !== "PENDING") return { found: 0, queued: 0, skipped: 0 };
+  const startedAt = Date.now();
 
   await args.db.ingestDiscoveryJob.update({
     where: { id: job.id },
@@ -40,7 +41,16 @@ export async function runDiscoveryJob(args: {
     const message = error instanceof Error ? error.message : String(error);
     await args.db.ingestDiscoveryJob.update({
       where: { id: job.id },
-      data: { status: "FAILED", errorMessage: message, updatedAt: new Date() },
+      data: {
+        status: "FAILED",
+        errorMessage: message,
+        resultsCount: 0,
+        durationMs: Date.now() - startedAt,
+        candidatesQueued: 0,
+        candidatesSkipped: 0,
+        queryFailCount: 1,
+        updatedAt: new Date(),
+      },
     });
     return { found: 0, queued: 0, skipped: 0 };
   }
@@ -122,7 +132,10 @@ export async function runDiscoveryJob(args: {
         : { jobId: job.id, url: result.url },
       select: { id: true },
     });
-    if (existing) continue;
+    if (existing) {
+      skipped += 1;
+      continue;
+    }
 
     await args.db.ingestDiscoveryCandidate.create({
       data: {
@@ -139,7 +152,15 @@ export async function runDiscoveryJob(args: {
 
   await args.db.ingestDiscoveryJob.update({
     where: { id: job.id },
-    data: { status: "DONE", resultsCount: queued + skipped, updatedAt: new Date() },
+    data: {
+      status: "DONE",
+      resultsCount: queued + skipped,
+      durationMs: Date.now() - startedAt,
+      candidatesQueued: queued,
+      candidatesSkipped: skipped,
+      queryFailCount: 0,
+      updatedAt: new Date(),
+    },
   });
 
   return { found: results.length, queued, skipped };
