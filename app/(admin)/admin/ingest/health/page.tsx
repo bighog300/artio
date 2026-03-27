@@ -63,6 +63,70 @@ export default async function AdminIngestHealthPage() {
       </section>
 
       <section className="rounded-lg border p-4">
+        <h2 className="mb-1 text-base font-semibold">Discovery jobs (7d)</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Discovery efficiency snapshot from recent discovery jobs. High skip ratio may indicate duplicate-heavy
+          queries; query failures may indicate provider or quota issues.
+        </p>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Total jobs</p><p className="text-xl font-semibold">{data.discovery7Days.totalJobs}</p></div>
+          <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Succeeded</p><p className="text-xl font-semibold">{data.discovery7Days.succeededJobs}</p></div>
+          <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Failed</p><p className="text-xl font-semibold">{data.discovery7Days.failedJobs}</p></div>
+          <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Avg duration</p><p className="text-xl font-semibold">{Math.round(data.discovery7Days.avgDurationMs)}ms</p></div>
+          <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Query failures</p><p className="text-xl font-semibold">{data.discovery7Days.totalQueryFailures}</p></div>
+          <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Queued</p><p className="text-xl font-semibold">{data.discovery7Days.totalCandidatesQueued}</p></div>
+          <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Skipped</p><p className="text-xl font-semibold">{data.discovery7Days.totalCandidatesSkipped}</p></div>
+          <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Skip ratio</p><p className="text-xl font-semibold">{(data.discovery7Days.skipRatio * 100).toFixed(1)}%</p></div>
+          <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Avg query fails/job</p><p className="text-xl font-semibold">{data.discovery7Days.avgQueryFailuresPerJob.toFixed(2)}</p></div>
+        </div>
+
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs text-muted-foreground">
+                <th className="px-3 py-2">Provider</th>
+                <th className="px-3 py-2">Jobs</th>
+                <th className="px-3 py-2">Failed</th>
+                <th className="px-3 py-2">Queued</th>
+                <th className="px-3 py-2">Skipped</th>
+                <th className="px-3 py-2">Skip ratio</th>
+                <th className="px-3 py-2">Query fails</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.discovery7Days.byProvider.map((row) => (
+                <tr key={row.searchProvider} className="border-b align-middle">
+                  <td className="px-3 py-2 font-medium">{row.searchProvider}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{row.totalJobs}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{row.failedJobs}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{row.totalCandidatesQueued}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{row.totalCandidatesSkipped}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{(row.skipRatio * 100).toFixed(1)}%</td>
+                  <td className="px-3 py-2 text-muted-foreground">{row.totalQueryFailures}</td>
+                </tr>
+              ))}
+              {data.discovery7Days.byProvider.length === 0 ? <tr><td colSpan={7} className="px-3 py-6 text-muted-foreground">No discovery jobs in last 7 days.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+
+        {data.discovery7Days.recentFailures.length > 0 ? (
+          <div className="mt-4">
+            <h3 className="mb-2 text-sm font-semibold">Recent failed discovery jobs</h3>
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              {data.discovery7Days.recentFailures.map((failure) => (
+                <li key={failure.id}>
+                  {new Date(failure.createdAt).toLocaleString()} · {failure.searchProvider} · {failure.region || "—"} · {failure.entityType}
+                  {failure.queryFailCount > 0 ? ` · query fails ${failure.queryFailCount}` : ""}
+                  {failure.errorMessage ? ` · ${failure.errorMessage}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="rounded-lg border p-4">
         <h2 className="mb-1 text-base font-semibold">Venue performance (7d)</h2>
         <p className="mb-3 text-sm text-muted-foreground">
           Events created per run, confidence distribution, and approval rate
