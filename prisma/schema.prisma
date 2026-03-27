@@ -66,6 +66,42 @@ enum ContentStatus {
   ARCHIVED
 }
 
+enum EnrichmentEntityType {
+  ARTIST
+  ARTWORK
+  VENUE
+  EVENT
+}
+
+enum EnrichmentGapFilter {
+  ALL
+  MISSING_BIO
+  MISSING_DESCRIPTION
+  MISSING_IMAGE
+}
+
+enum EnrichmentStatusFilter {
+  ALL
+  DRAFT
+  ONBOARDING
+  IN_REVIEW
+  PUBLISHED
+}
+
+enum EnrichmentRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum EnrichmentRunItemStatus {
+  PENDING
+  SKIPPED
+  SUCCESS
+  FAILED
+}
+
 enum SubmissionKind {
   PUBLISH
   REVISION
@@ -361,6 +397,7 @@ model User {
   importMappingPresets ImportMappingPreset[]
   pageViewEvents       PageViewEvent[]
   venueGenerationRunsTriggered VenueGenerationRun[]
+  enrichmentRunsTriggered EnrichmentRun[]
   venueClaimRequests   VenueClaimRequest[]
   venueClaimInvitesCreated VenueClaimInvite[]
   selectedHomepageImageCandidates VenueHomepageImageCandidate[]
@@ -538,6 +575,7 @@ model Venue {
   homepageImageCandidates VenueHomepageImageCandidate[]
   enrichmentLogs     VenueEnrichmentLog[]
   stripeAccount      StripeAccount?
+  enrichmentRunItems EnrichmentRunItem[]      @relation("EnrichmentRunItemVenue")
 
   @@index([isPublished])
   @@index([status])
@@ -726,6 +764,7 @@ model Artist {
   featuredArtworks  ArtistFeaturedArtwork[]
   ingestCandidates  IngestExtractedArtist[]  @relation("IngestExtractedArtistCreated")
   stripeAccount     ArtistStripeAccount?
+  enrichmentRunItems EnrichmentRunItem[]      @relation("EnrichmentRunItemArtist")
 
   @@index([isPublished])
   @@index([featuredAssetId])
@@ -844,6 +883,7 @@ model Event {
   ingestExtractedCandidate IngestExtractedEvent? @relation("IngestExtractedEventCreatedEvent")
   artistDiscoveryLinks IngestExtractedArtistEvent[]
   extractedArtworks  IngestExtractedArtwork[] @relation("IngestExtractedArtworkSourceEvent")
+  enrichmentRunItems EnrichmentRunItem[]      @relation("EnrichmentRunItemEvent")
 
   @@index([startAt])
   @@index([isPublished])
@@ -1165,6 +1205,67 @@ model IngestRegion {
   updatedAt      DateTime             @updatedAt @db.Timestamptz
 
   @@index([status, nextRunAt])
+}
+
+model EnrichmentRun {
+  id             String                  @id @default(uuid()) @db.Uuid
+  templateKey    String
+  entityType     EnrichmentEntityType
+  gapFilter      EnrichmentGapFilter     @default(ALL)
+  statusFilter   EnrichmentStatusFilter  @default(ALL)
+  searchEnabled  Boolean                 @default(true)
+  searchProvider String                  @default("google_pse")
+  status         EnrichmentRunStatus     @default(PENDING)
+  requestedById  String                  @db.Uuid
+  startedAt      DateTime?               @db.Timestamptz
+  finishedAt     DateTime?               @db.Timestamptz
+  totalItems     Int                     @default(0)
+  processedItems Int                     @default(0)
+  successItems   Int                     @default(0)
+  skippedItems   Int                     @default(0)
+  failedItems    Int                     @default(0)
+  errorMessage   String?
+  createdAt      DateTime                @default(now()) @db.Timestamptz
+  updatedAt      DateTime                @updatedAt @db.Timestamptz
+  requestedBy    User                    @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+  items          EnrichmentRunItem[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([entityType, createdAt(sort: Desc)])
+  @@index([requestedById, createdAt(sort: Desc)])
+}
+
+model EnrichmentRunItem {
+  id               String                   @id @default(uuid()) @db.Uuid
+  runId            String                   @db.Uuid
+  entityType       EnrichmentEntityType
+  artistId         String?                  @db.Uuid
+  artworkId        String?                  @db.Uuid
+  venueId          String?                  @db.Uuid
+  eventId          String?                  @db.Uuid
+  status           EnrichmentRunItemStatus  @default(PENDING)
+  fieldsChanged    String[]                 @default([])
+  fieldsBefore     Json?
+  fieldsAfter      Json?
+  confidenceBefore Int?
+  confidenceAfter  Int?
+  searchUrl        String?
+  reason           String?
+  errorMessage     String?
+  createdAt        DateTime                 @default(now()) @db.Timestamptz
+  updatedAt        DateTime                 @updatedAt @db.Timestamptz
+  run              EnrichmentRun            @relation(fields: [runId], references: [id], onDelete: Cascade)
+  artist           Artist?                  @relation("EnrichmentRunItemArtist", fields: [artistId], references: [id], onDelete: SetNull)
+  artwork          Artwork?                 @relation("EnrichmentRunItemArtwork", fields: [artworkId], references: [id], onDelete: SetNull)
+  venue            Venue?                   @relation("EnrichmentRunItemVenue", fields: [venueId], references: [id], onDelete: SetNull)
+  event            Event?                   @relation("EnrichmentRunItemEvent", fields: [eventId], references: [id], onDelete: SetNull)
+
+  @@index([runId, status])
+  @@index([entityType, status])
+  @@index([artistId])
+  @@index([artworkId])
+  @@index([venueId])
+  @@index([eventId])
 }
 
 model VenueMembership {
@@ -1680,6 +1781,7 @@ model Artwork {
   offers         ArtworkOffer[]
   ingestCandidate IngestExtractedArtwork?  @relation("IngestExtractedArtworkCreated")
   tags            ArtworkTag[]
+  enrichmentRunItems EnrichmentRunItem[]    @relation("EnrichmentRunItemArtwork")
 
   @@index([artistId])
   @@index([isPublished])
