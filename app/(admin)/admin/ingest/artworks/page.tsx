@@ -42,6 +42,61 @@ export default async function AdminIngestArtworksPage() {
     take: 50,
   });
 
+  const artistNames = [
+    ...new Set(
+      candidates
+        .map((candidate) => candidate.artistName)
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ];
+
+  const [existingArtists, pendingCandidates] = await Promise.all([
+    artistNames.length
+      ? db.artist.findMany({
+          where: {
+            OR: artistNames.map((name) => ({
+              name: { equals: name, mode: "insensitive" as const },
+            })),
+            deletedAt: null,
+          },
+          select: { name: true, slug: true, status: true },
+        })
+      : Promise.resolve([]),
+    artistNames.length
+      ? db.ingestExtractedArtist.findMany({
+          where: {
+            normalizedName: {
+              in: artistNames.map((name) => name.toLowerCase().trim()),
+            },
+            status: "PENDING",
+          },
+          select: {
+            name: true,
+            normalizedName: true,
+            confidenceBand: true,
+          },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const existingArtistByName = new Map(
+    existingArtists.map((artist) => [artist.name.toLowerCase(), artist]),
+  );
+  const pendingCandidateByName = new Map(
+    pendingCandidates.map((candidate) => [candidate.normalizedName, candidate]),
+  );
+
+  const annotatedCandidates = candidates.map((candidate) => ({
+    ...candidate,
+    artistStatus: candidate.artistName
+      ? existingArtistByName.has(candidate.artistName.toLowerCase())
+        ? ("exists" as const)
+        : pendingCandidateByName.has(candidate.artistName.toLowerCase().trim())
+          ? ("pending" as const)
+          : ("stub" as const)
+      : null,
+  }));
+
   return (
     <>
       <AdminPageHeader
@@ -49,7 +104,7 @@ export default async function AdminIngestArtworksPage() {
         description="Pending AI-extracted artwork candidates awaiting moderation."
       />
       <BackfillArtworksTrigger />
-      <ArtworksClient candidates={candidates} userRole={user?.role} />
+      <ArtworksClient candidates={annotatedCandidates} userRole={user?.role} />
     </>
   );
 }

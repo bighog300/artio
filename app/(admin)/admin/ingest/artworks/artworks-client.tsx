@@ -16,6 +16,7 @@ type Candidate = {
   description: string | null;
   imageUrl: string | null;
   artistName: string | null;
+  artistStatus: "exists" | "pending" | "stub" | null;
   sourceUrl: string;
   confidenceScore: number;
   confidenceBand: string | null;
@@ -71,6 +72,9 @@ export default function ArtworksClient({
   const [importFailedFor, setImportFailedFor] = useState<Set<string>>(new Set());
   const [importedImageById, setImportedImageById] = useState<Record<string, { url: string | null; isProcessing?: boolean; hasFailure?: boolean }>>({});
   const [imageImportMessageById, setImageImportMessageById] = useState<Record<string, string>>({});
+  const [bulkApproving, setBulkApproving] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [bulkResults, setBulkResults] = useState<{ approved: number; failed: number } | null>(null);
 
   function applyImageImportOutcome(candidateId: string, body: {
     imageImported?: boolean;
@@ -254,6 +258,60 @@ export default function ArtworksClient({
     }
   }, []);
 
+  async function bulkApproveHigh() {
+    const highCandidates = candidates.filter(
+      (candidate) => candidate.confidenceBand === "HIGH" && candidate.status === "PENDING",
+    );
+    if (highCandidates.length === 0) return;
+    if (
+      !window.confirm(
+        `Approve all ${highCandidates.length} HIGH ` +
+          `confidence artwork candidate` +
+          `${highCandidates.length === 1 ? "" : "s"}? ` +
+          "This cannot be undone.",
+      )
+    ) {
+      return;
+    }
+
+    setBulkApproving(true);
+    setBulkResults(null);
+    setBulkProgress({ done: 0, total: highCandidates.length });
+
+    const BATCH_SIZE = 5;
+    let approved = 0;
+    let failed = 0;
+
+    for (let index = 0; index < highCandidates.length; index += BATCH_SIZE) {
+      const batch = highCandidates.slice(index, index + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((candidate) =>
+          fetch(`/api/admin/ingest/artworks/${candidate.id}/approve`, { method: "POST" })
+            .then((response) => (response.ok ? ("ok" as const) : ("fail" as const)))
+            .catch(() => "fail" as const),
+        ),
+      );
+      for (const result of results) {
+        if (result.status === "fulfilled" && result.value === "ok") {
+          approved += 1;
+        } else {
+          failed += 1;
+        }
+      }
+      setBulkProgress({
+        done: approved + failed,
+        total: highCandidates.length,
+      });
+    }
+
+    setBulkApproving(false);
+    setBulkProgress(null);
+    setBulkResults({ approved, failed });
+    setCandidates((prev) =>
+      prev.filter((candidate) => !(candidate.confidenceBand === "HIGH" && candidate.status === "PENDING")),
+    );
+  }
+
   async function approveWithPatch(id: string) {
     const draft = editDraftById[id];
     if (!draft) {
@@ -397,6 +455,44 @@ export default function ArtworksClient({
   return (
     <section className="rounded-lg border bg-background p-4">
       {error ? <div className="mb-3 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700">{error}</div> : null}
+      <div className="mb-3 flex flex-col gap-2">
+        {(() => {
+          const highCount = candidates.filter(
+            (candidate) => candidate.confidenceBand === "HIGH" && candidate.status === "PENDING",
+          ).length;
+          if (highCount === 0) return null;
+          return (
+            <button
+              type="button"
+              className="w-fit rounded border border-emerald-600 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+              disabled={bulkApproving}
+              onClick={() => void bulkApproveHigh()}
+            >
+              {bulkApproving
+                ? `Approving… ${bulkProgress?.done ?? 0}/${bulkProgress?.total ?? highCount}`
+                : `Approve all HIGH (${highCount})`}
+            </button>
+          );
+        })()}
+
+        {bulkResults ? (
+          <div
+            className={`flex items-center justify-between rounded border px-3 py-2 text-sm ${
+              bulkResults.failed > 0
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-800"
+                : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800"
+            }`}
+          >
+            <span>
+              Bulk approve complete: {bulkResults.approved} approved
+              {bulkResults.failed > 0 ? `, ${bulkResults.failed} failed` : ""}
+            </span>
+            <button type="button" onClick={() => setBulkResults(null)}>
+              Dismiss
+            </button>
+          </div>
+        ) : null}
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1300px] text-sm">
           <thead>
@@ -462,7 +558,22 @@ export default function ArtworksClient({
                     <div>{candidate.title}</div>
                     <div className="text-xs font-normal text-muted-foreground">Artist: {candidate.artistName ?? "—"}</div>
                   </td>
-                  <td className="px-3 py-2">{candidate.artistName ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    {candidate.artistName ? (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm">{candidate.artistName}</span>
+                        {candidate.artistStatus === "exists" ? (
+                          <span className="text-xs text-emerald-700">✓ artist exists</span>
+                        ) : candidate.artistStatus === "pending" ? (
+                          <span className="text-xs text-amber-700">⟳ in artist queue</span>
+                        ) : candidate.artistStatus === "stub" ? (
+                          <span className="text-xs text-muted-foreground">+ will create stub</span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2">{candidate.medium ?? "—"}</td>
                   <td className="px-3 py-2">{candidate.year ?? "—"}</td>
                   <td className="px-3 py-2">
@@ -541,6 +652,14 @@ export default function ArtworksClient({
                             ) : null}
                           </div>
                         </div>
+                      ) : null}
+                      {candidate.artistStatus === "pending" ? (
+                        <p className="mt-1 text-xs text-amber-700">
+                          Artist candidate not yet reviewed —{" "}
+                          <a href="/admin/ingest/artists" className="underline">
+                            review artists first
+                          </a>
+                        </p>
                       ) : null}
                     </div>
                   </td>
