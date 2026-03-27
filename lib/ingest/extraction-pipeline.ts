@@ -16,6 +16,7 @@ import { detectPlatform, getPlatformPromptHint, isJsRenderedPlatform, type Platf
 import { enrichVenueFromSnapshot } from "@/lib/ingest/enrich-venue-from-snapshot";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 import { resolveRelativeHttpUrl } from "@/lib/ingest/url-utils";
+import { getVenueTrackRecordBonus } from "@/lib/ingest/venue-confidence-signal";
 
 const MAX_ERROR_MESSAGE_LENGTH = 500;
 const MAX_ERROR_DETAIL_LENGTH = 1000;
@@ -220,6 +221,12 @@ function getDefaultDurationMinutes() {
   const parsed = Number.parseInt(process.env.AI_INGEST_DEFAULT_DURATION_MINUTES ?? "", 10);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
   return DEFAULT_DURATION_MINUTES;
+}
+
+function confidenceBandFromScore(score: number, highMin: number, mediumMin: number): "HIGH" | "MEDIUM" | "LOW" {
+  if (score >= highMin) return "HIGH";
+  if (score >= mediumMin) return "MEDIUM";
+  return "LOW";
 }
 
 function isUkSourceUrl(input: string | null | undefined): boolean {
@@ -617,6 +624,9 @@ export async function runVenueIngestExtraction(
     const confidenceByTempId = new Map<string, { score: number; band: "HIGH" | "MEDIUM" | "LOW"; reasons: string[] }>();
     let createdCount = 0;
     let createdDuplicateCount = 0;
+    const trackRecordBonus = await getVenueTrackRecordBonus(params.venueId, store);
+    const highConfidenceThreshold = settings?.ingestConfidenceHighMin ?? envInt("AI_INGEST_CONFIDENCE_HIGH_MIN", 75);
+    const mediumConfidenceThreshold = settings?.ingestConfidenceMediumMin ?? envInt("AI_INGEST_CONFIDENCE_MEDIUM_MIN", 45);
 
     for (const candidate of candidates) {
       const assignment = assignmentById.get(candidate.tempId);
@@ -636,10 +646,23 @@ export async function runVenueIngestExtraction(
         status: "PENDING",
         venueName: venue?.name,
         extractionMethod,
-        highMin: settings?.ingestConfidenceHighMin ?? envInt("AI_INGEST_CONFIDENCE_HIGH_MIN", 75),
-        mediumMin: settings?.ingestConfidenceMediumMin ?? envInt("AI_INGEST_CONFIDENCE_MEDIUM_MIN", 45),
+        highMin: highConfidenceThreshold,
+        mediumMin: mediumConfidenceThreshold,
       });
-      confidenceByTempId.set(candidate.tempId, confidence);
+      const adjustedConfidenceScore = Math.max(0, Math.min(100, confidence.score + trackRecordBonus));
+      const adjustedConfidence = {
+        score: adjustedConfidenceScore,
+        band: confidenceBandFromScore(adjustedConfidenceScore, highConfidenceThreshold, mediumConfidenceThreshold),
+        reasons: sanitizeReasons([
+          ...confidence.reasons,
+          ...(trackRecordBonus > 0
+            ? [`venue track record +${trackRecordBonus}`]
+            : trackRecordBonus < 0
+              ? [`venue noise signal ${trackRecordBonus}`]
+              : []),
+        ]),
+      };
+      confidenceByTempId.set(candidate.tempId, adjustedConfidence);
 
       const created = await store.ingestExtractedEvent.create({
         data: {
@@ -658,9 +681,9 @@ export async function runVenueIngestExtraction(
           description: candidate.event.description,
           artistNames: candidate.event.artistNames ?? [],
           imageUrl: resolveRelativeHttpUrl(candidate.event.imageUrl, fetched.finalUrl),
-          confidenceScore: confidence.score,
-          confidenceBand: confidence.band,
-          confidenceReasons: sanitizeReasons(confidence.reasons),
+          confidenceScore: adjustedConfidence.score,
+          confidenceBand: adjustedConfidence.band,
+          confidenceReasons: adjustedConfidence.reasons,
           rawJson,
           model: extractedModel,
           extractionProvider,
@@ -732,9 +755,22 @@ export async function runVenueIngestExtraction(
           status: "DUPLICATE",
           venueName: venue?.name,
           extractionMethod,
-          highMin: settings?.ingestConfidenceHighMin ?? envInt("AI_INGEST_CONFIDENCE_HIGH_MIN", 75),
-          mediumMin: settings?.ingestConfidenceMediumMin ?? envInt("AI_INGEST_CONFIDENCE_MEDIUM_MIN", 45),
+          highMin: highConfidenceThreshold,
+          mediumMin: mediumConfidenceThreshold,
         });
+      const adjustedDuplicateScore = Math.max(0, Math.min(100, confidence.score + trackRecordBonus));
+      const adjustedDuplicateConfidence = {
+        score: adjustedDuplicateScore,
+        band: confidenceBandFromScore(adjustedDuplicateScore, highConfidenceThreshold, mediumConfidenceThreshold),
+        reasons: sanitizeReasons([
+          ...confidence.reasons,
+          ...(trackRecordBonus > 0
+            ? [`venue track record +${trackRecordBonus}`]
+            : trackRecordBonus < 0
+              ? [`venue noise signal ${trackRecordBonus}`]
+              : []),
+        ]),
+      };
 
       const rawJson: Prisma.JsonObject = {
         title: candidate.event.title,
@@ -765,9 +801,9 @@ export async function runVenueIngestExtraction(
           description: candidate.event.description,
           artistNames: candidate.event.artistNames ?? [],
           imageUrl: resolveRelativeHttpUrl(candidate.event.imageUrl, fetched.finalUrl),
-          confidenceScore: confidence.score,
-          confidenceBand: confidence.band,
-          confidenceReasons: sanitizeReasons(confidence.reasons),
+          confidenceScore: adjustedDuplicateConfidence.score,
+          confidenceBand: adjustedDuplicateConfidence.band,
+          confidenceReasons: adjustedDuplicateConfidence.reasons,
           rawJson,
           model: extractedModel,
           extractionProvider,

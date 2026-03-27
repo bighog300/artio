@@ -80,6 +80,7 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
   const [onboardEventsPageUrl, setOnboardEventsPageUrl] = useState<Record<string, string>>({});
   const [onboardVenueErrors, setOnboardVenueErrors] = useState<Record<string, string>>({});
   const [publishResults, setPublishResults] = useState<Record<string, { published: number; skipped: number }>>({});
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const submittingRef = useRef(false);
 
   const eventsPageLabel = (status: string) => {
@@ -147,6 +148,15 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
     } finally {
       setOnboardSubmittingVenueId(null);
     }
+  }
+
+  function toggleItem(id: string) {
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   return (
@@ -273,15 +283,59 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
 
                 <div>
                   <h3 className="font-medium">Created ({created.length})</h3>
-                  <ul className="list-disc space-y-2 pl-5">
+                  <div className="mt-2 overflow-hidden rounded border">
+                    <div className="flex items-center justify-between border-b bg-muted/10 px-3 py-1.5">
+                      <span className="text-xs text-muted-foreground">{created.length} venues</span>
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground underline"
+                        onClick={() => {
+                          const allExpanded = created.every((item) => expandedItems.has(item.id));
+                          if (allExpanded) {
+                            setExpandedItems((prev) => {
+                              const next = new Set(prev);
+                              created.forEach((item) => next.delete(item.id));
+                              return next;
+                            });
+                            return;
+                          }
+                          setExpandedItems((prev) => {
+                            const next = new Set(prev);
+                            created.forEach((item) => next.add(item.id));
+                            return next;
+                          });
+                        }}
+                      >
+                        {created.every((item) => expandedItems.has(item.id)) ? "Collapse all" : "Expand all"}
+                      </button>
+                    </div>
+                    <ul>
                     {created.map((item) => (
-                      <li key={item.id}>
-                        <div>
-                          {item.venueId ? <Link className="underline" href={`/admin/venues/${item.venueId}`}>{item.name}</Link> : item.name} — geocode: {item.geocodeStatus}{item.geocodeErrorCode ? ` (${item.geocodeErrorCode})` : ""}{item.timezoneWarning ? `, timezone: ${item.timezoneWarning}` : ""} · homepage images: {item.homepageImageStatus === "candidates_extracted" ? `${item.homepageImageCandidateCount} candidates` : item.homepageImageStatus} · events page: {eventsPageLabel(item.eventsPageStatus)}
+                      <li key={item.id} className="border-b last:border-b-0">
+                        <div
+                          className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-muted/30"
+                          onClick={() => toggleItem(item.id)}
+                        >
+                          <span className="min-w-0 flex-1 text-sm">
+                            {item.venueId ? (
+                              <Link
+                                className="underline"
+                                href={`/admin/venues/${item.venueId}`}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                {item.name}
+                              </Link>
+                            ) : item.name}
+                            {item.city ? <span className="text-muted-foreground"> · {item.city}</span> : null}
+                          </span>
+                          <span className={item.publishable ? "text-xs font-medium text-emerald-700" : "text-xs text-red-700"}>
+                            {item.publishable ? "Ready" : "Blocked"}
+                          </span>
+                          <span className="min-w-0 max-w-56 truncate text-xs text-muted-foreground">
+                            {item.blockers[0] ?? ""}
+                          </span>
                           {item.venueId ? (
                             <>
-                              {" "}
-                              ·{" "}
                               {publishedVenueIds.has(item.venueId) ? (
                                 <span className="text-xs text-emerald-700">✓ Published</span>
                               ) : publishingVenueId === item.venueId ? (
@@ -290,7 +344,8 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
                                 <button
                                   type="button"
                                   className="text-xs underline"
-                                  onClick={() => {
+                                  onClick={(event) => {
+                                    event.stopPropagation();
                                     const venueId = item.venueId as string;
                                     setOnboardingVenueId((prev) => (prev === venueId ? null : venueId));
                                     setOnboardEventsPageUrl((prev) => (
@@ -303,7 +358,14 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
                                   Onboard
                                 </button>
                               ) : item.publishable && (item.venueStatus === "DRAFT" || Boolean(item.eventsPageUrl)) ? (
-                                <button type="button" className="text-xs underline" onClick={() => publishVenue(item.venueId as string)}>
+                                <button
+                                  type="button"
+                                  className="text-xs underline"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void publishVenue(item.venueId as string);
+                                  }}
+                                >
                                   Publish
                                 </button>
                               ) : (
@@ -311,14 +373,18 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
                               )}
                             </>
                           ) : null}
+                          <span className="select-none text-xs text-muted-foreground">
+                            {expandedItems.has(item.id) ? "▲" : "▼"}
+                          </span>
                         </div>
                         {item.venueId && publishVenueErrors[item.venueId] ? (
-                          <div className="mt-1 text-xs text-red-700">
+                          <div className="px-3 pb-2 text-xs text-red-700">
                             {publishVenueErrors[item.venueId]}{" "}
                             <button
                               type="button"
                               className="underline"
-                              onClick={() => {
+                              onClick={(event) => {
+                                event.stopPropagation();
                                 setPublishVenueErrors((prev) => {
                                   const next = { ...prev };
                                   delete next[item.venueId as string];
@@ -332,7 +398,7 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
                           </div>
                         ) : null}
                         {item.venueId && onboardingVenueId === item.venueId ? (
-                          <div className="mt-2 rounded border bg-muted/20 p-2 text-xs">
+                          <div className="mx-3 mb-2 rounded border bg-muted/20 p-2 text-xs">
                             <label className="block space-y-1">
                               <span className="font-medium">Events page URL (optional)</span>
                               <Input
@@ -354,15 +420,30 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
                             </div>
                           </div>
                         ) : null}
-                        <div className="text-xs text-muted-foreground">
-                          {item.instagramUrl ? <><a className="underline" href={item.instagramUrl} target="_blank" rel="noreferrer">Instagram</a> <span>(normalized)</span> · </> : null}
-                          {item.facebookUrl ? <><a className="underline" href={item.facebookUrl} target="_blank" rel="noreferrer">Facebook</a> <span>(normalized)</span> · </> : null}
-                          {item.contactEmail ? <><a className="underline" href={`mailto:${item.contactEmail}`}>Email</a> · </> : null}
-                                                    {item.socialWarning ? <span>Warnings: {item.socialWarning}</span> : null}
-                        </div>
+                        {expandedItems.has(item.id) ? (
+                          <div className="space-y-1 bg-muted/20 px-3 pb-3 pt-1 text-xs text-muted-foreground">
+                            <p>
+                              Geocode: {item.geocodeStatus}
+                              {item.geocodeErrorCode ? ` (${item.geocodeErrorCode})` : ""}
+                              {item.timezoneWarning ? ` · timezone: ${item.timezoneWarning}` : ""}
+                            </p>
+                            <p>
+                              Homepage images: {item.homepageImageStatus}
+                              {item.homepageImageCandidateCount > 0 ? ` (${item.homepageImageCandidateCount} candidates)` : ""}
+                            </p>
+                            <p>Events page: {eventsPageLabel(item.eventsPageStatus)}</p>
+                            {item.socialWarning ? <p>Social: {item.socialWarning}</p> : null}
+                            {item.instagramUrl ? <p>Instagram: <a className="underline" href={item.instagramUrl} target="_blank" rel="noreferrer">{item.instagramUrl}</a></p> : null}
+                            {item.facebookUrl ? <p>Facebook: <a className="underline" href={item.facebookUrl} target="_blank" rel="noreferrer">{item.facebookUrl}</a></p> : null}
+                            {item.contactEmail ? <p>Contact: {item.contactEmail}</p> : null}
+                            {item.reason ? <p>Status reason: {item.reason}</p> : null}
+                            {item.blockers?.length > 0 ? <p className="text-red-700">All blockers: {item.blockers.join(", ")}</p> : null}
+                          </div>
+                        ) : null}
                       </li>
                     ))}
-                  </ul>
+                    </ul>
+                  </div>
                 </div>
                 <div>
                   <h3 className="font-medium">Skipped ({skipped.length})</h3>
