@@ -2,6 +2,7 @@ import { ENRICHMENT_TEMPLATE_BY_KEY } from "@/lib/enrichment/templates";
 import { buildTemplateQuery, shouldApply, type EnrichItemResult, type EnrichmentFnArgs } from "@/lib/enrichment/types";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 import { getSearchProvider } from "@/lib/ingest/search";
+import { logError } from "@/lib/logging";
 
 function resolveProviderApiKey(
   provider: "openai" | "gemini" | "claude",
@@ -38,10 +39,23 @@ export async function enrichVenueDescription(
 
   const query = buildTemplateQuery(ENRICHMENT_TEMPLATE_BY_KEY.VENUE_DESCRIPTION.queryTemplate, { name: venue.name });
   let searchUrl: string | null = null;
-  if (args.settings.searchEnabled !== false && query) {
-    const search = getSearchProvider(args.searchProvider, args.settings);
-    const results = await search.search(query, 5);
-    searchUrl = results[0]?.url ?? null;
+  try {
+    if (args.settings.searchEnabled !== false && query) {
+      const search = getSearchProvider(args.searchProvider, args.settings);
+      const results = await search.search(query, 5);
+      searchUrl = results[0]?.url ?? null;
+    }
+  } catch (searchError) {
+    const errorDetail = searchError instanceof Error
+      ? searchError.message
+      : String(searchError);
+    logError({
+      message: "enrichment_search_failed",
+      template: "VENUE_DESCRIPTION",
+      entityId: args.entityId,
+      provider: args.searchProvider,
+      errorDetail,
+    });
   }
 
   const provider = getProvider((args.settings.venueEnrichmentProvider as ProviderName | null) ?? "claude");

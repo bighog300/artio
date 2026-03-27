@@ -4,6 +4,7 @@ import { scoreArtistCandidate } from "@/lib/ingest/artist-confidence";
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 import { getSearchProvider } from "@/lib/ingest/search";
+import { logError } from "@/lib/logging";
 
 const KNOWN_ART_DOMAINS = [
   "artsy.net",
@@ -76,15 +77,28 @@ export async function enrichArtistBio(
   const query = buildTemplateQuery(ENRICHMENT_TEMPLATE_BY_KEY.ARTIST_BIO.queryTemplate, { name: artist.name });
   let searchUrl: string | null = null;
 
-  if (args.settings.searchEnabled !== false && query) {
-    const provider = getSearchProvider(args.searchProvider, args.settings);
-    const results = await provider.search(query, 5);
-    if (results.length > 0) {
-      const artistSlug = slugifyName(artist.name);
-      const scored = results.map((result) => ({ result, score: scoreSearchResult(result, artist.name, artistSlug) }));
-      const best = scored.reduce((max, current) => (current.score > max.score ? current : max), scored[0]);
-      searchUrl = best.score > 0 ? best.result.url : results[0]?.url ?? null;
+  try {
+    if (args.settings.searchEnabled !== false && query) {
+      const provider = getSearchProvider(args.searchProvider, args.settings);
+      const results = await provider.search(query, 5);
+      if (results.length > 0) {
+        const artistSlug = slugifyName(artist.name);
+        const scored = results.map((result) => ({ result, score: scoreSearchResult(result, artist.name, artistSlug) }));
+        const best = scored.reduce((max, current) => (current.score > max.score ? current : max), scored[0]);
+        searchUrl = best.score > 0 ? best.result.url : results[0]?.url ?? null;
+      }
     }
+  } catch (searchError) {
+    const errorDetail = searchError instanceof Error
+      ? searchError.message
+      : String(searchError);
+    logError({
+      message: "enrichment_search_failed",
+      template: "ARTIST_BIO",
+      entityId: args.entityId,
+      provider: args.searchProvider,
+      errorDetail,
+    });
   }
 
   const confidenceBefore = scoreArtistCandidate({
