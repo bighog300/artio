@@ -323,6 +323,16 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
               Regions
             </Link>
             <Link
+              href="/admin/ingest/goals"
+              className={`rounded-t-md px-3 py-2 text-sm ${
+                pathname.startsWith("/admin/ingest/goals")
+                  ? "bg-muted font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Goals
+            </Link>
+            <Link
               href="/admin/ingest/venue-generation"
               className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/venue-generation") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >

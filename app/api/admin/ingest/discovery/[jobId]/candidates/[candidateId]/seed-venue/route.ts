@@ -115,7 +115,10 @@ export async function POST(
 
       await tx.ingestDiscoveryCandidate.update({
         where: { id: candidateId },
-        data: { status: "QUEUED" },
+        data: {
+          status: "QUEUED",
+          seededVenueId: venue.id,
+        },
       });
 
       return run;
