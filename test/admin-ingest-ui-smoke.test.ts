@@ -43,3 +43,18 @@ test("admin sidebar includes ingest route", () => {
   );
   assert.match(navSource, /href: "\/admin\/ingest", label: "Ingest"/);
 });
+
+test("admin ingest artist and artwork queues expose observability filters", () => {
+  const artistsClientSource = readFileSync("app/(admin)/admin/ingest/artists/artists-client.tsx", "utf8");
+  const artworksClientSource = readFileSync("app/(admin)/admin/ingest/artworks/artworks-client.tsx", "utf8");
+
+  for (const source of [artistsClientSource, artworksClientSource]) {
+    assert.match(source, /Approval failed/);
+    assert.match(source, /Approval attempted/);
+    assert.match(source, /No image found/);
+    assert.match(source, /Image failed/);
+    assert.match(source, /Reason code/);
+    assert.match(source, /matchesApprovalFilter/);
+    assert.match(source, /matchesImageFilter/);
+  }
+});
