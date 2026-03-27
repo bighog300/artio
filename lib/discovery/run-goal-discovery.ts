@@ -34,7 +34,7 @@ export async function runGoalDiscovery(args: {
     `visual art centre ${goal.region} ${goal.country}`,
     `exhibition space ${goal.region} ${goal.country}`,
   ];
-  const [scores, variants] = await Promise.all([
+  const [scores, variants, approvedSuggestions] = await Promise.all([
     scoreTemplates(args.db, baseVenueTemplates),
     generateTemplateVariants(args.db, {
       region: goal.region,
@@ -42,10 +42,27 @@ export async function runGoalDiscovery(args: {
       entityType: "VENUE",
       maxVariants: 3,
     }),
+    args.db.discoveryTemplateSuggestion.findMany({
+      where: {
+        status: "APPROVED",
+        entityType: "VENUE",
+        region: {
+          equals: goal.region, mode: "insensitive",
+        },
+      },
+      select: { template: true },
+      orderBy: { approvedAt: "desc" },
+      take: 5,
+    }),
   ]);
 
+  const suggestionTemplates = approvedSuggestions.map((s) => s.template);
   const rankedTemplates = rankTemplates(scores);
-  const templates = [...variants, ...rankedTemplates].slice(0, 8);
+  const templates = [
+    ...suggestionTemplates,
+    ...variants,
+    ...rankedTemplates,
+  ].slice(0, 10);
 
   const jobIds: string[] = [];
 

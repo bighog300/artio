@@ -28,7 +28,7 @@ export async function runRegionDiscovery(args: {
       `visual art centre ${region.region} ${region.country}`,
       `exhibition space ${region.region} ${region.country}`,
     ];
-    const [scores, variants] = await Promise.all([
+    const [scores, variants, approvedSuggestions] = await Promise.all([
       scoreTemplates(args.db, baseVenueTemplates),
       generateTemplateVariants(args.db, {
         region: region.region,
@@ -36,10 +36,27 @@ export async function runRegionDiscovery(args: {
         entityType: "VENUE",
         maxVariants: 3,
       }),
+      args.db.discoveryTemplateSuggestion.findMany({
+        where: {
+          status: "APPROVED",
+          entityType: "VENUE",
+          region: {
+            equals: region.region, mode: "insensitive",
+          },
+        },
+        select: { template: true },
+        orderBy: { approvedAt: "desc" },
+        take: 5,
+      }),
     ]);
 
+    const suggestionTemplates = approvedSuggestions.map((s) => s.template);
     const rankedTemplates = rankTemplates(scores);
-    const templates = [...variants, ...rankedTemplates].slice(0, 8);
+    const templates = [
+      ...suggestionTemplates,
+      ...variants,
+      ...rankedTemplates,
+    ].slice(0, 10);
 
     const jobIds: string[] = [];
     let queryFailCount = 0;
@@ -73,12 +90,27 @@ export async function runRegionDiscovery(args: {
     }
 
     // Artist discovery — only when flag is enabled
+    let artistTemplates: string[] = [];
     if (region.artistDiscoveryEnabled) {
-      const artistTemplates = [
+      const approvedArtistSuggestions = await args.db.discoveryTemplateSuggestion.findMany({
+        where: {
+          status: "APPROVED",
+          entityType: "ARTIST",
+          region: {
+            equals: region.region, mode: "insensitive",
+          },
+        },
+        select: { template: true },
+        orderBy: { approvedAt: "desc" },
+        take: 3,
+      });
+
+      artistTemplates = [
+        ...approvedArtistSuggestions.map((s) => s.template),
         `contemporary artists ${region.region} ${region.country}`,
         `visual artists ${region.region} ${region.country}`,
         `emerging artists ${region.region} ${region.country}`,
-      ];
+      ].slice(0, 6);
 
       for (const template of artistTemplates) {
         const job = await args.db.ingestDiscoveryJob.create({
@@ -116,7 +148,7 @@ export async function runRegionDiscovery(args: {
       }
     }
 
-    const attemptedTemplateCount = templates.length + (region.artistDiscoveryEnabled ? 3 : 0);
+    const attemptedTemplateCount = templates.length + (region.artistDiscoveryEnabled ? artistTemplates.length : 0);
     if (queryFailCount === attemptedTemplateCount) {
       throw new Error(
         `All ${attemptedTemplateCount} discovery queries failed for region ${args.regionId}`,

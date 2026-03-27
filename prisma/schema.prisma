@@ -390,6 +390,7 @@ model User {
   digestRuns           DigestRun[]
   ingestRegionsTriggered IngestRegion[]
   discoveryGoals        DiscoveryGoal[]
+  templateSuggestions   DiscoveryTemplateSuggestion[]
   engagementEvents     EngagementEvent[]
   onboardingState      OnboardingState?
   artistProfile        Artist?
@@ -1214,10 +1215,42 @@ model DiscoveryGoal {
   updatedAt   DateTime             @updatedAt @db.Timestamptz
   createdBy   User                 @relation(fields: [createdById], references: [id], onDelete: Restrict)
   jobs        IngestDiscoveryJob[]
+  suggestions DiscoveryTemplateSuggestion[]
 
   @@index([status, entityType])
   @@index([region, country, entityType])
   @@index([createdAt(sort: Desc)])
+}
+
+enum DiscoveryTemplateSuggestionStatus {
+  PENDING
+  APPROVED
+  DISMISSED
+}
+
+model DiscoveryTemplateSuggestion {
+  id           String                            @id @default(uuid()) @db.Uuid
+  entityType   DiscoveryEntityType
+  region       String
+  country      String
+  template     String
+  rationale    String
+  status       DiscoveryTemplateSuggestionStatus @default(PENDING)
+  goalId       String?                           @db.Uuid
+  regionId     String?                           @db.Uuid
+  approvedAt   DateTime?                         @db.Timestamptz
+  dismissedAt  DateTime?                         @db.Timestamptz
+  createdById  String                            @db.Uuid
+  createdAt    DateTime                          @default(now()) @db.Timestamptz
+  updatedAt    DateTime                          @updatedAt @db.Timestamptz
+  createdBy    User                              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  goal         DiscoveryGoal?                    @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  ingestRegion IngestRegion?                     @relation(fields: [regionId], references: [id], onDelete: SetNull)
+
+  @@index([status, entityType])
+  @@index([region, country, entityType])
+  @@index([goalId])
+  @@index([regionId])
 }
 
 model IngestDiscoveryCandidate {
@@ -1254,6 +1287,7 @@ model IngestRegion {
   triggeredById  String               @db.Uuid
   triggeredBy    User                 @relation(fields: [triggeredById], references: [id])
   discoveryJobs  IngestDiscoveryJob[]
+  templateSuggestions DiscoveryTemplateSuggestion[]
   createdAt      DateTime             @default(now()) @db.Timestamptz
   updatedAt      DateTime             @updatedAt @db.Timestamptz
 

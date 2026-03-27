@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import { SuggestionsSection } from "@/app/(admin)/admin/ingest/discovery/suggestions-section";
 
 type GoalWithProgress = {
   id: string;
@@ -63,6 +64,8 @@ export function GoalsClient({ goals: initialGoals, statusCounts }: Props) {
   const [creating, setCreating] = useState(false);
   const [goals, setGoals] = useState(initialGoals);
   const [runFeedbackByGoalId, setRunFeedbackByGoalId] = useState<Record<string, RunFeedback>>({});
+  const [expandedSuggestionsGoalId, setExpandedSuggestionsGoalId] =
+    useState<string | null>(null);
   const [form, setForm] = useState({
     entityType: "VENUE" as "VENUE" | "ARTIST" | "EVENT",
     region: "",
@@ -283,59 +286,91 @@ export function GoalsClient({ goals: initialGoals, statusCounts }: Props) {
               {goals.map((goal) => {
                 const pct = goal.targetCount > 0 ? Math.min(100, Math.round((goal.progress.seeded / goal.targetCount) * 100)) : 0;
                 return (
-                  <tr key={goal.id} className="border-b align-top last:border-0">
-                    <td className="py-3 pr-3">{goal.entityType}</td>
-                    <td className="py-3 pr-3 text-muted-foreground">{goal.region}, {goal.country}</td>
-                    <td className="py-3 pr-3 text-muted-foreground">{goal.targetCount}</td>
-                    <td className="py-3 pr-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-16 overflow-hidden rounded bg-muted">
-                            <div className={`h-full ${progressTone(goal.progress.seeded, goal.targetCount)}`} style={{ width: `${pct}%` }} />
+                  <Fragment key={goal.id}>
+                    <tr className="border-b align-top last:border-0">
+                      <td className="py-3 pr-3">{goal.entityType}</td>
+                      <td className="py-3 pr-3 text-muted-foreground">{goal.region}, {goal.country}</td>
+                      <td className="py-3 pr-3 text-muted-foreground">{goal.targetCount}</td>
+                      <td className="py-3 pr-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-16 overflow-hidden rounded bg-muted">
+                              <div className={`h-full ${progressTone(goal.progress.seeded, goal.targetCount)}`} style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="text-xs text-muted-foreground">{goal.progress.seeded} / {goal.targetCount} seeded{goal.progress.totalApprovedEvents > 0
+                              ? ` · ${goal.progress.totalApprovedEvents} approved events`
+                              : ""}</span>
                           </div>
-                          <span className="text-xs text-muted-foreground">{goal.progress.seeded} / {goal.targetCount} seeded{goal.progress.totalApprovedEvents > 0
-                            ? ` · ${goal.progress.totalApprovedEvents} approved events`
-                            : ""}</span>
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-3 pr-3">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${statusClass(goal.status)}`}>
-                        {goal.status}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-3 text-muted-foreground">{goal.progress.jobCount}</td>
-                    <td className="py-3 pr-3 text-muted-foreground">{formatDate(goal.progress.lastJobAt)}</td>
-                    <td className="py-3 text-right">
-                      <div className="flex items-center justify-end gap-2 text-xs">
-                        {goal.status === "PAUSED" ? (
-                          <button type="button" className="underline" onClick={() => updateGoalStatus(goal.id, "ACTIVE")}>Resume</button>
-                        ) : (
-                          <button type="button" className="underline" onClick={() => updateGoalStatus(goal.id, "PAUSED")}>Pause</button>
-                        )}
-                        {goal.status === "ACTIVE" ? (
-                          <button type="button" className="underline" onClick={() => updateGoalStatus(goal.id, "COMPLETED")}>Complete</button>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="underline disabled:opacity-50"
-                          disabled={runFeedbackByGoalId[goal.id]?.status === "loading"}
-                          onClick={() => runGoalNow(goal.id)}
-                        >
-                          {runFeedbackByGoalId[goal.id]?.status === "loading" ? "Running..." : "Run now"}
-                        </button>
-                        {runFeedbackByGoalId[goal.id]?.message ? (
-                          <span
-                            className={runFeedbackByGoalId[goal.id]?.status === "error"
-                              ? "text-rose-600"
-                              : "text-muted-foreground"}
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${statusClass(goal.status)}`}>
+                          {goal.status}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3 text-muted-foreground">{goal.progress.jobCount}</td>
+                      <td className="py-3 pr-3 text-muted-foreground">{formatDate(goal.progress.lastJobAt)}</td>
+                      <td className="py-3 text-right">
+                        <div className="flex items-center justify-end gap-2 text-xs">
+                          {goal.status === "PAUSED" ? (
+                            <button type="button" className="underline" onClick={() => updateGoalStatus(goal.id, "ACTIVE")}>Resume</button>
+                          ) : (
+                            <button type="button" className="underline" onClick={() => updateGoalStatus(goal.id, "PAUSED")}>Pause</button>
+                          )}
+                          {goal.status === "ACTIVE" ? (
+                            <button type="button" className="underline" onClick={() => updateGoalStatus(goal.id, "COMPLETED")}>Complete</button>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="underline disabled:opacity-50"
+                            disabled={runFeedbackByGoalId[goal.id]?.status === "loading"}
+                            onClick={() => runGoalNow(goal.id)}
                           >
-                            {runFeedbackByGoalId[goal.id]?.message}
-                          </span>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
+                            {runFeedbackByGoalId[goal.id]?.status === "loading" ? "Running..." : "Run now"}
+                          </button>
+                          {runFeedbackByGoalId[goal.id]?.message ? (
+                            <span
+                              className={runFeedbackByGoalId[goal.id]?.status === "error"
+                                ? "text-rose-600"
+                                : "text-muted-foreground"}
+                            >
+                              {runFeedbackByGoalId[goal.id]?.message}
+                            </span>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="underline"
+                            onClick={() => setExpandedSuggestionsGoalId(
+                              (prev) => prev === goal.id ? null : goal.id,
+                            )}
+                          >
+                            {expandedSuggestionsGoalId === goal.id
+                              ? "Hide suggestions"
+                              : "Suggestions"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {expandedSuggestionsGoalId === goal.id ? (
+                      <tr>
+                        <td colSpan={8} className="pb-4 pt-1">
+                          <div className="rounded-lg border bg-background p-4">
+                            <SuggestionsSection
+                              initialSuggestions={[]}
+                              entityType={
+                                goal.entityType === "EVENT"
+                                  ? undefined
+                                  : goal.entityType
+                              }
+                              region={goal.region}
+                              country={goal.country}
+                              goalId={goal.id}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
                 );
               })}
             </tbody>
