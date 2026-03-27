@@ -2,6 +2,7 @@ import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
 import { discoverEventImageUrl } from "@/lib/ingest/image-discovery";
 import { fetchImageWithGuards } from "@/lib/ingest/fetch-image";
 import { uploadArtistImageToBlob } from "@/lib/blob/upload-image";
+import { logWarn } from "@/lib/logging";
 
 type AppDb = {
   artist: {
@@ -121,7 +122,7 @@ export async function importApprovedArtistImage(params: {
     return { attached: true, warning: null, imageUrl: asset.url };
   } catch (error) {
     const warning = `image-import failed: ${error instanceof Error ? error.message : String(error)}`;
-    console.warn("ingest_artist_image_import_failed", { requestId: params.requestId, artistId: params.artistId, warning });
+    logWarn({ message: "ingest_artist_image_import_failed", requestId: params.requestId, artistId: params.artistId, warning });
     return { attached: false, warning, imageUrl: null };
   }
 }

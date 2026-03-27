@@ -9,6 +9,7 @@ import { runVenueIngestExtraction } from "@/lib/ingest/extraction-pipeline";
 import { autoApproveEventCandidate } from "@/lib/ingest/auto-approve-event-candidate";
 import { autoApproveArtistCandidate } from "@/lib/ingest/auto-approve-artist-candidate";
 import { autoApproveArtworkCandidate } from "@/lib/ingest/auto-approve-artwork-candidate";
+import { logWarn } from "@/lib/logging";
 
 const CRON_NAME = "ingest_venues";
 const ROUTE = "/api/cron/ingest/venues";
@@ -411,7 +412,7 @@ export async function runCronIngestVenues(
                 candidateId: c.id,
                 db: cronDb as unknown as PrismaClient,
                 autoPublish: true,
-              }).catch((err) => console.warn("auto_approve_event_cron_failed", { candidateId: c.id, err }));
+              }).catch((err) => logWarn({ message: "auto_approve_event_cron_failed", candidateId: c.id, err }));
             }
           }
 
@@ -441,7 +442,7 @@ export async function runCronIngestVenues(
                   db: cronDb as unknown as PrismaClient,
                   autoPublish: true,
                 }).catch((err) => {
-                  console.warn("auto_approve_artist_cron_failed", {
+                  logWarn({ message: "auto_approve_artist_cron_failed",
                     candidateId: c.id,
                     err,
                   });
@@ -470,7 +471,7 @@ export async function runCronIngestVenues(
                 db: cronDb as unknown as PrismaClient,
                 autoPublish: true,
               }).catch((err) => {
-                console.warn("auto_approve_artwork_cron_failed", {
+                logWarn({ message: "auto_approve_artwork_cron_failed",
                   candidateId: c.id,
                   err,
                 });

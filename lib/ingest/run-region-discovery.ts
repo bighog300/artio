@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { runDiscoveryJob } from "@/lib/ingest/run-discovery-job";
+import { logWarn } from "@/lib/logging";
 
 export async function runRegionDiscovery(args: {
   regionId: string;
@@ -48,7 +49,7 @@ export async function runRegionDiscovery(args: {
         jobIds.push(job.id);
       } catch (queryError) {
         queryFailCount += 1;
-        console.warn("region_discovery_query_failed", {
+        logWarn({ message: "region_discovery_query_failed",
           regionId: args.regionId,
           template,
           jobId: job.id,

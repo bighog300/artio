@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { validateCronRequest } from "@/lib/cron-auth";
+import { logWarn } from "@/lib/logging";
 import {
   createCronRunId,
   logCronSummary,
@@ -109,7 +110,7 @@ export async function runCronIngestRegions(
               const openAiApiKey =
                 settings?.openAiApiKey ?? process.env.OPENAI_API_KEY ?? "";
               if (!openAiApiKey) {
-                console.warn("cron_ingest_regions_openai_key_missing", {
+                logWarn({ message: "cron_ingest_regions_openai_key_missing",
                   regionId: region.id,
                   country: region.country,
                   region: region.region,

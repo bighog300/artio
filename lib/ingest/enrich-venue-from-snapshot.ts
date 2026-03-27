@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { VenueSnapshot } from "@/lib/ingest/openai-extract";
 import { parseOpeningHours, validateEmail, validateSocialUrl } from "@/lib/ingest/enrichment-validators";
+import { logError } from "@/lib/logging";
 
 function toNonEmptyString(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
@@ -172,7 +173,7 @@ export async function enrichVenueFromSnapshot(args: {
         }
       }
     } catch (error) {
-      console.error("[venue-enrichment] featured asset sync failed", error);
+      logError({ message: "venue_enrichment_featured_asset_sync_failed", error });
     }
   }
 

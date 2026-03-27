@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { slugifyArtistName, ensureUniqueArtistSlugWithDeps } from "@/lib/artist-slug";
 import { resolveArtistCandidate } from "@/lib/ingest/artist-resolution";
 import { importApprovedArtistImage } from "@/lib/ingest/import-approved-artist-image";
+import { logWarn } from "@/lib/logging";
 
 export const autoApproveArtistCandidateDeps = {
   importApprovedArtistImage,
@@ -92,7 +93,7 @@ export async function autoApproveArtistCandidate(args: {
       sourceUrl: candidate.sourceUrl,
       instagramUrl: candidate.instagramUrl,
       requestId: `auto-approve-artist-${candidate.id}`,
-    }).catch((err) => console.warn("auto_approve_artist_image_failed", { candidateId: candidate.id, err }));
+    }).catch((err) => logWarn({ message: "auto_approve_artist_image_failed", candidateId: candidate.id, err }));
 
     // Retroactive artwork re-link
     try {
@@ -127,7 +128,7 @@ export async function autoApproveArtistCandidate(args: {
         }
       }
     } catch (err) {
-      console.warn("artist_retroactive_artwork_relink_failed", {
+      logWarn({ message: "artist_retroactive_artwork_relink_failed",
         candidateId: args.candidateId,
         err,
       });
@@ -150,7 +151,7 @@ export async function autoApproveArtistCandidate(args: {
 
     return { artistId: newArtist.id, published: false };
   } catch (error) {
-    console.warn("auto_approve_artist_failed", { candidateId: args.candidateId, error });
+    logWarn({ message: "auto_approve_artist_failed", candidateId: args.candidateId, error });
     return null;
   }
 }

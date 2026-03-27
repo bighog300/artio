@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { extractCronSecret, validateCronRequest } from "@/lib/cron-auth";
 import { createCronRunId, logCronSummary, tryAcquireCronLock } from "@/lib/cron-runtime";
 import { extractArtworksForEvent } from "@/lib/ingest/artwork-extraction";
+import { logWarn } from "@/lib/logging";
 
 const CRON_NAME = "ingest_backfill_artworks";
 const ROUTE = "/api/cron/ingest/backfill-artworks";
@@ -150,7 +151,7 @@ export async function handleBackfillArtworksCron(req: Request, deps: BackfillArt
         skipped += result.skipped;
       } catch (error) {
         skipped += 1;
-        console.warn("cron_backfill_artworks_extract_failed", { eventId: event.id, error });
+        logWarn({ message: "cron_backfill_artworks_extract_failed", eventId: event.id, error });
       }
     }
 

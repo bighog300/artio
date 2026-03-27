@@ -1,3 +1,5 @@
+import { logInfo } from "@/lib/logging";
+
 export type CronSummary = {
   cronName: string;
   cronRunId: string;
@@ -59,5 +61,5 @@ export function shouldDryRun(value: string | null | undefined) {
 }
 
 export function logCronSummary(summary: CronSummary & Record<string, unknown>) {
-  console.log(JSON.stringify({ level: "info", ...summary }));
+  logInfo({ message: "cron_summary", ...summary });
 }

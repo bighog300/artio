@@ -5,6 +5,7 @@ import { importApprovedEventImage } from "@/lib/ingest/import-approved-event-ima
 import { discoverArtist } from "@/lib/ingest/artist-discovery";
 import { extractArtworksForEvent } from "@/lib/ingest/artwork-extraction";
 import { autoTagEvent } from "@/lib/ingest/auto-tag-event";
+import { logWarn } from "@/lib/logging";
 
 export async function autoApproveEventCandidate(args: {
   candidateId: string;
@@ -168,7 +169,7 @@ export async function autoApproveEventCandidate(args: {
               ...approved.artistSettings,
               artistBioSystemPrompt: approved.artistSettings.artistBioSystemPrompt,
             },
-          }).catch((err) => console.warn("auto_approve_event_artist_discovery_failed", { candidateId: candidate.id, name, err })),
+          }).catch((err) => logWarn({ message: "auto_approve_event_artist_discovery_failed", candidateId: candidate.id, name, err })),
         ),
       ).catch(() => {});
     }
@@ -184,7 +185,7 @@ export async function autoApproveEventCandidate(args: {
           geminiApiKey: approved.artworkSettings.geminiApiKey,
           openAiApiKey: approved.artworkSettings.openAiApiKey,
         },
-      }).catch((err) => console.warn("auto_approve_event_artwork_extraction_failed", { candidateId: candidate.id, err }));
+      }).catch((err) => logWarn({ message: "auto_approve_event_artwork_extraction_failed", candidateId: candidate.id, err }));
     }
 
     if (process.env.AI_AUTO_TAG_ENABLED === "1" && approved.autoTagSettings.autoTagEnabled) {
@@ -200,7 +201,7 @@ export async function autoApproveEventCandidate(args: {
           anthropicApiKey: approved.autoTagSettings.anthropicApiKey,
           openAiApiKey: approved.autoTagSettings.openAiApiKey,
         },
-      }).catch((err) => console.warn("auto_approve_event_auto_tag_failed", { candidateId: candidate.id, err }));
+      }).catch((err) => logWarn({ message: "auto_approve_event_auto_tag_failed", candidateId: candidate.id, err }));
     }
 
     await importApprovedEventImage({
@@ -214,7 +215,7 @@ export async function autoApproveEventCandidate(args: {
       venueWebsiteUrl: candidate.venue?.websiteUrl ?? null,
       candidateImageUrl: candidate.blobImageUrl ?? candidate.imageUrl ?? null,
       requestId: `auto-approve-event-${candidate.id}`,
-    }).catch((err) => console.warn("auto_approve_image_import_failed", { candidateId: candidate.id, err }));
+    }).catch((err) => logWarn({ message: "auto_approve_image_import_failed", candidateId: candidate.id, err }));
 
     if (args.autoPublish) {
       await args.db.event.update({
@@ -226,7 +227,7 @@ export async function autoApproveEventCandidate(args: {
 
     return { eventId: approved.createdEvent.id, published: false };
   } catch (error) {
-    console.warn("auto_approve_event_failed", { candidateId: args.candidateId, error });
+    logWarn({ message: "auto_approve_event_failed", candidateId: args.candidateId, error });
     return null;
   }
 }

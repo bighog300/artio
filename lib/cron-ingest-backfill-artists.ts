@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { extractCronSecret, validateCronRequest } from "@/lib/cron-auth";
 import { createCronRunId, logCronSummary, tryAcquireCronLock } from "@/lib/cron-runtime";
 import { discoverArtist } from "@/lib/ingest/artist-discovery";
+import { logWarn } from "@/lib/logging";
 
 const CRON_NAME = "ingest_backfill_artists";
 const ROUTE = "/api/cron/ingest/backfill-artists";
@@ -167,7 +168,7 @@ export async function handleBackfillArtistsCron(req: Request, deps: BackfillArti
           discovered += 1;
         } catch (error) {
           failed += 1;
-          console.warn("cron_backfill_artists_discover_failed", { eventId: event.id, artistName, error });
+          logWarn({ message: "cron_backfill_artists_discover_failed", eventId: event.id, artistName, error });
         }
       }
     }

@@ -6,6 +6,7 @@ import { IngestError } from "@/lib/ingest/errors";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
 import { scoreArtistCandidate } from "@/lib/ingest/artist-confidence";
 import { autoApproveArtistCandidate } from "@/lib/ingest/auto-approve-artist-candidate";
+import { logWarn } from "@/lib/logging";
 
 export const DEFAULT_ARTIST_BIO_SYSTEM_PROMPT =
   "Extract the artist profile from the following page HTML. Return only " +
@@ -163,7 +164,7 @@ export async function discoverArtist(args: {
       searchItems = [];
     }
   } else {
-    console.warn("[artist-discovery] google PSE key/cx missing");
+    logWarn({ message: "artist_discovery_google_pse_missing" });
   }
 
   const wikipediaMatch = searchItems.some((item) => item.link.includes("wikipedia.org"));
@@ -330,7 +331,7 @@ export async function discoverArtist(args: {
       candidateId: created.id,
       db: args.db as unknown as PrismaClient,
       autoPublish: true,
-    }).catch((err) => console.warn("auto_approve_artist_post_discovery_failed", { err }));
+    }).catch((err) => logWarn({ message: "auto_approve_artist_post_discovery_failed", err }));
   }
 
   return { status: "created", candidateId: created.id };

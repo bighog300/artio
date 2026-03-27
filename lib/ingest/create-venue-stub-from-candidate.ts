@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { ensureUniqueVenueSlugWithDeps, slugifyVenueName } from "@/lib/venue-slug";
 import { forwardGeocodeVenueAddressToLatLng } from "@/lib/geocode/forward";
+import { logError, logWarn } from "@/lib/logging";
 
 export const createVenueStubFromCandidateDeps = {
   forwardGeocodeVenueAddressToLatLng,
@@ -75,13 +76,13 @@ export async function createVenueStubFromCandidate(args: {
           data: { lat: coords.lat, lng: coords.lng },
         });
       } else {
-        console.warn("create_venue_stub_geocode_failed", {
+        logWarn({ message: "create_venue_stub_geocode_failed",
           url: args.candidateUrl,
           reason: "no_coords",
         });
       }
     } catch (error) {
-      console.warn("create_venue_stub_geocode_failed", {
+      logWarn({ message: "create_venue_stub_geocode_failed",
         url: args.candidateUrl,
         error,
       });
@@ -89,7 +90,7 @@ export async function createVenueStubFromCandidate(args: {
 
     return { venueId: venue.id };
   } catch (error) {
-    console.error("create_venue_stub_failed", { url: args.candidateUrl, error });
+    logError({ message: "create_venue_stub_failed", url: args.candidateUrl, error });
     return null;
   }
 }

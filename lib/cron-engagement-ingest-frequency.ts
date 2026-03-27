@@ -3,6 +3,7 @@ import { validateCronRequest } from "@/lib/cron-auth";
 import { createCronRunId, logCronSummary, tryAcquireCronLock } from "@/lib/cron-runtime";
 import { captureException, withSpan } from "@/lib/monitoring";
 import { markCronFailure, markCronSuccess } from "@/lib/ops-metrics";
+import { logInfo, logWarn } from "@/lib/logging";
 
 const CRON_NAME = "engagement_ingest_frequency";
 const ROUTE = "/api/cron/venues/update-ingest-frequency";
@@ -123,7 +124,7 @@ export async function runCronEngagementIngestFrequency(
           data: { ingestFrequency: newFrequency },
         }).then(() => {
           updatedCount += 1;
-          console.log("ingest_freq_updated", {
+          logInfo({ message: "ingest_freq_updated",
             venueId: venue.id,
             venueName: venue.name,
             from: venue.ingestFrequency,
@@ -133,7 +134,7 @@ export async function runCronEngagementIngestFrequency(
           });
         }).catch((error: unknown) => {
           venueErrorCount += 1;
-          console.warn("ingest_freq_update_failed", {
+          logWarn({ message: "ingest_freq_update_failed",
             venueId: venue.id,
             venueName: venue.name,
             from: venue.ingestFrequency,

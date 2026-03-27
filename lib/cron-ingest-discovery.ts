@@ -7,6 +7,7 @@ import { sendAlert } from "@/lib/alerts";
 import { validateCronRequest } from "@/lib/cron-auth";
 import { runVenueIngestExtraction } from "@/lib/ingest/extraction-pipeline";
 import { createVenueStubFromCandidate } from "@/lib/ingest/create-venue-stub-from-candidate";
+import { logError } from "@/lib/logging";
 
 function normalize(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
@@ -140,7 +141,7 @@ export async function runCronIngestDiscovery(
         await db.ingestDiscoveryCandidate.update({ where: { id: candidate.id }, data: { status: "SKIPPED", skipReason: "entity_type_not_supported" } });
       } catch (error) {
         errorCount += 1;
-        console.error("cron_discovery_candidate_failed", { candidateId: candidate.id, error });
+        logError({ message: "cron_discovery_candidate_failed", candidateId: candidate.id, error });
         await db.ingestDiscoveryCandidate.update({ where: { id: candidate.id }, data: { status: "SKIPPED", skipReason: "processing_error" } });
       }
     }

@@ -3,6 +3,7 @@ import { ensureUniqueArtworkSlugWithDeps, slugifyArtworkTitle } from "@/lib/artw
 import { ensureUniqueArtistSlugWithDeps, slugifyArtistName } from "@/lib/artist-slug";
 import { importApprovedArtworkImage } from "@/lib/ingest/import-approved-artwork-image";
 import { evaluateArtworkReadiness } from "@/lib/publish-readiness";
+import { logWarn } from "@/lib/logging";
 
 export const autoApproveArtworkCandidateDeps = {
   importApprovedArtworkImage,
@@ -102,7 +103,7 @@ export async function autoApproveArtworkCandidate(args: {
       candidateImageUrl: candidate.imageUrl,
       requestId: `auto-approve-artwork-${candidate.id}`,
     }).catch((err) => {
-      console.warn("auto_approve_artwork_image_failed", { candidateId: candidate.id, err });
+      logWarn({ message: "auto_approve_artwork_image_failed", candidateId: candidate.id, err });
       return { attached: false, warning: String(err), imageUrl: null };
     });
 
@@ -124,7 +125,7 @@ export async function autoApproveArtworkCandidate(args: {
 
     return { artworkId: newArtwork.id, published: false };
   } catch (error) {
-    console.warn("auto_approve_artwork_failed", {
+    logWarn({ message: "auto_approve_artwork_failed",
       candidateId: args.candidateId,
       errorMessage: error instanceof Error ? error.message : String(error),
       errorCode: (error as Record<string, unknown>)?.code ?? null,

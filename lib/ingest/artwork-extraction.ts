@@ -8,6 +8,7 @@ import { scoreArtworkCandidate } from "@/lib/ingest/artwork-confidence";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
 import { autoApproveArtworkCandidate } from "@/lib/ingest/auto-approve-artwork-candidate";
 import { resolveRelativeHttpUrl } from "@/lib/ingest/url-utils";
+import { logError, logWarn } from "@/lib/logging";
 
 const artworkExtractionSchema = {
   type: "object",
@@ -225,13 +226,13 @@ export async function extractArtworksForEvent(args: {
           candidateId: artwork.id,
           db: args.db,
           autoPublish: true,
-        }).catch((err) => console.warn("auto_approve_artwork_post_extraction_failed", { err }));
+        }).catch((err) => logWarn({ message: "auto_approve_artwork_post_extraction_failed", err }));
       }
     }
 
     return { created, duplicates, skipped: 0 };
   } catch (error) {
-    console.error("[artwork-extraction] unexpected error", error);
+    logError({ message: "artwork_extraction_unexpected_error", error });
     return { created: 0, duplicates: 0, skipped: 1 };
   }
 }

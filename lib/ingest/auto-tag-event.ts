@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { IngestError } from "@/lib/ingest/errors";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers/index";
+import { logError } from "@/lib/logging";
 
 const autoTagSchema = {
   type: "object",
@@ -130,7 +131,7 @@ export async function autoTagEvent(args: {
 
     return { tagged: matchedTags.length, skipped: tagsFromModel.length - matchedTags.length };
   } catch (error) {
-    console.error("[auto-tag] error", error);
+    logError({ message: "auto_tag_error", error });
     return { tagged: 0, skipped: 0 };
   }
 }

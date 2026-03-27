@@ -17,6 +17,7 @@ import { enrichVenueFromSnapshot } from "@/lib/ingest/enrich-venue-from-snapshot
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 import { resolveRelativeHttpUrl } from "@/lib/ingest/url-utils";
 import { getVenueTrackRecordBonus } from "@/lib/ingest/venue-confidence-signal";
+import { logError, logWarn } from "@/lib/logging";
 
 const MAX_ERROR_MESSAGE_LENGTH = 500;
 const MAX_ERROR_DETAIL_LENGTH = 1000;
@@ -392,7 +393,7 @@ export async function runVenueIngestExtraction(
         where: { id: params.venueId },
         data: { eventsPageUrl: detectedEventsPageUrl },
       }).catch((err) => {
-        console.warn("ingest_detect_events_page_url_update_failed", {
+        logWarn({ message: "ingest_detect_events_page_url_update_failed",
           venueId: params.venueId,
           detectedEventsPageUrl,
           err,
@@ -723,7 +724,7 @@ export async function runVenueIngestExtraction(
             });
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            console.warn("ingest_image_prefetch_failed", { candidateId, imageUrl, message });
+            logWarn({ message: "ingest_image_prefetch_failed", candidateId, imageUrl, errorMessage: message });
           }
         });
 
@@ -846,7 +847,7 @@ export async function runVenueIngestExtraction(
         runId: run.id,
         sourceDomain: fetched.finalUrl ?? params.sourceUrl,
         snapshot: extractedVenueSnapshot,
-      }).catch((err) => console.error("[venue-enrichment] failed", err));
+      }).catch((err) => logError({ message: "venue_enrichment_failed", error: err }));
     }
 
     return { runId: run.id, createdCount, dedupedCount, createdDuplicateCount, stopReason };

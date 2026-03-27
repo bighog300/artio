@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { extractCronSecret, validateCronRequest } from "@/lib/cron-auth";
 import { createCronRunId, logCronSummary, tryAcquireCronLock } from "@/lib/cron-runtime";
 import { importApprovedEventImage } from "@/lib/ingest/import-approved-event-image";
+import { logWarn } from "@/lib/logging";
 
 const CRON_NAME = "ingest_backfill_event_images";
 const ROUTE = "/api/cron/ingest/backfill-event-images";
@@ -110,7 +111,7 @@ export async function handleBackfillEventImagesCron(req: Request) {
         }
       } catch (error) {
         failed += 1;
-        console.warn("cron_backfill_event_images_failed", {
+        logWarn({ message: "cron_backfill_event_images_failed",
           eventId: event.id,
           error,
         });

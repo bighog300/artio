@@ -2,6 +2,7 @@ import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
 import { discoverEventImageUrl } from "@/lib/ingest/image-discovery";
 import { fetchImageWithGuards } from "@/lib/ingest/fetch-image";
 import { uploadArtworkImageToBlob } from "@/lib/blob/upload-image";
+import { logWarn } from "@/lib/logging";
 
 type ImportResult = { attached: boolean; warning: string | null; imageUrl: string | null };
 
@@ -145,7 +146,7 @@ export async function importApprovedArtworkImage(params: {
     return { attached: true, warning: null, imageUrl: asset.url };
   } catch (error) {
     const warning = truncateWarning(`image-import failed: ${error instanceof Error ? error.message : String(error)}`);
-    console.warn("ingest_approval_artwork_image_import_failed", {
+    logWarn({ message: "ingest_approval_artwork_image_import_failed",
       requestId: params.requestId,
       runId: params.runId,
       candidateId: params.candidateId,
