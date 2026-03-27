@@ -1,13 +1,13 @@
 import { db } from "@/lib/db";
 
-type IngestDb = Pick<typeof db, "ingestRun" | "ingestExtractedEvent">;
+type IngestDb = Pick<typeof db, "ingestRun" | "ingestExtractedEvent" | "ingestDiscoveryJob">;
 
 export async function getAdminIngestHealthData(dbClient: IngestDb) {
   const now = Date.now();
   const last7DaysStart = new Date(now - 7 * 24 * 60 * 60 * 1000);
   const last24HoursStart = new Date(now - 24 * 60 * 60 * 1000);
 
-  const [last7Runs, last24hRuns, breakerWindowRuns, venueRuns7d, venueCandidates7d] = await Promise.all([
+  const [last7Runs, last24hRuns, breakerWindowRuns, venueRuns7d, venueCandidates7d, discoveryJobs7d] = await Promise.all([
     dbClient.ingestRun.findMany({
       where: { createdAt: { gte: last7DaysStart } },
       select: {
@@ -57,6 +57,23 @@ export async function getAdminIngestHealthData(dbClient: IngestDb) {
         confidenceBand: true,
         status: true,
       },
+    }),
+    dbClient.ingestDiscoveryJob.findMany({
+      where: { createdAt: { gte: last7DaysStart } },
+      select: {
+        id: true,
+        createdAt: true,
+        status: true,
+        searchProvider: true,
+        region: true,
+        entityType: true,
+        durationMs: true,
+        candidatesQueued: true,
+        candidatesSkipped: true,
+        queryFailCount: true,
+        errorMessage: true,
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     }),
   ]);
 
@@ -180,6 +197,60 @@ export async function getAdminIngestHealthData(dbClient: IngestDb) {
       return b.avgPerRun - a.avgPerRun;
     });
 
+  const discoveryTotalJobs = discoveryJobs7d.length;
+  const discoverySucceededJobs = discoveryJobs7d.filter((job) => job.status === "DONE").length;
+  const discoveryFailedJobs = discoveryJobs7d.filter((job) => job.status === "FAILED").length;
+  const discoveryDurationRows = discoveryJobs7d.filter((job) => typeof job.durationMs === "number");
+  const discoveryAvgDurationMs = discoveryDurationRows.length > 0
+    ? discoveryDurationRows.reduce((sum, job) => sum + (job.durationMs ?? 0), 0) / discoveryDurationRows.length
+    : 0;
+  const discoveryTotalCandidatesQueued = discoveryJobs7d.reduce((sum, job) => sum + (job.candidatesQueued ?? 0), 0);
+  const discoveryTotalCandidatesSkipped = discoveryJobs7d.reduce((sum, job) => sum + (job.candidatesSkipped ?? 0), 0);
+  const discoverySkipRatio = discoveryTotalCandidatesQueued > 0
+    ? discoveryTotalCandidatesSkipped / discoveryTotalCandidatesQueued
+    : 0;
+  const discoveryTotalQueryFailures = discoveryJobs7d.reduce((sum, job) => sum + (job.queryFailCount ?? 0), 0);
+  const discoveryAvgQueryFailuresPerJob = discoveryTotalJobs > 0
+    ? discoveryTotalQueryFailures / discoveryTotalJobs
+    : 0;
+
+  const providerTotals = discoveryJobs7d.reduce<Record<string, { total: number; failed: number; queued: number; skipped: number; queryFails: number }>>((acc, job) => {
+    const providerKey = job.searchProvider || "unknown";
+    const existing = acc[providerKey] ?? { total: 0, failed: 0, queued: 0, skipped: 0, queryFails: 0 };
+    existing.total += 1;
+    if (job.status === "FAILED") existing.failed += 1;
+    existing.queued += job.candidatesQueued ?? 0;
+    existing.skipped += job.candidatesSkipped ?? 0;
+    existing.queryFails += job.queryFailCount ?? 0;
+    acc[providerKey] = existing;
+    return acc;
+  }, {});
+
+  const discoveryByProvider = Object.entries(providerTotals)
+    .map(([searchProvider, totals]) => ({
+      searchProvider,
+      totalJobs: totals.total,
+      failedJobs: totals.failed,
+      totalCandidatesQueued: totals.queued,
+      totalCandidatesSkipped: totals.skipped,
+      skipRatio: totals.queued > 0 ? totals.skipped / totals.queued : 0,
+      totalQueryFailures: totals.queryFails,
+    }))
+    .sort((a, b) => b.totalJobs - a.totalJobs);
+
+  const discoveryRecentFailures = discoveryJobs7d
+    .filter((job) => job.status === "FAILED")
+    .slice(0, 5)
+    .map((job) => ({
+      id: job.id,
+      createdAt: job.createdAt,
+      searchProvider: job.searchProvider,
+      region: job.region,
+      entityType: job.entityType,
+      queryFailCount: job.queryFailCount ?? 0,
+      errorMessage: job.errorMessage ?? null,
+    }));
+
   return {
     ok: true as const,
     last7Days: {
@@ -208,6 +279,19 @@ export async function getAdminIngestHealthData(dbClient: IngestDb) {
       open: cbRunCount >= cbMinRuns && cbFailRate >= cbFailRateThreshold,
       failRate: cbFailRate,
       runCount: cbRunCount,
+    },
+    discovery7Days: {
+      totalJobs: discoveryTotalJobs,
+      succeededJobs: discoverySucceededJobs,
+      failedJobs: discoveryFailedJobs,
+      avgDurationMs: discoveryAvgDurationMs,
+      totalCandidatesQueued: discoveryTotalCandidatesQueued,
+      totalCandidatesSkipped: discoveryTotalCandidatesSkipped,
+      skipRatio: discoverySkipRatio,
+      totalQueryFailures: discoveryTotalQueryFailures,
+      avgQueryFailuresPerJob: discoveryAvgQueryFailuresPerJob,
+      byProvider: discoveryByProvider,
+      recentFailures: discoveryRecentFailures,
     },
     venuePerformance,
   };
