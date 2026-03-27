@@ -204,7 +204,7 @@ export function SchedulePanel({ venues }: { venues: VenueRow[] }) {
                 <td className="px-3 py-2">
                   <FrequencyCell venueId={venue.id} initial={venue.ingestFrequency} />
                 </td>
-                <td className="px-3 py-2 text-muted-foreground text-xs">
+                <td className="px-3 py-2 text-muted-foreground text-xs" suppressHydrationWarning>
                   {status?.lastRunAt
                     ? relativeTime(Date.now() - new Date(status.lastRunAt).getTime()) +
                       " ago"
@@ -215,7 +215,7 @@ export function SchedulePanel({ venues }: { venues: VenueRow[] }) {
                     <span className="ml-1 text-emerald-600">✓</span>
                   ) : null}
                 </td>
-                <td className="px-3 py-2 text-xs">
+                <td className="px-3 py-2 text-xs" suppressHydrationWarning>
                   <span
                     className={
                       overdue

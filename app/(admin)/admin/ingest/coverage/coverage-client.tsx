@@ -93,7 +93,7 @@ export function CoverageClient({ rows }: { rows: RegionCoverageRow[] }) {
                   <td className={`py-3 pr-3 ${row.venuesWithApprovedEvents > 0 ? "text-emerald-700" : "text-muted-foreground"}`}>
                     {row.venuesWithApprovedEvents > 0 ? row.venuesWithApprovedEvents : "—"}
                   </td>
-                  <td className="py-3 pr-3 text-muted-foreground">{timeAgo(row.lastDiscoveryRun)}</td>
+                  <td className="py-3 pr-3 text-muted-foreground" suppressHydrationWarning>{timeAgo(row.lastDiscoveryRun)}</td>
                   <td className="py-3 pr-3">
                     {row.activeGoal ? (
                       <div className="space-y-1">

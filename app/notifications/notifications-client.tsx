@@ -153,7 +153,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
                         <p className={item.readAt == null ? "font-semibold" : "font-medium"}>{item.title}</p>
                       </div>
                       {item.body ? <p className="text-sm text-gray-700">{item.body}</p> : null}
-                      <p className="text-xs text-gray-500" title={new Date(item.createdAt).toLocaleString()}>{relativeTimeLabel(new Date(item.createdAt))}</p>
+                      <p className="text-xs text-gray-500" suppressHydrationWarning title={new Date(item.createdAt).toLocaleString()}>{relativeTimeLabel(new Date(item.createdAt))}</p>
                     </button>
                     <button className="rounded border px-2 py-1 text-xs" type="button" onClick={() => void markRead(item.id)} aria-label={`Mark ${item.title} as read`}>Read</button>
                   </div>

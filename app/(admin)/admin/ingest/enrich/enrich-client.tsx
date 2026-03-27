@@ -443,7 +443,7 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
               {runs.slice(0, 20).map((run) => (
                 <Fragment key={run.id}>
                   <tr className="border-b align-top">
-                    <td className="py-2 pr-3 text-muted-foreground">{timeAgo(run.createdAt)}</td>
+                    <td className="py-2 pr-3 text-muted-foreground" suppressHydrationWarning>{timeAgo(run.createdAt)}</td>
                     <td className="py-2 pr-3">{templates.find((template) => template.key === run.templateKey)?.label ?? run.templateKey}</td>
                     <td className="py-2 pr-3">{run.entityType}</td>
                     <td className="py-2 pr-3"><span className={`rounded-full px-2 py-0.5 ${statusChip(run.status ?? "PENDING")}`}>{run.status ?? "PENDING"}</span></td>

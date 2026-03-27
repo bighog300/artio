@@ -87,7 +87,7 @@ export function TemplatePerfPanel({ rows, entityTypeFilter, onFilterChange }: Pr
                   <td className="py-3 pr-3">{row.totalQueued}</td>
                   <td className="py-3 pr-3">{row.totalSkipped}</td>
                   <td className="py-3 pr-3">{trendCell(row.trend)}</td>
-                  <td className="py-3 pr-3 text-muted-foreground">{timeAgo(row.lastRunAt)}</td>
+                  <td className="py-3 pr-3 text-muted-foreground" suppressHydrationWarning>{timeAgo(row.lastRunAt)}</td>
                 </tr>
               );
             })}
