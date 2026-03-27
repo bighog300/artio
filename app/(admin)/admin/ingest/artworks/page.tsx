@@ -21,11 +21,12 @@ function toURLSearchParams(
 export default async function AdminIngestArtworksPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requireAdmin();
   const user = await getSessionUser();
-  const query = parseQueueQueryParams(toURLSearchParams(searchParams));
+  const resolvedParams = await searchParams;
+  const query = parseQueueQueryParams(toURLSearchParams(resolvedParams));
 
   const candidates = await db.ingestExtractedArtwork.findMany({
     where: buildArtworkQueueWhere(query),

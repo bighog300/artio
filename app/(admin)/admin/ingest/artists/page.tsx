@@ -22,11 +22,12 @@ function toURLSearchParams(
 export default async function AdminIngestArtistsPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requireAdmin();
   const user = await getSessionUser();
-  const query = parseQueueQueryParams(toURLSearchParams(searchParams));
+  const resolvedParams = await searchParams;
+  const query = parseQueueQueryParams(toURLSearchParams(resolvedParams));
 
   const candidates = await db.ingestExtractedArtist.findMany({
     where: buildArtistQueueWhere(query),
