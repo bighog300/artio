@@ -17,6 +17,8 @@ export type ImageImportWarningCode =
   | "unknown_image_error";
 
 type ImageImportStatus = "not_attempted" | "imported" | "failed" | "no_image_found";
+type CandidatePatchArgs<TData extends Record<string, unknown>> = { where: { id: string }; data: TData };
+type CandidatePatchMethod<TData extends Record<string, unknown>> = (args: CandidatePatchArgs<TData>) => Promise<unknown>;
 
 const MAX_APPROVAL_ERROR_LEN = 160;
 
@@ -89,10 +91,10 @@ export function normalizeImageImportError(error: unknown, fallback: ImageImportW
   return fallback;
 }
 
-async function patchArtistCandidate(
-  db: { ingestExtractedArtist?: { updateMany?: (args: any) => Promise<unknown>; update?: (args: any) => Promise<unknown> } },
+async function patchArtistCandidate<TData extends Record<string, unknown>>(
+  db: { ingestExtractedArtist?: { updateMany?: CandidatePatchMethod<TData>; update?: CandidatePatchMethod<TData> } },
   candidateId: string,
-  data: Record<string, unknown>,
+  data: TData,
 ) {
   if (!db.ingestExtractedArtist) return;
   if (db.ingestExtractedArtist.updateMany) {
@@ -104,10 +106,10 @@ async function patchArtistCandidate(
   }
 }
 
-async function patchArtworkCandidate(
-  db: { ingestExtractedArtwork?: { updateMany?: (args: any) => Promise<unknown>; update?: (args: any) => Promise<unknown> } },
+async function patchArtworkCandidate<TData extends Record<string, unknown>>(
+  db: { ingestExtractedArtwork?: { updateMany?: CandidatePatchMethod<TData>; update?: CandidatePatchMethod<TData> } },
   candidateId: string,
-  data: Record<string, unknown>,
+  data: TData,
 ) {
   if (!db.ingestExtractedArtwork) return;
   if (db.ingestExtractedArtwork.updateMany) {
