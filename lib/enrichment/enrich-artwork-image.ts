@@ -45,6 +45,19 @@ export async function enrichArtworkImage(
     provenance: artwork.provenance,
   }, artwork._count.images).scorePct;
 
+  if (args.dryRun) {
+    const confidenceAfter = artwork.featuredAssetId ? confidenceBefore : Math.min(100, confidenceBefore + 30);
+    return {
+      status: "success",
+      fieldsChanged: ["featuredAssetId"],
+      fieldsBefore: { featuredAssetId: artwork.featuredAssetId },
+      fieldsAfter: { featuredAssetId: "PENDING_IMAGE" },
+      confidenceBefore,
+      confidenceAfter,
+      searchUrl,
+    };
+  }
+
   const result = await importApprovedArtworkImage({
     appDb: args.db,
     candidateId: artwork.ingestCandidate?.id ?? artwork.id,

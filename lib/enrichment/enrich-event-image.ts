@@ -47,6 +47,18 @@ export async function enrichEventImage(
     imageUrl: null,
   }, { venueName: event.venue?.name ?? null }).score;
 
+  if (args.dryRun) {
+    return {
+      status: "success",
+      fieldsChanged: ["featuredAssetId"],
+      fieldsBefore: { featuredAssetId: event.featuredAssetId },
+      fieldsAfter: { featuredAssetId: "PENDING_IMAGE" },
+      confidenceBefore,
+      confidenceAfter: event.featuredAssetId ? confidenceBefore : confidenceBefore + 10,
+      searchUrl,
+    };
+  }
+
   const result = await importApprovedEventImage({
     appDb: args.db,
     candidateId: event.ingestExtractedCandidate?.id ?? event.id,

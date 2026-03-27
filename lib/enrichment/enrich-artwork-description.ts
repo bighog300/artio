@@ -104,21 +104,33 @@ export async function enrichArtworkDescription(
     return { status: "skipped", fieldsChanged: [], fieldsBefore: { description: artwork.description }, fieldsAfter: { description: artwork.description }, confidenceBefore, confidenceAfter: confidenceBefore, searchUrl, reason: "no_missing_fields" };
   }
 
+  const confidenceAfter = computeArtworkCompleteness({
+    title: artwork.title,
+    description,
+    medium: artwork.medium,
+    year: artwork.year,
+    featuredAssetId: artwork.featuredAssetId,
+    dimensions: artwork.dimensions,
+    provenance: artwork.provenance,
+  }, artwork._count.images).scorePct;
+
+  if (args.dryRun) {
+    return {
+      status: "success",
+      fieldsChanged: ["description"],
+      fieldsBefore: { description: artwork.description },
+      fieldsAfter: { description },
+      confidenceBefore,
+      confidenceAfter,
+      searchUrl,
+    };
+  }
+
   const updated = await args.db.artwork.update({
     where: { id: artwork.id },
     data: { description, completenessUpdatedAt: null },
-    select: { description: true, title: true, medium: true, year: true, featuredAssetId: true, dimensions: true, provenance: true, _count: { select: { images: true } } },
+    select: { description: true },
   });
-
-  const confidenceAfter = computeArtworkCompleteness({
-    title: updated.title,
-    description: updated.description,
-    medium: updated.medium,
-    year: updated.year,
-    featuredAssetId: updated.featuredAssetId,
-    dimensions: updated.dimensions,
-    provenance: updated.provenance,
-  }, updated._count.images).scorePct;
 
   return {
     status: "success",

@@ -26,6 +26,7 @@ const postSchema = z.object({
   statusFilter: z.enum(["ALL", "DRAFT", "ONBOARDING", "IN_REVIEW", "PUBLISHED"]),
   searchProvider: z.enum(["google_pse", "brave", "ai_only"]),
   limit: z.union([z.literal(10), z.literal(25), z.literal(50)]),
+  dryRun: z.boolean().default(false),
 });
 
 const querySchema = z.object({
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest) {
         searchProvider: provider,
         status: "PENDING",
         requestedById: admin.id,
+        dryRun: payload.dryRun,
         totalItems: targets.length,
       },
     });
@@ -152,6 +154,7 @@ export async function POST(req: NextRequest) {
             artistBioSystemPrompt: settings?.artistBioSystemPrompt,
             artworkExtractionSystemPrompt: settings?.artworkExtractionSystemPrompt,
           },
+          dryRun: payload.dryRun,
         })),
       );
 
@@ -162,11 +165,14 @@ export async function POST(req: NextRequest) {
           if (result.value.status === "success") enrichedCount += 1;
           if (result.value.status === "skipped") skippedCount += 1;
           if (result.value.status === "failed") failedCount += 1;
+          const itemStatus: "STAGED" | "SUCCESS" | "SKIPPED" | "FAILED" = payload.dryRun
+            ? "STAGED"
+            : toItemStatus(result.value.status);
           return {
             runId: run.id,
             entityType: payload.entityType,
             ...toRunItemForeignKeys(payload.entityType, target.id),
-            status: toItemStatus(result.value.status),
+            status: itemStatus,
             fieldsChanged: result.value.fieldsChanged,
             fieldsBefore: toJson(result.value.fieldsBefore),
             fieldsAfter: toJson(result.value.fieldsAfter),
@@ -201,7 +207,7 @@ export async function POST(req: NextRequest) {
     await db.enrichmentRun.update({
       where: { id: run.id },
       data: {
-        status: "COMPLETED",
+        status: payload.dryRun ? "STAGED" : "COMPLETED",
         processedItems: processedCount,
         successItems: enrichedCount,
         skippedItems: skippedCount,

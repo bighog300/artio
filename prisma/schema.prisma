@@ -91,12 +91,14 @@ enum EnrichmentStatusFilter {
 enum EnrichmentRunStatus {
   PENDING
   RUNNING
+  STAGED
   COMPLETED
   FAILED
 }
 
 enum EnrichmentRunItemStatus {
   PENDING
+  STAGED
   SKIPPED
   SUCCESS
   FAILED
@@ -1231,6 +1233,7 @@ model EnrichmentRun {
   statusFilter   EnrichmentStatusFilter  @default(ALL)
   searchEnabled  Boolean                 @default(true)
   searchProvider String                  @default("google_pse")
+  dryRun         Boolean                 @default(false)
   status         EnrichmentRunStatus     @default(PENDING)
   requestedById  String                  @db.Uuid
   startedAt      DateTime?               @db.Timestamptz

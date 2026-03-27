@@ -31,6 +31,7 @@ export type EnrichmentFnArgs = {
   db: PrismaClient;
   settings: EnrichmentSettings;
   searchProvider: "google_pse" | "brave";
+  dryRun?: boolean;
 };
 
 export function buildTemplateQuery(template: string, params: { name?: string | null; title?: string | null }): string {

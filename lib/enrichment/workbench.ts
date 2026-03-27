@@ -26,22 +26,23 @@ type EnrichmentFnArgs = {
   entityId: string;
   searchProvider: SearchProvider;
   settings: EnrichmentSettings;
+  dryRun?: boolean;
 };
 
 export async function runEnrichmentForTemplate(args: EnrichmentFnArgs): Promise<EnrichItemResult> {
   switch (args.templateId) {
     case "ARTIST_BIO":
-      return enrichArtistBio({ db: args.db, entityId: args.entityId, searchProvider: args.searchProvider, settings: args.settings });
+      return enrichArtistBio({ db: args.db, entityId: args.entityId, searchProvider: args.searchProvider, settings: args.settings, dryRun: args.dryRun });
     case "ARTIST_IMAGE":
-      return enrichArtistImage({ db: args.db, entityId: args.entityId, searchProvider: args.searchProvider, settings: args.settings });
+      return enrichArtistImage({ db: args.db, entityId: args.entityId, searchProvider: args.searchProvider, settings: args.settings, dryRun: args.dryRun });
     case "ARTWORK_DESCRIPTION":
-      return enrichArtworkDescription({ db: args.db, entityId: args.entityId, searchProvider: args.searchProvider, settings: args.settings });
+      return enrichArtworkDescription({ db: args.db, entityId: args.entityId, searchProvider: args.searchProvider, settings: args.settings, dryRun: args.dryRun });
     case "ARTWORK_IMAGE":
-      return enrichArtworkImage({ db: args.db, entityId: args.entityId, searchProvider: args.searchProvider, settings: args.settings });
+      return enrichArtworkImage({ db: args.db, entityId: args.entityId, searchProvider: args.searchProvider, settings: args.settings, dryRun: args.dryRun });
     case "VENUE_DESCRIPTION":
-      return enrichVenueDescription({ db: args.db, entityId: args.entityId, searchProvider: args.searchProvider, settings: args.settings });
+      return enrichVenueDescription({ db: args.db, entityId: args.entityId, searchProvider: args.searchProvider, settings: args.settings, dryRun: args.dryRun });
     case "EVENT_IMAGE":
-      return enrichEventImage({ db: args.db, entityId: args.entityId, searchProvider: args.searchProvider, settings: args.settings });
+      return enrichEventImage({ db: args.db, entityId: args.entityId, searchProvider: args.searchProvider, settings: args.settings, dryRun: args.dryRun });
   }
 }
 

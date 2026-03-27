@@ -1,6 +1,5 @@
 import { ENRICHMENT_TEMPLATE_BY_KEY } from "@/lib/enrichment/templates";
 import { buildTemplateQuery, shouldApply, type EnrichItemResult, type EnrichmentFnArgs } from "@/lib/enrichment/types";
-import { enrichVenueFromSnapshot } from "@/lib/ingest/enrich-venue-from-snapshot";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 import { getSearchProvider } from "@/lib/ingest/search";
 
@@ -78,22 +77,30 @@ export async function enrichVenueDescription(
     return { status: "skipped", fieldsChanged: [], fieldsBefore: { description: venue.description }, fieldsAfter: { description: venue.description }, confidenceBefore, confidenceAfter: confidenceBefore, searchUrl, reason: "no_missing_fields" };
   }
 
-  const enriched = await enrichVenueFromSnapshot({
-    db: args.db,
-    venueId: venue.id,
-    runId: `manual-${venue.id}`,
-    sourceDomain: searchUrl,
-    snapshot: { venueDescription: nextDescription },
+  const confidenceAfter = descriptionConfidence(nextDescription);
+
+  if (args.dryRun) {
+    return {
+      status: "success",
+      fieldsChanged: ["description"],
+      fieldsBefore: { description: venue.description },
+      fieldsAfter: { description: nextDescription },
+      confidenceBefore,
+      confidenceAfter,
+      searchUrl,
+    };
+  }
+
+  await args.db.venue.update({
+    where: { id: venue.id },
+    data: { description: nextDescription },
   });
 
-  const updated = await args.db.venue.findUnique({ where: { id: venue.id }, select: { description: true } });
-  const confidenceAfter = descriptionConfidence(updated?.description ?? null);
-
   return {
-    status: enriched.enriched ? "success" : "skipped",
-    fieldsChanged: enriched.changedFields,
+    status: "success",
+    fieldsChanged: ["description"],
     fieldsBefore: { description: venue.description },
-    fieldsAfter: { description: updated?.description ?? null },
+    fieldsAfter: { description: nextDescription },
     confidenceBefore,
     confidenceAfter,
     searchUrl,

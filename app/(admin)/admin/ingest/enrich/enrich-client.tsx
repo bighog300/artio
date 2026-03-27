@@ -19,9 +19,10 @@ type PreviewItem = {
 
 type RunDetailItem = {
   id: string;
-  status: "PENDING" | "SKIPPED" | "SUCCESS" | "FAILED";
+  status: "PENDING" | "STAGED" | "SKIPPED" | "SUCCESS" | "FAILED";
   fieldsBefore: Record<string, unknown> | null;
   fieldsAfter: Record<string, unknown> | null;
+  fieldsChanged?: string[];
   confidenceBefore: number | null;
   confidenceAfter: number | null;
   artistId: string | null;
@@ -45,6 +46,7 @@ export type EnrichmentRun = {
   failedItems: number;
   totalItems: number;
   _count?: { items: number };
+  status?: string;
 };
 
 export type WorkbenchTemplate = {
@@ -87,9 +89,60 @@ function statusChip(status: string) {
       return "bg-rose-100 text-rose-700";
     case "SKIPPED":
       return "bg-muted text-muted-foreground";
+    case "STAGED":
+      return "bg-blue-100 text-blue-800";
     default:
       return "bg-amber-100 text-amber-800";
   }
+}
+
+function FieldDiff({
+  before,
+  after,
+  fieldsChanged,
+}: {
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  fieldsChanged?: string[];
+}) {
+  const keys = fieldsChanged?.length ? fieldsChanged : Object.keys(after ?? {});
+
+  if (!keys.length) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  return (
+    <div className="space-y-1">
+      {keys.map((key) => {
+        const oldVal = before?.[key];
+        const newVal = after?.[key];
+        const display = (value: unknown): string => {
+          if (value == null) return "—";
+          if (key === "featuredAssetId") {
+            return value === "PENDING_IMAGE" ? "(image would be imported)" : "(image set)";
+          }
+          if (Array.isArray(value)) return value.join(", ") || "—";
+          const rendered = String(value);
+          return rendered.length > 80 ? `${rendered.slice(0, 77)}…` : rendered;
+        };
+
+        return (
+          <div key={key} className="text-xs">
+            <span className="font-medium text-muted-foreground">{key}: </span>
+            {oldVal !== newVal ? (
+              <>
+                <span className="text-rose-600/70 line-through">{display(oldVal)}</span>
+                {" → "}
+                <span className="text-emerald-700">{display(newVal)}</span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">{display(newVal)} (unchanged)</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchTemplate[]; initialRuns: EnrichmentRun[] }) {
@@ -101,6 +154,7 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [searchProvider, setSearchProvider] = useState<SearchProvider>("google_pse");
   const [limit, setLimit] = useState<10 | 25 | 50>(25);
+  const [dryRun, setDryRun] = useState(true);
   const [previewItems, setPreviewItems] = useState<PreviewItem[] | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [running, setRunning] = useState(false);
@@ -108,6 +162,7 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
   const [runs, setRuns] = useState<EnrichmentRun[]>(initialRuns);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [detailsByRunId, setDetailsByRunId] = useState<Record<string, RunDetailItem[]>>({});
+  const [applyingRunId, setApplyingRunId] = useState<string | null>(null);
 
   const activeTemplate = useMemo(
     () => templates.find((template) => template.key === templateId) ?? templates[0],
@@ -173,6 +228,7 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
           statusFilter,
           searchProvider: effectiveProvider,
           limit,
+          dryRun,
         }),
       });
       const data = await response.json();
@@ -217,6 +273,22 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
     setRuns((prev) => prev.map((existing) => (existing.id === run.id ? updatedRun : existing)));
     if (updatedRun.items) {
       setDetailsByRunId((prev) => ({ ...prev, [run.id]: updatedRun.items as RunDetailItem[] }));
+    }
+  }
+
+  async function applyRun(runId: string) {
+    setApplyingRunId(runId);
+    try {
+      const response = await fetch(`/api/admin/enrichment/runs/${runId}/apply`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error ?? "Apply failed");
+      const updatedRun = data.run as EnrichmentRun & { items?: RunDetailItem[] };
+      setRuns((prev) => prev.map((run) => (run.id === runId ? { ...run, ...updatedRun, status: "COMPLETED" } : run)));
+      if (updatedRun.items) {
+        setDetailsByRunId((prev) => ({ ...prev, [runId]: updatedRun.items as RunDetailItem[] }));
+      }
+    } finally {
+      setApplyingRunId(null);
     }
   }
 
@@ -281,6 +353,16 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
           </label>
         </div>
 
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={dryRun}
+            onChange={(e) => setDryRun(e.target.checked)}
+            className="rounded"
+          />
+          <span>Dry run — stage changes for review before applying</span>
+        </label>
+
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" className="rounded border px-3 py-2 text-sm disabled:opacity-50" onClick={previewTargets} disabled={previewing || running}>
             {previewing ? "Previewing..." : `Preview targets${previewItems ? ` (${previewItems.length})` : ""}`}
@@ -291,7 +373,7 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
             onClick={runEnrichment}
             disabled={!previewItems || running}
           >
-            {running && runProgress ? `Running... (${runProgress.done}/${runProgress.total})` : `Run ${previewItems?.length ?? 0} records →`}
+            {running && runProgress ? `Running... (${runProgress.done}/${runProgress.total})` : dryRun ? `Stage ${previewItems?.length ?? 0} records for review →` : `Run ${previewItems?.length ?? 0} records (writes immediately) →`}
           </button>
         </div>
       </section>
@@ -349,6 +431,7 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
                 <th className="py-2 pr-3">Time</th>
                 <th className="py-2 pr-3">Template</th>
                 <th className="py-2 pr-3">Entity</th>
+                <th className="py-2 pr-3">Run status</th>
                 <th className="py-2 pr-3">Processed</th>
                 <th className="py-2 pr-3">Enriched</th>
                 <th className="py-2 pr-3">Skipped</th>
@@ -363,6 +446,7 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
                     <td className="py-2 pr-3 text-muted-foreground">{timeAgo(run.createdAt)}</td>
                     <td className="py-2 pr-3">{templates.find((template) => template.key === run.templateKey)?.label ?? run.templateKey}</td>
                     <td className="py-2 pr-3">{run.entityType}</td>
+                    <td className="py-2 pr-3"><span className={`rounded-full px-2 py-0.5 ${statusChip(run.status ?? "PENDING")}`}>{run.status ?? "PENDING"}</span></td>
                     <td className="py-2 pr-3">{run.processedItems || run._count?.items || run.totalItems}</td>
                     <td className="py-2 pr-3 text-emerald-700">{run.successItems}</td>
                     <td className="py-2 pr-3 text-muted-foreground">{run.skippedItems}</td>
@@ -372,6 +456,16 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
                         <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => toggleExpand(run.id)}>
                           {expandedRunId === run.id ? "Collapse" : "Expand"}
                         </button>
+                        {run.status === "STAGED" ? (
+                          <button
+                            type="button"
+                            className="rounded border border-emerald-600 bg-emerald-50 px-2 py-1 text-xs text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                            disabled={applyingRunId === run.id}
+                            onClick={() => void applyRun(run.id)}
+                          >
+                            {applyingRunId === run.id ? "Applying…" : `Apply ${run.totalItems} staged`}
+                          </button>
+                        ) : null}
                         {run.failedItems > 0 ? (
                           <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => retryFailed(run)}>
                             Retry {run.failedItems} failed
@@ -382,14 +476,13 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
                   </tr>
                   {expandedRunId === run.id ? (
                     <tr className="border-b">
-                      <td className="py-2" colSpan={8}>
+                      <td className="py-2" colSpan={9}>
                         <div className="overflow-x-auto rounded border">
                           <table className="min-w-full text-xs">
                             <thead>
                               <tr className="border-b text-left uppercase tracking-wide text-muted-foreground">
                                 <th className="px-2 py-1.5">Name</th>
-                                <th className="px-2 py-1.5">Before</th>
-                                <th className="px-2 py-1.5">After</th>
+                                <th className="px-2 py-1.5">Changes</th>
                                 <th className="px-2 py-1.5">Confidence delta</th>
                                 <th className="px-2 py-1.5">Status</th>
                               </tr>
@@ -400,8 +493,9 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
                                 return (
                                   <tr key={item.id} className="border-b last:border-0">
                                     <td className="px-2 py-1.5 text-muted-foreground">{item.artist?.name ?? item.artwork?.title ?? item.venue?.name ?? item.event?.title ?? item.artistId ?? item.artworkId ?? item.venueId ?? item.eventId ?? "—"}</td>
-                                    <td className="max-w-[300px] truncate px-2 py-1.5 text-muted-foreground">{JSON.stringify(item.fieldsBefore ?? {})}</td>
-                                    <td className="max-w-[300px] truncate px-2 py-1.5 text-muted-foreground">{JSON.stringify(item.fieldsAfter ?? {})}</td>
+                                    <td className="px-2 py-1.5" colSpan={1}>
+                                      <FieldDiff before={item.fieldsBefore} after={item.fieldsAfter} fieldsChanged={item.fieldsChanged} />
+                                    </td>
                                     <td className={`px-2 py-1.5 ${delta > 0 ? "text-emerald-700" : "text-muted-foreground"}`}>{item.confidenceBefore == null || item.confidenceAfter == null ? "—" : `${delta > 0 ? "+" : ""}${delta}`}</td>
                                     <td className="px-2 py-1.5"><span className={`rounded-full px-2 py-0.5 ${statusChip(item.status)}`}>{item.status}</span></td>
                                   </tr>
@@ -417,7 +511,7 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
               ))}
               {runs.length === 0 ? (
                 <tr>
-                  <td className="py-6 text-sm text-muted-foreground" colSpan={8}>No runs yet.</td>
+                  <td className="py-6 text-sm text-muted-foreground" colSpan={9}>No runs yet.</td>
                 </tr>
               ) : null}
             </tbody>

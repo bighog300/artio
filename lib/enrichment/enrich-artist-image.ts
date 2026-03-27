@@ -24,6 +24,19 @@ export async function enrichArtistImage(
   }
 
   const before = artist.featuredAssetId;
+
+  if (args.dryRun) {
+    return {
+      status: "success",
+      fieldsChanged: ["featuredAssetId"],
+      fieldsBefore: { featuredAssetId: before },
+      fieldsAfter: { featuredAssetId: "PENDING_IMAGE" },
+      confidenceBefore: before ? 100 : 0,
+      confidenceAfter: 100,
+      searchUrl,
+    };
+  }
+
   const result = await importApprovedArtistImage({
     appDb: args.db,
     artistId: artist.id,
