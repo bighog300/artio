@@ -824,9 +824,9 @@ test("approve still succeeds when image import fails and warning is persisted", 
       },
     } as never,
     logAction: async () => undefined,
-    importEventImage: async () => ({ attached: false, warning: "image-import failed: timeout", imageUrl: null }),
+    importEventImage: async () => ({ attached: false, warning: "image_fetch_failed", imageUrl: null }),
   });
 
   assert.equal(res.status, 200);
-  assert.match(String(persistedErrorDetail), /image-import failed/);
+  assert.match(String(persistedErrorDetail), /image_fetch_failed/);
 });

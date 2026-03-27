@@ -85,13 +85,76 @@ test("returns warning when image import feature flag is disabled", async () => {
 
   assert.deepEqual(result, {
     attached: false,
-    warning: "image-import disabled: set AI_INGEST_IMAGE_ENABLED=1 to enable",
+    warning: "image_import_disabled",
     imageUrl: null,
   });
 });
 
 
-test("skips image import when resolved URL is not absolute http(s)", async () => {
+test("returns no_image_found when no source URLs are available", async () => {
+  process.env.AI_INGEST_IMAGE_ENABLED = "1";
+
+  const result = await importApprovedEventImage({
+    appDb: {
+      event: {
+        findUnique: async () => ({ featuredAssetId: null, featuredAsset: null }),
+      },
+      eventImage: {
+        create: async () => ({ id: "event-image-1" }),
+      },
+      asset: {
+        create: async () => ({ id: "asset-1", url: "https://blob.example/uploaded.jpg" }),
+      },
+    },
+    candidateId: "candidate-1",
+    runId: "run-1",
+    eventId: "event-1",
+    venueId: "venue-1",
+    title: "Title",
+    sourceUrl: null,
+    venueWebsiteUrl: null,
+    candidateImageUrl: null,
+    requestId: "request-1",
+  });
+
+  assert.deepEqual(result, { attached: false, warning: "no_image_found", imageUrl: null });
+});
+
+
+test("returns image_already_attached when event already has a featured image", async () => {
+  process.env.AI_INGEST_IMAGE_ENABLED = "1";
+
+  const result = await importApprovedEventImage({
+    appDb: {
+      event: {
+        findUnique: async () => ({
+          featuredAssetId: "asset-existing",
+          featuredAsset: { url: "https://blob.example/existing.jpg" },
+        }),
+      },
+      eventImage: {
+        create: async () => ({ id: "event-image-1" }),
+      },
+      asset: {
+        create: async () => ({ id: "asset-1", url: "https://blob.example/uploaded.jpg" }),
+      },
+    },
+    candidateId: "candidate-1",
+    runId: "run-1",
+    eventId: "event-1",
+    venueId: "venue-1",
+    title: "Title",
+    sourceUrl: "https://venue.example/events/123",
+    venueWebsiteUrl: "https://venue.example",
+    candidateImageUrl: "https://cdn.example.com/event.jpg",
+    requestId: "request-1",
+  });
+
+  assert.deepEqual(result, { attached: false, warning: "image_already_attached", imageUrl: "https://blob.example/existing.jpg" });
+});
+
+
+test("returns image_fetch_failed when resolved URL is not absolute http(s)", async () => {
   process.env.AI_INGEST_IMAGE_ENABLED = "1";
 
   let fetchImageCalls = 0;
@@ -133,5 +196,47 @@ test("skips image import when resolved URL is not absolute http(s)", async () =>
   });
 
   assert.equal(fetchImageCalls, 0);
-  assert.deepEqual(result, { attached: false, warning: "image-import skipped: resolved image URL is not absolute", imageUrl: null });
+  assert.deepEqual(result, { attached: false, warning: "image_fetch_failed", imageUrl: null });
+});
+
+
+test("returns normalized warning when image download fails", async () => {
+  process.env.AI_INGEST_IMAGE_ENABLED = "1";
+
+  const result = await importApprovedEventImage({
+    appDb: {
+      event: {
+        findUnique: async () => ({ featuredAssetId: null, featuredAsset: null }),
+      },
+      eventImage: {
+        create: async () => ({ id: "event-image-1" }),
+      },
+      asset: {
+        create: async () => ({ id: "asset-1", url: "https://blob.example/uploaded.jpg" }),
+      },
+    },
+    candidateId: "candidate-1",
+    runId: "run-1",
+    eventId: "event-1",
+    venueId: "venue-1",
+    title: "Title",
+    sourceUrl: "https://venue.example/events/123",
+    venueWebsiteUrl: "https://venue.example",
+    candidateImageUrl: "https://cdn.example.com/event.jpg",
+    requestId: "request-1",
+  }, {
+    fetchHtmlWithGuards: async () => ({ html: "" }),
+    fetchImageWithGuards: async () => {
+      throw new Error("download failed due to 403");
+    },
+    uploadEventImageToBlob: async () => ({
+      url: "https://blob.example/uploaded.jpg",
+      pathname: "venues/venue-1/uploaded.jpg",
+      contentType: "image/jpeg",
+      sizeBytes: 3,
+      sha256: "abc",
+    }),
+  });
+
+  assert.deepEqual(result, { attached: false, warning: "image_download_failed", imageUrl: null });
 });

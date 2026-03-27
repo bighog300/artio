@@ -3,14 +3,9 @@ import { discoverEventImageUrl } from "@/lib/ingest/image-discovery";
 import { fetchImageWithGuards } from "@/lib/ingest/fetch-image";
 import { uploadEventImageToBlob } from "@/lib/blob/upload-image";
 import { logWarn } from "@/lib/logging";
+import { normalizeImageImportError } from "@/lib/ingest/candidate-observability";
 
 type ImportResult = { attached: boolean; warning: string | null; imageUrl: string | null };
-
-const MAX_WARNING_DETAIL = 400;
-
-function truncateWarning(input: string): string {
-  return input.length > MAX_WARNING_DETAIL ? `${input.slice(0, MAX_WARNING_DETAIL - 1)}…` : input;
-}
 
 export async function importApprovedEventImage(params: {
   appDb: {
@@ -68,7 +63,7 @@ export async function importApprovedEventImage(params: {
   uploadEventImageToBlob,
 }) : Promise<ImportResult> {
   if (process.env.AI_INGEST_IMAGE_ENABLED !== "1") {
-    return { attached: false, warning: "image-import disabled: set AI_INGEST_IMAGE_ENABLED=1 to enable", imageUrl: null };
+    return { attached: false, warning: "image_import_disabled", imageUrl: null };
   }
 
   const event = await params.appDb.event.findUnique({
@@ -77,12 +72,12 @@ export async function importApprovedEventImage(params: {
   });
 
   if (event?.featuredAssetId || event?.featuredAsset?.url) {
-    return { attached: false, warning: null, imageUrl: event.featuredAsset?.url ?? null };
+    return { attached: false, warning: "image_already_attached", imageUrl: event.featuredAsset?.url ?? null };
   }
 
   const pageUrl = params.sourceUrl ?? params.venueWebsiteUrl;
   if (!pageUrl) {
-    return { attached: false, warning: "image-import skipped: no source URL", imageUrl: null };
+    return { attached: false, warning: "no_image_found", imageUrl: null };
   }
 
   try {
@@ -100,11 +95,11 @@ export async function importApprovedEventImage(params: {
       }));
 
     if (!resolvedUrl) {
-      return { attached: false, warning: "image-import skipped: no discoverable image URL", imageUrl: null };
+      return { attached: false, warning: "no_image_found", imageUrl: null };
     }
 
     if (!resolvedUrl.startsWith("http://") && !resolvedUrl.startsWith("https://")) {
-      return { attached: false, warning: "image-import skipped: resolved image URL is not absolute", imageUrl: null };
+      return { attached: false, warning: "image_fetch_failed", imageUrl: null };
     }
 
     const image = await deps.fetchImageWithGuards(resolvedUrl, {
@@ -147,13 +142,14 @@ export async function importApprovedEventImage(params: {
 
     return { attached: true, warning: null, imageUrl: asset.url };
   } catch (error) {
-    const warning = truncateWarning(`image-import failed: ${error instanceof Error ? error.message : String(error)}`);
+    const warning = normalizeImageImportError(error);
     logWarn({ message: "ingest_approval_image_import_failed",
       requestId: params.requestId,
       runId: params.runId,
       candidateId: params.candidateId,
       eventId: params.eventId,
       warning,
+      imageErrorCode: warning,
     });
     return { attached: false, warning, imageUrl: null };
   }
