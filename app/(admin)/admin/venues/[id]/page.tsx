@@ -13,6 +13,7 @@ import { DetectEventsPageButton } from "@/app/(admin)/admin/venues/[id]/detect-e
 import { IngestFrequencySelect } from "@/app/(admin)/admin/venues/[id]/ingest-frequency-select";
 import { WikipediaLookupButton } from "@/app/(admin)/admin/venues/[id]/wikipedia-lookup-button";
 import { OpeningHoursEditor } from "@/components/venues/opening-hours-editor";
+import { VenuePipelineSummary } from "./venue-pipeline-summary";
 
 export default async function AdminVenue({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -40,6 +41,56 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
     }),
   ]);
   if (!venue) notFound();
+  const venueId = venue.id;
+
+  const [pendingEvents, approvedEvents, pendingArtists, recentRuns, pendingImages] = await Promise.all([
+    db.ingestExtractedEvent.count({
+      where: {
+        venueId,
+        status: "PENDING",
+        duplicateOfId: null,
+      },
+    }),
+    db.event.count({
+      where: {
+        venueId,
+        isPublished: true,
+        deletedAt: null,
+      },
+    }),
+    db.ingestExtractedArtistEvent
+      .findMany({
+        where: {
+          event: { venueId, deletedAt: null },
+          artistCandidate: { status: "PENDING" },
+        },
+        select: { artistCandidateId: true },
+        distinct: ["artistCandidateId"],
+      })
+      .then((rows) => rows.length),
+    db.ingestRun.findMany({
+      where: { venueId },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        createdCandidates: true,
+        errorCode: true,
+      },
+    }),
+    db.venueHomepageImageCandidate.count({
+      where: { venueId, status: "pending" },
+    }),
+  ]);
+
+  const pendingArtworks = await db.ingestExtractedArtwork.count({
+    where: {
+      status: "PENDING",
+      sourceEvent: { venueId, deletedAt: null },
+    },
+  });
 
   const ingestSuggestions = Array.from(
     ingestCandidates.reduce((acc, s) => {
@@ -105,6 +156,15 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
       <DetectEventsPageButton
         venueId={id}
         initialUrl={venue?.eventsPageUrl ?? null}
+      />
+      <VenuePipelineSummary
+        venueId={venue.id}
+        pendingEvents={pendingEvents}
+        approvedEvents={approvedEvents}
+        pendingArtists={pendingArtists}
+        pendingArtworks={pendingArtworks}
+        pendingImages={pendingImages}
+        recentRuns={recentRuns}
       />
       <WikipediaLookupButton
         venueId={id}
