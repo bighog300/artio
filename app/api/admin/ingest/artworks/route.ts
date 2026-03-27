@@ -2,6 +2,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { isAuthError } from "@/lib/auth";
+import { buildArtworkQueueWhere, getQueueOrderBy, parseQueueQueryParams } from "@/lib/admin-ingest-queue-query";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin";
 import { resolveApiImageField } from "@/lib/assets/image-contract";
@@ -14,16 +15,10 @@ export async function GET(req: NextRequest) {
   try {
     await requireAdmin();
 
-    const page = Number.parseInt(req.nextUrl.searchParams.get("page") ?? "1", 10);
-    const status = req.nextUrl.searchParams.get("status") ?? "PENDING";
-    const band = req.nextUrl.searchParams.get("band");
-    const pageNumber = Number.isFinite(page) && page > 0 ? page : 1;
+    const query = parseQueueQueryParams(req.nextUrl.searchParams);
+    const pageNumber = query.page;
     const pageSize = 50;
-
-    const where = {
-      status: status as "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE",
-      ...(band ? { confidenceBand: band } : {}),
-    };
+    const where = buildArtworkQueueWhere(query);
 
     const [candidates, total] = await Promise.all([
       db.ingestExtractedArtwork.findMany({
@@ -50,7 +45,7 @@ export async function GET(req: NextRequest) {
           createdAt: true,
           sourceEvent: { select: { id: true, title: true, slug: true } },
         },
-        orderBy: [{ confidenceScore: "desc" }, { createdAt: "desc" }],
+        orderBy: getQueueOrderBy(query.sort),
         skip: (pageNumber - 1) * pageSize,
         take: pageSize,
       }),

@@ -1,17 +1,34 @@
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import ArtworksClient from "@/app/(admin)/admin/ingest/artworks/artworks-client";
 import { BackfillArtworksTrigger } from "@/app/(admin)/admin/ingest/artworks/backfill-trigger";
+import { buildArtworkQueueWhere, getQueueOrderBy, parseQueueQueryParams } from "@/lib/admin-ingest-queue-query";
 import { getSessionUser, requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminIngestArtworksPage() {
+function toURLSearchParams(
+  searchParams: Record<string, string | string[] | undefined> | undefined,
+): URLSearchParams {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams ?? {})) {
+    if (typeof value === "string") params.set(key, value);
+    else if (Array.isArray(value) && value[0]) params.set(key, value[0]);
+  }
+  return params;
+}
+
+export default async function AdminIngestArtworksPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   await requireAdmin();
   const user = await getSessionUser();
+  const query = parseQueueQueryParams(toURLSearchParams(searchParams));
 
   const candidates = await db.ingestExtractedArtwork.findMany({
-    where: { status: "PENDING" },
+    where: buildArtworkQueueWhere(query),
     select: {
       id: true,
       title: true,
@@ -42,7 +59,7 @@ export default async function AdminIngestArtworksPage() {
         },
       },
     },
-    orderBy: [{ confidenceScore: "desc" }, { createdAt: "desc" }],
+    orderBy: getQueueOrderBy(query.sort),
     take: 50,
   });
 
@@ -108,7 +125,13 @@ export default async function AdminIngestArtworksPage() {
         description="Pending AI-extracted artwork candidates awaiting moderation."
       />
       <BackfillArtworksTrigger />
-      <ArtworksClient candidates={annotatedCandidates} userRole={user?.role} />
+      <ArtworksClient
+        candidates={annotatedCandidates}
+        userRole={user?.role}
+        initialApprovalFilter={query.approval}
+        initialImageFilter={query.image}
+        initialReasonCodeFilter={query.reason}
+      />
     </>
   );
 }
