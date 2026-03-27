@@ -7,6 +7,8 @@ import { sendAlert } from "@/lib/alerts";
 import { markCronFailure, markCronSuccess } from "@/lib/ops-metrics";
 import { runVenueIngestExtraction } from "@/lib/ingest/extraction-pipeline";
 import { autoApproveEventCandidate } from "@/lib/ingest/auto-approve-event-candidate";
+import { autoApproveArtistCandidate } from "@/lib/ingest/auto-approve-artist-candidate";
+import { autoApproveArtworkCandidate } from "@/lib/ingest/auto-approve-artwork-candidate";
 
 const CRON_NAME = "ingest_venues";
 const ROUTE = "/api/cron/ingest/venues";
@@ -65,12 +67,52 @@ type IngestVenueDb = {
       take: number;
     }) => Promise<Array<{ id: string }>>;
   };
+  event: {
+    findMany: (args: {
+      where: { venueId: string; deletedAt: null };
+      select: { id: true };
+    }) => Promise<Array<{ id: string }>>;
+  };
+  ingestExtractedArtist: {
+    findMany: (args: {
+      where: {
+        status: "PENDING";
+        confidenceBand: "HIGH";
+        eventLinks: { some: { eventId: { in: string[] } } };
+      };
+      select: { id: true };
+      take: number;
+    }) => Promise<Array<{ id: string }>>;
+  };
+  ingestExtractedArtwork: {
+    findMany: (args: {
+      where: {
+        status: "PENDING";
+        confidenceBand: "HIGH";
+        sourceEvent: { venueId: string };
+      };
+      select: { id: true };
+      take: number;
+    }) => Promise<Array<{ id: string }>>;
+  };
   $queryRaw?: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
   siteSettings?: {
     findUnique: (args: {
       where: { id: string };
-      select: { ingestEnabled: true; ingestImageEnabled: true; regionAutoPublishEvents: true };
-    }) => Promise<{ ingestEnabled: boolean; ingestImageEnabled: boolean; regionAutoPublishEvents: boolean } | null>;
+      select: {
+        ingestEnabled: true;
+        ingestImageEnabled: true;
+        regionAutoPublishEvents: true;
+        regionAutoPublishArtists: true;
+        regionAutoPublishArtworks: true;
+      };
+    }) => Promise<{
+      ingestEnabled: boolean;
+      ingestImageEnabled: boolean;
+      regionAutoPublishEvents: boolean;
+      regionAutoPublishArtists: boolean;
+      regionAutoPublishArtworks: boolean;
+    } | null>;
   };
 };
 
@@ -183,7 +225,13 @@ export async function runCronIngestVenues(
   try {
     const settings = await cronDb.siteSettings?.findUnique({
       where: { id: "default" },
-      select: { ingestEnabled: true, ingestImageEnabled: true, regionAutoPublishEvents: true },
+      select: {
+        ingestEnabled: true,
+        ingestImageEnabled: true,
+        regionAutoPublishEvents: true,
+        regionAutoPublishArtists: true,
+        regionAutoPublishArtworks: true,
+      },
     });
 
     return await withSpan("cron:ingest_venues", async () => {
@@ -313,6 +361,8 @@ export async function runCronIngestVenues(
       let failed = 0;
       let createdCandidates = 0;
       let dedupedCandidates = 0;
+      let autoApprovedArtists = 0;
+      let autoApprovedArtworks = 0;
       let stopReason: string | null = null;
       const venueResults: Array<Record<string, unknown>> = [];
       const runExtraction = deps.runExtraction ?? runVenueIngestExtraction;
@@ -365,6 +415,71 @@ export async function runCronIngestVenues(
             }
           }
 
+          const autoPublishArtists = settings?.regionAutoPublishArtists ?? false;
+          if (autoPublishArtists) {
+            const linkedEventIds = await cronDb.event.findMany({
+              where: { venueId: item.venue.id, deletedAt: null },
+              select: { id: true },
+            }).then((rows) => rows.map((row) => row.id));
+
+            if (linkedEventIds.length > 0) {
+              const highArtistCandidates = await cronDb.ingestExtractedArtist.findMany({
+                where: {
+                  status: "PENDING",
+                  confidenceBand: "HIGH",
+                  eventLinks: {
+                    some: { eventId: { in: linkedEventIds } },
+                  },
+                },
+                select: { id: true },
+                take: 20,
+              });
+
+              for (const c of highArtistCandidates) {
+                const approvedArtist = await autoApproveArtistCandidate({
+                  candidateId: c.id,
+                  db: cronDb as unknown as PrismaClient,
+                  autoPublish: true,
+                }).catch((err) => {
+                  console.warn("auto_approve_artist_cron_failed", {
+                    candidateId: c.id,
+                    err,
+                  });
+                  return null;
+                });
+                if (approvedArtist) autoApprovedArtists += 1;
+              }
+            }
+          }
+
+          const autoPublishArtworks = settings?.regionAutoPublishArtworks ?? false;
+          if (autoPublishArtworks) {
+            const highArtworkCandidates = await cronDb.ingestExtractedArtwork.findMany({
+              where: {
+                status: "PENDING",
+                confidenceBand: "HIGH",
+                sourceEvent: { venueId: item.venue.id },
+              },
+              select: { id: true },
+              take: 20,
+            });
+
+            for (const c of highArtworkCandidates) {
+              const approvedArtwork = await autoApproveArtworkCandidate({
+                candidateId: c.id,
+                db: cronDb as unknown as PrismaClient,
+                autoPublish: true,
+              }).catch((err) => {
+                console.warn("auto_approve_artwork_cron_failed", {
+                  candidateId: c.id,
+                  err,
+                });
+                return null;
+              });
+              if (approvedArtwork) autoApprovedArtworks += 1;
+            }
+          }
+
           succeeded += 1;
           createdCandidates += result.createdCount;
           dedupedCandidates += result.dedupedCount;
@@ -414,6 +529,8 @@ export async function runCronIngestVenues(
         failed,
         createdCandidates,
         dedupedCandidates,
+        autoApprovedArtists,
+        autoApprovedArtworks,
         stopReason,
         limit: enforcedLimit,
         minHoursSinceLastRun: parsed.data.minHoursSinceLastRun,
