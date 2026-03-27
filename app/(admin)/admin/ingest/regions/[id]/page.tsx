@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import { requireAdmin } from "@/lib/auth";
@@ -30,19 +29,25 @@ export default async function AdminIngestRegionDetailPage({
   const region = await db.ingestRegion.findUnique({ where: { id } });
   if (!region) notFound();
 
-  const h = await headers();
-  const host = h.get("host") ?? "localhost:3000";
-  const protocol = h.get("x-forwarded-proto") ?? "http";
-  const cookie = h.get("cookie") ?? "";
-
   async function runNowAction() {
     "use server";
     await requireAdmin();
 
-    await fetch(`${protocol}://${host}/api/admin/ingest/regions/${id}/run-now`, {
-      method: "POST",
-      headers: { cookie },
-      cache: "no-store",
+    const existing = await db.ingestRegion.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) notFound();
+
+    await db.ingestRegion.update({
+      where: { id },
+      data: {
+        status: "PENDING",
+        nextRunAt: new Date(),
+        venueGenDone: false,
+        discoveryDone: false,
+        errorMessage: null,
+      },
     });
 
     redirect(`/admin/ingest/regions/${id}`);
@@ -52,10 +57,15 @@ export default async function AdminIngestRegionDetailPage({
     "use server";
     await requireAdmin();
 
-    await fetch(`${protocol}://${host}/api/admin/ingest/regions/${id}`, {
-      method: "DELETE",
-      headers: { cookie },
-      cache: "no-store",
+    const existing = await db.ingestRegion.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) notFound();
+
+    await db.ingestRegion.update({
+      where: { id },
+      data: { status: "PAUSED" },
     });
 
     redirect(`/admin/ingest/regions/${id}`);
