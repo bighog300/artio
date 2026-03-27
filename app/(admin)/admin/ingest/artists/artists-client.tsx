@@ -107,6 +107,34 @@ type EditDraft = {
   instagramUrl: string;
 };
 
+type ApprovalFilter = "all" | "failed" | "attempted" | "not_attempted";
+type ImageFilter = "all" | "failed" | "no_image_found" | "imported" | "not_attempted";
+
+function matchesApprovalFilter(candidate: Candidate, filter: ApprovalFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "failed") return Boolean(candidate.lastApprovalError);
+  if (filter === "attempted") {
+    return Boolean(candidate.lastApprovalAttemptAt) && !candidate.lastApprovalError;
+  }
+  return !candidate.lastApprovalAttemptAt;
+}
+
+function matchesImageFilter(candidate: Candidate, filter: ImageFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "not_attempted") {
+    return !candidate.imageImportStatus || candidate.imageImportStatus === "not_attempted";
+  }
+  return candidate.imageImportStatus === filter;
+}
+
+function matchesReasonCodeFilter(candidate: Candidate, reasonCode: string): boolean {
+  const normalizedReasonCode = reasonCode.trim().toLowerCase();
+  if (!normalizedReasonCode) return true;
+  const approvalReason = candidate.lastApprovalError?.toLowerCase() ?? "";
+  const imageWarningReason = candidate.imageImportWarning?.toLowerCase() ?? "";
+  return approvalReason.includes(normalizedReasonCode) || imageWarningReason.includes(normalizedReasonCode);
+}
+
 function getConfidenceBand(band: string | null): "HIGH" | "MEDIUM" | "LOW" {
   if (band === "HIGH" || band === "MEDIUM" || band === "LOW") return band;
   return "LOW";
@@ -152,6 +180,9 @@ export default function ArtistsClient({
   const [bulkApproving, setBulkApproving] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [bulkResults, setBulkResults] = useState<{ approved: number; failed: number } | null>(null);
+  const [approvalFilter, setApprovalFilter] = useState<ApprovalFilter>("all");
+  const [imageFilter, setImageFilter] = useState<ImageFilter>("all");
+  const [reasonCodeFilter, setReasonCodeFilter] = useState("");
 
   function updateDraft(id: string, field: keyof EditDraft, value: string) {
     setEditDraftById((prev) => ({
@@ -400,13 +431,20 @@ export default function ArtistsClient({
     }
   }, []);
 
+  const filteredCandidates = candidates.filter(
+    (candidate) =>
+      matchesApprovalFilter(candidate, approvalFilter) &&
+      matchesImageFilter(candidate, imageFilter) &&
+      matchesReasonCodeFilter(candidate, reasonCodeFilter),
+  );
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const tag = (document.activeElement?.tagName ?? "").toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-      const pending = candidates.filter((c) => c.status === "PENDING");
+      const pending = filteredCandidates.filter((c) => c.status === "PENDING");
       if (pending.length === 0) return;
 
       if (e.key === "j" || e.key === "J") {
@@ -438,9 +476,9 @@ export default function ArtistsClient({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [candidates, focusedIndex]);
+  }, [filteredCandidates, focusedIndex]);
 
-  const pendingCandidates = candidates.filter((c) => c.status === "PENDING");
+  const pendingCandidates = filteredCandidates.filter((c) => c.status === "PENDING");
   const focusedCandidateId =
     focusedIndex !== null ? pendingCandidates[focusedIndex]?.id : null;
 
@@ -484,6 +522,49 @@ export default function ArtistsClient({
             </button>
           </div>
         ) : null}
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Approval
+            <select
+              value={approvalFilter}
+              onChange={(event) => setApprovalFilter(event.target.value as ApprovalFilter)}
+              className="rounded border bg-background px-2 py-1 text-sm text-foreground"
+            >
+              <option value="all">All</option>
+              <option value="failed">Approval failed</option>
+              <option value="attempted">Approval attempted</option>
+              <option value="not_attempted">Not attempted</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Image
+            <select
+              value={imageFilter}
+              onChange={(event) => setImageFilter(event.target.value as ImageFilter)}
+              className="rounded border bg-background px-2 py-1 text-sm text-foreground"
+            >
+              <option value="all">All</option>
+              <option value="failed">Image failed</option>
+              <option value="no_image_found">No image found</option>
+              <option value="imported">Imported</option>
+              <option value="not_attempted">Not attempted</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Reason code
+            <input
+              value={reasonCodeFilter}
+              onChange={(event) => setReasonCodeFilter(event.target.value)}
+              placeholder="slug_collision, image_fetch_failed…"
+              className="w-64 rounded border bg-background px-2 py-1 text-sm text-foreground"
+            />
+          </label>
+          <div className="ml-auto flex flex-wrap gap-2 text-xs">
+            <span className="rounded border bg-muted/40 px-2 py-1">Approval failures ({candidates.filter((candidate) => Boolean(candidate.lastApprovalError)).length})</span>
+            <span className="rounded border bg-muted/40 px-2 py-1">Image failed ({candidates.filter((candidate) => candidate.imageImportStatus === "failed").length})</span>
+            <span className="rounded border bg-muted/40 px-2 py-1">No image found ({candidates.filter((candidate) => candidate.imageImportStatus === "no_image_found").length})</span>
+          </div>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1560px] text-sm">
@@ -503,7 +584,7 @@ export default function ArtistsClient({
             </tr>
           </thead>
           <tbody>
-            {candidates.map((candidate) => (
+            {filteredCandidates.map((candidate) => (
               <Fragment key={candidate.id}>
                 <tr
                   data-candidate-id={candidate.id}
@@ -754,9 +835,9 @@ export default function ArtistsClient({
                 ) : null}
               </Fragment>
             ))}
-            {candidates.length === 0 ? (
+            {filteredCandidates.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-muted-foreground" colSpan={11}>No artist candidates.</td>
+                <td className="px-3 py-6 text-muted-foreground" colSpan={11}>No artist candidates match the active filters.</td>
               </tr>
             ) : null}
           </tbody>
