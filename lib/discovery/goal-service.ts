@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { getGoalConversionStats } from "@/lib/discovery/conversion-query";
 
 export async function createDiscoveryGoal(
   db: PrismaClient,
@@ -37,8 +38,10 @@ export async function getGoalProgress(
   published: number;
   jobCount: number;
   lastJobAt: Date | null;
+  venuesWithApprovedEvents: number;
+  totalApprovedEvents: number;
 }> {
-  const [jobAgg, seeded, published, lastJob] = await Promise.all([
+  const [jobAgg, seeded, published, lastJob, conversion] = await Promise.all([
     db.ingestDiscoveryJob.aggregate({
       where: { goalId },
       _count: { id: true },
@@ -65,6 +68,7 @@ export async function getGoalProgress(
       orderBy: [{ createdAt: "desc" }],
       select: { createdAt: true },
     }),
+    getGoalConversionStats(db, goalId),
   ]);
 
   return {
@@ -73,6 +77,8 @@ export async function getGoalProgress(
     published,
     jobCount: jobAgg._count.id,
     lastJobAt: lastJob?.createdAt ?? null,
+    venuesWithApprovedEvents: conversion.venuesWithApprovedEvents,
+    totalApprovedEvents: conversion.totalApprovedEvents,
   };
 }
 

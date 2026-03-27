@@ -25,6 +25,7 @@ function goalTone(seeded: number, targetCount: number) {
 export function CoverageClient({ rows }: { rows: RegionCoverageRow[] }) {
   const regionsWithPublished = rows.filter((row) => row.publishedVenues > 0).length;
   const regionsWithActiveGoals = rows.filter((row) => row.activeGoal !== null).length;
+  const regionsWithEvents = rows.filter((row) => row.venuesWithApprovedEvents > 0).length;
 
   if (rows.length === 0) {
     return (
@@ -46,6 +47,9 @@ export function CoverageClient({ rows }: { rows: RegionCoverageRow[] }) {
         <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground">
           Regions with active goals: {regionsWithActiveGoals}
         </span>
+        <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground">
+          Venues with events: {regionsWithEvents}
+        </span>
       </div>
 
       <div className="overflow-x-auto">
@@ -57,6 +61,8 @@ export function CoverageClient({ rows }: { rows: RegionCoverageRow[] }) {
               <th className="py-2 pr-3">Venues</th>
               <th className="py-2 pr-3">Published</th>
               <th className="py-2 pr-3">Events (30d)</th>
+              <th className="py-2 pr-3">Approved events</th>
+              <th className="py-2 pr-3">Active venues</th>
               <th className="py-2 pr-3">Last discovery</th>
               <th className="py-2 pr-3">Goal progress</th>
               <th className="py-2 text-right">Actions</th>
@@ -80,6 +86,12 @@ export function CoverageClient({ rows }: { rows: RegionCoverageRow[] }) {
                   </td>
                   <td className={`py-3 pr-3 ${row.eventsLast30d > 0 ? "text-amber-700" : "text-muted-foreground"}`}>
                     {row.eventsLast30d}
+                  </td>
+                  <td className={`py-3 pr-3 ${row.totalApprovedEvents > 0 ? "text-emerald-700" : "text-muted-foreground"}`}>
+                    {row.totalApprovedEvents > 0 ? row.totalApprovedEvents : "—"}
+                  </td>
+                  <td className={`py-3 pr-3 ${row.venuesWithApprovedEvents > 0 ? "text-emerald-700" : "text-muted-foreground"}`}>
+                    {row.venuesWithApprovedEvents > 0 ? row.venuesWithApprovedEvents : "—"}
                   </td>
                   <td className="py-3 pr-3 text-muted-foreground">{timeAgo(row.lastDiscoveryRun)}</td>
                   <td className="py-3 pr-3">

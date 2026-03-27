@@ -20,6 +20,8 @@ type GoalWithProgress = {
     published: number;
     jobCount: number;
     lastJobAt: Date | null;
+    venuesWithApprovedEvents: number;
+    totalApprovedEvents: number;
   };
 };
 
@@ -291,7 +293,9 @@ export function GoalsClient({ goals: initialGoals, statusCounts }: Props) {
                           <div className="h-1.5 w-16 overflow-hidden rounded bg-muted">
                             <div className={`h-full ${progressTone(goal.progress.seeded, goal.targetCount)}`} style={{ width: `${pct}%` }} />
                           </div>
-                          <span className="text-xs text-muted-foreground">{goal.progress.seeded} / {goal.targetCount} seeded ({goal.progress.published} published)</span>
+                          <span className="text-xs text-muted-foreground">{goal.progress.seeded} / {goal.targetCount} seeded{goal.progress.totalApprovedEvents > 0
+                            ? ` · ${goal.progress.totalApprovedEvents} approved events`
+                            : ""}</span>
                         </div>
                       </div>
                     </td>

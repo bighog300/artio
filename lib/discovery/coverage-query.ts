@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { getRegionConversionStats } from "@/lib/discovery/conversion-query";
 import { getGoalProgress } from "@/lib/discovery/goal-service";
 
 export type RegionCoverageRow = {
@@ -7,6 +8,8 @@ export type RegionCoverageRow = {
   totalVenues: number;
   publishedVenues: number;
   eventsLast30d: number;
+  venuesWithApprovedEvents: number;
+  totalApprovedEvents: number;
   lastDiscoveryRun: Date | null;
   activeGoal: {
     id: string;
@@ -39,7 +42,7 @@ export async function getRegionCoverageData(
         ],
       };
 
-      const [totalVenues, publishedVenues, eventsLast30d, activeGoal] = await Promise.all([
+      const [totalVenues, publishedVenues, eventsLast30d, activeGoal, conversion] = await Promise.all([
         db.venue.count({ where: whereRegionMatch }),
         db.venue.count({
           where: {
@@ -66,6 +69,10 @@ export async function getRegionCoverageData(
             targetCount: true,
           },
         }),
+        getRegionConversionStats(db, {
+          region: ingestRegion.region,
+          country: ingestRegion.country,
+        }),
       ]);
 
       let activeGoalData: RegionCoverageRow["activeGoal"] = null;
@@ -84,6 +91,8 @@ export async function getRegionCoverageData(
         totalVenues,
         publishedVenues,
         eventsLast30d,
+        venuesWithApprovedEvents: conversion.venuesWithApprovedEvents,
+        totalApprovedEvents: conversion.totalApprovedEvents,
         lastDiscoveryRun: ingestRegion.lastRunAt,
         activeGoal: activeGoalData,
       };
