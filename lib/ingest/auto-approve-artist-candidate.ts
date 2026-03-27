@@ -97,7 +97,7 @@ export async function autoApproveArtistCandidate(args: {
       instagramUrl: candidate.instagramUrl,
       requestId: `auto-approve-artist-${candidate.id}`,
       candidateId: candidate.id,
-    }).catch((err) => logWarn({ message: "auto_approve_artist_image_failed", candidateId: candidate.id, err }));
+    }).catch((err) => logWarn({ message: "auto_approve_artist_image_failed", candidateId: candidate.id, err, approvalErrorCode: "image_import_failed" }));
 
     // Retroactive artwork re-link
     try {
@@ -132,9 +132,11 @@ export async function autoApproveArtistCandidate(args: {
         }
       }
     } catch (err) {
+      await markArtistApprovalFailure(args.db, args.candidateId, "relink_failed");
       logWarn({ message: "artist_retroactive_artwork_relink_failed",
         candidateId: args.candidateId,
         err,
+        approvalErrorCode: "relink_failed",
       });
     }
 
@@ -155,8 +157,9 @@ export async function autoApproveArtistCandidate(args: {
 
     return { artistId: newArtist.id, published: false };
   } catch (error) {
-    await markArtistApprovalFailure(args.db, args.candidateId, normalizeApprovalError(error, "approval_failed"));
-    logWarn({ message: "auto_approve_artist_failed", candidateId: args.candidateId, error });
+    const approvalErrorCode = normalizeApprovalError(error, "db_transaction_failed");
+    await markArtistApprovalFailure(args.db, args.candidateId, approvalErrorCode);
+    logWarn({ message: "auto_approve_artist_failed", candidateId: args.candidateId, error, approvalErrorCode });
     return null;
   }
 }

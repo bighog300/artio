@@ -144,7 +144,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       instagramUrl: result.instagramUrl,
       requestId: `admin-approve-artist-${result.candidateId}`,
       candidateId: result.candidateId,
-    }).catch((err) => console.warn("admin_approve_artist_image_import_failed", { candidateId: result.candidateId, err }));
+    }).catch((err) => console.warn("admin_approve_artist_image_import_failed", { candidateId: result.candidateId, err, approvalErrorCode: "image_import_failed" }));
 
     // Retroactive artwork re-link
     try {
@@ -178,16 +178,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }
       }
     } catch (err) {
+      await markArtistApprovalFailure(db, result.candidateId, "relink_failed");
       console.warn("artist_retroactive_artwork_relink_failed", {
         candidateId: result.candidateId,
         err,
+        approvalErrorCode: "relink_failed",
       });
     }
 
     return NextResponse.json({ artistId: result.artistId, linkedEventCount: result.linkedEventCount, published: result.published }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const candidateId = (await params).id;
-    await markArtistApprovalFailure(db, candidateId, normalizeApprovalError(error, "approval_failed"));
+    const approvalErrorCode = normalizeApprovalError(error, "db_transaction_failed");
+    await markArtistApprovalFailure(db, candidateId, approvalErrorCode);
+    console.warn("admin_approve_artist_failed", { candidateId, approvalErrorCode, error });
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Forbidden");
     return apiError(500, "internal_error", "Unexpected server error");

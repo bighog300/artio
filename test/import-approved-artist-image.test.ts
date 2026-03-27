@@ -43,7 +43,7 @@ test("returns disabled warning when AI_INGEST_IMAGE_ENABLED is not set", async (
 
   assert.deepEqual(result, {
     attached: false,
-    warning: "image-import disabled: set AI_INGEST_IMAGE_ENABLED=1 to enable",
+    warning: "image_import_disabled",
     imageUrl: null,
   });
 });
@@ -86,7 +86,7 @@ test("returns early when artist already has featured image", async () => {
   });
 
   assert.equal(updated, false);
-  assert.deepEqual(result, { attached: false, warning: null, imageUrl: null });
+  assert.deepEqual(result, { attached: false, warning: "image_already_attached", imageUrl: null });
 });
 
 test("uses websiteUrl og:image when available", async () => {
@@ -245,6 +245,6 @@ test("returns warning when all URLs fail to find an image", async () => {
   });
 
   assert.equal(result.attached, false);
-  assert.match(result.warning ?? "", /no image found on artist website/);
+  assert.equal(result.warning, "no_image_found");
   assert.equal(fetchImageCalled, false);
 });

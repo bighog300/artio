@@ -135,8 +135,8 @@ export async function handleAdminIngestArtworkMerge(req: NextRequest, params: { 
       candidateImageUrl: candidate.imageUrl,
       requestId: `admin-merge-artwork-${candidate.id}`,
     }).catch((err) => {
-      const warning = `image-import failed: ${err instanceof Error ? err.message : String(err)}`;
-      console.warn("admin_merge_artwork_image_import_failed", { candidateId: candidate.id, warning });
+      const warning = "image_import_failed";
+      console.warn("admin_merge_artwork_image_import_failed", { candidateId: candidate.id, warning, approvalErrorCode: "image_import_failed" });
       return { attached: false, warning, imageUrl: null };
     });
 
@@ -148,7 +148,9 @@ export async function handleAdminIngestArtworkMerge(req: NextRequest, params: { 
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (params.id) {
-      await markArtworkApprovalFailure(resolved.appDb, params.id, normalizeApprovalError(error, "approval_failed"));
+      const approvalErrorCode = normalizeApprovalError(error, "db_transaction_failed");
+      await markArtworkApprovalFailure(resolved.appDb, params.id, approvalErrorCode);
+      console.warn("admin_merge_artwork_failed", { candidateId: params.id, approvalErrorCode, error });
     }
     if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Forbidden");

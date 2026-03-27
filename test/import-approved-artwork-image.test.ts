@@ -109,7 +109,7 @@ test("skips import when artwork already has featuredAssetId", async () => {
   });
 
   assert.equal(fetchImageCalls, 0);
-  assert.deepEqual(result, { attached: false, warning: null, imageUrl: "https://blob.example/existing.jpg" });
+  assert.deepEqual(result, { attached: false, warning: "image_already_attached", imageUrl: "https://blob.example/existing.jpg" });
 });
 
 test("returns warning when image fetch fails", async () => {
@@ -148,7 +148,7 @@ test("returns warning when image fetch fails", async () => {
 
   assert.equal(result.attached, false);
   assert.equal(result.imageUrl, null);
-  assert.match(result.warning ?? "", /image-import failed: fetch timeout/);
+  assert.equal(result.warning, "image_fetch_failed");
 });
 
 test("falls back to page discovery when candidateImageUrl is null", async () => {
@@ -254,7 +254,7 @@ test("returns warning when candidateImageUrl is null and page discovery finds no
   assert.equal(fetchImageCalls, 0);
   assert.deepEqual(result, {
     attached: false,
-    warning: "image-import skipped: no image URL and page discovery found nothing",
+    warning: "no_image_found",
     imageUrl: null,
   });
 });
@@ -306,7 +306,7 @@ test("skips page discovery when sourceUrl is null", async () => {
   assert.equal(fetchHtmlCalls, 0);
   assert.deepEqual(result, {
     attached: false,
-    warning: "image-import skipped: no image URL and page discovery found nothing",
+    warning: "no_image_found",
     imageUrl: null,
   });
 });

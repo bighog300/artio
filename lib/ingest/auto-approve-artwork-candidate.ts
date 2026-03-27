@@ -106,8 +106,8 @@ export async function autoApproveArtworkCandidate(args: {
       candidateImageUrl: candidate.imageUrl,
       requestId: `auto-approve-artwork-${candidate.id}`,
     }).catch((err) => {
-      logWarn({ message: "auto_approve_artwork_image_failed", candidateId: candidate.id, err });
-      return { attached: false, warning: String(err), imageUrl: null };
+      logWarn({ message: "auto_approve_artwork_image_failed", candidateId: candidate.id, err, approvalErrorCode: "image_import_failed" });
+      return { attached: false, warning: "image_import_failed", imageUrl: null };
     });
 
     const hasImage = imageResult.attached;
@@ -128,9 +128,11 @@ export async function autoApproveArtworkCandidate(args: {
 
     return { artworkId: newArtwork.id, published: false };
   } catch (error) {
-    await markArtworkApprovalFailure(args.db, args.candidateId, normalizeApprovalError(error, "approval_failed"));
+    const approvalErrorCode = normalizeApprovalError(error, "db_transaction_failed");
+    await markArtworkApprovalFailure(args.db, args.candidateId, approvalErrorCode);
     logWarn({ message: "auto_approve_artwork_failed",
       candidateId: args.candidateId,
+      approvalErrorCode,
       errorMessage: error instanceof Error ? error.message : String(error),
       errorCode: (error as Record<string, unknown>)?.code ?? null,
       stack: error instanceof Error ? error.stack?.slice(0, 500) : null,

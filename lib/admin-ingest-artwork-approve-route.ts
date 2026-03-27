@@ -76,7 +76,7 @@ export async function handleAdminIngestArtworkApprove(
     }
 
     if (!artistId && !effectiveArtistName) {
-      await markArtworkApprovalFailure(deps.db, candidate.id, "approval_artist_name_missing");
+      await markArtworkApprovalFailure(deps.db, candidate.id, "validation_failed");
       return apiError(409, "artist_name_missing", "This artwork candidate has no artist name. Provide one using the edit panel before approving.");
     }
 
@@ -99,7 +99,7 @@ export async function handleAdminIngestArtworkApprove(
     }
 
     if (!artistId) {
-      await markArtworkApprovalFailure(deps.db, candidate.id, "approval_artist_resolution_failed");
+      await markArtworkApprovalFailure(deps.db, candidate.id, "validation_failed");
       return apiError(500, "internal_error", "Unable to resolve artist during approval");
     }
 
@@ -154,8 +154,8 @@ export async function handleAdminIngestArtworkApprove(
       candidateImageUrl: candidate.imageUrl,
       requestId: `admin-approve-artwork-${candidate.id}`,
     }).catch((err) => {
-      const warning = `image-import failed: ${err instanceof Error ? err.message : String(err)}`;
-      console.warn("admin_approve_artwork_image_import_failed", { candidateId: candidate.id, warning });
+      const warning = "image_import_failed";
+      console.warn("admin_approve_artwork_image_import_failed", { candidateId: candidate.id, warning, approvalErrorCode: "image_import_failed" });
       return { attached: false, warning, imageUrl: null };
     });
 
@@ -170,7 +170,9 @@ export async function handleAdminIngestArtworkApprove(
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const { id } = await params;
-    await markArtworkApprovalFailure(deps.db, id, normalizeApprovalError(error, "approval_failed"));
+    const approvalErrorCode = normalizeApprovalError(error, "db_transaction_failed");
+    await markArtworkApprovalFailure(deps.db, id, approvalErrorCode);
+    console.warn("admin_approve_artwork_failed", { candidateId: id, approvalErrorCode, error });
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Forbidden");
     return apiError(500, "internal_error", "Unexpected server error");

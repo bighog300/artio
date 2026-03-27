@@ -3,15 +3,9 @@ import { discoverEventImageUrl } from "@/lib/ingest/image-discovery";
 import { fetchImageWithGuards } from "@/lib/ingest/fetch-image";
 import { uploadArtworkImageToBlob } from "@/lib/blob/upload-image";
 import { logWarn } from "@/lib/logging";
-import { markArtworkImageImportOutcome, normalizeImageImportWarning } from "@/lib/ingest/candidate-observability";
+import { markArtworkImageImportOutcome, normalizeImageImportError, normalizeImageImportWarning } from "@/lib/ingest/candidate-observability";
 
 type ImportResult = { attached: boolean; warning: string | null; imageUrl: string | null };
-
-const MAX_WARNING_DETAIL = 400;
-
-function truncateWarning(input: string): string {
-  return input.length > MAX_WARNING_DETAIL ? `${input.slice(0, MAX_WARNING_DETAIL - 1)}…` : input;
-}
 
 export async function importApprovedArtworkImage(params: {
   appDb: {
@@ -80,8 +74,8 @@ export async function importApprovedArtworkImage(params: {
   };
 
   if (process.env.AI_INGEST_IMAGE_ENABLED !== "1") {
-    await persistOutcome("failed", "image-import disabled: set AI_INGEST_IMAGE_ENABLED=1 to enable");
-    return { attached: false, warning: "image-import disabled: set AI_INGEST_IMAGE_ENABLED=1 to enable", imageUrl: null };
+    await persistOutcome("failed", "image_import_disabled");
+    return { attached: false, warning: "image_import_disabled", imageUrl: null };
   }
 
   const artwork = await params.appDb.artwork.findUnique({
@@ -90,8 +84,8 @@ export async function importApprovedArtworkImage(params: {
   });
 
   if (artwork?.featuredAssetId || artwork?.featuredAsset?.url) {
-    await persistOutcome("imported", null);
-    return { attached: false, warning: null, imageUrl: artwork.featuredAsset?.url ?? null };
+    await persistOutcome("imported", "image_already_attached");
+    return { attached: false, warning: "image_already_attached", imageUrl: artwork.featuredAsset?.url ?? null };
   }
 
   let imageUrl = params.candidateImageUrl ?? null;
@@ -111,17 +105,17 @@ export async function importApprovedArtworkImage(params: {
   }
 
   if (!imageUrl) {
-    await persistOutcome("no_image_found", "image-import skipped: no image URL and page discovery found nothing");
+    await persistOutcome("no_image_found", "no_image_found");
     return {
       attached: false,
-      warning: "image-import skipped: no image URL and page discovery found nothing",
+      warning: "no_image_found",
       imageUrl: null,
     };
   }
 
   if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://")) {
-    await persistOutcome("failed", "image-import skipped: resolved image URL is not absolute");
-    return { attached: false, warning: "image-import skipped: resolved image URL is not absolute", imageUrl: null };
+    await persistOutcome("failed", "image_fetch_failed");
+    return { attached: false, warning: "image_fetch_failed", imageUrl: null };
   }
 
   try {
@@ -167,13 +161,14 @@ export async function importApprovedArtworkImage(params: {
     await persistOutcome("imported", null);
     return { attached: true, warning: null, imageUrl: asset.url };
   } catch (error) {
-    const warning = truncateWarning(`image-import failed: ${error instanceof Error ? error.message : String(error)}`);
+    const warning = normalizeImageImportError(error);
     logWarn({ message: "ingest_approval_artwork_image_import_failed",
       requestId: params.requestId,
       runId: params.runId,
       candidateId: params.candidateId,
       artworkId: params.artworkId,
       warning,
+      imageErrorCode: warning,
     });
     await persistOutcome("failed", warning);
     return { attached: false, warning, imageUrl: null };
