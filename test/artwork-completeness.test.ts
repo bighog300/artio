@@ -9,6 +9,8 @@ test("computeArtworkCompleteness separates required and recommended issues", () 
     medium: null,
     year: null,
     featuredAssetId: null,
+    dimensions: null,
+    provenance: null,
   }, 0);
 
   assert.equal(result.required.ok, false);
@@ -26,6 +28,8 @@ test("computeArtworkCompleteness is ready when required fields are present", () 
     medium: "Oil on canvas",
     year: 2022,
     featuredAssetId: null,
+    dimensions: "50 x 70 cm",
+    provenance: "Acquired directly from the artist",
   }, 1);
 
   assert.equal(result.required.ok, true);
