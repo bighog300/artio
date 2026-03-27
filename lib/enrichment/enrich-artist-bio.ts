@@ -266,7 +266,10 @@ export async function enrichArtistBio(
 
   const updated = await args.db.artist.update({
     where: { id: artist.id },
-    data: patch,
+    data: {
+      ...patch,
+      completenessUpdatedAt: null,
+    },
     select: {
       bio: true,
       websiteUrl: true,

@@ -21,6 +21,7 @@ function sanitizeArtistPatch(patch: Record<string, unknown>) {
     twitterUrl?: string;
     mediums?: string[];
     featuredAssetId?: string;
+    completenessUpdatedAt?: null;
   } = {};
   if (typeof patch.bio === "string") next.bio = patch.bio;
   if (typeof patch.websiteUrl === "string") next.websiteUrl = patch.websiteUrl;
@@ -28,6 +29,7 @@ function sanitizeArtistPatch(patch: Record<string, unknown>) {
   if (typeof patch.twitterUrl === "string") next.twitterUrl = patch.twitterUrl;
   if (Array.isArray(patch.mediums)) next.mediums = patch.mediums.filter((m): m is string => typeof m === "string");
   if (typeof patch.featuredAssetId === "string" && patch.featuredAssetId !== "PENDING_IMAGE") next.featuredAssetId = patch.featuredAssetId;
+  next.completenessUpdatedAt = null;
   return next;
 }
 

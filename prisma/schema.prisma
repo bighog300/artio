@@ -777,11 +777,16 @@ model Artist {
   ingestCandidates  IngestExtractedArtist[]  @relation("IngestExtractedArtistCreated")
   stripeAccount     ArtistStripeAccount?
   enrichmentRunItems EnrichmentRunItem[]      @relation("EnrichmentRunItemArtist")
+  completenessScore     Int       @default(0)
+  completenessFlags     String[]  @default([])
+  completenessUpdatedAt DateTime?
 
   @@index([isPublished])
   @@index([featuredAssetId])
   @@index([deletedAt])
   @@index([canonicalUrl])
+  @@index([completenessScore])
+  @@index([completenessFlags])
 }
 
 model ArtistCvEntry {
