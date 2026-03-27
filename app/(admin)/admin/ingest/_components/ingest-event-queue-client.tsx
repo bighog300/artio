@@ -40,7 +40,7 @@ function getConfidenceReasons(value: unknown): string[] | null {
   return reasons.length > 0 ? reasons : null;
 }
 export default function IngestEventQueueClient({
-  candidates,
+  candidates: initialCandidates,
   totalPending,
   digestSummary,
   venues = [],
@@ -104,8 +104,30 @@ export default function IngestEventQueueClient({
     approved: number;
     failed: number;
   } | null>(null);
+  const [bulkRejecting, setBulkRejecting] = useState(false);
+  const [bulkRejectProgress, setBulkRejectProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const [bulkRejectResults, setBulkRejectResults] = useState<{
+    rejected: number;
+    failed: number;
+  } | null>(null);
+  const [bulkRejectReason, setBulkRejectReason] = useState("Navigation noise");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkEditDraft, setBulkEditDraft] = useState<{
+    timezone: string;
+    rejectionReason: string;
+  }>({ timezone: "", rejectionReason: "" });
+  const [bulkEditing, setBulkEditing] = useState(false);
+  const [bulkEditResult, setBulkEditResult] = useState<{
+    updated: number;
+    failed: number;
+  } | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
+  const [candidates, setCandidates] = useState<QueueCandidate[]>(initialCandidates);
 
   function initDraft(candidate: QueueCandidate) {
     const candidateEndAt =
@@ -136,6 +158,10 @@ export default function IngestEventQueueClient({
       const bSkipped = skippedIds.has(b.id) ? 1 : 0;
       return aSkipped - bSkipped;
     });
+
+  useEffect(() => {
+    setCandidates(initialCandidates);
+  }, [initialCandidates]);
 
   async function importImage(
     candidateId: string,
@@ -219,6 +245,140 @@ export default function IngestEventQueueClient({
     setBulkProgress(null);
     setBulkResults({ approved, failed });
     router.refresh();
+  }
+
+  async function bulkRejectLow() {
+    const lowCandidates = candidates.filter(
+      (c) => c.confidenceBand === "LOW" && c.status === "PENDING",
+    );
+    if (!lowCandidates.length) return;
+    if (
+      !window.confirm(
+        `Reject all ${lowCandidates.length} LOW confidence event${lowCandidates.length === 1 ? "" : "s"} as "${bulkRejectReason}"? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    setBulkRejecting(true);
+    setBulkRejectResults(null);
+    setBulkRejectProgress({ done: 0, total: lowCandidates.length });
+
+    const BATCH_SIZE = 5;
+    let rejected = 0;
+    let failed = 0;
+    const rejectedIds = new Set<string>();
+
+    for (let i = 0; i < lowCandidates.length; i += BATCH_SIZE) {
+      const batch = lowCandidates.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((candidate) =>
+          fetch(`/api/admin/ingest/extracted-events/${candidate.id}/reject`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ rejectionReason: bulkRejectReason }),
+          })
+            .then((r) => (r.ok ? ("ok" as const) : ("fail" as const)))
+            .catch(() => "fail" as const),
+        ),
+      );
+
+      for (const [index, result] of results.entries()) {
+        if (result.status === "fulfilled" && result.value === "ok") {
+          rejected += 1;
+          const candidate = batch[index];
+          if (candidate) rejectedIds.add(candidate.id);
+        } else {
+          failed += 1;
+        }
+      }
+
+      setBulkRejectProgress({
+        done: rejected + failed,
+        total: lowCandidates.length,
+      });
+    }
+
+    setBulkRejecting(false);
+    setBulkRejectProgress(null);
+    setBulkRejectResults({ rejected, failed });
+    setCandidates((prev) => prev.filter((candidate) => !rejectedIds.has(candidate.id)));
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAllVisible() {
+    const visibleMed = filteredCandidates.filter(
+      (c) => c.confidenceBand === "MEDIUM" && c.status === "PENDING",
+    );
+    setSelectedIds(new Set(visibleMed.map((c) => c.id)));
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  async function applyBulkEdit() {
+    const patch: Record<string, string> = {};
+    if (bulkEditDraft.timezone.trim()) {
+      patch.timezone = bulkEditDraft.timezone.trim();
+    }
+
+    if (!Object.keys(patch).length || selectedIds.size === 0) return;
+
+    setBulkEditing(true);
+    setBulkEditResult(null);
+    let updated = 0;
+    let failed = 0;
+
+    const BATCH_SIZE = 5;
+    const ids = [...selectedIds];
+
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batch = ids.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((id) =>
+          fetch(`/api/admin/ingest/extracted-events/${id}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(patch),
+          })
+            .then((r) => (r.ok ? ("ok" as const) : ("fail" as const)))
+            .catch(() => "fail" as const),
+        ),
+      );
+      for (const result of results) {
+        if (result.status === "fulfilled" && result.value === "ok") {
+          updated += 1;
+        } else {
+          failed += 1;
+        }
+      }
+    }
+
+    setBulkEditing(false);
+    setBulkEditResult({ updated, failed });
+
+    if (bulkEditDraft.timezone.trim()) {
+      setCandidates((prev) =>
+        prev.map((c) =>
+          selectedIds.has(c.id)
+            ? { ...c, timezone: bulkEditDraft.timezone.trim() }
+            : c,
+        ),
+      );
+    }
+
+    setSelectedIds(new Set());
+    setBulkEditOpen(false);
+    setBulkEditDraft({ timezone: "", rejectionReason: "" });
   }
 
   async function fetchPipelineStatus(candidateId: string) {
@@ -382,6 +542,38 @@ export default function IngestEventQueueClient({
               </button>
             );
           })()}
+          {(() => {
+            const lowCount = candidates.filter(
+              (c) => c.confidenceBand === "LOW" && c.status === "PENDING",
+            ).length;
+            if (lowCount === 0) return null;
+            return (
+              <div className="flex items-center gap-2">
+                <select
+                  className="rounded border bg-background px-2 py-1 text-xs"
+                  value={bulkRejectReason}
+                  onChange={(e) => setBulkRejectReason(e.target.value)}
+                  disabled={bulkRejecting}
+                >
+                  <option value="Navigation noise">Noise</option>
+                  <option value="Not a real event">Not an event</option>
+                  <option value="Private event">Private event</option>
+                  <option value="Duplicate content">Duplicate</option>
+                  <option value="Past event">Past event</option>
+                </select>
+                <button
+                  type="button"
+                  className="rounded border border-red-300 bg-red-50 px-3 py-1 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
+                  disabled={bulkRejecting}
+                  onClick={() => void bulkRejectLow()}
+                >
+                  {bulkRejecting
+                    ? `Rejecting… ${bulkRejectProgress?.done ?? 0}/${bulkRejectProgress?.total ?? lowCount}`
+                    : `Reject all LOW (${lowCount})`}
+                </button>
+              </div>
+            );
+          })()}
         </div>
         <div className="flex flex-col gap-1">
           <p className="text-sm text-muted-foreground">
@@ -435,10 +627,119 @@ export default function IngestEventQueueClient({
           </button>
         </div>
       ) : null}
+      {bulkRejectResults ? (
+        <div
+          className={`mb-3 flex items-center justify-between rounded border px-3 py-2 text-sm ${
+            bulkRejectResults.failed > 0
+              ? "border-amber-500/40 bg-amber-500/10 text-amber-800"
+              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800"
+          }`}
+        >
+          <span>
+            Bulk reject complete: {bulkRejectResults.rejected} rejected
+            {bulkRejectResults.failed > 0 ? `, ${bulkRejectResults.failed} failed` : ""}
+          </span>
+          <button type="button" onClick={() => setBulkRejectResults(null)}>
+            ×
+          </button>
+        </div>
+      ) : null}
+      {candidates.filter((c) => c.confidenceBand === "MEDIUM" && c.status === "PENDING").length >
+      0 ? (
+        <button
+          type="button"
+          className="mb-3 text-xs text-muted-foreground underline"
+          onClick={selectAllVisible}
+        >
+          Select all MEDIUM (
+          {
+            candidates.filter(
+              (c) => c.confidenceBand === "MEDIUM" && c.status === "PENDING",
+            ).length
+          }
+          )
+        </button>
+      ) : null}
+      {selectedIds.size > 0 ? (
+        <div className="mb-3 flex items-center gap-3 rounded border border-blue-200 bg-blue-50 px-3 py-2">
+          <span className="text-sm text-blue-800">{selectedIds.size} selected</span>
+          <button
+            type="button"
+            className="text-sm text-blue-800 underline"
+            onClick={() => setBulkEditOpen(true)}
+          >
+            Edit shared fields
+          </button>
+          <button
+            type="button"
+            className="ml-auto text-xs text-blue-600"
+            onClick={clearSelection}
+          >
+            Clear selection
+          </button>
+        </div>
+      ) : null}
+      {bulkEditOpen ? (
+        <div className="mb-3 space-y-3 rounded-lg border bg-background p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">
+              Edit {selectedIds.size} selected event{selectedIds.size !== 1 ? "s" : ""}
+            </h3>
+            <button
+              type="button"
+              onClick={() => setBulkEditOpen(false)}
+              className="text-sm text-muted-foreground"
+            >
+              ×
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Only non-empty fields will be applied. Leave blank to skip that field.
+          </p>
+
+          <label className="block space-y-1 text-sm">
+            <span>Timezone (IANA)</span>
+            <input
+              className="w-full rounded border bg-background px-3 py-1.5 text-sm"
+              placeholder="e.g. Europe/London"
+              value={bulkEditDraft.timezone}
+              onChange={(e) =>
+                setBulkEditDraft((prev) => ({ ...prev, timezone: e.target.value }))
+              }
+            />
+          </label>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              className="rounded bg-foreground px-3 py-1.5 text-sm text-background disabled:opacity-50"
+              disabled={bulkEditing || !bulkEditDraft.timezone.trim()}
+              onClick={() => void applyBulkEdit()}
+            >
+              {bulkEditing ? "Applying…" : "Apply to selected"}
+            </button>
+            <button
+              type="button"
+              className="rounded border px-3 py-1.5 text-sm"
+              onClick={() => setBulkEditOpen(false)}
+            >
+              Cancel
+            </button>
+          </div>
+
+          {bulkEditResult ? (
+            <p className="text-xs text-emerald-700">
+              Updated {bulkEditResult.updated} events
+              {bulkEditResult.failed > 0 ? `, ${bulkEditResult.failed} failed` : ""}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1120px] text-sm">
           <thead>
             <tr className="border-b text-left">
+              <th className="px-2 py-2" />
               <th className="px-3 py-2">Confidence</th>
               <th className="px-3 py-2">Image</th>
               <th className="px-3 py-2">Title</th>
@@ -457,6 +758,16 @@ export default function IngestEventQueueClient({
                   data-candidate-id={candidate.id}
                   className={`border-b align-top ${focusedCandidateId === candidate.id ? "bg-blue-50/60 ring-1 ring-inset ring-blue-200 dark:bg-blue-950/20 dark:ring-blue-800" : ""}`}
                 >
+                  <td className="px-2 py-2">
+                    {candidate.confidenceBand === "MEDIUM" ? (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(candidate.id)}
+                        onChange={() => toggleSelected(candidate.id)}
+                        disabled={candidate.status !== "PENDING"}
+                      />
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2">
                     <IngestConfidenceBadge
                       score={candidate.confidenceScore}
@@ -632,7 +943,7 @@ export default function IngestEventQueueClient({
                 </tr>
                 {expandedId === candidate.id ? (
                   <tr className="border-b bg-muted/30">
-                    <td colSpan={9} className="px-4 py-3 text-sm">
+                    <td colSpan={10} className="px-4 py-3 text-sm">
                       <div className="space-y-2">
                         {candidate.artistNames.length > 0 ? (
                           <p>
@@ -872,7 +1183,7 @@ export default function IngestEventQueueClient({
             ))}
             {filteredCandidates.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-muted-foreground" colSpan={9}>
+                <td className="px-3 py-6 text-muted-foreground" colSpan={10}>
                   {venueFilter === "all"
                     ? "No pending candidates in the queue."
                     : "No pending candidates for this venue."}
