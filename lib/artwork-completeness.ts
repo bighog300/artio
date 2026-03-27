@@ -3,12 +3,14 @@ export type ArtworkCompletenessIssueCode =
   | "MISSING_IMAGE"
   | "MISSING_DESCRIPTION"
   | "MISSING_MEDIUM"
-  | "MISSING_YEAR";
+  | "MISSING_YEAR"
+  | "MISSING_DIMENSIONS"
+  | "MISSING_PROVENANCE";
 
 export type ArtworkCompletenessIssue = {
   code: ArtworkCompletenessIssueCode;
   label: string;
-  field: "title" | "images" | "description" | "medium" | "year";
+  field: "title" | "images" | "description" | "medium" | "year" | "dimensions" | "provenance";
   hrefFragment?: "title" | "images" | "description";
 };
 
@@ -18,12 +20,20 @@ export type ArtworkCompletenessInput = {
   medium: string | null;
   year: number | null;
   featuredAssetId: string | null;
+  dimensions: string | null;
+  provenance: string | null;
 };
+
+export type ArtworkCompletenessFlag =
+  | "MISSING_IMAGE"
+  | "LOW_CONFIDENCE_METADATA"
+  | "INCOMPLETE";
 
 export type ArtworkCompletenessResult = {
   scorePct: number;
   required: { ok: boolean; issues: ArtworkCompletenessIssue[] };
   recommended: { ok: boolean; issues: ArtworkCompletenessIssue[] };
+  flags: ArtworkCompletenessFlag[];
 };
 
 export function computeArtworkCompleteness(artwork: ArtworkCompletenessInput, imageCount: number): ArtworkCompletenessResult {
@@ -74,12 +84,35 @@ export function computeArtworkCompleteness(artwork: ArtworkCompletenessInput, im
     });
   }
 
-  const checksTotal = 5;
+  if (!(artwork.dimensions ?? "").trim()) {
+    recommendedIssues.push({
+      code: "MISSING_DIMENSIONS",
+      label: "Add dimensions.",
+      field: "dimensions",
+    });
+  }
+
+  if (!(artwork.provenance ?? "").trim()) {
+    recommendedIssues.push({
+      code: "MISSING_PROVENANCE",
+      label: "Add provenance.",
+      field: "provenance",
+    });
+  }
+
+  const checksTotal = 7;
   const checksPassed = checksTotal - requiredIssues.length - recommendedIssues.length;
 
+  const scorePct = Math.round((checksPassed / checksTotal) * 100);
+  const flags: ArtworkCompletenessFlag[] = [];
+  if (!hasImage) flags.push("MISSING_IMAGE");
+  if (scorePct < 60) flags.push("INCOMPLETE");
+  if (requiredIssues.length > 0) flags.push("LOW_CONFIDENCE_METADATA");
+
   return {
-    scorePct: Math.round((checksPassed / checksTotal) * 100),
+    scorePct,
     required: { ok: requiredIssues.length === 0, issues: requiredIssues },
     recommended: { ok: recommendedIssues.length === 0, issues: recommendedIssues },
+    flags,
   };
 }

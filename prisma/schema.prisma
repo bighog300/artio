@@ -1640,6 +1640,9 @@ model Artwork {
   deletedAt       DateTime?
   deletedByAdminId String?       @db.Uuid
   deletedReason   String?
+  completenessScore Int          @default(0)
+  completenessFlags String[]     @default([])
+  completenessUpdatedAt DateTime?
   artist          Artist         @relation(fields: [artistId], references: [id], onDelete: Cascade)
   featuredAsset   Asset?         @relation("ArtworkFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
   images          ArtworkImage[]
@@ -1658,6 +1661,8 @@ model Artwork {
   @@index([artistId, isPublished, updatedAt])
   @@index([featuredAssetId])
   @@index([deletedAt])
+  @@index([completenessScore])
+  @@index([completenessFlags])
 }
 
 model ArtworkOrder {

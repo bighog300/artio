@@ -22,6 +22,7 @@ export default async function AdminArtworkDetailPage({ params }: { params: Promi
       medium: true,
       year: true,
       dimensions: true,
+      provenance: true,
       priceAmount: true,
       currency: true,
       createdAt: true,
@@ -46,6 +47,8 @@ export default async function AdminArtworkDetailPage({ params }: { params: Promi
     medium: artwork.medium,
     year: artwork.year,
     featuredAssetId: artwork.featuredAssetId,
+    dimensions: artwork.dimensions,
+    provenance: artwork.provenance,
   }, artwork.images.length);
 
   const blockers = completeness.required.issues.map((issue) => issue.label);

@@ -120,6 +120,8 @@ export default async function AdminReadyToPublishPage() {
         medium: true,
         year: true,
         description: true,
+        dimensions: true,
+        provenance: true,
         featuredAssetId: true,
         featuredAsset: { select: { url: true, originalUrl: true, processingStatus: true, processingError: true, variants: { select: { variantName: true, url: true } } } },
         artist: { select: { id: true, name: true, slug: true, status: true } },
