@@ -24,7 +24,7 @@ const postSchema = z.object({
   entityType: z.enum(["ARTIST", "ARTWORK", "VENUE", "EVENT"]),
   gapFilter: z.enum(["ALL", "MISSING_BIO", "MISSING_DESCRIPTION", "MISSING_IMAGE"]),
   statusFilter: z.enum(["ALL", "DRAFT", "ONBOARDING", "IN_REVIEW", "PUBLISHED"]),
-  searchProvider: z.enum(["google_pse", "brave"]),
+  searchProvider: z.enum(["google_pse", "brave", "ai_only"]),
   limit: z.union([z.literal(10), z.literal(25), z.literal(50)]),
 });
 
@@ -102,14 +102,17 @@ export async function POST(req: NextRequest) {
 
     const targets = await getEnrichmentTargets(db, payload);
 
+    const searchEnabled = payload.searchProvider !== "ai_only";
+    const provider: "google_pse" | "brave" = payload.searchProvider === "ai_only" ? "google_pse" : payload.searchProvider;
+
     const run = await db.enrichmentRun.create({
       data: {
         templateKey: payload.templateId,
         entityType: payload.entityType,
         gapFilter: payload.gapFilter,
         statusFilter: payload.statusFilter,
-        searchEnabled: true,
-        searchProvider: payload.searchProvider,
+        searchEnabled,
+        searchProvider: provider,
         status: "PENDING",
         requestedById: admin.id,
         totalItems: targets.length,
@@ -133,10 +136,10 @@ export async function POST(req: NextRequest) {
           db,
           templateId: payload.templateId,
           entityId: target.id,
-          searchProvider: payload.searchProvider,
+          searchProvider: provider,
           settings: {
             gapFilter: payload.gapFilter,
-            searchEnabled: true,
+            searchEnabled,
             googlePseApiKey: settings?.googlePseApiKey,
             googlePseCx: settings?.googlePseCx,
             braveSearchApiKey: settings?.braveSearchApiKey,
