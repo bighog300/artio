@@ -41,9 +41,14 @@ function sanitizeArtworkPatch(patch: Record<string, unknown>) {
 }
 
 function sanitizeVenuePatch(patch: Record<string, unknown>) {
-  const next: { description?: string; featuredAssetId?: string } = {};
+  const next: {
+    description?: string;
+    featuredAssetId?: string;
+    completenessUpdatedAt?: null;
+  } = {};
   if (typeof patch.description === "string") next.description = patch.description;
   if (typeof patch.featuredAssetId === "string" && patch.featuredAssetId !== "PENDING_IMAGE") next.featuredAssetId = patch.featuredAssetId;
+  next.completenessUpdatedAt = null;
   return next;
 }
 
