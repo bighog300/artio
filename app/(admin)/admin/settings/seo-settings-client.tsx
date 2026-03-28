@@ -10,12 +10,22 @@ type SeoSettingsProps = {
   };
 };
 
+type GoogleIndexingTestResult = {
+  ok: boolean;
+  durationMs?: number;
+  clientEmail?: string;
+  errorMessage?: string;
+  keyConfigured?: boolean;
+};
+
 export default function SeoSettingsClient(props: SeoSettingsProps) {
   const [googleIndexingEnabled, setGoogleIndexingEnabled] = useState(Boolean(props.initial.googleIndexingEnabled));
   const [googleServiceAccountJson, setGoogleServiceAccountJson] = useState("");
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [indexingTestResult, setIndexingTestResult] = useState<GoogleIndexingTestResult | null>(null);
+  const [indexingTesting, setIndexingTesting] = useState(false);
 
   async function save() {
     setSaving(true);
@@ -40,6 +50,23 @@ export default function SeoSettingsClient(props: SeoSettingsProps) {
       setGoogleServiceAccountJson("");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function testGoogleIndexing() {
+    setIndexingTesting(true);
+    setIndexingTestResult(null);
+    try {
+      const res = await fetch("/api/admin/google-indexing-test");
+      const data = (await res.json()) as GoogleIndexingTestResult;
+      setIndexingTestResult(data);
+    } catch {
+      setIndexingTestResult({
+        ok: false,
+        errorMessage: "Network error",
+      });
+    } finally {
+      setIndexingTesting(false);
     }
   }
 
@@ -80,6 +107,50 @@ export default function SeoSettingsClient(props: SeoSettingsProps) {
           disabled={saving}
           autoComplete="off"
         />
+
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={indexingTesting || !props.initial.googleServiceAccountJsonSet}
+            onClick={() => void testGoogleIndexing()}
+            className="rounded border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+          >
+            {indexingTesting ? "Testing…" : "Test service account"}
+          </button>
+          {!props.initial.googleServiceAccountJsonSet && (
+            <span className="text-xs text-muted-foreground">
+              Save service account JSON first
+            </span>
+          )}
+        </div>
+
+        {indexingTestResult !== null ? (
+          <div
+            className={`mt-2 rounded border p-2 text-xs ${
+              indexingTestResult.ok
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-rose-200 bg-rose-50 text-rose-800"
+            }`}
+          >
+            {indexingTestResult.ok ? (
+              <>
+                <span className="font-medium">✓ Service account valid</span>
+                {indexingTestResult.durationMs !== undefined ? ` · ${indexingTestResult.durationMs}ms` : ""}
+                {indexingTestResult.clientEmail && (
+                  <span className="ml-1 font-mono text-emerald-700">
+                    · {indexingTestResult.clientEmail}
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="font-medium">✗ Failed</span>
+                {" · "}
+                {indexingTestResult.errorMessage}
+              </>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-3 pt-2">
