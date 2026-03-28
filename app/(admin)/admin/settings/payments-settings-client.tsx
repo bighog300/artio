@@ -12,6 +12,15 @@ type PaymentsSettingsProps = {
   };
 };
 
+type StripeTestResult = {
+  ok: boolean;
+  durationMs: number;
+  mode?: "live" | "test";
+  balanceCurrencies?: string[];
+  errorMessage?: string;
+  keyConfigured?: boolean;
+};
+
 export default function PaymentsSettingsClient(props: PaymentsSettingsProps) {
   const [stripePublishableKey, setStripePublishableKey] = useState(props.initial.stripePublishableKey ?? "");
   const [stripeSecretKey, setStripeSecretKey] = useState("");
@@ -20,6 +29,10 @@ export default function PaymentsSettingsClient(props: PaymentsSettingsProps) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [stripeTestResult, setStripeTestResult] =
+    useState<StripeTestResult | null>(null);
+  const [stripeTesting, setStripeTesting] =
+    useState(false);
 
   async function save() {
     setSaving(true);
@@ -52,6 +65,26 @@ export default function PaymentsSettingsClient(props: PaymentsSettingsProps) {
       setStripeWebhookSecret("");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function testStripe() {
+    setStripeTesting(true);
+    setStripeTestResult(null);
+    try {
+      const res = await fetch(
+        "/api/admin/stripe-test");
+      const data =
+        await res.json() as StripeTestResult;
+      setStripeTestResult(data);
+    } catch {
+      setStripeTestResult({
+        ok: false,
+        durationMs: 0,
+        errorMessage: "Network error",
+      });
+    } finally {
+      setStripeTesting(false);
     }
   }
 
@@ -97,6 +130,64 @@ export default function PaymentsSettingsClient(props: PaymentsSettingsProps) {
           disabled={saving}
           autoComplete="off"
         />
+        <div className="flex items-center gap-2 mt-2">
+          <button
+            type="button"
+            disabled={
+              stripeTesting ||
+              !props.initial.stripeSecretKeySet
+            }
+            onClick={() => void testStripe()}
+            className="rounded border px-3 py-1.5 text-xs disabled:opacity-50 hover:bg-muted"
+          >
+            {stripeTesting ? "Testing…" : "Test Stripe"}
+          </button>
+          {!props.initial.stripeSecretKeySet && (
+            <span className="text-xs text-muted-foreground">
+              Save secret key first
+            </span>
+          )}
+        </div>
+
+        {stripeTestResult !== null ? (
+          <div className={`mt-2 rounded border p-2 text-xs
+            ${stripeTestResult.ok
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-rose-200 bg-rose-50 text-rose-800"
+            }`}>
+            {stripeTestResult.ok ? (
+              <span>
+                <span className="font-medium">
+                  ✓ Connected
+                </span>
+                {" · "}{stripeTestResult.durationMs}ms
+                {stripeTestResult.mode === "live" ? (
+                  <span className="ml-2 font-semibold text-amber-700">
+                    ⚠ LIVE MODE
+                  </span>
+                ) : (
+                  <span className="ml-2 text-emerald-700">
+                    · test mode
+                  </span>
+                )}
+                {stripeTestResult.balanceCurrencies
+                  ?.length ? (
+                  <span className="ml-2 text-emerald-700 font-mono">
+                    ·{" "}
+                    {stripeTestResult.balanceCurrencies
+                      .join(", ")}
+                  </span>
+                ) : null}
+              </span>
+            ) : (
+              <span>
+                <span className="font-medium">✗ Failed</span>
+                {" · "}
+                {stripeTestResult.errorMessage}
+              </span>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-1.5">
