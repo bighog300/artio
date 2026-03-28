@@ -44,6 +44,14 @@ type IngestSettingsProps = {
   };
 };
 
+type AiTestResult = {
+  ok: boolean;
+  durationMs: number;
+  model?: string;
+  errorMessage?: string;
+  keyConfigured?: boolean;
+};
+
 export default function IngestSettingsClient(props: IngestSettingsProps) {
   const [openAiApiKey, setOpenAiApiKey] = useState("");
   const [showOpenAiApiKey, setShowOpenAiApiKey] = useState(false);
@@ -156,6 +164,10 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [aiTestResults, setAiTestResults] =
+    useState<Record<string, AiTestResult | null>>({});
+  const [aiTesting, setAiTesting] =
+    useState<Record<string, boolean>>({});
   type SearchTestResult = {
     ok: boolean;
     durationMs: number;
@@ -268,6 +280,36 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
     }
   }
 
+  async function testAiProvider(
+    provider: "openai" | "gemini" | "claude",
+  ) {
+    setAiTesting((prev) =>
+      ({ ...prev, [provider]: true }));
+    setAiTestResults((prev) =>
+      ({ ...prev, [provider]: null }));
+    try {
+      const res = await fetch(
+        `/api/admin/ai-test?provider=${provider}`,
+      );
+      const data =
+        await res.json() as AiTestResult;
+      setAiTestResults((prev) =>
+        ({ ...prev, [provider]: data }));
+    } catch {
+      setAiTestResults((prev) => ({
+        ...prev,
+        [provider]: {
+          ok: false,
+          durationMs: 0,
+          errorMessage: "Network error",
+        },
+      }));
+    } finally {
+      setAiTesting((prev) =>
+        ({ ...prev, [provider]: false }));
+    }
+  }
+
   async function testPse() {
     setPseTestingStatus("loading");
     setPseTestResult(null);
@@ -310,6 +352,58 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
     } finally {
       setBraveTestingStatus("idle");
     }
+  }
+
+  function AiTestResultBadge({
+    provider,
+    keySet,
+  }: {
+    provider: "openai" | "gemini" | "claude";
+    keySet: boolean;
+  }) {
+    const result = aiTestResults[provider] ?? null;
+    const testing = aiTesting[provider] ?? false;
+    const label =
+      provider === "openai" ? "OpenAI"
+      : provider === "gemini" ? "Gemini"
+      : "Anthropic";
+
+    return (
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={testing || !keySet}
+          onClick={() => void testAiProvider(provider)}
+          className="rounded border px-3 py-1 text-xs disabled:opacity-50 hover:bg-muted"
+        >
+          {testing
+            ? "Testing…"
+            : `Test ${label}`}
+        </button>
+        {!keySet && (
+          <span className="text-xs text-muted-foreground">
+            Save key first
+          </span>
+        )}
+        {result !== null ? (
+          <span
+            className={`text-xs font-medium ${
+              result.ok
+                ? "text-emerald-700"
+                : "text-rose-700"
+            }`}
+          >
+            {result.ok
+              ? `✓ Connected · ${result.durationMs}ms` +
+                (result.model
+                  ? ` · ${result.model}`
+                  : "")
+              : `✗ ${result.errorMessage
+                  ?? "Failed"} · ${result.durationMs}ms`}
+          </span>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -447,6 +541,8 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
             value={openAiApiKey}
             onChange={(e) => {
               setOpenAiApiKey(e.target.value);
+              setAiTestResults((prev) =>
+                ({ ...prev, openai: null }));
               setStatus("idle");
             }}
             placeholder={
@@ -467,6 +563,10 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
             </button>
           </div>
         )}
+        <AiTestResultBadge
+          provider="openai"
+          keySet={props.initial.openAiApiKeySet}
+        />
       </div>
 
       <div className="space-y-1.5">
@@ -481,6 +581,8 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
             value={geminiApiKey}
             onChange={(e) => {
               setGeminiApiKey(e.target.value);
+              setAiTestResults((prev) =>
+                ({ ...prev, gemini: null }));
               setStatus("idle");
             }}
             placeholder={
@@ -501,6 +603,10 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
             </button>
           </div>
         )}
+        <AiTestResultBadge
+          provider="gemini"
+          keySet={props.initial.geminiApiKeySet}
+        />
       </div>
 
       <div className="space-y-1.5">
@@ -515,6 +621,8 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
             value={anthropicApiKey}
             onChange={(e) => {
               setAnthropicApiKey(e.target.value);
+              setAiTestResults((prev) =>
+                ({ ...prev, claude: null }));
               setStatus("idle");
             }}
             placeholder={
@@ -537,6 +645,10 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
             </button>
           </div>
         )}
+        <AiTestResultBadge
+          provider="claude"
+          keySet={props.initial.anthropicApiKeySet}
+        />
       </div>
 
       <div className="space-y-1.5">
