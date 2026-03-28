@@ -156,6 +156,24 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  type SearchTestResult = {
+    ok: boolean;
+    durationMs: number;
+    resultsCount?: number;
+    errorMessage?: string;
+    suggestion?: string;
+    keysConfigured?: {
+      googlePseApiKey: boolean;
+      googlePseCx: boolean;
+      braveSearchApiKey: boolean;
+    };
+  };
+
+  const [pseTestResult, setPseTestResult] = useState<SearchTestResult | null>(null);
+  const [pseTestingStatus, setPseTestingStatus] = useState<"idle" | "loading">("idle");
+
+  const [braveTestResult, setBraveTestResult] = useState<SearchTestResult | null>(null);
+  const [braveTestingStatus, setBraveTestingStatus] = useState<"idle" | "loading">("idle");
 
   async function save() {
     setSaving(true);
@@ -247,6 +265,50 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
       setShowGooglePseApiKey(false);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function testPse() {
+    setPseTestingStatus("loading");
+    setPseTestResult(null);
+    try {
+      const res = await fetch(
+        "/api/admin/ingest/search-test" +
+          "?provider=google_pse" +
+          "&query=contemporary+art+gallery&maxResults=3",
+      );
+      const data = (await res.json()) as SearchTestResult;
+      setPseTestResult(data);
+    } catch {
+      setPseTestResult({
+        ok: false,
+        durationMs: 0,
+        errorMessage: "Network error",
+      });
+    } finally {
+      setPseTestingStatus("idle");
+    }
+  }
+
+  async function testBrave() {
+    setBraveTestingStatus("loading");
+    setBraveTestResult(null);
+    try {
+      const res = await fetch(
+        "/api/admin/ingest/search-test" +
+          "?provider=brave" +
+          "&query=contemporary+art+gallery&maxResults=3",
+      );
+      const data = (await res.json()) as SearchTestResult;
+      setBraveTestResult(data);
+    } catch {
+      setBraveTestResult({
+        ok: false,
+        durationMs: 0,
+        errorMessage: "Network error",
+      });
+    } finally {
+      setBraveTestingStatus("idle");
     }
   }
 
@@ -489,6 +551,7 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
             value={googlePseApiKey}
             onChange={(e) => {
               setGooglePseApiKey(e.target.value);
+              setPseTestResult(null);
               setStatus("idle");
             }}
             placeholder={
@@ -523,6 +586,7 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
             value={braveSearchApiKey}
             onChange={(e) => {
               setBraveSearchApiKey(e.target.value);
+              setBraveTestResult(null);
               setStatus("idle");
             }}
             placeholder={
@@ -545,6 +609,57 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
             </button>
           </div>
         )}
+        <div className="flex items-center gap-2 mt-2">
+          <button
+            type="button"
+            disabled={
+              braveTestingStatus === "loading" ||
+              !props.initial.braveSearchApiKeySet
+            }
+            onClick={() => void testBrave()}
+            className="rounded border px-3 py-1.5 text-xs
+              disabled:opacity-50 hover:bg-muted"
+          >
+            {braveTestingStatus === "loading" ? "Testing…" : "Test connection"}
+          </button>
+          {!props.initial.braveSearchApiKeySet && (
+            <span className="text-xs text-muted-foreground">
+              Save API key first
+            </span>
+          )}
+        </div>
+
+        {braveTestResult !== null ? (
+          <div
+            className={`mt-2 rounded border p-2 text-xs
+              ${
+                braveTestResult.ok
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-rose-200 bg-rose-50 text-rose-800"
+              }`}
+          >
+            <span className="font-medium">
+              {braveTestResult.ok ? "✓ Connected" : "✗ Failed"}
+            </span>
+            {" · "}
+            {braveTestResult.durationMs}ms
+            {braveTestResult.ok && braveTestResult.resultsCount !== undefined ? (
+              <span className="ml-1 text-emerald-700">
+                · {braveTestResult.resultsCount} result(s)
+              </span>
+            ) : null}
+            {!braveTestResult.ok && braveTestResult.errorMessage ? (
+              <div className="mt-1 font-mono text-rose-700">
+                {braveTestResult.errorMessage}
+              </div>
+            ) : null}
+            {!braveTestResult.ok && braveTestResult.suggestion ? (
+              <div className="mt-1 text-rose-600">
+                → {braveTestResult.suggestion}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-1.5">
@@ -558,10 +673,62 @@ export default function IngestSettingsClient(props: IngestSettingsProps) {
           value={googlePseCx}
           onChange={(e) => {
             setGooglePseCx(e.target.value);
+            setPseTestResult(null);
             setStatus("idle");
           }}
           placeholder="Search engine cx"
         />
+        <div className="flex items-center gap-2 mt-2">
+          <button
+            type="button"
+            disabled={
+              pseTestingStatus === "loading" ||
+              !props.initial.googlePseApiKeySet
+            }
+            onClick={() => void testPse()}
+            className="rounded border px-3 py-1.5 text-xs
+              disabled:opacity-50 hover:bg-muted"
+          >
+            {pseTestingStatus === "loading" ? "Testing…" : "Test connection"}
+          </button>
+          {!props.initial.googlePseApiKeySet && (
+            <span className="text-xs text-muted-foreground">
+              Save API key first
+            </span>
+          )}
+        </div>
+
+        {pseTestResult !== null ? (
+          <div
+            className={`mt-2 rounded border p-2 text-xs
+              ${
+                pseTestResult.ok
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-rose-200 bg-rose-50 text-rose-800"
+              }`}
+          >
+            <span className="font-medium">
+              {pseTestResult.ok ? "✓ Connected" : "✗ Failed"}
+            </span>
+            {" · "}
+            {pseTestResult.durationMs}ms
+            {pseTestResult.ok && pseTestResult.resultsCount !== undefined ? (
+              <span className="ml-1 text-emerald-700">
+                · {pseTestResult.resultsCount} result(s)
+              </span>
+            ) : null}
+            {!pseTestResult.ok && pseTestResult.errorMessage ? (
+              <div className="mt-1 font-mono text-rose-700">
+                {pseTestResult.errorMessage}
+              </div>
+            ) : null}
+            {!pseTestResult.ok && pseTestResult.suggestion ? (
+              <div className="mt-1 text-rose-600">
+                → {pseTestResult.suggestion}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-2">
