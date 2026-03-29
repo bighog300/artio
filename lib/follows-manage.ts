@@ -1,4 +1,5 @@
 import type { FollowTargetType, PrismaClient } from "@prisma/client";
+import { publishedEventWhere } from "@/lib/publish-status";
 
 export type FollowManageItem = {
   id: string;
@@ -26,8 +27,8 @@ export async function getFollowManageData(db: PrismaClient, userId: string) {
   in30d.setDate(in30d.getDate() + 30);
 
   const [artists, venues, artistFollowerCounts, venueFollowerCounts, venueUpcomingCounts, artistUpcomingCounts] = await Promise.all([
-    artistIds.length ? db.artist.findMany({ where: { id: { in: artistIds } }, select: { id: true, name: true, slug: true } }) : Promise.resolve([]),
-    venueIds.length ? db.venue.findMany({ where: { id: { in: venueIds } }, select: { id: true, name: true, slug: true } }) : Promise.resolve([]),
+    artistIds.length ? db.artist.findMany({ where: { id: { in: artistIds }, deletedAt: null }, select: { id: true, name: true, slug: true } }) : Promise.resolve([]),
+    venueIds.length ? db.venue.findMany({ where: { id: { in: venueIds }, deletedAt: null }, select: { id: true, name: true, slug: true } }) : Promise.resolve([]),
     artistIds.length
       ? db.follow.groupBy({ by: ["targetId"], where: { targetType: "ARTIST", targetId: { in: artistIds } }, _count: { _all: true } })
       : Promise.resolve([]),
@@ -37,7 +38,7 @@ export async function getFollowManageData(db: PrismaClient, userId: string) {
     venueIds.length
       ? db.event.groupBy({
         by: ["venueId"],
-        where: { venueId: { in: venueIds }, isPublished: true, startAt: { gte: now, lte: in30d } },
+        where: { venueId: { in: venueIds }, ...publishedEventWhere(), startAt: { gte: now, lte: in30d } },
         _count: { _all: true },
       })
       : Promise.resolve([]),
@@ -46,7 +47,7 @@ export async function getFollowManageData(db: PrismaClient, userId: string) {
         by: ["artistId"],
         where: {
           artistId: { in: artistIds },
-          event: { isPublished: true, startAt: { gte: now, lte: in30d } },
+          event: { ...publishedEventWhere(), startAt: { gte: now, lte: in30d } },
         },
         _count: { _all: true },
       })

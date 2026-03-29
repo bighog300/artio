@@ -18,6 +18,7 @@ import { StartPacks } from "@/components/onboarding/start-packs";
 import { PostActivationTips } from "@/components/onboarding/post-activation-tips";
 import { SetupChecklistCard } from "@/components/onboarding/setup-checklist-card";
 import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
+import { publishedEventWhere } from "@/lib/publish-status";
 
 type SearchParams = Promise<{ days?: string; type?: string }>;
 
@@ -47,7 +48,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
         findFollows: async (userId) => db.follow.findMany({ where: { userId }, select: { targetType: true, targetId: true } }),
         findEvents: async ({ artistIds, venueIds, from, to, limit }) => db.event.findMany({
           where: {
-            isPublished: true,
+            ...publishedEventWhere(),
             startAt: { gte: from, lte: to },
             AND: [{
               OR: [

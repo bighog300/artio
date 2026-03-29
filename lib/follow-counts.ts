@@ -12,6 +12,13 @@ export async function getFollowersCount(targetType: "ARTIST" | "VENUE", targetId
   return unstable_cache(
     async () => db.follow.count({ where: { targetType, targetId } }),
     ["follow-count", targetType, targetId],
-    { revalidate: 30 },
+    {
+      revalidate: 30,
+      tags: [followCountCacheTag(targetType, targetId)],
+    },
   )();
+}
+
+export function followCountCacheTag(targetType: "ARTIST" | "VENUE", targetId: string): string {
+  return `follow-count-${targetType}-${targetId}`;
 }

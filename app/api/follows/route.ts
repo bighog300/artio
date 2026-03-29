@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { guardUser } from "@/lib/auth-guard";
@@ -6,6 +7,8 @@ import { deleteFollowWithDeps, splitFollowIds, upsertFollowWithDeps } from "@/li
 import { followBodySchema, parseBody, zodDetails } from "@/lib/validators";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { setOnboardingFlagForSession } from "@/lib/onboarding";
+import { followCountCacheTag } from "@/lib/follow-counts";
+import { publishedVenueWhere } from "@/lib/publish-status";
 
 export const runtime = "nodejs";
 
@@ -44,7 +47,7 @@ export async function POST(req: NextRequest) {
             const artist = await db.artist.findFirst({ where: { id: targetId, isPublished: true }, select: { id: true } });
             return Boolean(artist);
           }
-          const venue = await db.venue.findFirst({ where: { id: targetId, isPublished: true }, select: { id: true } });
+          const venue = await db.venue.findFirst({ where: { id: targetId, ...publishedVenueWhere() }, select: { id: true } });
           return Boolean(venue);
         },
         upsert: async ({ userId, targetType, targetId }) => {
@@ -59,6 +62,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (!result.ok) return apiError(404, "not_found", "Follow target not found");
+    revalidateTag(followCountCacheTag(parsed.data.targetType, parsed.data.targetId));
     await setOnboardingFlagForSession(user, "hasFollowedSomething", true, { path: "/api/follows" });
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -89,6 +93,7 @@ export async function DELETE(req: NextRequest) {
       { userId: user.id, targetType: parsed.data.targetType, targetId: parsed.data.targetId },
     );
 
+    revalidateTag(followCountCacheTag(parsed.data.targetType, parsed.data.targetId));
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (isRateLimitError(error)) return rateLimitErrorResponse(error);
