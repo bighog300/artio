@@ -9,6 +9,7 @@ import IngestSettingsClient from "./ingest-settings-client";
 import PaymentsSettingsClient from "./payments-settings-client";
 import SeoSettingsClient from "./seo-settings-client";
 import CronSettingsClient from "./cron-settings-client";
+import { ConnectivityPanel } from "./connectivity-panel";
 
 const TABS = ["general", "email", "ingest-ai", "payments", "notifications", "seo", "ops", "cron"] as const;
 type TabKey = (typeof TABS)[number];
@@ -36,22 +37,36 @@ export default function SettingsShell({ initial }: { initial: Record<string, unk
   }), [initial]);
 
   return (
-    <Tabs value={active} onValueChange={setTab} className="grid grid-cols-[200px_1fr] gap-6">
-      <TabsList className="h-auto flex-col items-stretch justify-start bg-transparent p-0">
-        <TabsTrigger className="justify-start" value="general">General</TabsTrigger>
-        <TabsTrigger className="justify-start" value="email">Email</TabsTrigger>
-        <TabsTrigger className="justify-start" value="ingest-ai">Ingest &amp; AI</TabsTrigger>
-        <TabsTrigger className="justify-start" value="payments">Payments</TabsTrigger>
-        <TabsTrigger className="justify-start" value="notifications">Notifications</TabsTrigger>
-        <TabsTrigger className="justify-start" value="seo">SEO</TabsTrigger>
-        <TabsTrigger className="justify-start" value="ops">Ops</TabsTrigger>
-        <TabsTrigger className="justify-start" value="cron">Scheduled Jobs</TabsTrigger>
-      </TabsList>
+    <div className="space-y-4">
+      <ConnectivityPanel
+        initial={{
+          googlePseConfigured: Boolean(initial.googlePseApiKeySet) && Boolean(initial.googlePseCx),
+          braveConfigured: Boolean(initial.braveSearchApiKeySet),
+          openAiConfigured: Boolean(initial.openAiApiKeySet),
+          geminiConfigured: Boolean(initial.geminiApiKeySet),
+          anthropicConfigured: Boolean(initial.anthropicApiKeySet),
+          resendConfigured: Boolean(initial.resendApiKeySet),
+          stripeConfigured: Boolean(initial.stripeSecretKeySet),
+          googleIndexingConfigured: Boolean(initial.googleServiceAccountJsonSet),
+        }}
+      />
 
-      <div>
-        <TabsContent value="general"><GeneralSettings initial={initial} /></TabsContent>
-        <TabsContent value="email"><EmailSettingsClient initial={emailInitial} /></TabsContent>
-        <TabsContent value="ingest-ai"><IngestSettingsClient initial={{
+      <Tabs value={active} onValueChange={setTab} className="grid grid-cols-[200px_1fr] gap-6">
+        <TabsList className="h-auto flex-col items-stretch justify-start bg-transparent p-0">
+          <TabsTrigger className="justify-start" value="general">General</TabsTrigger>
+          <TabsTrigger className="justify-start" value="email">Email</TabsTrigger>
+          <TabsTrigger className="justify-start" value="ingest-ai">Ingest &amp; AI</TabsTrigger>
+          <TabsTrigger className="justify-start" value="payments">Payments</TabsTrigger>
+          <TabsTrigger className="justify-start" value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger className="justify-start" value="seo">SEO</TabsTrigger>
+          <TabsTrigger className="justify-start" value="ops">Ops</TabsTrigger>
+          <TabsTrigger className="justify-start" value="cron">Scheduled Jobs</TabsTrigger>
+        </TabsList>
+
+        <div>
+          <TabsContent value="general"><GeneralSettings initial={initial} /></TabsContent>
+          <TabsContent value="email"><EmailSettingsClient initial={emailInitial} /></TabsContent>
+          <TabsContent value="ingest-ai"><IngestSettingsClient initial={{
           ingestSystemPrompt: (initial.ingestSystemPrompt as string | null) ?? null,
           artworkExtractionSystemPrompt: (initial.artworkExtractionSystemPrompt as string | null) ?? null,
           artistBioSystemPrompt: (initial.artistBioSystemPrompt as string | null) ?? null,
@@ -87,18 +102,19 @@ export default function SettingsShell({ initial }: { initial: Record<string, unk
           autoTagProvider: (initial.autoTagProvider as string | null) ?? null,
           autoTagModel: (initial.autoTagModel as string | null) ?? null,
         }} /></TabsContent>
-        <TabsContent value="payments"><PaymentsSettingsClient initial={{
+          <TabsContent value="payments"><PaymentsSettingsClient initial={{
           stripePublishableKey: (initial.stripePublishableKey as string | null) ?? null,
           stripeSecretKeySet: Boolean(initial.stripeSecretKeySet),
           stripeWebhookSecretSet: Boolean(initial.stripeWebhookSecretSet),
           platformFeePercent: Number(initial.platformFeePercent ?? 5),
         }} /></TabsContent>
-        <TabsContent value="notifications"><NotificationSettings initial={initial} /></TabsContent>
-        <TabsContent value="seo"><SeoSettingsClient initial={{ googleIndexingEnabled: Boolean(initial.googleIndexingEnabled), googleServiceAccountJsonSet: Boolean(initial.googleServiceAccountJsonSet) }} /></TabsContent>
-        <TabsContent value="ops"><OpsSettings initial={initial} /></TabsContent>
-        <TabsContent value="cron"><CronSettingsClient /></TabsContent>
-      </div>
-    </Tabs>
+          <TabsContent value="notifications"><NotificationSettings initial={initial} /></TabsContent>
+          <TabsContent value="seo"><SeoSettingsClient initial={{ googleIndexingEnabled: Boolean(initial.googleIndexingEnabled), googleServiceAccountJsonSet: Boolean(initial.googleServiceAccountJsonSet) }} /></TabsContent>
+          <TabsContent value="ops"><OpsSettings initial={initial} /></TabsContent>
+          <TabsContent value="cron"><CronSettingsClient /></TabsContent>
+        </div>
+      </Tabs>
+    </div>
   );
 }
 
