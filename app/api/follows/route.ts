@@ -66,11 +66,12 @@ export async function POST(req: NextRequest) {
     revalidateTag(followCountCacheTag(parsed.data.targetType, parsed.data.targetId));
     try {
       await setOnboardingFlagForSession(user, "hasFollowedSomething", true, { path: "/api/follows" });
-    } catch {
+    } catch (onboardingError) {
       logError({
-        message: "onboarding_flag_failed",
+        message: "onboarding_flag_failed_follows",
         userId: user.id,
         flag: "hasFollowedSomething",
+        errorDetail: onboardingError instanceof Error ? onboardingError.message : String(onboardingError),
       });
     }
     return NextResponse.json({ ok: true });
