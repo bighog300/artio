@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
       key: principalRateLimitKey(req, "follows:write", user.id),
       limit: RATE_LIMITS.followsWrite.limit,
       windowMs: RATE_LIMITS.followsWrite.windowMs,
+      fallbackToMemory: true,
     });
 
     const result = await upsertFollowWithDeps(
@@ -92,6 +93,7 @@ export async function DELETE(req: NextRequest) {
       key: principalRateLimitKey(req, "follows:write", user.id),
       limit: RATE_LIMITS.followsWrite.limit,
       windowMs: RATE_LIMITS.followsWrite.windowMs,
+      fallbackToMemory: true,
     });
 
     await deleteFollowWithDeps(

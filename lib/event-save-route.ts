@@ -47,6 +47,7 @@ export async function handleSaveEvent(req: NextRequest, params: Promise<{ id: st
       key: principalRateLimitKey(req, "favorites:write", user.id),
       limit: RATE_LIMITS.favoritesWrite.limit,
       windowMs: RATE_LIMITS.favoritesWrite.windowMs,
+      fallbackToMemory: true,
     });
     await deps.saveEvent({ userId: user.id, eventId: parsed.eventId });
     return NextResponse.json({ ok: true, saved: true });
@@ -75,6 +76,7 @@ export async function handleUnsaveEvent(req: NextRequest, params: Promise<{ id: 
       key: principalRateLimitKey(req, "favorites:write", user.id),
       limit: RATE_LIMITS.favoritesWrite.limit,
       windowMs: RATE_LIMITS.favoritesWrite.windowMs,
+      fallbackToMemory: true,
     });
     await deps.unsaveEvent({ userId: user.id, eventId: parsed.eventId });
     return NextResponse.json({ ok: true, saved: false });
