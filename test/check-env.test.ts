@@ -39,6 +39,7 @@ test("check-env accepts either mapbox token variable", () => {
     AUTH_SECRET: "a",
     DATABASE_URL: "postgres://db",
     CRON_SECRET: "cron",
+    AI_INGEST_IMAGE_ENABLED: "1",
     NEXT_PUBLIC_MAPBOX_TOKEN: "token",
   });
   assert.equal(withCanonical.status, 0);
@@ -48,6 +49,7 @@ test("check-env accepts either mapbox token variable", () => {
     AUTH_SECRET: "a",
     DATABASE_URL: "postgres://db",
     CRON_SECRET: "cron",
+    AI_INGEST_IMAGE_ENABLED: "1",
     NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: "token",
   });
   assert.equal(withAccessToken.status, 0);
