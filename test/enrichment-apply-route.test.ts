@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { POST } from "@/app/api/admin/enrichment/runs/[id]/apply/route";
-import { enrichmentApplyRouteDeps } from "@/app/api/admin/enrichment/runs/[id]/apply/route";
+import { enrichmentApplyRouteDeps } from "@/app/api/admin/enrichment/runs/[id]/apply/deps";
 
 type RunItem = {
   id: string;
