@@ -1,21 +1,9 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
-import { requireAdmin } from "@/lib/admin";
-import { db } from "@/lib/db";
-import { importApprovedArtistImage } from "@/lib/ingest/import-approved-artist-image";
-import { importApprovedArtworkImage } from "@/lib/ingest/import-approved-artwork-image";
-import { importApprovedEventImage } from "@/lib/ingest/import-approved-event-image";
+import { enrichmentApplyRouteDeps } from "./deps";
 
 export const runtime = "nodejs";
-
-export const enrichmentApplyRouteDeps = {
-  requireAdmin,
-  db,
-  importApprovedArtistImage,
-  importApprovedArtworkImage,
-  importApprovedEventImage,
-};
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
