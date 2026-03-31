@@ -5,6 +5,8 @@ import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
 
+export const dynamic = "force-dynamic";
+
 export default async function MyCollectionPage() {
   const user = await getSessionUser();
   if (!user) redirectToLogin("/my/collection");
