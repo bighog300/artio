@@ -9,6 +9,14 @@ import { importApprovedEventImage } from "@/lib/ingest/import-approved-event-ima
 
 export const runtime = "nodejs";
 
+export const enrichmentApplyRouteDeps = {
+  requireAdmin,
+  db,
+  importApprovedArtistImage,
+  importApprovedArtworkImage,
+  importApprovedEventImage,
+};
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -61,10 +69,10 @@ function sanitizeEventPatch(patch: Record<string, unknown>) {
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   noStore();
   try {
-    await requireAdmin();
+    await enrichmentApplyRouteDeps.requireAdmin();
     const { id } = await params;
 
-    const run = await db.enrichmentRun.findUnique({
+    const run = await enrichmentApplyRouteDeps.db.enrichmentRun.findUnique({
       where: { id },
       include: {
         items: {
@@ -101,8 +109,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           if (fieldsAfter.featuredAssetId === "PENDING_IMAGE") {
             const artist = item.artist;
             if (!artist) throw new Error("artist_not_found");
-            const imageResult = await importApprovedArtistImage({
-              appDb: db,
+            const imageResult = await enrichmentApplyRouteDeps.importApprovedArtistImage({
+              appDb: enrichmentApplyRouteDeps.db,
               artistId: item.artistId,
               name: artist.name,
               websiteUrl: artist.websiteUrl,
@@ -114,7 +122,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           } else {
             const patch = sanitizeArtistPatch(fieldsAfter);
             if (Object.keys(patch).length > 0) {
-              await db.artist.update({ where: { id: item.artistId }, data: patch });
+              await enrichmentApplyRouteDeps.db.artist.update({ where: { id: item.artistId }, data: patch });
             }
           }
         }
@@ -123,8 +131,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           if (fieldsAfter.featuredAssetId === "PENDING_IMAGE") {
             const artwork = item.artwork;
             if (!artwork) throw new Error("artwork_not_found");
-            const imageResult = await importApprovedArtworkImage({
-              appDb: db,
+            const imageResult = await enrichmentApplyRouteDeps.importApprovedArtworkImage({
+              appDb: enrichmentApplyRouteDeps.db,
               artworkId: item.artworkId,
               candidateId: artwork.ingestCandidate?.id ?? artwork.id,
               runId: artwork.ingestCandidate?.id ?? artwork.id,
@@ -137,7 +145,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           } else {
             const patch = sanitizeArtworkPatch(fieldsAfter);
             if (Object.keys(patch).length > 0) {
-              await db.artwork.update({ where: { id: item.artworkId }, data: patch });
+              await enrichmentApplyRouteDeps.db.artwork.update({ where: { id: item.artworkId }, data: patch });
             }
           }
         }
@@ -145,7 +153,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         if (item.entityType === "VENUE" && item.venueId) {
           const patch = sanitizeVenuePatch(fieldsAfter);
           if (Object.keys(patch).length > 0) {
-            await db.venue.update({ where: { id: item.venueId }, data: patch });
+            await enrichmentApplyRouteDeps.db.venue.update({ where: { id: item.venueId }, data: patch });
           }
         }
 
@@ -153,8 +161,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           if (fieldsAfter.featuredAssetId === "PENDING_IMAGE") {
             const event = item.event;
             if (!event) throw new Error("event_not_found");
-            const imageResult = await importApprovedEventImage({
-              appDb: db,
+            const imageResult = await enrichmentApplyRouteDeps.importApprovedEventImage({
+              appDb: enrichmentApplyRouteDeps.db,
               candidateId: event.ingestExtractedCandidate?.id ?? event.id,
               runId: event.ingestExtractedCandidate?.runId ?? event.id,
               eventId: event.id,
@@ -169,19 +177,19 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           } else {
             const patch = sanitizeEventPatch(fieldsAfter);
             if (Object.keys(patch).length > 0) {
-              await db.event.update({ where: { id: item.eventId }, data: patch });
+              await enrichmentApplyRouteDeps.db.event.update({ where: { id: item.eventId }, data: patch });
             }
           }
         }
 
-        await db.enrichmentRunItem.update({
+        await enrichmentApplyRouteDeps.db.enrichmentRunItem.update({
           where: { id: item.id },
           data: { status: "SUCCESS", errorMessage: null },
         });
         successItems += 1;
       } catch (error) {
         failedItems += 1;
-        await db.enrichmentRunItem.update({
+        await enrichmentApplyRouteDeps.db.enrichmentRunItem.update({
           where: { id: item.id },
           data: {
             status: "FAILED",
@@ -191,7 +199,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       }
     }
 
-    const completed = await db.enrichmentRun.update({
+    const completed = await enrichmentApplyRouteDeps.db.enrichmentRun.update({
       where: { id: run.id },
       data: {
         status: "COMPLETED",
