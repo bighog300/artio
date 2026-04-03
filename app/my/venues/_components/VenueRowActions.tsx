@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +29,7 @@ export function VenueRowActions({
 }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
 
   async function handleArchive() {
     const action = isArchived ? "restore" : "archive";
@@ -89,12 +91,37 @@ export function VenueRowActions({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="text-destructive focus:text-destructive"
-            onSelect={() => void handleArchive()}
+            onSelect={isArchived ? () => void handleArchive() : () => setConfirmArchiveOpen(true)}
           >
             {isArchived ? "Restore" : "Archive"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <Dialog open={confirmArchiveOpen} onOpenChange={setConfirmArchiveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive venue?</DialogTitle>
+            <DialogDescription>
+              This venue will be hidden from your dashboard. You can restore it at any time from the Archived filter.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmArchiveOpen(false)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={() => {
+                setConfirmArchiveOpen(false);
+                void handleArchive();
+              }}
+            >
+              Archive
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

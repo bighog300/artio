@@ -185,6 +185,20 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
           return <tr className="border-b" key={event.id}><td className="p-2"><p className="font-medium">{event.title}</p><p className="text-xs text-muted-foreground">{event.venue?.name ?? "No venue"} · {formatDate(event.startAt)}</p></td><td className="p-2"><Badge variant={publisherStatusVariant(statusLabel)}>{statusLabel}</Badge></td><td className="p-2 text-right"><EventRowActions eventId={event.id} slug={event.slug} isPublished={event.isPublished} isArchived={!!event.deletedAt} submissionStatus={event.submissions[0]?.status ?? null} /></td></tr>;
         })}
       </tbody></table>
+      {rows.length === 0 && (
+        <div className="rounded border border-dashed p-8 text-center">
+          {query || status || dateFrom || dateTo ? (
+            <p className="text-sm text-muted-foreground">No events match your filters.</p>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">No events yet.</p>
+              <Button asChild size="sm" className="mt-3">
+                <Link href="/my/events/new">Create your first event</Link>
+              </Button>
+            </>
+          )}
+        </div>
+      )}
     </main>
   );
 }

@@ -24,7 +24,7 @@ async function getAlertSettings() {
   const settings = await db.siteSettings.findUnique({
     where: { id: "default" },
     select: { alertWebhookUrl: true, alertWebhookSecret: true },
-  });
+  }).catch(() => null);
 
   return {
     webhookUrl: settings?.alertWebhookUrl ?? process.env.ALERT_WEBHOOK_URL,
