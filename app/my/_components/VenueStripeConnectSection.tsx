@@ -11,13 +11,6 @@ type StripeStatus = {
   payoutsEnabled: boolean;
 };
 
-const STATUS_LABELS: Record<NonNullable<StripeStatus["status"]>, string> = {
-  PENDING: "Pending",
-  ACTIVE: "Active",
-  RESTRICTED: "Restricted",
-  DEAUTHORIZED: "Deauthorized",
-};
-
 export default function VenueStripeConnectSection({ venueId }: { venueId: string }) {
   const [status, setStatus] = useState<StripeStatus | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,15 +43,39 @@ export default function VenueStripeConnectSection({ venueId }: { venueId: string
   return (
     <section className="space-y-3 rounded border p-4">
       <h2 className="text-lg font-semibold">Stripe Connect</h2>
-      <p className="text-sm text-muted-foreground">Connect your venue to Stripe to receive payouts for paid registrations.</p>
-      <div className="rounded border bg-muted/30 p-3 text-sm">
-        <p>Status: <span className="font-medium">{status?.status ? STATUS_LABELS[status.status] : "Not connected"}</span></p>
-        <p>Charges enabled: <span className="font-medium">{status?.chargesEnabled ? "Yes" : "No"}</span></p>
-        <p>Payouts enabled: <span className="font-medium">{status?.payoutsEnabled ? "Yes" : "No"}</span></p>
-      </div>
-      <Button type="button" onClick={() => void startConnect()} disabled={loading}>
-        {loading ? "Starting…" : "Connect Stripe Account"}
-      </Button>
+      <p className="text-sm text-muted-foreground">
+        Connect your venue to Stripe to accept payments for paid ticket registrations.
+      </p>
+
+      {!status ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : status.status === "ACTIVE" && status.chargesEnabled ? (
+        <p className="text-sm text-emerald-700 font-medium">
+          ✓ Stripe connected — your venue can accept paid registrations.
+        </p>
+      ) : status.status === "PENDING" || status.status === "RESTRICTED" ? (
+        <div className="space-y-2">
+          <p className="text-sm">
+            Your Stripe account is being set up. Complete onboarding to start accepting payments.
+          </p>
+          <Button type="button" onClick={() => void startConnect()} disabled={loading}>
+            {loading ? "Starting…" : "Continue onboarding"}
+          </Button>
+        </div>
+      ) : status.status === "DEAUTHORIZED" ? (
+        <div className="space-y-2">
+          <p className="text-sm">
+            Your Stripe account was disconnected. Reconnect to accept payments again.
+          </p>
+          <Button type="button" onClick={() => void startConnect()} disabled={loading}>
+            {loading ? "Starting…" : "Reconnect Stripe"}
+          </Button>
+        </div>
+      ) : (
+        <Button type="button" onClick={() => void startConnect()} disabled={loading}>
+          {loading ? "Starting…" : "Connect Stripe Account"}
+        </Button>
+      )}
     </section>
   );
 }

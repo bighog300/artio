@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { enqueueToast } from "@/lib/toast";
 import { FeaturedEventImagePanel } from "@/app/my/events/_components/FeaturedEventImagePanel";
+import { PromoCodesSection } from "@/app/my/events/[eventId]/_components/PromoCodesSection";
 import { EVENT_TYPE_OPTIONS, type EventTypeOption, getEventTypeLabel } from "@/lib/event-types";
 
 function toLocalDatetimeInput(isoUtc: string, tz: string): string {
@@ -339,6 +340,13 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
           </div>
         )}
       </section>
+
+      {(ticketingMode === "RSVP" || ticketingMode === "PAID") ? (
+        <section className="space-y-3 rounded border p-4">
+          <h3 className="text-sm font-semibold">Promo codes</h3>
+          <PromoCodesSection eventId={event.id} />
+        </section>
+      ) : null}
 
       <section className="space-y-3 rounded border p-4">
         <FeaturedEventImagePanel eventId={event.id} featuredImageUrl={event.featuredAsset?.url ?? null} />

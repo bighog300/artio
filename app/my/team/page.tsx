@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
+import VenueMembersManager from "@/app/my/_components/VenueMembersManager";
 import { MyTeamResponseSchema } from "@/lib/my/dashboard-schema";
 import { getServerBaseUrl } from "@/lib/server/get-base-url";
 
@@ -19,22 +19,32 @@ export default async function MyTeamPage({ searchParams }: { searchParams: Promi
   const data = await getTeamData(venueId);
 
   return (
-    <main className="space-y-4">
+    <main className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Team</h2>
-          <p className="text-sm text-muted-foreground">{data?.venue ? data.venue.name : "Select a venue to manage members"}</p>
+          <h1 className="text-2xl font-semibold">Team</h1>
+          <p className="text-sm text-muted-foreground">
+            {data?.venue ? data.venue.name : "Select a venue using the venue filter above to manage its team."}
+          </p>
         </div>
-        {data?.venue ? <Link className="underline" href={`/my/venues/${data.venue.id}`}>Invite member</Link> : null}
       </div>
-      <section className="rounded border p-3">
-        <h3 className="font-medium">Members</h3>
-        <table className="mt-2 w-full text-sm"><thead><tr className="border-b"><th className="p-2 text-left">Name</th><th className="p-2">Role</th></tr></thead><tbody>{data?.members.map((member) => <tr className="border-b" key={member.id}><td className="p-2">{member.user.name ?? member.user.email}</td><td className="p-2">{member.role}</td></tr>)}</tbody></table>
-      </section>
-      <section className="rounded border p-3">
-        <h3 className="font-medium">Invites</h3>
-        <ul className="mt-2 space-y-1 text-sm">{data?.invites.map((invite) => <li key={invite.id}>{invite.email} — {invite.role} ({invite.status})</li>)}</ul>
-      </section>
+
+      {!data?.venue ? (
+        <div className="rounded border border-dashed p-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            No venue selected. Use the venue filter in the header to choose a venue.
+          </p>
+        </div>
+      ) : (
+        <VenueMembersManager
+          venueId={data.venue.id}
+          members={data.members.map((m) => ({
+            id: m.id,
+            role: m.role as "OWNER" | "EDITOR",
+            user: m.user,
+          }))}
+        />
+      )}
     </main>
   );
 }
