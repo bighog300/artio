@@ -59,7 +59,7 @@ export function RegistrationsAnalyticsSection() {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">RSVPs</h2>
+      <h2 className="text-lg font-semibold">Registrations</h2>
       <div className="rounded border p-3">
         <p className="mb-2 text-xs text-muted-foreground">Confirmed RSVPs (last 30 days)</p>
         <div className="flex h-44 items-end gap-1">
@@ -85,7 +85,7 @@ export function RegistrationsAnalyticsSection() {
 
       {showFinance ? (
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold">Finance summary</h3>
+          <h3 className="text-sm font-semibold">Finance summary (paid tickets only)</h3>
           <div className="overflow-x-auto rounded border">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-muted/30 text-xs text-muted-foreground">
