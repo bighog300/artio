@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createHash } from "node:crypto";
 import type { IngestStatus, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { apiError } from "@/lib/api";
@@ -36,6 +37,17 @@ const defaultDeps: AdminIngestDeps = {
 };
 
 const MAX_WARNING_DETAIL = 1_000;
+
+function fingerprintArtist(name: string, sourceUrl: string): string {
+  const key = `${name.trim().toLowerCase()}::${sourceUrl.trim().toLowerCase()}`;
+  return createHash("sha256").update(key).digest("hex").slice(0, 32);
+}
+
+function toConfidenceBand(score: number): "HIGH" | "MEDIUM" | "LOW" {
+  if (score >= 0.75) return "HIGH";
+  if (score >= 0.45) return "MEDIUM";
+  return "LOW";
+}
 
 function appendWarningDetail(existing: string | null | undefined, warning: string): string {
   const combined = existing && existing.trim().length > 0 ? `${existing}\n${warning}` : warning;
@@ -378,6 +390,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
           imageUrl: true,
           createdEventId: true,
           artistNames: true,
+          confidenceScore: true,
           run: { select: { id: true, venueId: true, sourceUrl: true, errorDetail: true } },
           venue: { select: { id: true, timezone: true, lat: true, lng: true, websiteUrl: true } },
         },
@@ -393,6 +406,8 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         return {
           candidate: updated,
           createdEventId: updated.createdEventId as string,
+          artistNames: candidate.artistNames,
+          artistNamesConfidenceScore: candidate.confidenceScore,
           unmatchedNames: [] as string[],
           artistSettings: null as {
             googlePseApiKey: string | undefined;
@@ -658,6 +673,8 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
       return {
         candidate: updated,
         createdEventId: createdEvent.id,
+        artistNames: candidate.artistNames,
+        artistNamesConfidenceScore: candidate.confidenceScore,
         eventTitle: createdEvent.title,
         eventDescription: createdEvent.description ?? null,
         autoTagSettings,
@@ -681,6 +698,45 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
     });
 
     if ("error" in approved) return approved.error;
+
+    const artistNames = Array.isArray(approved.artistNames)
+      ? approved.artistNames
+        .map((name) => (typeof name === "string" ? name.trim() : ""))
+        .filter((name): name is string => Boolean(name) && name.length > 0)
+      : [];
+
+    if (artistNames.length > 0) {
+      const sourceUrl = approved.sourceUrl ?? "";
+      const artistNamesConfidence = Math.max(0, Math.min(1, (approved.artistNamesConfidenceScore ?? 60) / 100));
+      const confidenceScore = Math.round(artistNamesConfidence * 100);
+      const confidenceBand = toConfidenceBand(artistNamesConfidence);
+
+      await Promise.allSettled(
+        artistNames.map(async (name) => {
+          const fingerprint = fingerprintArtist(name, sourceUrl);
+          try {
+            await resolved.appDb.ingestExtractedArtist.upsert({
+              where: { fingerprint },
+              create: {
+                name,
+                normalizedName: name.trim().toLowerCase(),
+                sourceUrl,
+                searchQuery: name.trim(),
+                confidenceScore,
+                confidenceBand,
+                confidenceReasons: { fromField: "artistNames", extractedAt: new Date().toISOString() },
+                fingerprint,
+                extractionProvider: "workbench_approve",
+                status: "PENDING",
+              },
+              update: confidenceScore > 0 ? { confidenceScore, confidenceBand } : {},
+            });
+          } catch {
+            // Best-effort; never block approve response.
+          }
+        }),
+      );
+    }
 
     const sparseArtistNames = approved.sparseArtistNames ?? [];
 
@@ -806,6 +862,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
       candidateId: approved.candidate.id,
       createdEventId: approved.createdEventId,
       linkedArtistCount: approved.linkedArtistCount ?? 0,
+      artistsIngested: artistNames.length,
       published: approved.published,
       imageWarning,
     }, { headers: { "Cache-Control": "no-store" } });
