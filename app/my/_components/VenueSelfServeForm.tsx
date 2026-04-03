@@ -123,9 +123,13 @@ export default function VenueSelfServeForm({
           </label>
           <label className="block">
             <span className="text-sm">Description</span>
-            <textarea className="border rounded p-2 w-full" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
+            <textarea className="border rounded p-2 w-full" maxLength={4000} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
           </label>
-          <p className="text-xs text-muted-foreground">Minimum 20 characters ({descriptionLength}/20)</p>
+          {descriptionLength < 20 ? (
+            <p className="text-xs text-muted-foreground">Minimum 20 characters ({descriptionLength}/20)</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">{descriptionLength}/4000 characters</p>
+          )}
           <label className="block">
             <span className="text-sm">Website</span>
             <input className="border rounded p-2 w-full" value={form.websiteUrl} onChange={(e) => setForm((p) => ({ ...p, websiteUrl: e.target.value }))} />

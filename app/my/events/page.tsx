@@ -44,6 +44,12 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
   const venueId = rawVenueId && UUID_RE.test(rawVenueId.trim()) ? rawVenueId.trim() : undefined;
   const showArchived = params.showArchived === "1" || status?.toLowerCase() === "archived";
   const sort = params.sort ?? "upcoming";
+  const dateWhere: { startAt?: { gte?: Date; lte?: Date } } = dateFrom || dateTo ? {
+    startAt: {
+      ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+      ...(dateTo ? { lte: new Date(`${dateTo}T23:59:59.999Z`) } : {}),
+    },
+  } : {};
 
   const memberships = await db.venueMembership.findMany({ where: { userId: user.id, role: { in: ["OWNER", "EDITOR"] } }, select: { venueId: true, venue: { select: { name: true } } } });
   const venueIds = memberships.map((v) => v.venueId);
@@ -52,6 +58,7 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
     where: {
       venueId: venueId ? venueId : (venueIds.length ? { in: venueIds } : undefined),
       title: query ? { contains: query, mode: "insensitive" } : undefined,
+      ...dateWhere,
       ...buildEventStatusWhere(status, showArchived),
     },
     select: { id: true, title: true, slug: true, startAt: true, updatedAt: true, venueId: true, deletedAt: true, venue: { select: { name: true } }, isPublished: true, submissions: { where: { type: "EVENT" }, take: 1, orderBy: { updatedAt: "desc" }, select: { status: true } } },
@@ -97,6 +104,17 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
     });
   }
 
+  const sortHref = (sortValue: string) => {
+    const p = new URLSearchParams();
+    if (venueId) p.set("venueId", venueId);
+    if (status) p.set("status", status);
+    if (query) p.set("q", query);
+    if (dateFrom) p.set("dateFrom", dateFrom);
+    if (dateTo) p.set("dateTo", dateTo);
+    p.set("sort", sortValue);
+    return `/my/events?${p.toString()}`;
+  };
+
   return (
     <main className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -105,6 +123,28 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
           memberships={memberships.map((m) => ({ venueId: m.venueId, name: m.venue.name }))}
           currentVenueId={venueId}
         />
+        <form className="flex items-center gap-1">
+          <input
+            type="date"
+            name="dateFrom"
+            defaultValue={dateFrom ?? ""}
+            className="h-9 rounded border px-2 text-sm"
+            aria-label="From date"
+          />
+          <span className="text-xs text-muted-foreground">–</span>
+          <input
+            type="date"
+            name="dateTo"
+            defaultValue={dateTo ?? ""}
+            className="h-9 rounded border px-2 text-sm"
+            aria-label="To date"
+          />
+          {venueId && <input type="hidden" name="venueId" value={venueId} />}
+          {status && <input type="hidden" name="status" value={status} />}
+          {sort !== "upcoming" && sort && <input type="hidden" name="sort" value={sort} />}
+          {query && <input type="hidden" name="q" value={query} />}
+          <Button size="sm" type="submit">Filter</Button>
+        </form>
         {(["Draft", "Submitted", "Published", "Rejected", "Archived"] as const).map((chip) => {
           const isActive = status?.toLowerCase() === chip.toLowerCase();
           return (
@@ -120,7 +160,18 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
           );
         })}
         <span className="select-none text-xs text-muted-foreground">Sort:</span>
-        <Link className="rounded border px-2 py-1 text-xs hover:bg-muted" href="/my/events?sort=updated">Updated</Link>
+        <Link
+          className={(!sort || sort === "upcoming") ? "rounded border border-foreground bg-foreground px-2 py-1 text-xs text-background" : "rounded border px-2 py-1 text-xs hover:bg-muted"}
+          href={sortHref("upcoming")}
+        >
+          Upcoming
+        </Link>
+        <Link
+          className={sort === "updated" ? "rounded border border-foreground bg-foreground px-2 py-1 text-xs text-background" : "rounded border px-2 py-1 text-xs hover:bg-muted"}
+          href={sortHref("updated")}
+        >
+          Updated
+        </Link>
         <Button asChild size="sm"><Link href="/my/events/new">+ Create event</Link></Button>
       </div>
       <ActiveFiltersBar pills={pills} clearAllHref={buildClearFiltersHref("/my/events", params, ["status", "q", "query", "sort", "dateFrom", "dateTo", "showArchived"], ["venueId"])} />

@@ -30,7 +30,7 @@ function localInputToUtcIso(localValue: string, tz: string): string {
 type VenueOption = { id: string; name: string };
 type SeriesOption = { id: string; title: string; slug: string };
 type TicketingMode = "EXTERNAL" | "RSVP" | "PAID" | null;
-type Tier = { id: string; name: string; capacity: number | null; sortOrder: number; isActive: boolean };
+type Tier = { id: string; name: string; capacity: number | null; sortOrder: number; isActive: boolean; priceAmount: number };
 
 type EventEditorProps = {
   event: {
@@ -76,6 +76,7 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [tierName, setTierName] = useState("");
   const [tierCapacity, setTierCapacity] = useState("");
+  const [tierPrice, setTierPrice] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stripeConnectActive, setStripeConnectActive] = useState(false);
@@ -195,12 +196,13 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
     const res = await fetch(`/api/my/events/${event.id}/ticket-tiers`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: tierName, capacity: tierCapacity.trim() ? Number(tierCapacity) : null, priceAmount: 0, currency: "GBP", isActive: true }),
+      body: JSON.stringify({ name: tierName, capacity: tierCapacity.trim() ? Number(tierCapacity) : null, priceAmount: tierPrice.trim() ? Math.round(Number(tierPrice) * 100) : 0, currency: "GBP", isActive: true }),
     });
     if (!res.ok) return;
     await loadTiers();
     setTierName("");
     setTierCapacity("");
+    setTierPrice("");
   }
 
   async function updateTier(tierId: string, patch: Partial<Tier>) {
@@ -298,17 +300,31 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
               <div className="flex gap-2">
                 <input className="w-full rounded border p-2" placeholder="Tier name" value={tierName} onChange={(e) => setTierName(e.target.value)} />
                 <input className="w-40 rounded border p-2" placeholder="Capacity" type="number" min={1} value={tierCapacity} onChange={(e) => setTierCapacity(e.target.value)} />
+                <input
+                  className="w-32 rounded border p-2"
+                  placeholder="Price (£)"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={tierPrice}
+                  onChange={(e) => setTierPrice(e.target.value)}
+                />
                 <Button type="button" variant="outline" onClick={() => void addTier()} disabled={!tierName.trim()}>Add tier</Button>
               </div>
 
               <ul className="space-y-2">
                 {tiers.map((tier, index) => (
                   <li key={tier.id} className="flex items-center justify-between rounded border p-2 text-sm">
-                    <span>{tier.name} {tier.capacity != null ? `(${tier.capacity})` : "(unlimited)"}</span>
+                    <span>
+                      {tier.name}
+                      {" · "}
+                      {tier.priceAmount > 0 ? `£${(tier.priceAmount / 100).toFixed(2)}` : "Free"}
+                      {tier.capacity != null ? ` · cap ${tier.capacity}` : ""}
+                    </span>
                     <div className="flex items-center gap-2">
                       <Button type="button" variant="outline" size="sm" onClick={() => void updateTier(tier.id, { isActive: !tier.isActive })}>{tier.isActive ? "Active" : "Inactive"}</Button>
                       <Button type="button" variant="outline" size="sm" disabled={index === 0} onClick={() => void updateTier(tier.id, { sortOrder: Math.max(0, tier.sortOrder - 1) })}>↑</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => void updateTier(tier.id, { sortOrder: tier.sortOrder + 1 })}>↓</Button>
+                      <Button type="button" variant="outline" size="sm" disabled={index === tiers.length - 1} onClick={() => void updateTier(tier.id, { sortOrder: tier.sortOrder + 1 })}>↓</Button>
                     </div>
                   </li>
                 ))}

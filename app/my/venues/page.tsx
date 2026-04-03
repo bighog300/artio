@@ -90,6 +90,16 @@ export default async function MyVenuesPage({ searchParams }: { searchParams: Ven
     });
   }
 
+  const activeClass = "rounded border border-foreground bg-foreground px-2 py-1 text-xs text-background";
+  const inactiveClass = "rounded border px-2 py-1 text-xs hover:bg-muted";
+  const sortHref = (sortValue: string) => {
+    const p = new URLSearchParams();
+    if (status) p.set("status", status);
+    if (query) p.set("q", query);
+    p.set("sort", sortValue);
+    return `/my/venues?${p.toString()}`;
+  };
+
   return (
     <main className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -109,7 +119,8 @@ export default async function MyVenuesPage({ searchParams }: { searchParams: Ven
           );
         })}
         <span className="select-none text-xs text-muted-foreground">Sort:</span>
-        <Link className="rounded border px-2 py-1 text-xs hover:bg-muted" href="/my/venues?sort=name">Name</Link>
+        <Link className={(!sort || sort === "updated") ? activeClass : inactiveClass} href={sortHref("updated")}>Updated</Link>
+        <Link className={sort === "name" ? activeClass : inactiveClass} href={sortHref("name")}>Name</Link>
         <Button asChild size="sm"><Link href="/my/venues/new">+ Create venue</Link></Button>
       </div>
       <ActiveFiltersBar pills={pills} clearAllHref={buildClearFiltersHref("/my/venues", params, ["status", "q", "query", "sort", "showArchived"], ["venueId"])} />

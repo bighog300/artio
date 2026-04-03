@@ -12,7 +12,7 @@ type Member = {
 
 export default function VenueMembersManager({ venueId, members }: { venueId: string; members: Member[] }) {
   const router = useRouter();
-  const [form, setForm] = useState({ email: "", role: "EDITOR" as "OWNER" | "EDITOR" });
+  const [form, setForm] = useState({ email: "", role: "EDITOR" as const });
   const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -97,6 +97,7 @@ export default function VenueMembersManager({ venueId, members }: { venueId: str
               disabled={busy}
               onChange={(e) => void updateRole(member.id, e.target.value as "OWNER" | "EDITOR")}
             >
+              {/* Role change for existing members — OWNER allowed via PATCH endpoint */}
               <option value="OWNER">OWNER</option>
               <option value="EDITOR">EDITOR</option>
             </select>
@@ -134,9 +135,8 @@ export default function VenueMembersManager({ venueId, members }: { venueId: str
           value={form.email}
           onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
         />
-        <select className="border rounded p-2" disabled={busy} value={form.role} onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value as "OWNER" | "EDITOR" }))}>
-          <option value="EDITOR">EDITOR</option>
-          <option value="OWNER">OWNER</option>
+        <select className="border rounded p-2" disabled={busy} value={form.role} onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value as "EDITOR" }))}>
+          <option value="EDITOR">Editor</option>
         </select>
         <div>
           <button className="rounded border px-3 py-1" disabled={busy}>{busy ? "Saving…" : "Add member"}</button>

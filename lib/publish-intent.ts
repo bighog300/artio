@@ -1,4 +1,4 @@
-export type PublishOutcome = "published" | "submitted" | "blocked";
+export type PublishOutcome = "published" | "submitted" | "blocked" | "restored" | "unpublished";
 
 export type UnifiedPublishStatus = "DRAFT" | "ONBOARDING" | "IN_REVIEW" | "PUBLISHED" | "REJECTED" | "ARCHIVED" | "APPROVED" | "CHANGES_REQUESTED";
 

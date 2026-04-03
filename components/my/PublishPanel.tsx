@@ -62,10 +62,14 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
       }
 
       if (action !== "publish") {
-        const nextStatus: UnifiedPublishStatus = action === "restore" ? "DRAFT" : "DRAFT";
+        const nextStatus: UnifiedPublishStatus = "DRAFT";
         setCurrentStatus(nextStatus);
         onStatusChange?.(nextStatus);
-        setResult({ outcome: "published", status: nextStatus, message: action === "restore" ? "Restored to draft." : "Moved back to draft." });
+        setResult({
+          outcome: action === "restore" ? "restored" : "unpublished",
+          status: nextStatus,
+          message: action === "restore" ? "Restored to draft." : "Moved back to draft.",
+        });
         return;
       }
 
@@ -172,7 +176,11 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
         {result ? (
           <div className="rounded-md border bg-muted/20 p-3 text-sm">
             <p className="font-medium">
-              {result.outcome === "published" ? "✅ Published" : result.outcome === "submitted" ? "🕓 Submitted for review" : "Please fix the required items"}
+              {result.outcome === "published" ? "✅ Published"
+                : result.outcome === "submitted" ? "🕓 Submitted for review"
+                  : result.outcome === "restored" ? "✓ Restored to draft"
+                    : result.outcome === "unpublished" ? "Moved back to draft"
+                      : "Please fix the required items"}
             </p>
             <p className="mt-1 text-muted-foreground">{result.message}</p>
 
