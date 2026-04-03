@@ -36,6 +36,12 @@ export default async function MyVenueEditPage({
   if (!hasDatabaseUrl()) {
     return (
       <main className="space-y-4 p-6">
+        <Link
+          href="/my/venues"
+          className="inline-flex items-center rounded border px-3 py-1 text-sm hover:bg-muted"
+        >
+          ← My venues
+        </Link>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Venue Setup</h1>
@@ -148,24 +154,31 @@ export default async function MyVenueEditPage({
 
   return (
     <main className="space-y-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Venue Setup</h1>
-          <p className="text-sm text-muted-foreground">
-            Complete your venue profile and submit for review.
-          </p>
+      <div className="space-y-4">
+        <Link
+          href="/my/venues"
+          className="inline-flex items-center rounded border px-3 py-1 text-sm hover:bg-muted"
+        >
+          ← My venues
+        </Link>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Venue Setup</h1>
+            <p className="text-sm text-muted-foreground">
+              Complete your venue profile and submit for review.
+            </p>
+          </div>
+          <div className="flex flex-col items-start gap-1 md:items-end">
+            <Button asChild>
+              <Link href={`/my/events?venueId=${venue.id}`}>View events</Link>
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              View and manage events for this venue
+            </p>
+          </div>
         </div>
-        <div className="flex flex-col items-start gap-1 md:items-end">
-          <Button asChild>
-            <Link href={`/my/events?venueId=${venue.id}`}>View events</Link>
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            View and manage events for this venue
-          </p>
-        </div>
+        <VenueSetupHeader venue={{ name: venue.name, isPublished: venue.isPublished, deletedAt: venue.deletedAt }} submissionStatus={venue.status ?? submission?.status ?? null} />
       </div>
-
-      <VenueSetupHeader venue={{ name: venue.name, isPublished: venue.isPublished, deletedAt: venue.deletedAt }} submissionStatus={venue.status ?? submission?.status ?? null} />
 
       {isCreatedFirstVisit ? <VenueCreatedDraftBanner venueId={venue.id} missingRequired={checks.missingRequired} /> : null}
 

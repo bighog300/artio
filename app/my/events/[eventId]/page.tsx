@@ -68,11 +68,19 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
 
   return (
     <main className="space-y-6 p-6">
-      <EventSetupHeader
-        event={{ title: event.title, isPublished: event.isPublished, deletedAt: null }}
-        submissionStatus={event.status}
-        reviewNotes={event.reviewNotes}
-      />
+      <div className="space-y-4">
+        <Link
+          href="/my/events"
+          className="inline-flex items-center rounded border px-3 py-1 text-sm hover:bg-muted"
+        >
+          ← My events
+        </Link>
+        <EventSetupHeader
+          event={{ title: event.title, isPublished: event.isPublished, deletedAt: null }}
+          submissionStatus={event.status}
+          reviewNotes={event.reviewNotes}
+        />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="order-2 space-y-4 lg:order-1 lg:col-span-2">
@@ -121,6 +129,14 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
             <p className="font-medium">Attendee management</p>
             <p className="mt-1 text-muted-foreground">View confirmed attendees and process cancellations or refunds.</p>
             <Link className="mt-2 inline-block underline" href={`/my/events/${event.id}/attendees`}>Open attendee list</Link>
+            {event.venueId && event.isPublished ? (
+              <Link
+                className="mt-1 inline-block underline"
+                href={`/my/venues/${event.venueId}/checkin/${event.id}`}
+              >
+                Check in attendees
+              </Link>
+            ) : null}
           </div>
 
           {event.isPublished ? <EventAnalyticsSummary eventId={event.id} /> : null}

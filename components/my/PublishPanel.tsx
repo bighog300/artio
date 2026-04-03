@@ -31,6 +31,7 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PublishIntentResponse | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmUnpublishOpen, setConfirmUnpublishOpen] = useState(false);
 
   const statusLabel = getPublisherStatusLabel(currentStatus);
 
@@ -105,7 +106,10 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
                 }
                 return;
               }
-              if (state.action === "unpublish") void runAction("unpublish");
+              if (state.action === "unpublish") {
+                setConfirmUnpublishOpen(true);
+                return;
+              }
               if (state.action === "restore") void runAction("restore");
             }}
           >
@@ -133,6 +137,32 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
               <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={loading}>Cancel</Button>
               <Button onClick={() => { setConfirmOpen(false); void runAction("publish"); }} disabled={loading}>
                 Submit for review
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={confirmUnpublishOpen} onOpenChange={setConfirmUnpublishOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Unpublish {resourceType}?</DialogTitle>
+              <DialogDescription>
+                This will immediately remove the listing from the public site.
+                {resourceType === "event" ? " Registered attendees will keep their bookings — they won't be automatically cancelled." : ""}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setConfirmUnpublishOpen(false)} disabled={loading}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={loading}
+                onClick={() => {
+                  setConfirmUnpublishOpen(false);
+                  void runAction("unpublish");
+                }}
+              >
+                Unpublish
               </Button>
             </div>
           </DialogContent>
@@ -165,7 +195,10 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
               }
               return;
             }
-            if (state.action === "unpublish") void runAction("unpublish");
+            if (state.action === "unpublish") {
+              setConfirmUnpublishOpen(true);
+              return;
+            }
             if (state.action === "restore") void runAction("restore");
           }}
           className="w-full"
@@ -224,6 +257,32 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
               disabled={loading}
             >
               Submit for review
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={confirmUnpublishOpen} onOpenChange={setConfirmUnpublishOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unpublish {resourceType}?</DialogTitle>
+            <DialogDescription>
+              This will immediately remove the listing from the public site.
+              {resourceType === "event" ? " Registered attendees will keep their bookings — they won't be automatically cancelled." : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setConfirmUnpublishOpen(false)} disabled={loading}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={loading}
+              onClick={() => {
+                setConfirmUnpublishOpen(false);
+                void runAction("unpublish");
+              }}
+            >
+              Unpublish
             </Button>
           </div>
         </DialogContent>

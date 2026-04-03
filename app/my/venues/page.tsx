@@ -149,6 +149,20 @@ export default async function MyVenuesPage({ searchParams }: { searchParams: Ven
           })}
         </tbody>
       </table>
+      {rows.length === 0 && (
+        <div className="rounded border border-dashed p-8 text-center">
+          {query || status ? (
+            <p className="text-sm text-muted-foreground">No venues match your filters.</p>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">No venues yet.</p>
+              <Button asChild size="sm" className="mt-3">
+                <Link href="/my/venues/new">Create your first venue</Link>
+              </Button>
+            </>
+          )}
+        </div>
+      )}
     </main>
   );
 }

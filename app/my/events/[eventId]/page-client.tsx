@@ -255,7 +255,13 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
       </section>
 
       <section className="space-y-3 rounded border p-4">
-        <label className="block" id="description"><span className="text-sm">Description</span><textarea className="w-full rounded border p-2" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
+        <label className="block" id="description">
+          <span className="text-sm">Description</span>
+          <textarea className="w-full rounded border p-2" rows={4} maxLength={4000} value={description} onChange={(e) => setDescription(e.target.value)} />
+        </label>
+        <p className={`mt-1 text-xs ${description.length > 3800 ? (description.length >= 4000 ? "text-red-600" : "text-amber-600") : "text-muted-foreground"}`}>
+          {description.length}/4000 characters
+        </p>
       </section>
 
       <section className="space-y-3 rounded border p-4">
