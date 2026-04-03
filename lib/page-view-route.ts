@@ -62,6 +62,7 @@ export async function handleTrackPageView(req: NextRequest, deps: Deps) {
     return new NextResponse(null, { status: 204, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (isRateLimitError(error)) return rateLimitErrorResponse(error);
+    console.error("analytics_view_error", { error });
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }

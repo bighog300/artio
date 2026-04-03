@@ -370,6 +370,11 @@ export default function ArtworksClient({
     setError(null);
     try {
       const res = await fetch(`/api/admin/ingest/artworks/${id}/approve`, { method: "POST" });
+      if (res.status === 409) {
+        setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED" } : item));
+        setFocusedIndex(null);
+        return;
+      }
       if (!res.ok) {
         setError("Failed to approve artwork candidate due to an unexpected server error.");
         return;
@@ -422,7 +427,7 @@ export default function ArtworksClient({
       const results = await Promise.allSettled(
         batch.map((candidate) =>
           fetch(`/api/admin/ingest/artworks/${candidate.id}/approve`, { method: "POST" })
-            .then((response) => (response.ok ? ("ok" as const) : ("fail" as const)))
+            .then((response) => (response.ok || response.status === 409 ? ("ok" as const) : ("fail" as const)))
             .catch(() => "fail" as const),
         ),
       );
@@ -472,6 +477,10 @@ export default function ArtworksClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      if (res.status === 409) {
+        setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED" } : item));
+        return;
+      }
       if (!res.ok) {
         setError("Failed to approve artwork candidate due to an unexpected server error.");
         return;
@@ -503,6 +512,10 @@ export default function ArtworksClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ publishImmediately: true }),
       });
+      if (res.status === 409) {
+        setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED" } : item));
+        return;
+      }
       if (!res.ok) {
         setError("Failed to approve and publish artwork candidate.");
         return;
