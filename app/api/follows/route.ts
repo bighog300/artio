@@ -50,8 +50,13 @@ export async function POST(req: NextRequest) {
             const artist = await db.artist.findFirst({ where: { id: targetId, isPublished: true }, select: { id: true } });
             return Boolean(artist);
           }
-          const venue = await db.venue.findFirst({ where: { id: targetId, ...publishedVenueWhere() }, select: { id: true } });
-          return Boolean(venue);
+          if (targetType === "VENUE") {
+            const venue = await db.venue.findFirst({ where: { id: targetId, ...publishedVenueWhere() }, select: { id: true } });
+            return Boolean(venue);
+          }
+          if (targetId === user.id) return false;
+          const followedUser = await db.user.findFirst({ where: { id: targetId, isPublic: true }, select: { id: true } });
+          return Boolean(followedUser);
         },
         upsert: async ({ userId, targetType, targetId }) => {
           await db.follow.upsert({

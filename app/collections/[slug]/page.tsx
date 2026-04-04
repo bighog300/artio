@@ -5,8 +5,12 @@ import { PageShell } from "@/components/ui/page-shell";
 import { CollectionSortMode, getPublishedCuratedCollectionBySlug } from "@/lib/curated-collections";
 import { getArtworkPublicHref } from "@/lib/artworks";
 import { collectionPageQuerySchema } from "@/lib/validators";
+import { db } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 
-export const revalidate = 300; // 5 minutes, matches venue list
+export const revalidate = 300;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const sortOptions: Array<{ label: string; value: CollectionSortMode }> = [
   { label: "Curated order", value: "CURATED" },
@@ -16,6 +20,73 @@ const sortOptions: Array<{ label: string; value: CollectionSortMode }> = [
 
 export default async function CollectionPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { slug } = await params;
+
+  if (UUID_RE.test(slug)) {
+    const sessionUser = await getSessionUser();
+    const collection = await db.collection.findUnique({
+      where: { id: slug },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        isPublic: true,
+        userId: true,
+        user: { select: { username: true, displayName: true } },
+        items: { orderBy: { createdAt: "asc" }, select: { id: true, entityType: true, entityId: true } },
+      },
+    });
+    if (!collection) notFound();
+    const isOwner = sessionUser?.id === collection.userId;
+    if (!collection.isPublic && !isOwner) notFound();
+
+    const eventIds = collection.items.filter((item) => item.entityType === "EVENT").map((item) => item.entityId);
+    const artistIds = collection.items.filter((item) => item.entityType === "ARTIST").map((item) => item.entityId);
+    const venueIds = collection.items.filter((item) => item.entityType === "VENUE").map((item) => item.entityId);
+    const artworkIds = collection.items.filter((item) => item.entityType === "ARTWORK").map((item) => item.entityId);
+    const [events, artists, venues, artworks] = await Promise.all([
+      eventIds.length ? db.event.findMany({ where: { id: { in: eventIds } }, select: { id: true, title: true, slug: true } }) : Promise.resolve([]),
+      artistIds.length ? db.artist.findMany({ where: { id: { in: artistIds } }, select: { id: true, name: true, slug: true } }) : Promise.resolve([]),
+      venueIds.length ? db.venue.findMany({ where: { id: { in: venueIds } }, select: { id: true, name: true, slug: true } }) : Promise.resolve([]),
+      artworkIds.length ? db.artwork.findMany({ where: { id: { in: artworkIds } }, select: { id: true, title: true, slug: true } }) : Promise.resolve([]),
+    ]);
+    const eventMap = new Map(events.map((item) => [item.id, item]));
+    const artistMap = new Map(artists.map((item) => [item.id, item]));
+    const venueMap = new Map(venues.map((item) => [item.id, item]));
+    const artworkMap = new Map(artworks.map((item) => [item.id, item]));
+
+    return (
+      <PageShell className="page-stack">
+        <div className="space-y-2">
+          <h1 className="text-2xl font-semibold">{collection.title}</h1>
+          {collection.description ? <p className="text-sm text-muted-foreground">{collection.description}</p> : null}
+          <p className="text-xs text-muted-foreground">By <Link className="underline" href={`/users/${collection.user.username}`}>{collection.user.displayName || collection.user.username}</Link></p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {collection.items.map((item) => {
+            if (item.entityType === "EVENT") {
+              const event = eventMap.get(item.entityId);
+              if (!event) return null;
+              return <Link key={item.id} href={`/events/${event.slug}`} className="rounded border p-3">{event.title}</Link>;
+            }
+            if (item.entityType === "ARTIST") {
+              const artist = artistMap.get(item.entityId);
+              if (!artist) return null;
+              return <Link key={item.id} href={`/artists/${artist.slug}`} className="rounded border p-3">{artist.name}</Link>;
+            }
+            if (item.entityType === "VENUE") {
+              const venue = venueMap.get(item.entityId);
+              if (!venue) return null;
+              return <Link key={item.id} href={`/venues/${venue.slug}`} className="rounded border p-3">{venue.name}</Link>;
+            }
+            const artwork = artworkMap.get(item.entityId);
+            if (!artwork) return null;
+            return <Link key={item.id} href={`/artwork/${artwork.slug}`} className="rounded border p-3">{artwork.title}</Link>;
+          })}
+        </div>
+      </PageShell>
+    );
+  }
+
   const parsed = collectionPageQuerySchema.safeParse(await searchParams);
   const query = parsed.success ? parsed.data : { page: 1, pageSize: 48, sort: "CURATED" as CollectionSortMode };
 

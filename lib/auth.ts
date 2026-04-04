@@ -91,6 +91,21 @@ function warnAuthEnvRisks(host: string) {
   }
 }
 
+function buildUsernameSeed(email: string) {
+  return normalizeEmail(email).split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20) || "user";
+}
+
+async function ensureUniqueUsername(base: string) {
+  const seed = base || "user";
+  for (let i = 0; i < 25; i += 1) {
+    const suffix = i === 0 ? "" : `_${Math.random().toString(36).slice(2, 8)}`;
+    const candidate = `${seed}${suffix}`.slice(0, 30);
+    const exists = await db.user.findUnique({ where: { username: candidate }, select: { id: true } });
+    if (!exists) return candidate;
+  }
+  return `${seed}_${Date.now().toString(36)}`.slice(0, 30);
+}
+
 function isAllowlistedAdminEmail(email: string) {
   const betaConfig = getBetaConfig();
   return betaConfig.adminEmails.has(normalizeEmail(email));
@@ -148,17 +163,24 @@ export const authOptions: NextAuthOptions = {
         return false;
       }
 
+      const usernameSeed = buildUsernameSeed(normalizedEmail);
+      const username = await ensureUniqueUsername(usernameSeed);
       const dbUser = await db.user.upsert({
         where: { email: normalizedEmail },
         update: {
           name: user.name ?? undefined,
+          displayName: user.name ?? undefined,
           imageUrl: user.image ?? undefined,
+          avatarUrl: user.image ?? undefined,
           ...(isAdminEmail ? { role: "ADMIN" } : {}),
         },
         create: {
           email: normalizedEmail,
+          username,
           name: user.name,
+          displayName: user.name,
           imageUrl: user.image,
+          avatarUrl: user.image,
           role: isAdminEmail ? "ADMIN" : "USER",
         },
         select: {

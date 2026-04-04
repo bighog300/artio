@@ -4,7 +4,7 @@ import { getBoundingBox, isWithinRadiusKm } from "@/lib/geo";
 import { runSavedSearchEvents } from "@/lib/saved-searches";
 
 const MAX_CANDIDATES = 400;
-const SOURCE_CAPS = { follows: 200, saved: 100, nearby: 100, affinity: 150 } as const;
+const SOURCE_CAPS = { follows: 200, social: 120, saved: 100, nearby: 100, affinity: 150 } as const;
 const TAG_CATEGORY_WEIGHTS: Record<string, number> = {
   medium: 4,
   genre: 3,
@@ -94,6 +94,8 @@ export function scoreForYouEvents(args: {
   affinityVenueIds: Set<string>;
   affinityArtistIds: Set<string>;
   affinityTagIds: Set<string>;
+  sociallySavedEventIds: Set<string>;
+  sociallyCollectedEventIds: Set<string>;
   likedVenueIds: Set<string>;
   likedArtistIds: Set<string>;
   likedTagIds: Set<string>;
@@ -114,6 +116,15 @@ export function scoreForYouEvents(args: {
     if (event.eventArtists.some((artist) => args.followedArtistIds.has(artist.artistId))) {
       score += 10;
       reasons.push("Includes an artist you follow");
+    }
+
+    if (args.sociallySavedEventIds.has(event.id)) {
+      score += 7;
+      reasons.push("Saved by people you follow");
+    }
+    if (args.sociallyCollectedEventIds.has(event.id)) {
+      score += 6;
+      reasons.push("In collections from people you follow");
     }
 
     const searchMatches = args.savedSearchMatches.get(event.id) ?? [];
@@ -206,6 +217,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
 
   const followedVenueIds = new Set(follows.filter((f) => f.targetType === "VENUE").map((f) => f.targetId));
   const followedArtistIds = new Set(follows.filter((f) => f.targetType === "ARTIST").map((f) => f.targetId));
+  const followedUserIds = new Set(follows.filter((f) => f.targetType === "USER").map((f) => f.targetId));
   const hiddenEventIds = new Set((await db.engagementEvent.findMany({
     where: { userId: args.userId, action: "HIDE", targetType: "EVENT" },
     select: { targetId: true },
@@ -215,6 +227,19 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
 
   const candidateIds: string[] = [];
   const seenIds = new Set<string>();
+
+  const sociallySavedEventIds = new Set<string>();
+  const sociallyCollectedEventIds = new Set<string>();
+  if (followedUserIds.size) {
+    const followedIds = Array.from(followedUserIds);
+    const [savedByFollowed, collectionEvents] = await Promise.all([
+      db.favorite.findMany({ where: { userId: { in: followedIds }, targetType: "EVENT" }, select: { targetId: true }, take: SOURCE_CAPS.social }),
+      db.collectionItem.findMany({ where: { entityType: "EVENT", collection: { isPublic: true, userId: { in: followedIds } } }, select: { entityId: true }, take: SOURCE_CAPS.social }),
+    ]);
+    for (const item of savedByFollowed) sociallySavedEventIds.add(item.targetId);
+    for (const item of collectionEvents) sociallyCollectedEventIds.add(item.entityId);
+    addIds(candidateIds, seenIds, Array.from(new Set([...sociallySavedEventIds, ...sociallyCollectedEventIds])), SOURCE_CAPS.follows + SOURCE_CAPS.social);
+  }
 
   if (followedVenueIds.size || followedArtistIds.size) {
     const items = await db.event.findMany({
@@ -428,6 +453,8 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     affinityVenueIds,
     affinityArtistIds,
     affinityTagIds,
+    sociallySavedEventIds,
+    sociallyCollectedEventIds,
     likedVenueIds,
     likedArtistIds,
     likedTagIds,

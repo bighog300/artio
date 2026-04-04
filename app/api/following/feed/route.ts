@@ -27,13 +27,14 @@ export async function GET(req: NextRequest) {
           if (cached) return cached;
           const startedAt = performance.now();
           const follows = await db.follow.findMany({
-            where: { userId },
+            where: { userId, targetType: { in: ["ARTIST", "VENUE"] } },
             select: { targetType: true, targetId: true },
             orderBy: { createdAt: "desc" },
           });
           if (shouldLogPerf) console.info(`[perf] following/feed follows=${(performance.now() - startedAt).toFixed(1)}ms`);
-          followsMemo.set(key, follows);
-          return follows;
+          const normalized = follows.filter((item): item is { targetType: "ARTIST" | "VENUE"; targetId: string } => item.targetType === "ARTIST" || item.targetType === "VENUE");
+          followsMemo.set(key, normalized);
+          return normalized;
         },
         findEvents: async ({ artistIds, venueIds, from, to, cursor, limit }) => {
           const startedAt = performance.now();

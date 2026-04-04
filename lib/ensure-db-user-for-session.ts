@@ -37,7 +37,9 @@ export async function ensureDbUserForSession(sessionUser: SessionUserLike | null
         },
         create: {
           email: normalizedEmail,
+          username: normalizedEmail.split("@")[0],
           name: sessionUser?.name ?? null,
+          displayName: sessionUser?.name ?? null,
           role: "USER",
         },
       });

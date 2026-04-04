@@ -1,12 +1,32 @@
-import { NextResponse } from "next/server";
-import { listPublishedCuratedCollections } from "@/lib/curated-collections";
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { apiError } from "@/lib/api";
+import { guardUser } from "@/lib/auth-guard";
 
 export const runtime = "nodejs";
-export const revalidate = 300;
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const surface = searchParams.get("surface") === "artwork" ? "artwork" : "home";
-  const collections = await listPublishedCuratedCollections(8, surface);
-  return NextResponse.json({ collections }, { headers: { "cache-control": "s-maxage=300, stale-while-revalidate=300" } });
+export async function GET() {
+  const user = await guardUser();
+  if (user instanceof NextResponse) return user;
+  const collections = await db.collection.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, title: true, description: true, isPublic: true, _count: { select: { items: true } } },
+  });
+  return NextResponse.json({ items: collections });
+}
+
+export async function POST(req: NextRequest) {
+  const user = await guardUser();
+  if (user instanceof NextResponse) return user;
+
+  const body = await req.json().catch(() => null) as { title?: string; description?: string; isPublic?: boolean } | null;
+  const title = body?.title?.trim();
+  if (!title || title.length < 2) return apiError(400, "invalid_request", "Title is required");
+
+  const created = await db.collection.create({
+    data: { userId: user.id, title: title.slice(0, 80), description: body?.description?.trim().slice(0, 280), isPublic: body?.isPublic ?? true },
+    select: { id: true, title: true, description: true, isPublic: true },
+  });
+  return NextResponse.json(created, { status: 201 });
 }

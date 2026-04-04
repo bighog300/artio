@@ -293,6 +293,14 @@ enum FavoriteTargetType {
 enum FollowTargetType {
   ARTIST
   VENUE
+  USER
+}
+
+enum CollectionEntityType {
+  EVENT
+  ARTIST
+  VENUE
+  ARTWORK
 }
 
 enum EngagementSurface {
@@ -403,6 +411,11 @@ enum UserNotificationType {
 model User {
   id                   String                @id @default(uuid()) @db.Uuid
   email                String                @unique
+  username             String                @unique @default(cuid())
+  displayName          String?
+  bio                  String?
+  avatarUrl            String?
+  isPublic             Boolean               @default(true)
   name                 String?
   imageUrl             String?
   role                 Role                  @default(USER)
@@ -421,6 +434,7 @@ model User {
   sentVenueInvites     VenueInvite[]         @relation("VenueInviteInvitedBy")
   ownedAssets          Asset[]
   follows              Follow[]
+  collections          Collection[]
   perfSnapshotsCreated PerfSnapshot[]
   notifications        Notification[]
   savedSearches        SavedSearch[]
@@ -538,7 +552,7 @@ model EngagementEvent {
   surface    EngagementSurface
   action     EngagementAction
   targetType String
-  targetId   String
+  targetId   String           @db.Uuid
   metaJson   Json?
   createdAt  DateTime          @default(now())
   user       User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -2159,7 +2173,7 @@ model Favorite {
   id         String             @id @default(uuid()) @db.Uuid
   userId     String             @db.Uuid
   targetType FavoriteTargetType
-  targetId   String             @db.Uuid
+  targetId   String
   createdAt  DateTime           @default(now())
   user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -2192,6 +2206,34 @@ model Follow {
   @@index([userId, createdAt])
   @@index([targetType, targetId])
   @@index([targetType, targetId, createdAt])
+}
+
+
+model Collection {
+  id          String           @id @default(uuid()) @db.Uuid
+  userId      String           @db.Uuid
+  title       String
+  description String?
+  isPublic    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       CollectionItem[]
+
+  @@index([userId, createdAt])
+}
+
+model CollectionItem {
+  id           String               @id @default(uuid()) @db.Uuid
+  collectionId String               @db.Uuid
+  entityType   CollectionEntityType
+  entityId     String               @db.Uuid
+  createdAt    DateTime             @default(now())
+  collection   Collection           @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@index([collectionId, createdAt])
 }
 
 model UserInteraction {

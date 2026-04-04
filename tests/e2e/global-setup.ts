@@ -21,7 +21,7 @@ async function seedUserSession(params: {
   const user = await prisma.user.upsert({
     where: { email: params.email },
     update: { name: params.name, role: params.role },
-    create: { email: params.email, name: params.name, role: params.role },
+    create: { email: params.email, username: params.email.split("@")[0].replace(/[^a-z0-9_]/gi, "").toLowerCase(), name: params.name, displayName: params.name, role: params.role },
   });
 
   const sessionToken = await encode({

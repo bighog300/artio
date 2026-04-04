@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   const user = await db.user.upsert({
     where: { email: expectedEmail.toLowerCase() },
     update: { name: "E2E User", role: "USER" },
-    create: { email: expectedEmail.toLowerCase(), name: "E2E User", role: "USER" },
+    create: { email: expectedEmail.toLowerCase(), username: "e2e_user", name: "E2E User", displayName: "E2E User", role: "USER" },
   });
 
   const sessionToken = await encode({

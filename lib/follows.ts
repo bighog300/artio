@@ -33,15 +33,18 @@ export async function deleteFollowWithDeps(
 export function splitFollowIds(follows: Array<{ targetType: FollowTargetType; targetId: string }>) {
   const artists: string[] = [];
   const venues: string[] = [];
+  const users: string[] = [];
 
   for (const follow of follows) {
     if (follow.targetType === "ARTIST") artists.push(follow.targetId);
     if (follow.targetType === "VENUE") venues.push(follow.targetId);
+    if (follow.targetType === "USER") users.push(follow.targetId);
   }
 
   return {
     artists,
     venues,
-    counts: { artists: artists.length, venues: venues.length, total: artists.length + venues.length },
+    users,
+    counts: { artists: artists.length, venues: venues.length, users: users.length, total: artists.length + venues.length + users.length },
   };
 }

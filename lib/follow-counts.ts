@@ -8,7 +8,7 @@ export function followStatusResponse(args: { followersCount: number; isAuthentic
   };
 }
 
-export async function getFollowersCount(targetType: "ARTIST" | "VENUE", targetId: string) {
+export async function getFollowersCount(targetType: "ARTIST" | "VENUE" | "USER", targetId: string) {
   return unstable_cache(
     async () => db.follow.count({ where: { targetType, targetId } }),
     ["follow-count", targetType, targetId],
@@ -19,6 +19,6 @@ export async function getFollowersCount(targetType: "ARTIST" | "VENUE", targetId
   )();
 }
 
-export function followCountCacheTag(targetType: "ARTIST" | "VENUE", targetId: string): string {
+export function followCountCacheTag(targetType: "ARTIST" | "VENUE" | "USER", targetId: string): string {
   return `follow-count-${targetType}-${targetId}`;
 }

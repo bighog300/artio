@@ -9,7 +9,7 @@ import { recordFeedback } from "@/lib/personalization/feedback";
 import { recordOutcome, type PersonalizationSource } from "@/lib/personalization/measurement";
 
 type FollowButtonProps = {
-  targetType: "ARTIST" | "VENUE";
+  targetType: "ARTIST" | "VENUE" | "USER";
   targetId: string;
   initialIsFollowing: boolean;
   initialFollowersCount: number;
@@ -88,24 +88,27 @@ export function FollowButton({
         setFollowersCount((prev) => Math.max(0, prev + (next ? -1 : 1)));
       },
       onSuccess: (next) => {
-        trackEngagement({
-          surface: "FOLLOWING",
-          action: "FOLLOW",
-          targetType,
-          targetId,
-        });
+        if (targetType !== "USER") {
+          trackEngagement({
+            surface: "FOLLOWING",
+            action: "FOLLOW",
+            targetType,
+            targetId,
+          });
+        }
+        const itemType = targetType === "ARTIST" ? "artist" : targetType === "VENUE" ? "venue" : undefined;
         track("entity_follow_toggled", {
-          type: targetType === "ARTIST" ? "artist" : "venue",
+          type: itemType,
           slug: analyticsSlug,
           nextState: next ? "followed" : "unfollowed",
         });
-        if (next) {
+        if (next && itemType) {
           recordFeedback({
             type: "follow",
             source: "following",
-            item: { type: targetType === "ARTIST" ? "artist" : "venue", idOrSlug: analyticsSlug ?? targetId },
+            item: { type: itemType, idOrSlug: analyticsSlug ?? targetId },
           });
-          recordOutcome({ action: "follow", itemType: targetType === "ARTIST" ? "artist" : "venue", itemKey: `${targetType === "ARTIST" ? "artist" : "venue"}:${analyticsSlug ?? targetId}`.toLowerCase(), sourceHint: personalizationSourceHint });
+          recordOutcome({ action: "follow", itemType, itemKey: `${itemType}:${analyticsSlug ?? targetId}`.toLowerCase(), sourceHint: personalizationSourceHint });
         }
         enqueueToast({ title: next ? "Following updated" : "Unfollowed" });
         onToggled?.(next ? "followed" : "unfollowed");

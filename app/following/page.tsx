@@ -45,7 +45,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
     getFollowingFeedWithDeps(
       {
         now: () => new Date(),
-        findFollows: async (userId) => db.follow.findMany({ where: { userId }, select: { targetType: true, targetId: true } }),
+        findFollows: async (userId) => (await db.follow.findMany({ where: { userId, targetType: { in: ["ARTIST", "VENUE"] } }, select: { targetType: true, targetId: true } })).filter((item): item is { targetType: "ARTIST" | "VENUE"; targetId: string } => item.targetType === "ARTIST" || item.targetType === "VENUE"),
         findEvents: async ({ artistIds, venueIds, from, to, limit }) => db.event.findMany({
           where: {
             ...publishedEventWhere(),

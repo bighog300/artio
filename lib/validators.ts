@@ -325,7 +325,7 @@ export const favoriteBodySchema = z.object({
 });
 
 export const followBodySchema = z.object({
-  targetType: z.enum(["ARTIST", "VENUE"]),
+  targetType: z.enum(["ARTIST", "VENUE", "USER"]),
   targetId: z.string().uuid(),
 });
 
