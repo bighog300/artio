@@ -27,6 +27,8 @@ import { DAY_NAMES, getOpenNowStatus, parseOpeningHours, type OpeningHours } fro
 
 import Link from "next/link";
 import { countPublishedArtworksByVenue, listPublishedArtworksByVenue } from "@/lib/artworks";
+import { getSessionUser } from "@/lib/auth";
+import { SaveButton } from "@/components/saves/save-button";
 
 export const revalidate = 300;
 
@@ -111,6 +113,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
 
   const { slug } = await params;
   const now = new Date();
+  const user = await getSessionUser();
 
   const venue = await db.venue.findFirst({
     where: { slug, isPublished: true, deletedAt: null },
@@ -209,7 +212,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
 
   if (!venue) notFound();
 
-  const [followersCount, artworks, artworkCount, pastEventsRaw] = await Promise.all([
+  const [followersCount, artworks, artworkCount, pastEventsRaw, savedVenue] = await Promise.all([
     db.follow.count({ where: { targetType: "VENUE", targetId: venue.id } }).catch(() => 0),
     listPublishedArtworksByVenue(venue.id, 6),
     countPublishedArtworksByVenue(venue.id),
@@ -227,6 +230,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
         eventTags: { select: { tag: { select: { slug: true } } } },
       },
     }),
+    user ? db.favorite.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "VENUE", targetId: venue.id } }, select: { id: true } }) : Promise.resolve(null),
   ]);
 
   const cover = resolveEntityPrimaryImage(venue);
@@ -335,7 +339,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
         imageUrl={coverUrl}
         coverImage={cover}
         coverUrl={coverUrl}
-        primaryAction={<FollowButton targetType="VENUE" targetId={venue.id} initialIsFollowing={false} initialFollowersCount={followersCount} isAuthenticated={false} analyticsSlug={venue.slug} />}
+        primaryAction={<div className="flex gap-2"><SaveButton entityType="VENUE" entityId={venue.id} initialSaved={Boolean(savedVenue)} isAuthenticated={Boolean(user)} nextUrl={`/venues/${venue.slug}`} /><FollowButton targetType="VENUE" targetId={venue.id} initialIsFollowing={false} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={venue.slug} /></div>}
         secondaryAction={mapHref ? <a className="inline-flex rounded-md border px-3 py-1 text-sm" href={mapHref} target="_blank" rel="noreferrer">Open in Maps</a> : undefined}
         meta={<ArtworkCountBadge count={artworkCount} href={`/artwork?venueId=${venue.id}`} />}
       />

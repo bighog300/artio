@@ -22,6 +22,10 @@ import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
 import { countPublishedArtworksByArtist } from "@/lib/artworks";
 import { deriveArtistTags, getArtistArtworks } from "@/lib/artists";
+import { getSessionUser } from "@/lib/auth";
+import { SaveButton } from "@/components/saves/save-button";
+import { SectionCarousel } from "@/components/ui/section-carousel";
+import { ArtistCard } from "@/components/artists/artist-card";
 
 const FALLBACK_METADATA = { title: "Artist | Artio", description: "Browse artist profiles and related events on Artio." };
 
@@ -56,6 +60,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
   if (!hasDatabaseUrl()) return <main className="p-6">Set DATABASE_URL to view artists locally.</main>;
   const { slug } = await params;
   const now = new Date();
+  const user = await getSessionUser();
 
   const artist = await db.artist.findFirst({
     where: { slug, isPublished: true, deletedAt: null },
@@ -153,13 +158,14 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
     _count: { _all: true },
   }));
 
-  const [followersCount, artworkCount, showcaseResult, forSaleCount, pastEventArtists, artworkCountsByEvent] = await Promise.all([
+  const [followersCount, artworkCount, showcaseResult, forSaleCount, pastEventArtists, artworkCountsByEvent, savedArtist] = await Promise.all([
     db.follow.count({ where: { targetType: "ARTIST", targetId: artist.id } }).catch(() => 0),
     countPublishedArtworksByArtist(artist.id),
     getArtistArtworks(slug, { limit: 24, sort: "newest", resolvedArtistId: artist.id }),
     db.artwork.count({ where: { artistId: artist.id, isPublished: true, deletedAt: null, priceAmount: { not: null } } }),
     pastEventArtistsPromise,
     artworkCountsByEventPromise,
+    user ? db.favorite.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "ARTIST", targetId: artist.id } }, select: { id: true } }) : Promise.resolve(null),
   ]);
 
   const artworkCountMap = new Map(artworkCountsByEvent.map((row) => [row.eventId, row._count._all]));
@@ -238,6 +244,11 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
     cvEntries: artist.cvEntries,
   });
   const showClaimCta = artist.isAiDiscovered && !artist.userId && artist.status !== "IN_REVIEW";
+  const relatedArtists = await db.artist.findMany({
+    where: { id: { not: artist.id }, isPublished: true, deletedAt: null, mediums: { hasSome: artist.mediums.slice(0, 3) } },
+    select: { id: true, slug: true, name: true, bio: true, avatarImageUrl: true },
+    take: 8,
+  });
 
   return (
     <PageShell className="page-stack">
@@ -251,7 +262,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         coverImage={artistImage}
         coverUrl={imageUrl}
         tags={artistTags}
-        primaryAction={<FollowButton targetType="ARTIST" targetId={artist.id} initialIsFollowing={false} initialFollowersCount={followersCount} isAuthenticated={false} analyticsSlug={artist.slug} />}
+        primaryAction={<div className="flex gap-2"><SaveButton entityType="ARTIST" entityId={artist.id} initialSaved={Boolean(savedArtist)} isAuthenticated={Boolean(user)} nextUrl={`/artists/${artist.slug}`} /><FollowButton targetType="ARTIST" targetId={artist.id} initialIsFollowing={false} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={artist.slug} /></div>}
         meta={(
           <div className="flex items-center gap-2">
             <ArtworkCountBadge count={artworkCount} href={`/artwork?artistId=${artist.id}`} />

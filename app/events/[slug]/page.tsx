@@ -24,6 +24,9 @@ import { EntityPageViewTracker } from "@/components/analytics/entity-page-view-t
 import { listPublishedEventsInSeriesWithDeps } from "@/lib/series-events";
 import { RsvpWidget } from "@/components/events/rsvp-widget";
 import { PaidTicketWidget } from "@/components/events/paid-ticket-widget";
+import { getSessionUser } from "@/lib/auth";
+import { getEventUrgencyStatus } from "@/lib/events/event-urgency";
+import { SectionCarousel } from "@/components/ui/section-carousel";
 
 export const revalidate = 60;
 
@@ -72,7 +75,9 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
     });
   if (!event) notFound();
 
-  const [artworks, artworkCount, similarEvents, seriesEvents] = await Promise.all([
+  const user = await getSessionUser();
+
+  const [artworks, artworkCount, similarEvents, seriesEvents, savedEvent] = await Promise.all([
     listPublishedArtworksByEvent(event.id, 6),
     countPublishedArtworksByEvent(event.id),
     db.event.findMany({
@@ -84,10 +89,11 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
     event.seriesId
       ? listPublishedEventsInSeriesWithDeps({ findMany: (args) => db.event.findMany(args) }, { seriesId: event.seriesId, excludeEventId: event.id })
       : Promise.resolve([]),
+    user ? db.favorite.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "EVENT", targetId: event.id } }, select: { id: true } }) : Promise.resolve(null),
 ]);
 
-  const isAuthenticated = false;
-  const initialSaved = false;
+  const isAuthenticated = Boolean(user);
+  const initialSaved = Boolean(savedEvent);
   const showFreeEntryLabel = event.isFree && event.ticketingMode !== "RSVP" && event.ticketingMode !== "PAID" && !event.ticketUrl;
   const primaryImage = resolveEntityPrimaryImage(event);
   const detailUrl = getDetailUrl("event", slug);
@@ -145,6 +151,11 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
     : null;
   const outlookCalendarLink = `https://outlook.live.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(event.title)}&startdt=${new Date(event.startAt).toISOString()}&enddt=${endForCalendar.toISOString()}${event.venue?.name ? `&location=${encodeURIComponent(event.venue.name)}` : ""}&path=%2Fcalendar%2Faction%2Fcompose&rru=addevent`;
   const icalLink = `/api/events/${event.slug}/ical`;
+  const urgency = getEventUrgencyStatus(event.startAt, event.endAt);
+  const startsInDays = Math.ceil((new Date(event.startAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const urgencyLabel = urgency === "happening_now" ? "Happening now" : urgency === "closing_soon" ? "Ending soon" : startsInDays > 0 ? `Starts in ${startsInDays} day${startsInDays === 1 ? "" : "s"}` : null;
+  const venueRelatedEvents = similarEvents.filter((item) => item.venue?.name === event.venue?.name).slice(0, 6);
+  const artistRelatedEvents = similarEvents.filter((item) => !venueRelatedEvents.some((venueItem) => venueItem.id === item.id)).slice(0, 6);
 
   return (
     <PageShell className="page-stack">
@@ -159,6 +170,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="type-h2 text-white">{event.title}</h1>
               {showFreeEntryLabel ? <Badge className="border-white/30 bg-white/20 text-white text-xs">Free</Badge> : null}
+              {urgencyLabel ? <Badge className="border-amber-200/60 bg-amber-100/20 text-white text-xs">{urgencyLabel}</Badge> : null}
               <ArtworkCountBadge count={artworkCount} href={`/artwork?eventId=${event.id}`} badgeClassName="border-white/40 bg-white/10 text-white" />
             </div>
             <p className="type-caption text-white/90">{formatEventDateRange(event.startAt, event.endAt, event.timezone ?? undefined)} · {event.venue?.name ?? "Venue TBA"}</p>
@@ -229,7 +241,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
       {event.series && (seriesEvents.length > 0) ? (
         <section className="section-stack">
           <SectionHeader title={`Part of ${event.series.title}`} subtitle={`${seriesEvents.length + 1} events in this series`} />
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <SectionCarousel>
             {seriesEvents.map((related) => (
               <EventRailCard
                 key={related.id}
@@ -241,14 +253,14 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
                 imageAlt={resolveEntityPrimaryImage(related)?.alt}
               />
             ))}
-          </div>
+          </SectionCarousel>
         </section>
       ) : null}
 
       {similarEvents.length ? (
         <section className="section-stack">
-          <SectionHeader title="You might also like" />
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <SectionHeader title="More like this" />
+          <SectionCarousel>
             {similarEvents.map((similar) => (
               <EventRailCard
                 key={similar.id}
@@ -260,7 +272,29 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
                 imageAlt={resolveEntityPrimaryImage(similar)?.alt}
               />
             ))}
-          </div>
+          </SectionCarousel>
+        </section>
+      ) : null}
+
+      {venueRelatedEvents.length ? (
+        <section className="section-stack">
+          <SectionHeader title="More at this venue" />
+          <SectionCarousel>
+            {venueRelatedEvents.map((similar) => (
+              <EventRailCard key={similar.id} href={`/events/${similar.slug}`} title={similar.title} startAt={similar.startAt} venueName={similar.venue?.name} imageUrl={resolveEntityPrimaryImage(similar)?.url ?? null} imageAlt={resolveEntityPrimaryImage(similar)?.alt} />
+            ))}
+          </SectionCarousel>
+        </section>
+      ) : null}
+
+      {artistRelatedEvents.length ? (
+        <section className="section-stack">
+          <SectionHeader title="Same artists" />
+          <SectionCarousel>
+            {artistRelatedEvents.map((similar) => (
+              <EventRailCard key={similar.id} href={`/events/${similar.slug}`} title={similar.title} startAt={similar.startAt} venueName={similar.venue?.name} imageUrl={resolveEntityPrimaryImage(similar)?.url ?? null} imageAlt={resolveEntityPrimaryImage(similar)?.alt} />
+            ))}
+          </SectionCarousel>
         </section>
       ) : null}
 

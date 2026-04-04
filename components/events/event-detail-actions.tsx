@@ -38,7 +38,7 @@ export function EventDetailActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <SaveEventButton eventId={eventId} initialSaved={initialSaved} nextUrl={nextUrl} isAuthenticated={isAuthenticated} analytics={{ eventSlug, ui: "detail" }} />
+      <SaveEventButton eventId={eventId} initialSaved={initialSaved} nextUrl={nextUrl} isAuthenticated={isAuthenticated} />
       <AttendEventButton eventId={eventId} nextUrl={nextUrl} isAuthenticated={isAuthenticated} analytics={{ eventSlug, ui: "detail" }} ticketingMode={ticketingMode} />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
