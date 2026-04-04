@@ -2,6 +2,7 @@ import { Prisma, type SavedSearchType } from "@prisma/client";
 import { resolveImageUrl } from "@/lib/assets";
 import { getBoundingBox, isWithinRadiusKm } from "@/lib/geo";
 import { runSavedSearchEvents } from "@/lib/saved-searches";
+import { DEFAULT_FEED_SCORE_WEIGHTS, interactionDecay, scoreEvent } from "@/domains/feed/scoreEvent";
 
 const MAX_CANDIDATES = 400;
 const SOURCE_CAPS = { follows: 200, social: 120, saved: 100, nearby: 100, affinity: 150 } as const;
@@ -37,6 +38,8 @@ type CandidateEvent = {
   eventArtists: Array<{ artistId: string }>;
   eventTags: Array<{ tagId: string; tag: { slug: string; category: string } }>;
   feedbackMetaJson?: Prisma.JsonValue | null;
+  fromCuratorCollectionCount?: number;
+  fromFollowedCollectionCount?: number;
 };
 
 export type EventListItem = {
@@ -71,12 +74,12 @@ function addIds(candidates: string[], seen: Set<string>, incoming: string[], cap
 }
 
 function freshnessPoints(now: Date, startAt: Date) {
-  const ms = startAt.getTime() - now.getTime();
-  const days = ms / (24 * 60 * 60 * 1000);
-  if (days <= 1) return 4;
-  if (days <= 3) return 3;
-  if (days <= 7) return 2;
-  return 1;
+  return interactionDecay({
+    occurredAt: now,
+    now: startAt,
+    halfLifeHours: 72,
+    mode: "exponential",
+  });
 }
 
 function freshnessReason(now: Date, startAt: Date) {
@@ -115,64 +118,67 @@ export function scoreForYouEvents(args: {
   dislikedTagIds: Set<string>;
   locationLabel?: string | null;
   radiusKm?: number;
+  followedCollectionEventIds?: Set<string>;
 }) {
   const scored = args.events.map((event) => {
     let score = 0;
     const reasons: string[] = [];
 
+    const saveDecay = interactionDecay({ occurredAt: event.startAt, now: args.now, halfLifeHours: 24 * 14 });
     if (event.venueId && args.followedVenueIds.has(event.venueId)) {
-      score += 10;
+      score += DEFAULT_FEED_SCORE_WEIGHTS.followWeight;
       reasons.push("From a venue you follow");
     }
     if (event.eventArtists.some((artist) => args.followedArtistIds.has(artist.artistId))) {
-      score += 10;
+      score += DEFAULT_FEED_SCORE_WEIGHTS.followWeight;
       reasons.push("Includes an artist you follow");
     }
 
     if (args.sociallySavedEventIds.has(event.id)) {
-      score += 7;
+      score += DEFAULT_FEED_SCORE_WEIGHTS.socialWeight * saveDecay;
       reasons.push("Saved by people you follow");
     }
     if (args.sociallyCollectedEventIds.has(event.id)) {
-      score += 6;
+      score += DEFAULT_FEED_SCORE_WEIGHTS.socialWeight * 0.9;
       reasons.push("In collections from people you follow");
     }
 
     const searchMatches = args.savedSearchMatches.get(event.id) ?? [];
     if (searchMatches.length) {
-      score += Math.min(12, searchMatches.length * 6);
+      score += DEFAULT_FEED_SCORE_WEIGHTS.similarityWeight * Math.min(2, searchMatches.length);
       reasons.push(`Matches your saved search '${searchMatches[0]}'`);
     }
 
     if (args.nearbyMatches.has(event.id)) {
-      score += 6;
+      score += DEFAULT_FEED_SCORE_WEIGHTS.distanceWeight;
       reasons.push(`Near ${args.locationLabel || "your area"} (within ${args.radiusKm ?? 25} km)`);
     }
 
     if (event.venue?.subscription?.status === "ACTIVE") {
-      score += 3;
+      score += DEFAULT_FEED_SCORE_WEIGHTS.subscriptionWeight;
       reasons.push("From a Venue Pro subscriber");
     }
     const activePromotions = event.promotions ?? [];
     if (activePromotions.length) {
       const maxPriority = Math.max(...activePromotions.map((promotion) => promotion.priority));
-      score += Math.max(2, Math.min(8, maxPriority * 2));
+      const promotionScore = Math.max(0, Math.min(1, (maxPriority / 3)));
+      score += DEFAULT_FEED_SCORE_WEIGHTS.promotionWeight * promotionScore;
       reasons.push("Promoted by venue");
     }
 
     if (event.venueId && args.affinityVenueIds.has(event.venueId)) {
-      score += 5;
+      score += DEFAULT_FEED_SCORE_WEIGHTS.similarityWeight;
       reasons.push("Similar to venues you clicked recently");
     }
     if (event.eventArtists.some((artist) => args.affinityArtistIds.has(artist.artistId))) {
-      score += 5;
+      score += DEFAULT_FEED_SCORE_WEIGHTS.similarityWeight;
       reasons.push("Similar to artists you clicked recently");
     }
     const affinityTagScore = event.eventTags.reduce((total, tag) => (
       args.affinityTagIds.has(tag.tagId) ? total + tagCategoryWeight(tag.tag.category) : total
     ), 0);
     if (affinityTagScore > 0) {
-      score += affinityTagScore;
+      score += affinityTagScore * interactionDecay({ occurredAt: event.startAt, now: args.now, halfLifeHours: 24 * 21, mode: "linear", maxAgeHours: 24 * 30 });
       reasons.push("Has tags you engage with");
     }
 
@@ -182,8 +188,16 @@ export function scoreForYouEvents(args: {
       || event.eventTags.some((tag) => args.likedTagIds.has(tag.tagId)),
     );
     if (likedSimilarity) {
-      score += 2;
+      score += 2 * interactionDecay({ occurredAt: event.startAt, now: args.now, halfLifeHours: 24 * 14 });
       reasons.push("Because you liked similar events");
+    }
+    if ((event.fromCuratorCollectionCount ?? 0) > 0) {
+      score += DEFAULT_FEED_SCORE_WEIGHTS.curatorWeight * Math.min(1, (event.fromCuratorCollectionCount ?? 0));
+      reasons.push("Featured by trusted curators");
+    }
+    if ((event.fromFollowedCollectionCount ?? 0) > 0 || args.followedCollectionEventIds?.has(event.id)) {
+      score += DEFAULT_FEED_SCORE_WEIGHTS.collectionFollowWeight;
+      reasons.push("From a collection you follow");
     }
 
     if (event.venueId && args.dislikedVenueIds.has(event.venueId)) score -= 4;
@@ -194,7 +208,25 @@ export function scoreForYouEvents(args: {
     if (feedback === "up") score += 8;
     if (feedback === "down") score = -999;
 
-    score += freshnessPoints(args.now, event.startAt);
+    score += scoreEvent({
+      isFollowed: 0,
+      interactionsFromFollowedUsers: 0,
+      similarityToSaved: 0,
+      freshnessDecay: freshnessPoints(args.now, event.startAt),
+      proximity: 0,
+      promotionPriority: 0,
+      venuePro: 0,
+    }, {
+      ...DEFAULT_FEED_SCORE_WEIGHTS,
+      followWeight: 0,
+      socialWeight: 0,
+      similarityWeight: 0,
+      distanceWeight: 0,
+      promotionWeight: 0,
+      subscriptionWeight: 0,
+      curatorWeight: 0,
+      collectionFollowWeight: 0,
+    });
 
     if (reasons.length === 0) reasons.push(freshnessReason(args.now, event.startAt));
 
@@ -220,11 +252,48 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
   const to = new Date(now);
   to.setDate(to.getDate() + args.days);
 
-  const [user, follows, searches] = await Promise.all([
+  const cacheFreshAfter = new Date(now.getTime() - 45 * 60 * 1000);
+  const cached = await db.userFeedCache.findMany({
+    where: { userId: args.userId, createdAt: { gte: cacheFreshAfter } },
+    orderBy: [{ score: "desc" }, { createdAt: "desc" }],
+    take: args.limit,
+    select: { eventId: true },
+  }).catch(() => []);
+  if (cached.length) {
+    const ids = cached.map((c) => c.eventId);
+    const cachedEvents = await db.event.findMany({
+      where: { id: { in: ids }, isPublished: true, startAt: { gte: now, lte: to } },
+      select: {
+        id: true, title: true, slug: true, startAt: true,
+        venue: { select: { name: true, slug: true, city: true } },
+        images: { take: 1, orderBy: { sortOrder: "asc" }, select: { url: true, asset: { select: { url: true } } } },
+      },
+    });
+    const eventById = new Map(cachedEvents.map((event) => [event.id, event]));
+    const items = ids.map((id) => eventById.get(id)).filter(Boolean).map((event) => ({
+      reason: "Recommended for you",
+      reasonCategory: "trending" as const,
+      score: 0,
+      reasons: ["Precomputed for fast loading"],
+      event: {
+        id: event!.id,
+        title: event!.title,
+        slug: event!.slug,
+        startAt: event!.startAt.toISOString(),
+        venue: event!.venue ? { name: event!.venue.name, slug: event!.venue.slug, city: event!.venue.city } : null,
+        primaryImageUrl: resolveImageUrl(event!.images[0]?.asset?.url, event!.images[0]?.url),
+      },
+    }));
+    return { windowDays: args.days, items, candidateCount: items.length };
+  }
+
+  const [user, follows, searches, followedCollections] = await Promise.all([
     db.user.findUnique({ where: { id: args.userId }, select: { locationLat: true, locationLng: true, locationRadiusKm: true, locationLabel: true } }),
     db.follow.findMany({ where: { userId: args.userId }, select: { targetType: true, targetId: true } }),
     db.savedSearch.findMany({ where: { userId: args.userId, isEnabled: true, frequency: "WEEKLY" }, orderBy: { updatedAt: "desc" }, take: 2, select: { id: true, name: true, type: true, paramsJson: true } }),
+    db.collectionFollow.findMany({ where: { userId: args.userId }, select: { collectionId: true } }),
   ]);
+  const followedCollectionIds = followedCollections.map((item) => item.collectionId);
 
   const followedVenueIds = new Set(follows.filter((f) => f.targetType === "VENUE").map((f) => f.targetId));
   const followedArtistIds = new Set(follows.filter((f) => f.targetType === "ARTIST").map((f) => f.targetId));
@@ -241,6 +310,16 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
 
   const sociallySavedEventIds = new Set<string>();
   const sociallyCollectedEventIds = new Set<string>();
+  const followedCollectionEventIds = new Set<string>();
+  if (followedCollectionIds.length) {
+    const followedCollectionItems = await db.collectionItem.findMany({
+      where: { collectionId: { in: followedCollectionIds }, entityType: "EVENT" },
+      select: { entityId: true },
+      take: 300,
+    });
+    for (const item of followedCollectionItems) followedCollectionEventIds.add(item.entityId);
+    addIds(candidateIds, seenIds, Array.from(followedCollectionEventIds), SOURCE_CAPS.follows + SOURCE_CAPS.social);
+  }
   if (followedUserIds.size) {
     const followedIds = Array.from(followedUserIds);
     const [savedByFollowed, collectionEvents] = await Promise.all([
@@ -424,7 +503,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
       venue: { select: { name: true, slug: true, city: true, lat: true, lng: true, subscription: { select: { status: true } } } },
       promotions: {
         where: { startsAt: { lte: now }, endsAt: { gte: now } },
-        select: { priority: true },
+        select: { priority: true, tier: true, maxDailySlots: true, slotsUsedToday: true, endsAt: true },
       },
       images: { take: 1, orderBy: { sortOrder: "asc" }, select: { url: true, asset: { select: { url: true } } } },
       eventArtists: { select: { artistId: true } },
@@ -451,8 +530,20 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
 
   const eventsWithFeedback = events.map((event) => ({
     ...event,
+    promotions: event.promotions.filter((promo) => promo.slotsUsedToday < promo.maxDailySlots).map((promo) => ({
+      priority: Math.max(0, promo.priority + promo.tier - Math.min(1, Math.max(0, (now.getTime() - promo.endsAt.getTime()) / (24 * 60 * 60 * 1000)))),
+    })),
+    fromCuratorCollectionCount: 0,
+    fromFollowedCollectionCount: followedCollectionEventIds.has(event.id) ? 1 : 0,
     feedbackMetaJson: feedbackMetaByEventId.get(event.id) ?? null,
   }));
+  const curatorCollectionItemCounts = await db.collectionItem.groupBy({
+    by: ["entityId"],
+    where: { entityType: "EVENT", entityId: { in: events.map((event) => event.id) }, collection: { user: { isCurator: true } } },
+    _count: { _all: true },
+  }).catch(() => []);
+  const curatorCountsByEventId = new Map(curatorCollectionItemCounts.map((row) => [row.entityId, row._count._all]));
+  for (const item of eventsWithFeedback) item.fromCuratorCollectionCount = curatorCountsByEventId.get(item.id) ?? 0;
 
   const scored = scoreForYouEvents({
     now,
@@ -474,6 +565,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     dislikedTagIds,
     locationLabel: user?.locationLabel,
     radiusKm: user?.locationRadiusKm,
+    followedCollectionEventIds,
   });
 
   const topItems = scored.slice(0, args.limit);
@@ -508,6 +600,12 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
       inCollectionsCount: collectionCountMap.get(item.event.id) ?? 0,
     },
   }));
+  if (items.length) {
+    await db.userFeedCache.deleteMany({ where: { userId: args.userId } }).catch(() => undefined);
+    await db.userFeedCache.createMany({
+      data: topItems.map((item) => ({ userId: args.userId, eventId: item.event.id, score: item.score })),
+    }).catch(() => undefined);
+  }
 
   return { windowDays: args.days, items, candidateCount: trimmed.length };
 }

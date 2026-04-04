@@ -21,7 +21,7 @@ export async function NetworkCollectionsRail({ title = "From people you follow" 
       id: true,
       title: true,
       description: true,
-      user: { select: { username: true, displayName: true } },
+      user: { select: { username: true, displayName: true, isCurator: true } },
       _count: { select: { items: true } },
     },
   });
@@ -35,7 +35,7 @@ export async function NetworkCollectionsRail({ title = "From people you follow" 
           <Link key={collection.id} href={`/collections/${collection.id}`} className="rounded border p-3 hover:bg-muted/40">
             <p className="font-medium">{collection.title}</p>
             {collection.description ? <p className="text-sm text-muted-foreground line-clamp-2">{collection.description}</p> : null}
-            <p className="text-xs text-muted-foreground mt-1">by {collection.user.displayName ?? collection.user.username} · {collection._count.items} items</p>
+            <p className="text-xs text-muted-foreground mt-1">by {collection.user.displayName ?? collection.user.username}{collection.user.isCurator ? " ✓ Curator" : ""} · {collection._count.items} items</p>
           </Link>
         ))}
       </div>

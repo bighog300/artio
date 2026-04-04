@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   const collection = await db.collection.findUnique({
     where: { id: slug },
-    select: { title: true, description: true, isPublic: true, user: { select: { username: true, displayName: true } } },
+    select: { title: true, description: true, isPublic: true, user: { select: { username: true, displayName: true, isCurator: true } } },
   });
   if (!collection || !collection.isPublic) return { title: "Collection · Artio" };
   return {
@@ -61,7 +61,7 @@ export default async function CollectionPage({ params, searchParams }: { params:
         description: true,
         isPublic: true,
         userId: true,
-        user: { select: { username: true, displayName: true } },
+        user: { select: { username: true, displayName: true, isCurator: true } },
         items: { orderBy: { createdAt: "asc" }, select: { id: true, entityType: true, entityId: true } },
       },
     });
@@ -89,7 +89,7 @@ export default async function CollectionPage({ params, searchParams }: { params:
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold">{collection.title}</h1>
           {collection.description ? <p className="text-sm text-muted-foreground">{collection.description}</p> : null}
-          <p className="text-xs text-muted-foreground">By <Link className="underline" href={`/users/${collection.user.username}`}>{collection.user.displayName || collection.user.username}</Link></p>
+          <p className="text-xs text-muted-foreground">By <Link className="underline" href={`/users/${collection.user.username}`}>{collection.user.displayName || collection.user.username}</Link>{collection.user.isCurator ? " · ✓ Curator" : ""}</p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           {collection.items.map((item) => {

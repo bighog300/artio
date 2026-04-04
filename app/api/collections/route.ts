@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { guardUser } from "@/lib/auth-guard";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -24,9 +25,20 @@ export async function POST(req: NextRequest) {
   const title = body?.title?.trim();
   if (!title || title.length < 2) return apiError(400, "invalid_request", "Title is required");
 
-  const created = await db.collection.create({
-    data: { userId: user.id, title: title.slice(0, 80), description: body?.description?.trim().slice(0, 280), isPublic: body?.isPublic ?? true },
-    select: { id: true, title: true, description: true, isPublic: true },
-  });
-  return NextResponse.json(created, { status: 201 });
+  try {
+    await enforceRateLimit({
+      key: principalRateLimitKey(req, "collections:create", user.id),
+      limit: RATE_LIMITS.collectionCreate.limit,
+      windowMs: RATE_LIMITS.collectionCreate.windowMs,
+      fallbackToMemory: true,
+    });
+    const created = await db.collection.create({
+      data: { userId: user.id, title: title.slice(0, 80), description: body?.description?.trim().slice(0, 280), isPublic: body?.isPublic ?? true },
+      select: { id: true, title: true, description: true, isPublic: true },
+    });
+    return NextResponse.json(created, { status: 201 });
+  } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
+    return apiError(500, "internal_error", "Failed to create collection");
+  }
 }

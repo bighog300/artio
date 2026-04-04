@@ -239,5 +239,9 @@ export const RATE_LIMITS = {
     limit: Number(process.env.RATE_LIMIT_PUBLIC_WRITE_PER_HOUR ?? 10),
     windowMs: Number(process.env.RATE_LIMIT_PUBLIC_WRITE_WINDOW_MS ?? 3_600_000),
   },
+  collectionCreate: {
+    limit: Number(process.env.RATE_LIMIT_COLLECTION_CREATE_PER_HOUR ?? 20),
+    windowMs: Number(process.env.RATE_LIMIT_COLLECTION_CREATE_WINDOW_MS ?? 3_600_000),
+  },
 
 } as const;
