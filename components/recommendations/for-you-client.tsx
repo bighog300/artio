@@ -21,12 +21,16 @@ type ForYouResponse = {
   items: Array<{
     score: number;
     reasons: string[];
+    reason: string;
+    reasonCategory: "network" | "trending" | "nearby";
     event: {
       id: string;
       title: string;
       slug: string;
       startAt: string;
       venue: { name: string; slug: string; city: string | null } | null;
+      savedByCount?: number;
+      inCollectionsCount?: number;
     };
   }>;
 };
@@ -183,6 +187,12 @@ export function ForYouClient() {
     return ranked;
   }, [data.items, feedbackByEventId, hiddenIds, signals]);
 
+  const groupedItems = useMemo(() => {
+    const buckets: Record<"network" | "trending" | "nearby", typeof rankedItems> = { network: [], trending: [], nearby: [] };
+    for (const ranked of rankedItems) buckets[ranked.item.reasonCategory ?? "trending"].push(ranked);
+    return buckets;
+  }, [rankedItems]);
+
   const handleFeedback = useCallback((eventId: string, feedback: "up" | "down") => {
     setFeedbackByEventId((current) => ({ ...current, [eventId]: feedback }));
     if (feedback === "down") {
@@ -326,7 +336,14 @@ export function ForYouClient() {
               {locationPromptError ? <p className="text-sm text-red-600">{locationPromptError}</p> : null}
             </aside>
           ) : null}
-          {rankedItems.map((ranked) => {
+          {(["network", "trending", "nearby"] as const).map((section) => {
+            const sectionItems = groupedItems[section];
+            if (!sectionItems.length) return null;
+            const heading = section === "network" ? "From your network" : section === "nearby" ? "Near you" : "Trending now";
+            return (
+              <section key={section} className="space-y-3">
+                <h2 className="text-sm font-semibold text-foreground">{heading}</h2>
+                {sectionItems.map((ranked) => {
             const item = ranked.item;
             const explanation = buildExplanation({
               item: {
@@ -341,8 +358,9 @@ export function ForYouClient() {
               contextSignals: { ...signals, source: "recommendations", pathname: "/for-you" },
             });
 
-            return (
+                  return (
               <article className="space-y-2" key={item.event.id}>
+                <p className="text-xs font-medium text-muted-foreground">{item.reason}</p>
                 <EventCard
                   href={`/events/${item.event.slug}`}
                   title={item.event.title}
@@ -351,6 +369,8 @@ export function ForYouClient() {
                   venueSlug={item.event.venue?.slug}
                   badges={item.reasons.slice(0, 2)}
                   secondaryText={debugEnabled ? `Score: ${ranked.score} • ${ranked.breakdown.map((entry) => `${entry.key}:${entry.value}`).join(", ")}` : `Score: ${ranked.score}`}
+                  savedByCount={item.event.savedByCount}
+                  inCollectionsCount={item.event.inCollectionsCount}
                   onOpen={() => {
                     recordFeedback({ type: "click", source: "for_you", item: { type: "event", idOrSlug: item.event.id, tags: item.reasons, venueSlug: item.event.venue?.slug } });
                     recordOutcome({ action: "click", itemType: "event", itemKey: `event:${item.event.slug ?? item.event.id}`.toLowerCase(), sourceHint: "for_you" });
@@ -381,6 +401,9 @@ export function ForYouClient() {
                 />
                 {explanation ? <WhyThis source="for_you" explanation={explanation} /> : null}
               </article>
+                  );
+                })}
+              </section>
             );
           })}
         </div>

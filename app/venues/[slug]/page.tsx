@@ -29,6 +29,7 @@ import Link from "next/link";
 import { countPublishedArtworksByVenue, listPublishedArtworksByVenue } from "@/lib/artworks";
 import { getSessionUser } from "@/lib/auth";
 import { SaveButton } from "@/components/saves/save-button";
+import { TrendingEvents } from "@/components/events/trending-events";
 
 export const revalidate = 300;
 
@@ -412,6 +413,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
           </section>
         )}
       />
+      <TrendingEvents />
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
     </PageShell>

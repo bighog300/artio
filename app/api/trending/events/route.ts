@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
-import { FavoriteTargetType } from "@prisma/client";
+import { CollectionEntityType, FavoriteTargetType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 import { toApiImageField } from "@/lib/assets/image-contract";
@@ -11,34 +11,53 @@ import { apiError } from "@/lib/api";
 
 export const runtime = "nodejs";
 
-const WINDOW_DAYS = 14;
+const WINDOW_HOURS = 24;
 const LIMIT = 10;
 const SLOW_ROUTE_THRESHOLD_MS = 800;
 
 const getTrendingEvents = unstable_cache(
   async () => {
     const since = new Date();
-    since.setDate(since.getDate() - WINDOW_DAYS);
+    since.setHours(since.getHours() - WINDOW_HOURS);
 
-    const favoriteCounts = await db.favorite.groupBy({
-      by: ["targetId"],
-      where: {
-        targetType: FavoriteTargetType.EVENT,
-        createdAt: { gte: since },
-      },
-      _count: { _all: true },
-      orderBy: { _count: { targetId: "desc" } },
-      take: LIMIT,
-    });
+    const [favoriteCounts, collectionCounts, venueFollowCounts] = await Promise.all([
+      db.favorite.groupBy({
+        by: ["targetId"],
+        where: {
+          targetType: FavoriteTargetType.EVENT,
+          createdAt: { gte: since },
+        },
+        _count: { _all: true },
+        orderBy: { _count: { targetId: "desc" } },
+        take: LIMIT * 2,
+      }),
+      db.collectionItem.groupBy({
+        by: ["entityId"],
+        where: { entityType: CollectionEntityType.EVENT, createdAt: { gte: since } },
+        _count: { _all: true },
+        orderBy: { _count: { entityId: "desc" } },
+        take: LIMIT * 2,
+      }),
+      db.follow.groupBy({
+        by: ["targetId"],
+        where: { targetType: "VENUE", createdAt: { gte: since } },
+        _count: { _all: true },
+        orderBy: { _count: { targetId: "desc" } },
+        take: LIMIT * 2,
+      }),
+    ]);
 
-    if (!favoriteCounts.length) return [];
+    if (!favoriteCounts.length && !collectionCounts.length) return [];
 
-    const scoreMap = new Map(favoriteCounts.map((row) => [row.targetId, row._count._all]));
+    const scoreMap = new Map<string, number>();
+    for (const row of favoriteCounts) scoreMap.set(row.targetId, (scoreMap.get(row.targetId) ?? 0) + row._count._all * 3);
+    for (const row of collectionCounts) scoreMap.set(row.entityId, (scoreMap.get(row.entityId) ?? 0) + row._count._all * 2);
+    const venueFollowBoost = new Map(venueFollowCounts.map((row) => [row.targetId, row._count._all]));
     const now = new Date();
 
     const events = await db.event.findMany({
       where: {
-        id: { in: favoriteCounts.map((row) => row.targetId) },
+        id: { in: Array.from(scoreMap.keys()) },
         isPublished: true,
         startAt: { gte: now },
       },
@@ -57,25 +76,25 @@ const getTrendingEvents = unstable_cache(
           legacyUrl: event.images?.[0]?.url ?? null,
         });
         return ({
-        id: event.id,
-        slug: event.slug,
-        title: event.title,
-        startAt: event.startAt.toISOString(),
-        endAt: event.endAt?.toISOString() ?? null,
-        venue: event.venue,
-        tags: event.eventTags.map((eventTag) => ({ slug: eventTag.tag.slug, name: eventTag.tag.name })),
-        image: toApiImageField(primaryDisplay),
-        primaryImageUrl: primaryDisplay.url,
-        imageSource: primaryDisplay.source,
-        imageIsProcessing: primaryDisplay.isProcessing,
-        imageHasFailure: primaryDisplay.hasFailure,
-        score: scoreMap.get(event.id) ?? 0,
-      });
+          id: event.id,
+          slug: event.slug,
+          title: event.title,
+          startAt: event.startAt.toISOString(),
+          endAt: event.endAt?.toISOString() ?? null,
+          venue: event.venue,
+          tags: event.eventTags.map((eventTag) => ({ slug: eventTag.tag.slug, name: eventTag.tag.name })),
+          image: toApiImageField(primaryDisplay),
+          primaryImageUrl: primaryDisplay.url,
+          imageSource: primaryDisplay.source,
+          imageIsProcessing: primaryDisplay.isProcessing,
+          imageHasFailure: primaryDisplay.hasFailure,
+          score: (scoreMap.get(event.id) ?? 0) + (event.venue?.id ? (venueFollowBoost.get(event.venue.id) ?? 0) : 0),
+        });
       })
       .sort((a, b) => b.score - a.score || a.startAt.localeCompare(b.startAt))
       .slice(0, LIMIT);
   },
-  ["api-trending-events-v1"],
+  ["api-trending-events-v2"],
   { revalidate: 300 },
 );
 

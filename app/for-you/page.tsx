@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GetStartedBanner } from "@/components/onboarding/get-started-banner";
 import { getAuthDebugRequestMeta, logAuthDebug } from "@/lib/auth-debug";
+import { TrendingCollectionsRail } from "@/components/collections/trending-collections-rail";
+import { NetworkCollectionsRail } from "@/components/collections/network-collections-rail";
 
 // Auth-gated page: keep Node runtime so `getSessionUser()` (NextAuth `getServerSession`) can
 // reliably read session cookies in production deployments and avoid login redirect loops.
@@ -55,6 +57,8 @@ export default async function ForYouPage() {
           ]}
         />
       ) : <ForYouClient />}
+      <NetworkCollectionsRail />
+      <TrendingCollectionsRail />
     </main>
   );
 }

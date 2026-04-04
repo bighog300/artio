@@ -47,7 +47,7 @@ export function TrendingEvents() {
       <section className="space-y-2 rounded-lg border bg-muted/50 p-3" aria-busy="true" aria-live="polite">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Trending</h2>
-          <p className="text-xs text-muted-foreground">Based on saves from the last 14 days.</p>
+          <p className="text-xs text-muted-foreground">Based on saves and collections from the last 24 hours.</p>
         </div>
         <EventCardSkeleton />
       </section>
@@ -60,7 +60,7 @@ export function TrendingEvents() {
     <section className="space-y-2 rounded-lg border bg-muted/50 p-3">
       <div>
         <h2 className="text-sm font-semibold text-foreground">Trending</h2>
-        <p className="text-xs text-muted-foreground">Based on saves from the last 14 days.</p>
+        <p className="text-xs text-muted-foreground">Based on saves and collections from the last 24 hours.</p>
       </div>
       <ul className="space-y-2">
         {items.map((event) => (

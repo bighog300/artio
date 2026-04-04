@@ -46,9 +46,20 @@ export type EventListItem = {
   startAt: string;
   venue: { name: string; slug: string; city: string | null } | null;
   primaryImageUrl: string | null | undefined;
+  savedByCount?: number;
+  inCollectionsCount?: number;
 };
 
-export type ForYouItem = { event: EventListItem; score: number; reasons: string[] };
+export type FeedReasonCategory = "network" | "trending" | "nearby";
+export type ForYouItem = { event: EventListItem; score: number; reasons: string[]; reason: string; reasonCategory: FeedReasonCategory };
+
+function pickPrimaryReason(reasons: string[]): { reason: string; reasonCategory: FeedReasonCategory } {
+  const reason = reasons[0] ?? "Trending now";
+  const lower = reason.toLowerCase();
+  if (lower.includes("near")) return { reason, reasonCategory: "nearby" };
+  if (lower.includes("follow") || lower.includes("saved by people") || lower.includes("collection")) return { reason, reasonCategory: "network" };
+  return { reason, reasonCategory: "trending" };
+}
 
 function addIds(candidates: string[], seen: Set<string>, incoming: string[], cap: number) {
   for (const id of incoming) {
@@ -465,7 +476,25 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     radiusKm: user?.locationRadiusKm,
   });
 
-  const items: ForYouItem[] = scored.slice(0, args.limit).map((item) => ({
+  const topItems = scored.slice(0, args.limit);
+  const eventIds = topItems.map((item) => item.event.id);
+  const [saveCounts, collectionCounts] = await Promise.all([
+    db.favorite.groupBy({
+      by: ["targetId"],
+      where: { targetType: "EVENT", targetId: { in: eventIds } },
+      _count: { _all: true },
+    }),
+    db.collectionItem.groupBy({
+      by: ["entityId"],
+      where: { entityType: "EVENT", entityId: { in: eventIds } },
+      _count: { _all: true },
+    }),
+  ]);
+  const saveCountMap = new Map(saveCounts.map((row) => [row.targetId, row._count._all]));
+  const collectionCountMap = new Map(collectionCounts.map((row) => [row.entityId, row._count._all]));
+
+  const items: ForYouItem[] = topItems.map((item) => ({
+    ...pickPrimaryReason(item.reasons),
     score: item.score,
     reasons: item.reasons,
     event: {
@@ -475,6 +504,8 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
       startAt: item.event.startAt.toISOString(),
       venue: item.event.venue ? { name: item.event.venue.name, slug: item.event.venue.slug, city: item.event.venue.city } : null,
       primaryImageUrl: resolveImageUrl(item.event.images[0]?.asset?.url, item.event.images[0]?.url),
+      savedByCount: saveCountMap.get(item.event.id) ?? 0,
+      inCollectionsCount: collectionCountMap.get(item.event.id) ?? 0,
     },
   }));
 

@@ -7,6 +7,9 @@ import { Card } from "@/components/ui/card";
 import { CuratedCollectionsRail } from "@/components/artwork/curated-collections-rail";
 import { TrendingRail } from "@/components/artwork/trending-rail";
 import { getTrendingArtworks30 } from "@/lib/artworks";
+import { TrendingEvents } from "@/components/events/trending-events";
+import { TrendingCollectionsRail } from "@/components/collections/trending-collections-rail";
+import { NetworkCollectionsRail } from "@/components/collections/network-collections-rail";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +68,9 @@ export default async function Home() {
       )}
 
       <CuratedCollectionsRail />
+      <NetworkCollectionsRail />
+      <TrendingCollectionsRail />
+      <TrendingEvents />
       <TrendingRail items={trending} />
     </PageShell>
   );

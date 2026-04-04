@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -6,6 +7,21 @@ import { getSessionUser } from "@/lib/auth";
 import { FollowButton } from "@/components/follows/follow-button";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
+  const { username } = await params;
+  const profile = await db.user.findUnique({ where: { username }, select: { username: true, displayName: true, bio: true, avatarUrl: true, isPublic: true } });
+  if (!profile || !profile.isPublic) return { title: `@${username} · Artio` };
+  return {
+    title: `${profile.displayName ?? profile.username} · Artio`,
+    description: profile.bio ?? `View ${profile.displayName ?? profile.username}'s activity and collections on Artio.`,
+    openGraph: {
+      title: `${profile.displayName ?? profile.username} · Artio`,
+      description: profile.bio ?? `View ${profile.displayName ?? profile.username}'s activity and collections on Artio.`,
+      images: profile.avatarUrl ? [{ url: profile.avatarUrl }] : [],
+    },
+  };
+}
 
 export default async function UserProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
@@ -36,19 +52,19 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
       where: { userId: profile.id, targetType: "EVENT" },
       orderBy: { createdAt: "desc" },
       take: 12,
-      select: { targetId: true },
+      select: { targetId: true, createdAt: true },
     }),
     db.collection.findMany({
       where: { userId: profile.id, ...(isSelf ? {} : { isPublic: true }) },
       orderBy: { createdAt: "desc" },
       take: 12,
-      select: { id: true, title: true, description: true, isPublic: true, _count: { select: { items: true } } },
+      select: { id: true, title: true, description: true, isPublic: true, createdAt: true, _count: { select: { items: true } } },
     }),
     db.follow.findMany({
       where: { userId: profile.id, targetType: { in: ["ARTIST", "VENUE"] } },
       orderBy: { createdAt: "desc" },
       take: 20,
-      select: { targetType: true, targetId: true },
+      select: { targetType: true, targetId: true, createdAt: true },
     }),
   ]);
 
@@ -64,6 +80,23 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
   ]);
   const artistMap = new Map(artists.map((item) => [item.id, item]));
   const venueMap = new Map(venues.map((item) => [item.id, item]));
+  const recentActivity = [
+    ...savedEvents.map((item) => {
+      const event = savedEventMap.get(item.targetId);
+      return event ? { id: `save-${item.targetId}-${item.createdAt.toISOString()}`, createdAt: item.createdAt, text: `Saved ${event.title}`, href: `/events/${event.slug}` } : null;
+    }),
+    ...collections.map((collection) => ({ id: `collection-${collection.id}`, createdAt: collection.createdAt, text: `Created collection ${collection.title}`, href: `/collections/${collection.id}` })),
+    ...following.map((item) => {
+      if (item.targetType === "ARTIST") {
+        const artist = artistMap.get(item.targetId);
+        return artist ? { id: `follow-artist-${item.targetId}-${item.createdAt.toISOString()}`, createdAt: item.createdAt, text: `Followed artist ${artist.name}`, href: `/artists/${artist.slug}` } : null;
+      }
+      const venue = venueMap.get(item.targetId);
+      return venue ? { id: `follow-venue-${item.targetId}-${item.createdAt.toISOString()}`, createdAt: item.createdAt, text: `Followed venue ${venue.name}`, href: `/venues/${venue.slug}` } : null;
+    }),
+  ].filter((activity): activity is { id: string; createdAt: Date; text: string; href: string } => Boolean(activity))
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 20);
 
   return (
     <main className="space-y-6 p-6">
@@ -92,6 +125,18 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
             analyticsSlug={profile.username}
           />
         ) : null}
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Recent activity</h2>
+        <div className="space-y-2">
+          {recentActivity.map((activity) => (
+            <Link key={activity.id} href={activity.href} className="block rounded border p-3 text-sm hover:bg-muted/50">
+              <div>{activity.text}</div>
+              <div className="text-xs text-muted-foreground">{new Date(activity.createdAt).toLocaleString()}</div>
+            </Link>
+          ))}
+        </div>
       </section>
 
       <section className="space-y-2">

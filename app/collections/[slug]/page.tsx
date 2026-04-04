@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -17,6 +18,35 @@ const sortOptions: Array<{ label: string; value: CollectionSortMode }> = [
   { label: "Most viewed (30d)", value: "VIEWS_30D_DESC" },
   { label: "Newest", value: "NEWEST" },
 ];
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  if (!UUID_RE.test(slug)) {
+    const curated = await getPublishedCuratedCollectionBySlug(slug, { sort: "CURATED", page: 1, pageSize: 1 });
+    return {
+      title: curated?.title ? `${curated.title} · Artio` : "Collection · Artio",
+      description: curated?.description ?? "Explore this collection on Artio.",
+      openGraph: {
+        title: curated?.title ? `${curated.title} · Artio` : "Collection · Artio",
+        description: curated?.description ?? "Explore this collection on Artio.",
+      },
+    };
+  }
+
+  const collection = await db.collection.findUnique({
+    where: { id: slug },
+    select: { title: true, description: true, isPublic: true, user: { select: { username: true, displayName: true } } },
+  });
+  if (!collection || !collection.isPublic) return { title: "Collection · Artio" };
+  return {
+    title: `${collection.title} · Artio`,
+    description: collection.description ?? `Collection by ${collection.user.displayName ?? collection.user.username}`,
+    openGraph: {
+      title: `${collection.title} · Artio`,
+      description: collection.description ?? `Collection by ${collection.user.displayName ?? collection.user.username}`,
+    },
+  };
+}
 
 export default async function CollectionPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { slug } = await params;

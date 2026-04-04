@@ -32,9 +32,11 @@ type EventCardProps = {
   onOpen?: () => void;
   artworkCount?: number;
   viewArtworksHref?: string;
+  savedByCount?: number;
+  inCollectionsCount?: number;
 };
 
-export function EventCard({ title, startAt, endAt, venueName, imageUrl, image, imageAlt, href, badges, tags, secondaryText, action, distanceLabel, className, onOpen, artworkCount = 0, viewArtworksHref }: EventCardProps) {
+export function EventCard({ title, startAt, endAt, venueName, imageUrl, image, imageAlt, href, badges, tags, secondaryText, action, distanceLabel, className, onOpen, artworkCount = 0, viewArtworksHref, savedByCount = 0, inCollectionsCount = 0 }: EventCardProps) {
   const start = typeof startAt === "string" ? new Date(startAt) : startAt;
   const end = endAt ? (typeof endAt === "string" ? new Date(endAt) : endAt) : undefined;
   const hasValidStart = !Number.isNaN(start.getTime());
@@ -85,6 +87,13 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, image, i
           <h3 className="line-clamp-2 text-base font-semibold tracking-tight text-foreground">{title}</h3>
           {dateRange ? <p className="text-sm text-muted-foreground">{dateRange}</p> : null}
           {secondaryText ? <p className="text-sm text-muted-foreground">{secondaryText}</p> : null}
+          {(savedByCount > 0 || inCollectionsCount > 0) ? (
+            <p className="text-xs text-muted-foreground">
+              {savedByCount > 0 ? `Saved by ${savedByCount} users` : null}
+              {savedByCount > 0 && inCollectionsCount > 0 ? " · " : null}
+              {inCollectionsCount > 0 ? `In ${inCollectionsCount} collections` : null}
+            </p>
+          ) : null}
           {venueName ? <p className="line-clamp-1 text-sm text-muted-foreground">{venueName}</p> : null}
           {artworkCount > 0 ? <p className="inline-flex items-center gap-1 text-xs text-muted-foreground"><ImageIcon className="h-3.5 w-3.5" />{artworkCount}</p> : null}
           {chips?.length ? (

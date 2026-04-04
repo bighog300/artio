@@ -27,6 +27,7 @@ import { PaidTicketWidget } from "@/components/events/paid-ticket-widget";
 import { getSessionUser } from "@/lib/auth";
 import { getEventUrgencyStatus } from "@/lib/events/event-urgency";
 import { SectionCarousel } from "@/components/ui/section-carousel";
+import { TrendingEvents } from "@/components/events/trending-events";
 
 export const revalidate = 60;
 
@@ -77,7 +78,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
 
   const user = await getSessionUser();
 
-  const [artworks, artworkCount, similarEvents, seriesEvents, savedEvent] = await Promise.all([
+  const [artworks, artworkCount, similarEvents, seriesEvents, savedEvent, savedByCount, inCollectionsCount] = await Promise.all([
     listPublishedArtworksByEvent(event.id, 6),
     countPublishedArtworksByEvent(event.id),
     db.event.findMany({
@@ -90,6 +91,8 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
       ? listPublishedEventsInSeriesWithDeps({ findMany: (args) => db.event.findMany(args) }, { seriesId: event.seriesId, excludeEventId: event.id })
       : Promise.resolve([]),
     user ? db.favorite.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "EVENT", targetId: event.id } }, select: { id: true } }) : Promise.resolve(null),
+    db.favorite.count({ where: { targetType: "EVENT", targetId: event.id } }),
+    db.collectionItem.count({ where: { entityType: "EVENT", entityId: event.id } }),
 ]);
 
   const isAuthenticated = Boolean(user);
@@ -200,6 +203,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
           <article className="section-stack">
             <SectionHeader title="About this event" />
             <p className="type-caption whitespace-pre-wrap">{event.description || "Details coming soon."}</p>
+            <p className="text-xs text-muted-foreground">Saved by {savedByCount} users · In {inCollectionsCount} collections</p>
           </article>
           <ArtworkRelatedSection title="Artworks at this event" subtitle="Published works linked to this event." items={artworks} viewAllHref={artworkCount > 6 ? `/artwork?eventId=${event.id}` : undefined} showArtistName />
           {event.eventArtists.length ? <article className="section-stack"><SectionHeader title="Lineup" /><div className="flex flex-wrap gap-2">{event.eventArtists.map((entry) => <Link key={entry.artistId} href={`/artists/${entry.artist.slug}`}><Badge variant="secondary" className="cursor-pointer hover:bg-secondary/60 transition-colors">{entry.artist.name}</Badge></Link>)}</div></article> : null}
@@ -275,6 +279,8 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
           </SectionCarousel>
         </section>
       ) : null}
+
+      <TrendingEvents />
 
       {venueRelatedEvents.length ? (
         <section className="section-stack">
