@@ -1,6 +1,7 @@
 import { getServerSession, type NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { db } from "@/lib/db";
+import { buildUsernameSeed, ensureUniqueUsername } from "@/lib/username";
 import type { VenueMembershipRole } from "@prisma/client";
 import { hasMinimumVenueRole } from "@/lib/ownership";
 import { logWarn } from "@/lib/logging";
@@ -91,20 +92,6 @@ function warnAuthEnvRisks(host: string) {
   }
 }
 
-function buildUsernameSeed(email: string) {
-  return normalizeEmail(email).split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20) || "user";
-}
-
-async function ensureUniqueUsername(base: string) {
-  const seed = base || "user";
-  for (let i = 0; i < 25; i += 1) {
-    const suffix = i === 0 ? "" : `_${Math.random().toString(36).slice(2, 8)}`;
-    const candidate = `${seed}${suffix}`.slice(0, 30);
-    const exists = await db.user.findUnique({ where: { username: candidate }, select: { id: true } });
-    if (!exists) return candidate;
-  }
-  return `${seed}_${Date.now().toString(36)}`.slice(0, 30);
-}
 
 function isAllowlistedAdminEmail(email: string) {
   const betaConfig = getBetaConfig();

@@ -1,6 +1,7 @@
 import type { User } from "@prisma/client";
 import { db } from "@/lib/db";
 import { logWarn } from "@/lib/logging";
+import { buildUsernameSeed, ensureUniqueUsername } from "@/lib/username";
 
 export type SessionUserLike = {
   id?: string | null;
@@ -30,6 +31,9 @@ export async function ensureDbUserForSession(sessionUser: SessionUserLike | null
       const userByEmail = await db.user.findUnique({ where: { email: normalizedEmail } });
       if (userByEmail) return userByEmail;
 
+      const seed = buildUsernameSeed(normalizedEmail);
+      const username = await ensureUniqueUsername(seed);
+
       return db.user.upsert({
         where: { email: normalizedEmail },
         update: {
@@ -37,7 +41,7 @@ export async function ensureDbUserForSession(sessionUser: SessionUserLike | null
         },
         create: {
           email: normalizedEmail,
-          username: normalizedEmail.split("@")[0],
+          username,
           name: sessionUser?.name ?? null,
           displayName: sessionUser?.name ?? null,
           role: "USER",
