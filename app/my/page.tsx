@@ -4,6 +4,7 @@ import { getMyDashboard } from "@/lib/my/dashboard/get-my-dashboard";
 import NeedsAttentionPanel from "@/app/my/_components/NeedsAttentionPanel";
 import StatusTileGroups from "@/app/my/_components/StatusTileGroups";
 import { EmptyState } from "@/components/ui/empty-state";
+import { RequestPublisherAccessCard } from "@/components/my/request-publisher-access-card";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function MyDashboardPage({ searchParams }: { searchParams: 
     data.counts.venues.Draft > 0 || data.counts.venues.Published > 0 ||
     data.counts.events.Draft > 0 || data.counts.events.Published > 0 ||
     data.counts.artwork.Draft > 0 || data.counts.artwork.Published > 0;
+  const hasVenueAccess = Object.values(data.counts.venues).some((count) => count > 0);
 
   if (!hasAnyContent) {
     return (
@@ -39,6 +41,7 @@ export default async function MyDashboardPage({ searchParams }: { searchParams: 
             { label: "Set up artist profile", href: "/my/artist", variant: "secondary" },
           ]}
         />
+        {!hasVenueAccess ? <RequestPublisherAccessCard email={user.email} /> : null}
       </main>
     );
   }
@@ -47,6 +50,12 @@ export default async function MyDashboardPage({ searchParams }: { searchParams: 
     <main className="space-y-6 p-6">
       <NeedsAttentionPanel attention={data.attention} />
       <StatusTileGroups counts={data.counts} venueId={venueId} />
+      {!hasVenueAccess ? (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Want to publish venues and events?</h2>
+          <RequestPublisherAccessCard email={user.email} />
+        </section>
+      ) : null}
     </main>
   );
 }

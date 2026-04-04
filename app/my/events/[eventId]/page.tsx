@@ -121,8 +121,8 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
 
           <div className="rounded-md border bg-muted/20 p-4 text-sm">
             <p className="font-medium">Ready to publish?</p>
-            <p className="mt-1 text-muted-foreground">{canPublishDirectly ? "If your checklist is complete, use admin moderation controls to publish directly." : "If your checklist is complete, publish your event."}</p>
-            <Link className="mt-2 inline-block underline" href="#publish-panel">{canPublishDirectly ? "Open moderation controls" : "Publish"}</Link>
+            <p className="mt-1 text-muted-foreground">{canPublishDirectly ? "Your checklist is complete — you can publish directly." : "If your checklist is complete, publish your event."}</p>
+            <Link className="mt-2 inline-block underline" href="#publish-panel">{canPublishDirectly ? "Publish now" : "Publish"}</Link>
           </div>
 
           <div className="rounded-md border p-4 text-sm">
@@ -151,6 +151,7 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
               status={event.status}
               title={event.title ?? "Untitled event"}
               publicUrl={event.slug ? `/events/${event.slug}` : undefined}
+              canPublishDirectly={canPublishDirectly}
             />
           </div>
         </aside>
