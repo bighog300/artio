@@ -17,6 +17,7 @@ type Props = {
   onStatusChange?: (status: UnifiedPublishStatus) => void;
   requiresConfirmation?: boolean;
   compact?: boolean;
+  canPublishDirectly?: boolean;
 };
 
 function getStatusVariant(status: UnifiedPublishStatus): "default" | "secondary" | "destructive" | "outline" {
@@ -26,7 +27,7 @@ function getStatusVariant(status: UnifiedPublishStatus): "default" | "secondary"
   return "outline";
 }
 
-export function PublishPanel({ resourceType, id, status, title, publicUrl, onStatusChange, requiresConfirmation, compact }: Props) {
+export function PublishPanel({ resourceType, id, status, title, publicUrl, onStatusChange, requiresConfirmation, compact, canPublishDirectly }: Props) {
   const [currentStatus, setCurrentStatus] = useState<UnifiedPublishStatus>(status);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PublishIntentResponse | null>(null);
@@ -175,7 +176,9 @@ export function PublishPanel({ resourceType, id, status, title, publicUrl, onSta
     <Card id="publish-panel" className="lg:sticky lg:top-4">
       <CardHeader>
         <CardTitle className="text-lg">Publish {resourceType}</CardTitle>
-        <CardDescription>{title}</CardDescription>
+        <CardDescription>
+          {canPublishDirectly ? "You can publish directly — no review required." : "Submit for review. We'll notify you once a decision is made."}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center gap-2">

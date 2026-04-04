@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { canSelfPublish, getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import VenueSelfServeForm from "@/app/my/_components/VenueSelfServeForm";
 import VenueMembersManager from "@/app/my/_components/VenueMembersManager";
@@ -32,6 +32,7 @@ export default async function MyVenueEditPage({
   const query = (await searchParams) ?? {};
   const user = await getSessionUser();
   if (!user) return redirectToLogin("/my/venues");
+  const canPublishDirectly = canSelfPublish(user);
 
   if (!hasDatabaseUrl()) {
     return (
@@ -300,6 +301,7 @@ export default async function MyVenueEditPage({
             status={venue.deletedAt ? "ARCHIVED" : venue.isPublished ? "PUBLISHED" : (venue.status ?? submission?.status ?? "DRAFT")}
             title={venue.name}
             publicUrl={venue.slug ? `/venues/${venue.slug}` : undefined}
+            canPublishDirectly={canPublishDirectly}
           />
         </aside>
       </div>
