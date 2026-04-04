@@ -1439,6 +1439,7 @@ model Submission {
   targetArtistId  String?          @db.Uuid
   note            String?
   details         Json?
+  isAiGenerated   Boolean          @default(false)
   decisionReason  String?
   rejectionReason String?
   decidedByUserId String?          @db.Uuid

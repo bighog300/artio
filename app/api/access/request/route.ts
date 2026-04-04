@@ -19,6 +19,10 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   try {
     const user = await requireUser();
+    // "NONE" is a synthetic status — it is not stored in the database.
+    // It is returned here so the client always receives the same response
+    // shape regardless of whether a request exists. Do not add "NONE" to
+    // the AccessRequestStatus enum in the Prisma schema.
     return await handleGetMyAccessRequest(user);
   } catch (error) {
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");

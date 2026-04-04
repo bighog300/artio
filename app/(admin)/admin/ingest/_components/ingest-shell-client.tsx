@@ -397,7 +397,7 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
               href="/admin/ingest/runs"
               className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/runs") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
-              Trigger / Runs
+              Pipeline ops
             </Link>
             <Link
               href="/admin/ingest/enrich"
@@ -455,18 +455,6 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
               }`}
             >
               Duplicates
-            </Link>
-            <Link
-              href="/admin/ingest/logs"
-              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/logs") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Logs
-            </Link>
-            <Link
-              href="/admin/ingest/health"
-              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/health") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Health
             </Link>
           </div>
         </div>

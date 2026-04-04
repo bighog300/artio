@@ -97,6 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               sourceUrl: candidate.sourceUrl,
             },
             submittedAt: new Date(),
+            isAiGenerated: true,
           },
         });
       }

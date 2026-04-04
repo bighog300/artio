@@ -2,23 +2,16 @@ import Link from "next/link";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import IngestStatusBadge from "@/app/(admin)/admin/ingest/_components/ingest-status-badge";
 import IngestTriggerClient from "@/app/(admin)/admin/ingest/_components/ingest-trigger-client";
+import LogsClient from "@/app/(admin)/admin/ingest/logs/logs-client";
+import HealthContent from "@/app/(admin)/admin/ingest/health/health-content";
 import { SchedulePanel } from "./schedule-panel";
 import { RunsFilters } from "./runs-filters";
 import { db } from "@/lib/db";
+import { getIngestLogsData } from "@/app/(admin)/admin/ingest/logs/logs-data";
+import { getAdminIngestHealthData } from "@/lib/ingest/health-query";
 import type { IngestStatus, Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
-
-type IngestRun = {
-  id: string;
-  createdAt: Date;
-  status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
-  sourceUrl: string;
-  fetchStatus: number | null;
-  errorCode: string | null;
-  createdCandidates: number;
-  venue: { id: string; name: string };
-};
 
 const PAGE_SIZE = 50;
 const VALID_STATUSES: IngestStatus[] = ["PENDING", "RUNNING", "SUCCEEDED", "FAILED"];
@@ -45,7 +38,7 @@ export default async function AdminIngestRunsPage({
     ...(statusFilter ? { status: statusFilter } : {}),
   };
 
-  const [runs, totalRuns, venues] = await Promise.all([
+  const [runs, totalRuns, venues, logsData, healthData] = await Promise.all([
     db.ingestRun.findMany({
       where,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -69,6 +62,8 @@ export default async function AdminIngestRunsPage({
       select: { id: true, name: true, websiteUrl: true, ingestFrequency: true },
       take: 200,
     }),
+    getIngestLogsData(),
+    getAdminIngestHealthData(db),
   ]);
 
   const venueOptions = venues.map((venue) => ({
@@ -84,8 +79,8 @@ export default async function AdminIngestRunsPage({
   return (
     <>
       <AdminPageHeader
-        title="Ingest Runs"
-        description="Trigger a manual extraction run or review recent run history."
+        title="Pipeline ops"
+        description="Trigger runs, view run history, logs, and pipeline health."
       />
       <RunsFilters
         venues={venueOptions.map((venue) => ({ id: venue.id, name: venue.name }))}
@@ -143,6 +138,20 @@ export default async function AdminIngestRunsPage({
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="space-y-4 border-t pt-4">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          Extraction logs
+        </h2>
+        <LogsClient {...logsData} />
+      </section>
+
+      <section className="space-y-4 border-t pt-4">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          Pipeline health
+        </h2>
+        <HealthContent data={healthData} />
       </section>
     </>
   );

@@ -33,7 +33,7 @@ export default async function AdminSubmissionsPage({ searchParams }: { searchPar
     <main className="p-6 space-y-3">
       <AdminPageHeader
         title="Submissions"
-        description="Approve, reject, or request changes for submitted content."
+        description="Review and action content submitted by users via the public submission form."
       />
       <div className="flex gap-2 text-sm">
         {allowedStatuses.map((s) => (

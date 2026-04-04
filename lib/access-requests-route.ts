@@ -48,6 +48,10 @@ export async function handleCreateAccessRequest(req: NextRequest, user: SessionU
   }
 
   const dbUser = await deps.appDb.user.findUnique({ where: { id: user.id }, select: { id: true } });
+  // TODO: Replace this missing-user check with an explicit user.status === "SUSPENDED"
+  // guard once a suspension status column is added to the User model.
+  // Tracking issue: the current schema has no suspension field, so suspended users
+  // are indistinguishable from deleted users at the application layer.
   if (!dbUser) return apiError(403, "inactive_user", "User account is not active");
 
   try {
@@ -104,6 +108,10 @@ export async function handleGetMyAccessRequest(user: SessionUser, deps: AccessRe
     orderBy: [{ createdAt: "desc" }],
   });
 
+  // "NONE" is a synthetic status — it is not stored in the database.
+  // It is returned here so the client always receives the same response
+  // shape regardless of whether a request exists. Do not add "NONE" to
+  // the AccessRequestStatus enum in the Prisma schema.
   if (!latest) return NextResponse.json({ state: "NONE", request: null });
   return NextResponse.json({ state: latest.status, request: latest });
 }

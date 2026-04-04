@@ -24,26 +24,9 @@ export default async function AdminModerationPage({ searchParams }: { searchPara
     ...(publisher ? { submitter: { email: { contains: publisher, mode: "insensitive" as const } } } : {}),
     ...(submittedAfter ? { submittedAt: { gte: new Date(submittedAfter) } } : {}),
     ...(sourceFilter === "ai"
-      ? {
-          details: {
-            path: ["source"],
-            string_contains: "ingest",
-          },
-        }
+      ? { isAiGenerated: true }
       : sourceFilter === "user"
-        ? {
-            OR: [
-              { details: { equals: Prisma.DbNull } },
-              {
-                NOT: {
-                  details: {
-                    path: ["source"],
-                    string_contains: "ingest",
-                  },
-                },
-              },
-            ],
-          }
+        ? { isAiGenerated: false }
         : {}),
   };
 
@@ -63,6 +46,7 @@ export default async function AdminModerationPage({ searchParams }: { searchPara
         decisionReason: true,
         decidedAt: true,
         details: true,
+        isAiGenerated: true,
         submitter: { select: { email: true, name: true } },
         targetEvent: { select: { id: true, title: true, slug: true } },
         targetVenue: { select: { id: true, name: true, slug: true } },
@@ -73,7 +57,7 @@ export default async function AdminModerationPage({ searchParams }: { searchPara
 
   return (
     <main className="space-y-6">
-      <AdminPageHeader title="Moderation" description="Review and action submissions quickly." />
+      <AdminPageHeader title="Moderation" description="Review and action content discovered and extracted by the AI ingest pipeline." />
       <ModerationClient
         initialItems={items.map((item) => ({
           submissionId: item.id,
@@ -86,12 +70,7 @@ export default async function AdminModerationPage({ searchParams }: { searchPara
           decisionReason: item.decisionReason ?? null,
           decidedAt: item.decidedAt?.toISOString() ?? null,
           publisher: item.submitter.name ?? item.submitter.email,
-          isAiSource:
-            item.details !== null &&
-            typeof item.details === "object" &&
-            !Array.isArray(item.details) &&
-            typeof (item.details as Record<string, unknown>).source === "string" &&
-            ((item.details as Record<string, unknown>).source as string).includes("ingest"),
+          isAiSource: item.isAiGenerated,
         }))}
         page={page}
         total={total}

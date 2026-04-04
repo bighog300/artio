@@ -634,6 +634,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
               locationText: effectiveLocationText,
             },
             submittedAt: new Date(),
+            isAiGenerated: true,
           },
           select: { id: true },
         });

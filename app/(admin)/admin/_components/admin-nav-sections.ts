@@ -20,10 +20,12 @@ export const ADMIN_SECTIONS: AdminNavSection[] = [
       { href: "/admin/venues", label: "Venues" },
       { href: "/admin/venue-claims", label: "Venue Claims" },
       { href: "/admin/artists", label: "Artists" },
-      { href: "/admin/artist-event-associations", label: "Artist associations" },
+      { href: "/admin/artist-event-associations", label: "Artist–event links" },
       { href: "/admin/artwork", label: "Artwork" },
       { href: "/admin/artwork-inquiries", label: "Artwork inquiries" },
       { href: "/admin/tags", label: "Tags" },
+      { href: "/admin/submissions", label: "User submissions" },
+      { href: "/admin/moderation", label: "AI review" },
     ],
   },
   {
@@ -31,7 +33,6 @@ export const ADMIN_SECTIONS: AdminNavSection[] = [
     links: [
       { href: "/admin/ingest", label: "Ingest" },
       { href: "/admin/ingest/ready-to-publish", label: "Ready to publish" },
-      { href: "/admin/submissions", label: "Submissions" },
       { href: "/admin/curation", label: "Curation" },
     ],
   },
