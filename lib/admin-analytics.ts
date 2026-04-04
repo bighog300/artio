@@ -14,6 +14,19 @@ export type AdminAnalyticsDb = {
   artist: {
     findMany: (args: { where: { id: { in: string[] } }; select: { id: true; name: true; slug: true } }) => Promise<Array<{ id: string; name: string; slug: string }>>;
   };
+  favorite: {
+    count: (args?: Prisma.FavoriteCountArgs) => Promise<number>;
+    groupBy: (args: Prisma.FavoriteGroupByArgs) => Promise<Array<{ targetId: string; _count: { _all: number } }>>;
+  };
+  follow: {
+    count: (args?: Prisma.FollowCountArgs) => Promise<number>;
+  };
+  venueSubscription: {
+    count: (args?: Prisma.VenueSubscriptionCountArgs) => Promise<number>;
+  };
+  user: {
+    groupBy: (args: Prisma.UserGroupByArgs) => Promise<Array<{ id: string }>>;
+  };
 };
 
 export type AnalyticsOverview = {
@@ -29,6 +42,10 @@ export type AnalyticsOverview = {
     followingClicks: number;
     follows: number;
     saveSearches: number;
+    dau: number;
+    savesPerDay: number;
+    followsPerDay: number;
+    subscriptionRevenueEstimate: number;
   };
   ctr: {
     digestCtr: number | null;
@@ -63,6 +80,10 @@ export async function getAdminAnalyticsOverview(windowDays: 7 | 30, analyticsDb:
     nearbyViews,
     searchViews,
     followingViews,
+    dau,
+    saves,
+    followsPerDay,
+    activeSubscriptions,
     eventGroups,
     venueGroups,
     artistGroups,
@@ -80,6 +101,10 @@ export async function getAdminAnalyticsOverview(windowDays: 7 | 30, analyticsDb:
     analyticsDb.engagementEvent.count({ where: { ...rangeWhere, action: "VIEW", targetType: "EVENT", surface: "NEARBY" } }),
     analyticsDb.engagementEvent.count({ where: { ...rangeWhere, action: "VIEW", targetType: "EVENT", surface: "SEARCH" } }),
     analyticsDb.engagementEvent.count({ where: { ...rangeWhere, action: "VIEW", targetType: "EVENT", surface: "FOLLOWING" } }),
+    analyticsDb.user.groupBy({ by: ["id"], where: { engagementEvents: { some: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } } } }),
+    analyticsDb.favorite.count({ where: { targetType: "EVENT", createdAt: { gte: since } } }),
+    analyticsDb.follow.count({ where: { createdAt: { gte: since } } }),
+    analyticsDb.venueSubscription.count({ where: { status: "ACTIVE" } }),
     analyticsDb.engagementEvent.groupBy({
       by: ["targetId"],
       where: { ...rangeWhere, action: "CLICK", targetType: "EVENT" },
@@ -130,6 +155,10 @@ export async function getAdminAnalyticsOverview(windowDays: 7 | 30, analyticsDb:
       followingClicks,
       follows,
       saveSearches,
+      dau: dau.length,
+      savesPerDay: Number((saves / windowDays).toFixed(2)),
+      followsPerDay: Number((followsPerDay / windowDays).toFixed(2)),
+      subscriptionRevenueEstimate: activeSubscriptions * 29,
     },
     ctr: {
       digestCtr: safeCtr(digestClicks, digestsViewed),

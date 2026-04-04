@@ -33,7 +33,7 @@ const getTrendingCollections = unstable_cache(async () => {
       id: true,
       title: true,
       description: true,
-      user: { select: { username: true, displayName: true } },
+      user: { select: { username: true, displayName: true, isCurator: true } },
       _count: { select: { items: true } },
     },
   });

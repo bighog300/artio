@@ -471,6 +471,9 @@ model User {
   notificationPrefs  UserNotificationPrefs?
   interactions      UserInteraction[]
   userNotifications UserNotification[]
+  isCurator         Boolean               @default(false)
+  collectionFollows CollectionFollow[]
+  feedCacheItems    UserFeedCache[]
 
   @@index([locationLat, locationLng])
 }
@@ -995,6 +998,7 @@ model Event {
   extractedArtworks  IngestExtractedArtwork[] @relation("IngestExtractedArtworkSourceEvent")
   enrichmentRunItems EnrichmentRunItem[]      @relation("EnrichmentRunItemEvent")
   promotions        EventPromotion[]
+  feedCacheItems    UserFeedCache[]
 
   @@index([startAt])
   @@index([isPublished])
@@ -2219,8 +2223,34 @@ model Collection {
   updatedAt   DateTime         @updatedAt
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   items       CollectionItem[]
+  followers   CollectionFollow[]
 
   @@index([userId, createdAt])
+}
+
+model CollectionFollow {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @db.Uuid
+  collectionId String     @db.Uuid
+  createdAt    DateTime   @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, collectionId])
+  @@index([collectionId, createdAt])
+}
+
+model UserFeedCache {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  eventId   String   @db.Uuid
+  score     Float
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([userId, score, createdAt])
 }
 
 model CollectionItem {
@@ -2272,6 +2302,9 @@ model EventPromotion {
   startsAt  DateTime
   endsAt    DateTime
   priority  Int      @default(1)
+  tier      Int      @default(1)
+  maxDailySlots Int  @default(100)
+  slotsUsedToday Int @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)

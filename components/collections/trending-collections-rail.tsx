@@ -7,7 +7,7 @@ type TrendingCollection = {
   id: string;
   title: string;
   description: string | null;
-  user: { username: string; displayName: string | null };
+  user: { username: string; displayName: string | null; isCurator: boolean };
   _count: { items: number };
   score: number;
 };
@@ -41,7 +41,7 @@ export function TrendingCollectionsRail({ title = "Trending collections" }: { ti
           <Link key={collection.id} href={`/collections/${collection.id}`} className="rounded border p-3 hover:bg-muted/40">
             <p className="font-medium">{collection.title}</p>
             {collection.description ? <p className="text-sm text-muted-foreground line-clamp-2">{collection.description}</p> : null}
-            <p className="text-xs text-muted-foreground mt-1">by {collection.user.displayName ?? collection.user.username} · {collection._count.items} items</p>
+            <p className="text-xs text-muted-foreground mt-1">by {collection.user.displayName ?? collection.user.username}{collection.user.isCurator ? " ✓ Curator" : ""} · {collection._count.items} items</p>
           </Link>
         ))}
       </div>
