@@ -28,8 +28,6 @@ export function isAuthError(err: unknown): err is AuthError {
   return err instanceof AuthError;
 }
 
-const googleClientId = process.env.AUTH_GOOGLE_ID;
-const googleClientSecret = process.env.AUTH_GOOGLE_SECRET;
 const isProdLikeEnv = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 const isProductionBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
 
@@ -65,9 +63,6 @@ export function getAuthSecret(): string {
 }
 
 const authSecret = getAuthSecret();
-
-const hasAuthConfig = Boolean(authSecret && googleClientId && googleClientSecret);
-
 
 const authFailureWindowMs = 60_000;
 const authFailureState = { windowStart: 0, count: 0 };
@@ -119,14 +114,12 @@ function logRateLimitedAuthFailure() {
 
 export const authOptions: NextAuthOptions = {
   secret: authSecret,
-  providers: hasAuthConfig
-    ? [
-        GoogleProvider({
-          clientId: googleClientId!,
-          clientSecret: googleClientSecret!,
-        }),
-      ]
-    : [],
+  providers: [
+    GoogleProvider({
+      clientId: process.env.AUTH_GOOGLE_ID ?? "",
+      clientSecret: process.env.AUTH_GOOGLE_SECRET ?? "",
+    }),
+  ],
   session: { strategy: "jwt" },
   cookies: {
     sessionToken: {
@@ -320,5 +313,8 @@ export async function requireAdmin() {
 }
 
 export function assertAuthConfig() {
-  return hasAuthConfig;
+  const googleClientId = process.env.AUTH_GOOGLE_ID;
+  const googleClientSecret = process.env.AUTH_GOOGLE_SECRET;
+  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+  return Boolean(secret && googleClientId && googleClientSecret);
 }
