@@ -91,6 +91,7 @@ export default async function AdminIngestRunsPage({
         totalRuns={totalRuns}
       />
 
+      {/* Trigger a manual extraction run */}
       <IngestTriggerClient venues={venueOptions} />
       <SchedulePanel
         venues={venueOptions.map((v) => ({

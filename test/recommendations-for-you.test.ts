@@ -124,6 +124,9 @@ test("candidate pool cap and published filtering are respected", async () => {
   const db = {
     user: { findUnique: async () => ({ locationLat: null, locationLng: null, locationRadiusKm: 25, locationLabel: null }) },
     follow: { findMany: async () => [{ targetType: "VENUE", targetId: "v-1" }] },
+    collectionFollow: { findMany: async () => [] },
+    collectionItem: { groupBy: async () => [] },
+    favorite: { groupBy: async () => [] },
     savedSearch: { findMany: async () => [] },
     engagementEvent: { findMany: async () => [] },
     event: {
@@ -144,6 +147,7 @@ test("candidate pool cap and published filtering are respected", async () => {
           images: e.images,
           eventArtists: e.eventArtists,
           eventTags: e.eventTags,
+          promotions: [],
         }));
       },
     },
@@ -164,6 +168,9 @@ test("recommendations exclude explicitly disliked events for 30 days", async () 
   const db = {
     user: { findUnique: async () => ({ locationLat: null, locationLng: null, locationRadiusKm: 25, locationLabel: null }) },
     follow: { findMany: async () => [{ targetType: "VENUE", targetId: "v-1" }] },
+    collectionFollow: { findMany: async () => [] },
+    collectionItem: { groupBy: async () => [] },
+    favorite: { groupBy: async () => [] },
     savedSearch: { findMany: async () => [] },
     engagementEvent: {
       findMany: async (args: any) => {
@@ -200,6 +207,7 @@ test("recommendations exclude explicitly disliked events for 30 days", async () 
           images: [],
           eventArtists: [],
           eventTags: [],
+          promotions: [],
         }));
       },
     },
@@ -215,6 +223,9 @@ test("recommendations continue when a saved search cannot be parsed", async () =
   const db = {
     user: { findUnique: async () => ({ locationLat: null, locationLng: null, locationRadiusKm: 25, locationLabel: null }) },
     follow: { findMany: async () => [{ targetType: "VENUE", targetId: "v-1" }] },
+    collectionFollow: { findMany: async () => [] },
+    collectionItem: { groupBy: async () => [] },
+    favorite: { groupBy: async () => [] },
     savedSearch: {
       findMany: async () => [
         {
@@ -243,6 +254,7 @@ test("recommendations continue when a saved search cannot be parsed", async () =
           images: [],
           eventArtists: [],
           eventTags: [],
+          promotions: [],
         }));
       },
     },
@@ -315,6 +327,9 @@ test("nearby candidate query uses to-one venue relation filter with `is` and doe
   const db = {
     user: { findUnique: async () => ({ locationLat: 51.5, locationLng: -2.6, locationRadiusKm: 25, locationLabel: "Bristol" }) },
     follow: { findMany: async () => [] },
+    collectionFollow: { findMany: async () => [] },
+    collectionItem: { groupBy: async () => [] },
+    favorite: { groupBy: async () => [] },
     savedSearch: { findMany: async () => [] },
     engagementEvent: { findMany: async () => [] },
     event: {
