@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import { assertAuthConfig, authOptions } from "@/lib/auth";
 
 export const runtime = "nodejs";
+console.log("NEXTAUTH ROUTE HIT");
 
 const handler = NextAuth(authOptions);
 
