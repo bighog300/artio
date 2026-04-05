@@ -56,24 +56,10 @@ test("POST /api/beta/feedback validates and stores", async () => {
 test("PATCH /api/admin/beta/requests/[id] updates status", async () => {
   let updatedStatus = "";
 
-  db.$transaction = (async (callback: (tx: typeof db) => Promise<unknown>) => {
-    const tx = {
-      betaAccessRequest: {
-        update: async (input: { data: { status: string } }) => {
-          updatedStatus = input.data.status;
-          return { id: "11111111-1111-4111-8111-111111111111", email: "user@example.com", userId: null };
-        },
-      },
-      user: {
-        findFirst: async () => null,
-        findUnique: async () => null,
-        update: async () => ({ id: "u1", role: "EDITOR" }),
-      },
-      adminAuditLog: { create: async () => ({ id: "a1" }) },
-      notification: { create: async () => ({ id: "n1" }) },
-    } as unknown as typeof db;
-    return callback(tx);
-  }) as typeof db.$transaction;
+  db.betaAccessRequest.update = (async (input: { data: { status: string } }) => {
+    updatedStatus = input.data.status;
+    return { id: "11111111-1111-4111-8111-111111111111", email: "user@example.com", userId: null };
+  }) as typeof db.betaAccessRequest.update;
 
   const req = new NextRequest("http://localhost/api/admin/beta/requests/11111111-1111-4111-8111-111111111111", {
     method: "PATCH",
