@@ -135,7 +135,7 @@ export async function middleware(req: NextRequest) {
   response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; child-src 'self' blob: https://vercel.live; img-src 'self' data: blob: https:; font-src 'self' data: https:; worker-src 'self' blob:; script-src 'self' 'unsafe-inline' https://vercel.live https://*.vercel-scripts.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https: https://vercel.live https://accounts.google.com;",
+    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; child-src 'self' blob: https://vercel.live; img-src 'self' data: blob: https:; font-src 'self' data: https:; worker-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://*.vercel-scripts.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https: https://vercel.live https://accounts.google.com;",
   );
   return response;
 }
