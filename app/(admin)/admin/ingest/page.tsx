@@ -6,6 +6,8 @@ import { getSessionUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 50;
+
 function buildDigestSummary({
   totalPending,
   high,
@@ -35,8 +37,14 @@ function buildDigestSummary({
   return parts.join(" ");
 }
 
-export default async function AdminIngestPage() {
+export default async function AdminIngestPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cursor?: string }>;
+}) {
   const user = await getSessionUser();
+  const params = await searchParams;
+  const cursor = params.cursor?.trim() || null;
 
   const [candidates, totalPending, failedLast24h] = await Promise.all([
     db.ingestExtractedEvent.findMany({
@@ -64,7 +72,8 @@ export default async function AdminIngestPage() {
         run: { select: { id: true, sourceUrl: true } },
       },
       orderBy: [{ confidenceScore: "desc" }, { startAt: "asc" }, { id: "asc" }],
-      take: 100,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      take: PAGE_SIZE,
     }),
     db.ingestExtractedEvent.count({
       where: {
@@ -93,6 +102,9 @@ export default async function AdminIngestPage() {
     failedLast24h,
   });
 
+  const nextCursor = candidates.at(-1)?.id ?? null;
+  const hasMore = Boolean(nextCursor) && candidates.length === PAGE_SIZE;
+
   return (
     <>
       <AdminPageHeader
@@ -106,6 +118,8 @@ export default async function AdminIngestPage() {
         digestSummary={digestSummary}
         venues={venues}
         userRole={user?.role}
+        nextCursor={nextCursor}
+        hasMore={hasMore}
       />
     </>
   );

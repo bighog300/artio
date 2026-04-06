@@ -1,11 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import IngestCandidateActions from "@/app/(admin)/admin/ingest/_components/ingest-candidate-actions";
 import IngestConfidenceBadge from "@/app/(admin)/admin/ingest/_components/ingest-confidence-badge";
 import IngestImageCell from "@/app/(admin)/admin/ingest/_components/ingest-image-cell";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useBulkAction } from "@/app/(admin)/admin/ingest/_hooks/use-bulk-action";
+
+const KEYBOARD_SHORTCUTS = [
+  { key: "J / K", label: "navigate" },
+  { key: "A", label: "approve" },
+  { key: "R", label: "reject" },
+  { key: "S", label: "skip" },
+] as const;
 
 type QueueCandidate = {
   id: string;
@@ -45,12 +54,16 @@ export default function IngestEventQueueClient({
   digestSummary,
   venues = [],
   userRole,
+  nextCursor,
+  hasMore = false,
 }: {
   candidates: QueueCandidate[];
   totalPending?: number;
   digestSummary?: string;
   venues?: Array<{ id: string; name: string }>;
   userRole?: "USER" | "EDITOR" | "ADMIN";
+  nextCursor?: string | null;
+  hasMore?: boolean;
 }) {
   const router = useRouter();
   const [showReasons, setShowReasons] = useState(false);
@@ -95,24 +108,6 @@ export default function IngestEventQueueClient({
   const [loadingPipelineFor, setLoadingPipelineFor] = useState<Set<string>>(
     new Set(),
   );
-  const [bulkApproving, setBulkApproving] = useState(false);
-  const [bulkProgress, setBulkProgress] = useState<{
-    done: number;
-    total: number;
-  } | null>(null);
-  const [bulkResults, setBulkResults] = useState<{
-    approved: number;
-    failed: number;
-  } | null>(null);
-  const [bulkRejecting, setBulkRejecting] = useState(false);
-  const [bulkRejectProgress, setBulkRejectProgress] = useState<{
-    done: number;
-    total: number;
-  } | null>(null);
-  const [bulkRejectResults, setBulkRejectResults] = useState<{
-    rejected: number;
-    failed: number;
-  } | null>(null);
   const [bulkRejectReason, setBulkRejectReason] = useState("Navigation noise");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
@@ -120,11 +115,6 @@ export default function IngestEventQueueClient({
     timezone: string;
     rejectionReason: string;
   }>({ timezone: "", rejectionReason: "" });
-  const [bulkEditing, setBulkEditing] = useState(false);
-  const [bulkEditResult, setBulkEditResult] = useState<{
-    updated: number;
-    failed: number;
-  } | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const [candidates, setCandidates] = useState<QueueCandidate[]>(initialCandidates);
@@ -202,107 +192,96 @@ export default function IngestEventQueueClient({
     }
   }
 
-  async function bulkApproveHigh() {
-    const highCandidates = filteredCandidates.filter(
-      (c) => c.confidenceBand === "HIGH" && c.status === "PENDING",
-    );
-    if (highCandidates.length === 0) return;
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [pipelineErrorById, setPipelineErrorById] = useState<Record<string, boolean>>({});
+  const [bulkRejectConfirmOpen, setBulkRejectConfirmOpen] = useState(false);
 
-    setBulkApproving(true);
-    setBulkResults(null);
-    setBulkProgress({ done: 0, total: highCandidates.length });
+  const highCandidates = useMemo(
+    () => filteredCandidates.filter((c) => c.confidenceBand === "HIGH" && c.status === "PENDING"),
+    [filteredCandidates],
+  );
+  const lowCandidates = useMemo(
+    () => candidates.filter((c) => c.confidenceBand === "LOW" && c.status === "PENDING"),
+    [candidates],
+  );
+  const selectedMediumIds = useMemo(() => [...selectedIds], [selectedIds]);
 
-    let approved = 0;
-    let failed = 0;
+  const bulkApproveAction = useBulkAction(
+    highCandidates,
+    async (candidate) => {
+      const res = await fetch(`/api/admin/ingest/extracted-events/${candidate.id}/approve`, {
+        method: "POST",
+      }).catch(() => null);
+      return res?.ok ? "ok" : "fail";
+    },
+  );
 
-    const BATCH_SIZE = 5;
+  const bulkRejectAction = useBulkAction(
+    lowCandidates,
+    async (candidate) => {
+      const res = await fetch(`/api/admin/ingest/extracted-events/${candidate.id}/reject`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ rejectionReason: bulkRejectReason }),
+      }).catch(() => null);
+      return res?.ok ? "ok" : "fail";
+    },
+  );
 
-    for (let i = 0; i < highCandidates.length; i += BATCH_SIZE) {
-      const batch = highCandidates.slice(i, i + BATCH_SIZE);
-
-      const results = await Promise.allSettled(
-        batch.map((candidate) =>
-          fetch(`/api/admin/ingest/extracted-events/${candidate.id}/approve`, {
-            method: "POST",
-          })
-            .then((res) => (res.ok ? ("ok" as const) : ("fail" as const)))
-            .catch(() => "fail" as const),
-        ),
-      );
-
-      for (const result of results) {
-        if (result.status === "fulfilled" && result.value === "ok") {
-          approved += 1;
-        } else {
-          failed += 1;
-        }
+  const bulkEditAction = useBulkAction(
+    selectedMediumIds,
+    async (id) => {
+      const patch: Record<string, string> = {};
+      if (bulkEditDraft.timezone.trim()) {
+        patch.timezone = bulkEditDraft.timezone.trim();
       }
+      if (!Object.keys(patch).length) return "fail";
 
-      setBulkProgress({ done: approved + failed, total: highCandidates.length });
-    }
+      const res = await fetch(`/api/admin/ingest/extracted-events/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(patch),
+      }).catch(() => null);
+      return res?.ok ? "ok" : "fail";
+    },
+  );
 
-    setBulkApproving(false);
-    setBulkProgress(null);
-    setBulkResults({ approved, failed });
+  async function bulkApproveHigh() {
+    await bulkApproveAction.run();
     router.refresh();
   }
 
   async function bulkRejectLow() {
-    const lowCandidates = candidates.filter(
-      (c) => c.confidenceBand === "LOW" && c.status === "PENDING",
+    await bulkRejectAction.run();
+    router.refresh();
+  }
+
+  async function applyBulkEdit() {
+    const patchValue = bulkEditDraft.timezone.trim();
+    if (!patchValue || selectedIds.size === 0) return;
+
+    await bulkEditAction.run();
+
+    setCandidates((prev) =>
+      prev.map((c) =>
+        selectedIds.has(c.id)
+          ? { ...c, timezone: patchValue }
+          : c,
+      ),
     );
-    if (!lowCandidates.length) return;
-    if (
-      !window.confirm(
-        `Reject all ${lowCandidates.length} LOW confidence event${lowCandidates.length === 1 ? "" : "s"} as "${bulkRejectReason}"? This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
 
-    setBulkRejecting(true);
-    setBulkRejectResults(null);
-    setBulkRejectProgress({ done: 0, total: lowCandidates.length });
+    setSelectedIds(new Set());
+    setBulkEditOpen(false);
+    setBulkEditDraft({ timezone: "", rejectionReason: "" });
+  }
 
-    const BATCH_SIZE = 5;
-    let rejected = 0;
-    let failed = 0;
-    const rejectedIds = new Set<string>();
+  function goToNextPage() {
+    if (!nextCursor) return;
 
-    for (let i = 0; i < lowCandidates.length; i += BATCH_SIZE) {
-      const batch = lowCandidates.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(
-        batch.map((candidate) =>
-          fetch(`/api/admin/ingest/extracted-events/${candidate.id}/reject`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ rejectionReason: bulkRejectReason }),
-          })
-            .then((r) => (r.ok ? ("ok" as const) : ("fail" as const)))
-            .catch(() => "fail" as const),
-        ),
-      );
-
-      for (const [index, result] of results.entries()) {
-        if (result.status === "fulfilled" && result.value === "ok") {
-          rejected += 1;
-          const candidate = batch[index];
-          if (candidate) rejectedIds.add(candidate.id);
-        } else {
-          failed += 1;
-        }
-      }
-
-      setBulkRejectProgress({
-        done: rejected + failed,
-        total: lowCandidates.length,
-      });
-    }
-
-    setBulkRejecting(false);
-    setBulkRejectProgress(null);
-    setBulkRejectResults({ rejected, failed });
-    setCandidates((prev) => prev.filter((candidate) => !rejectedIds.has(candidate.id)));
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("cursor", nextCursor);
+    router.push(`${pathname}?${params.toString()}`);
   }
 
   function toggleSelected(id: string) {
@@ -325,86 +304,40 @@ export default function IngestEventQueueClient({
     setSelectedIds(new Set());
   }
 
-  async function applyBulkEdit() {
-    const patch: Record<string, string> = {};
-    if (bulkEditDraft.timezone.trim()) {
-      patch.timezone = bulkEditDraft.timezone.trim();
-    }
-
-    if (!Object.keys(patch).length || selectedIds.size === 0) return;
-
-    setBulkEditing(true);
-    setBulkEditResult(null);
-    let updated = 0;
-    let failed = 0;
-
-    const BATCH_SIZE = 5;
-    const ids = [...selectedIds];
-
-    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-      const batch = ids.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(
-        batch.map((id) =>
-          fetch(`/api/admin/ingest/extracted-events/${id}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(patch),
-          })
-            .then((r) => (r.ok ? ("ok" as const) : ("fail" as const)))
-            .catch(() => "fail" as const),
-        ),
-      );
-      for (const result of results) {
-        if (result.status === "fulfilled" && result.value === "ok") {
-          updated += 1;
-        } else {
-          failed += 1;
-        }
-      }
-    }
-
-    setBulkEditing(false);
-    setBulkEditResult({ updated, failed });
-
-    if (bulkEditDraft.timezone.trim()) {
-      setCandidates((prev) =>
-        prev.map((c) =>
-          selectedIds.has(c.id)
-            ? { ...c, timezone: bulkEditDraft.timezone.trim() }
-            : c,
-        ),
-      );
-    }
-
-    setSelectedIds(new Set());
-    setBulkEditOpen(false);
-    setBulkEditDraft({ timezone: "", rejectionReason: "" });
-  }
-
   async function fetchPipelineStatus(candidateId: string) {
     if (loadingPipelineFor.has(candidateId) || pipelineStatusById[candidateId]) return;
+
+    setPipelineErrorById((prev) => {
+      const next = { ...prev };
+      delete next[candidateId];
+      return next;
+    });
     setLoadingPipelineFor((prev) => new Set([...prev, candidateId]));
+
     try {
       const res = await fetch(
         `/api/admin/ingest/extracted-events/${candidateId}/pipeline-status`,
       );
-      if (res.ok) {
-        const data = (await res.json()) as {
-          linked: boolean;
-          linkedArtists: Array<{ id: string; name: string; slug: string }>;
-          artistCandidates: Array<{ id: string; name: string; status: string }>;
-          artworkCandidates: Array<{
-            id: string;
-            title: string;
-            status: string;
-            imageUrl: string | null;
-          }>;
-          imageStatus: { attached: boolean; url: string | null };
-        };
-        setPipelineStatusById((prev) => ({ ...prev, [candidateId]: data }));
+      if (!res.ok) {
+        setPipelineErrorById((prev) => ({ ...prev, [candidateId]: true }));
+        return;
       }
+
+      const data = (await res.json()) as {
+        linked: boolean;
+        linkedArtists: Array<{ id: string; name: string; slug: string }>;
+        artistCandidates: Array<{ id: string; name: string; status: string }>;
+        artworkCandidates: Array<{
+          id: string;
+          title: string;
+          status: string;
+          imageUrl: string | null;
+        }>;
+        imageStatus: { attached: boolean; url: string | null };
+      };
+      setPipelineStatusById((prev) => ({ ...prev, [candidateId]: data }));
     } catch {
-      // silent — pipeline status is informational only
+      setPipelineErrorById((prev) => ({ ...prev, [candidateId]: true }));
     } finally {
       setLoadingPipelineFor((prev) => {
         const next = new Set(prev);
@@ -526,7 +459,7 @@ export default function IngestEventQueueClient({
           <div className="flex flex-col gap-1">
             <p className="text-sm text-muted-foreground">
               {venueFilter === "all"
-                ? "Showing up to 100 primary pending candidates from all venues."
+                ? "Showing currently loaded pending candidates from all venues."
                 : `Showing ${filteredCandidates.length} pending candidate${filteredCandidates.length === 1 ? "" : "s"} for this venue.`}
             </p>
             <label className="flex items-center gap-2 text-sm">
@@ -541,7 +474,7 @@ export default function IngestEventQueueClient({
         </div>
         <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
           <span className="mr-auto hidden text-xs text-muted-foreground sm:block">
-            J/K navigate · A approve · R reject · S skip
+            {KEYBOARD_SHORTCUTS.map((shortcut) => `${shortcut.key} ${shortcut.label}`).join(" · ")}
           </span>
           {(() => {
             const highCount = filteredCandidates.filter(
@@ -552,14 +485,14 @@ export default function IngestEventQueueClient({
               <button
                 type="button"
                 className="rounded border border-emerald-600 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
-                disabled={bulkApproving}
+                disabled={bulkApproveAction.running}
                 onClick={() => {
                   if (!window.confirm(`Approve all ${highCount} HIGH confidence candidate${highCount === 1 ? "" : "s"}? This cannot be undone.`)) return;
                   void bulkApproveHigh();
                 }}
               >
-                {bulkApproving
-                  ? `Approving… ${bulkProgress?.done ?? 0}/${bulkProgress?.total ?? highCount}`
+                {bulkApproveAction.running
+                  ? `Approving… ${bulkApproveAction.progress?.done ?? 0}/${bulkApproveAction.progress?.total ?? highCount}`
                   : `Approve all HIGH (${highCount})`}
               </button>
             );
@@ -575,7 +508,7 @@ export default function IngestEventQueueClient({
                   className="rounded border bg-background px-2 py-1 text-xs"
                   value={bulkRejectReason}
                   onChange={(e) => setBulkRejectReason(e.target.value)}
-                  disabled={bulkRejecting}
+                  disabled={bulkRejectAction.running}
                 >
                   <option value="Navigation noise">Noise</option>
                   <option value="Not a real event">Not an event</option>
@@ -586,11 +519,11 @@ export default function IngestEventQueueClient({
                 <button
                   type="button"
                   className="rounded border border-red-300 bg-red-50 px-3 py-1 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
-                  disabled={bulkRejecting}
-                  onClick={() => void bulkRejectLow()}
+                  disabled={bulkRejectAction.running}
+                  onClick={() => setBulkRejectConfirmOpen(true)}
                 >
-                  {bulkRejecting
-                    ? `Rejecting… ${bulkRejectProgress?.done ?? 0}/${bulkRejectProgress?.total ?? lowCount}`
+                  {bulkRejectAction.running
+                    ? `Rejecting… ${bulkRejectAction.progress?.done ?? 0}/${bulkRejectAction.progress?.total ?? lowCount}`
                     : `Reject all LOW (${lowCount})`}
                 </button>
               </div>
@@ -616,9 +549,8 @@ export default function IngestEventQueueClient({
       </div>
       {(totalPending ?? 0) > candidates.length ? (
         <div className="mb-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Showing {candidates.length} of {totalPending} pending candidates. Use
-          the venue filter to work through the full backlog, or approve/reject
-          visible candidates to reveal more.
+          Showing {candidates.length} of {totalPending} pending candidates —
+          scroll down to load more.
         </div>
       ) : null}
       {importImageError ? (
@@ -633,36 +565,36 @@ export default function IngestEventQueueClient({
           </button>
         </div>
       ) : null}
-      {bulkResults ? (
+      {bulkApproveAction.results ? (
         <div
           className={`mb-3 flex items-center justify-between rounded border px-3 py-2 text-sm ${
-            bulkResults.failed > 0
+            bulkApproveAction.results.failed > 0
               ? "border-amber-500/40 bg-amber-500/10 text-amber-800"
               : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800"
           }`}
         >
           <span>
-            Bulk approve complete: {bulkResults.approved} approved
-            {bulkResults.failed > 0 ? `, ${bulkResults.failed} failed` : ""}
+            Bulk approve complete: {bulkApproveAction.results.succeeded} approved
+            {bulkApproveAction.results.failed > 0 ? `, ${bulkApproveAction.results.failed} failed` : ""}
           </span>
-          <button type="button" onClick={() => setBulkResults(null)}>
+          <button type="button" onClick={bulkApproveAction.clearResults}>
             ×
           </button>
         </div>
       ) : null}
-      {bulkRejectResults ? (
+      {bulkRejectAction.results ? (
         <div
           className={`mb-3 flex items-center justify-between rounded border px-3 py-2 text-sm ${
-            bulkRejectResults.failed > 0
+            bulkRejectAction.results.failed > 0
               ? "border-amber-500/40 bg-amber-500/10 text-amber-800"
               : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800"
           }`}
         >
           <span>
-            Bulk reject complete: {bulkRejectResults.rejected} rejected
-            {bulkRejectResults.failed > 0 ? `, ${bulkRejectResults.failed} failed` : ""}
+            Bulk reject complete: {bulkRejectAction.results.succeeded} rejected
+            {bulkRejectAction.results.failed > 0 ? `, ${bulkRejectAction.results.failed} failed` : ""}
           </span>
-          <button type="button" onClick={() => setBulkRejectResults(null)}>
+          <button type="button" onClick={bulkRejectAction.clearResults}>
             ×
           </button>
         </div>
@@ -723,10 +655,10 @@ export default function IngestEventQueueClient({
               <button
                 type="button"
                 className="rounded bg-foreground px-3 py-1.5 text-sm text-background disabled:opacity-50"
-                disabled={bulkEditing || !bulkEditDraft.timezone.trim()}
+                disabled={bulkEditAction.running || !bulkEditDraft.timezone.trim()}
                 onClick={() => void applyBulkEdit()}
               >
-                {bulkEditing ? "Applying…" : "Apply to selected"}
+                {bulkEditAction.running ? "Applying…" : "Apply to selected"}
               </button>
               <button
                 type="button"
@@ -737,10 +669,10 @@ export default function IngestEventQueueClient({
               </button>
             </div>
 
-            {bulkEditResult ? (
+            {bulkEditAction.results ? (
               <p className="text-xs text-emerald-700">
-                Updated {bulkEditResult.updated} events
-                {bulkEditResult.failed > 0 ? `, ${bulkEditResult.failed} failed` : ""}
+                Updated {bulkEditAction.results.succeeded} events
+                {bulkEditAction.results.failed > 0 ? `, ${bulkEditAction.results.failed} failed` : ""}
               </p>
             ) : null}
           </div>
@@ -893,6 +825,21 @@ export default function IngestEventQueueClient({
                         </div>
                       ) : loadingPipelineFor.has(candidate.id) ? (
                         <span className="text-xs text-muted-foreground">…</span>
+                      ) : pipelineErrorById[candidate.id] ? (
+                        <button
+                          type="button"
+                          className="text-xs text-destructive underline"
+                          onClick={() => {
+                            setPipelineErrorById((prev) => {
+                              const next = { ...prev };
+                              delete next[candidate.id];
+                              return next;
+                            });
+                            void fetchPipelineStatus(candidate.id);
+                          }}
+                        >
+                          Retry ↺
+                        </button>
                       ) : (
                         <button
                           type="button"
@@ -1072,6 +1019,21 @@ export default function IngestEventQueueClient({
                             </p>
                             {loadingPipelineFor.has(candidate.id) ? (
                               <p className="text-xs text-muted-foreground">Loading…</p>
+                            ) : pipelineErrorById[candidate.id] ? (
+                              <button
+                                type="button"
+                                className="text-xs text-destructive underline"
+                                onClick={() => {
+                                  setPipelineErrorById((prev) => {
+                                    const next = { ...prev };
+                                    delete next[candidate.id];
+                                    return next;
+                                  });
+                                  void fetchPipelineStatus(candidate.id);
+                                }}
+                              >
+                                Failed to load — retry
+                              </button>
                             ) : pipelineStatusById[candidate.id] ? (
                               <div className="space-y-2 text-xs">
                                 <div className="flex items-center gap-2">
@@ -1204,12 +1166,55 @@ export default function IngestEventQueueClient({
           </tbody>
         </table>
       </div>
+      {hasMore && nextCursor ? (
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            className="rounded border px-3 py-1.5 text-sm"
+            onClick={goToNextPage}
+          >
+            Load more
+          </button>
+        </div>
+      ) : null}
+      <Dialog open={bulkRejectConfirmOpen} onOpenChange={setBulkRejectConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject all LOW confidence candidates?</DialogTitle>
+            <DialogDescription>
+              This will reject {lowCandidates.length} pending LOW confidence event{lowCandidates.length === 1 ? "" : "s"} with reason &quot;{bulkRejectReason}&quot;.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              className="rounded border px-3 py-1.5 text-sm"
+              onClick={() => setBulkRejectConfirmOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="rounded bg-destructive px-3 py-1.5 text-sm text-destructive-foreground disabled:opacity-50"
+              disabled={bulkRejectAction.running}
+              onClick={() => {
+                setBulkRejectConfirmOpen(false);
+                void bulkRejectLow();
+              }}
+            >
+              Confirm reject
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <p className="mt-3 text-xs text-muted-foreground">
-        <kbd className="rounded border px-1 font-mono">J</kbd>{" / "}
-        <kbd className="rounded border px-1 font-mono">K</kbd> navigate{" · "}
-        <kbd className="rounded border px-1 font-mono">A</kbd> approve{" · "}
-        <kbd className="rounded border px-1 font-mono">R</kbd> reject{" · "}
-        <kbd className="rounded border px-1 font-mono">S</kbd> skip
+        {KEYBOARD_SHORTCUTS.map((shortcut, index) => (
+          <Fragment key={shortcut.key}>
+            {index > 0 ? " · " : null}
+            <kbd className="rounded border px-1 font-mono">{shortcut.key}</kbd>{" "}
+            {shortcut.label}
+          </Fragment>
+        ))}
       </p>
     </section>
   );

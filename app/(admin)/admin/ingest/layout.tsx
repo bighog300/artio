@@ -12,7 +12,7 @@ export default async function AdminIngestLayout({ children }: { children: React.
     redirect("/admin");
   }
 
-  const [bandCounts, failedLast24h, pendingArtists, pendingArtworks, activeRegions, venueGenRuns7d, pendingVenueImages, pendingOnboarding, pendingVenuesInReview, pendingBlockedEvents, artworksWithGaps] = await Promise.all([
+  const [bandCounts, failedLast24h, pendingArtists, pendingArtworks, pendingVenuesInReview, pendingBlockedEvents] = await Promise.all([
     db.ingestExtractedEvent.groupBy({
       by: ["confidenceBand"],
       where: { status: "PENDING", duplicateOfId: null },
@@ -26,16 +26,6 @@ export default async function AdminIngestLayout({ children }: { children: React.
     }),
     db.ingestExtractedArtist.count({ where: { status: "PENDING" } }),
     db.ingestExtractedArtwork.count({ where: { status: "PENDING" } }),
-    db.ingestRegion.count({
-      where: { status: { in: ["PENDING", "RUNNING"] } },
-    }),
-    db.venueGenerationRun.count({
-      where: { createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
-    }),
-    db.venueHomepageImageCandidate.count({ where: { status: "pending" } }),
-    db.venue.count({
-      where: { status: "ONBOARDING", deletedAt: null },
-    }),
     db.venue.count({
       where: {
         status: { in: ["IN_REVIEW", "ONBOARDING"] },
@@ -49,13 +39,7 @@ export default async function AdminIngestLayout({ children }: { children: React.
         deletedAt: null,
         venue: { isPublished: false },
       },
-    }),
-    db.artwork.count({
-      where: {
-        deletedAt: null,
-        completenessFlags: { isEmpty: false },
-      },
-    }),
+    })
   ]);
 
   const high = bandCounts.find((band) => band.confidenceBand === "HIGH")?._count.id ?? 0;
@@ -74,11 +58,6 @@ export default async function AdminIngestLayout({ children }: { children: React.
         pendingArtists,
         pendingArtworks,
         readyToPublish: pendingArtists + pendingArtworks + pendingVenuesInReview + pendingBlockedEvents,
-        activeRegions,
-        venueGenRuns7d,
-        pendingVenueImages,
-        pendingOnboarding,
-        artworksWithGaps,
       }}
       pipelineFlags={{
         ingestEnabled: process.env.AI_INGEST_ENABLED === "1",

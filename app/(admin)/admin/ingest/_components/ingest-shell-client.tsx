@@ -13,11 +13,6 @@ type Props = {
     pendingArtists: number;
     pendingArtworks: number;
     readyToPublish: number;
-    activeRegions: number;
-    venueGenRuns7d: number;
-    pendingVenueImages: number;
-    pendingOnboarding: number;
-    artworksWithGaps: number;
   };
   pipelineFlags: {
     ingestEnabled: boolean;
@@ -168,31 +163,6 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
           }
           urgent
           href="/admin/ingest/runs?status=FAILED"
-        />
-        <StatCard
-          label="Active regions"
-          value={stats.activeRegions}
-          note={stats.activeRegions > 0 ? "Pending or running" : "None active"}
-          accentClassName={stats.activeRegions > 0 ? "text-blue-700" : "text-muted-foreground"}
-        />
-        <StatCard
-          label="Venue gen (7d)"
-          value={stats.venueGenRuns7d}
-          note="Generation runs this week"
-        />
-        <StatCard
-          label="Pending images"
-          value={stats.pendingVenueImages}
-          note={stats.pendingVenueImages > 0 ? "Awaiting review" : "All reviewed"}
-          urgent
-          href="/admin/ingest/venue-images"
-        />
-        <StatCard
-          label="Venues to onboard"
-          value={stats.pendingOnboarding}
-          note={stats.pendingOnboarding > 0 ? "Awaiting review" : "Queue clear"}
-          urgent
-          href="/admin/ingest/venue-onboarding"
         />
         <StatCard
           label="Artist candidates"
@@ -352,14 +322,7 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
               href="/admin/ingest/venue-images"
               className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/venue-images") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
-              <span className="flex items-center gap-1.5">
-                Venue Images
-                {stats.pendingVenueImages > 0 ? (
-                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
-                    {stats.pendingVenueImages}
-                  </span>
-                ) : null}
-              </span>
+              Venue Images
             </Link>
             <Link
               href="/admin/ingest/venue-onboarding"
@@ -369,14 +332,7 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <span className="flex items-center gap-1.5">
-                Onboarding
-                {stats.pendingOnboarding > 0 ? (
-                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
-                    {stats.pendingOnboarding}
-                  </span>
-                ) : null}
-              </span>
+              Onboarding
             </Link>
           </div>
         </div>
@@ -437,14 +393,7 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <span className="flex items-center gap-1.5">
-                Data Gaps
-                {stats.artworksWithGaps > 0 ? (
-                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
-                    {stats.artworksWithGaps}
-                  </span>
-                ) : null}
-              </span>
+              Data Gaps
             </Link>
             <Link
               href="/admin/ingest/duplicates"

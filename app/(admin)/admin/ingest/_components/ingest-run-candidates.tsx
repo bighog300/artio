@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import { useBulkAction } from "@/app/(admin)/admin/ingest/_hooks/use-bulk-action";
 import IngestStatusBadge from "@/app/(admin)/admin/ingest/_components/ingest-status-badge";
 import IngestCandidateActions from "@/app/(admin)/admin/ingest/_components/ingest-candidate-actions";
 import IngestConfidenceBadge from "@/app/(admin)/admin/ingest/_components/ingest-confidence-badge";
@@ -52,9 +53,6 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
   const [importedImageFor, setImportedImageFor] = useState<Set<string>>(new Set());
   const [importFailedFor, setImportFailedFor] = useState<Set<string>>(new Set());
   const [importImageError, setImportImageError] = useState<string | null>(null);
-  const [bulkApproving, setBulkApproving] = useState(false);
-  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
-  const [bulkResults, setBulkResults] = useState<{ approved: number; failed: number } | null>(null);
   const [pipelineOpenById, setPipelineOpenById] = useState<Record<string, boolean>>({});
   const [pipelineDataById, setPipelineDataById] = useState<Record<string, PipelineStatus | null>>({});
   const [pipelineLoadingById, setPipelineLoadingById] = useState<Record<string, boolean>>({});
@@ -88,42 +86,29 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
     }
   }
 
+  const highCandidates = useMemo(
+    () =>
+      candidates
+        .filter((candidate) => candidate.status !== "DUPLICATE")
+        .filter((candidate) => inLane(candidate, lane))
+        .filter((candidate) => candidate.confidenceBand === "HIGH" && candidate.status === "PENDING"),
+    [candidates, lane],
+  );
+
+  const bulkApproveAction = useBulkAction(
+    highCandidates,
+    async (candidate) => {
+      const res = await fetch(`/api/admin/ingest/extracted-events/${candidate.id}/approve`, {
+        method: "POST",
+      }).catch(() => null);
+      return res?.ok ? "ok" : "fail";
+    },
+  );
+
   async function bulkApproveHigh() {
-    const highCandidates = grouped.primaryCandidates.filter(
-      (c) => c.confidenceBand === "HIGH" && c.status === "PENDING",
-    );
-    if (highCandidates.length === 0) return;
-
-    setBulkApproving(true);
-    setBulkResults(null);
-    setBulkProgress({ done: 0, total: highCandidates.length });
-
-    let approved = 0;
-    let failed = 0;
-
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < highCandidates.length; i += BATCH_SIZE) {
-      const batch = highCandidates.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(
-        batch.map((candidate) =>
-          fetch(`/api/admin/ingest/extracted-events/${candidate.id}/approve`, { method: "POST" })
-            .then((res) => (res.ok ? ("ok" as const) : ("fail" as const)))
-            .catch(() => "fail" as const),
-        ),
-      );
-
-      for (const result of results) {
-        if (result.status === "fulfilled" && result.value === "ok") approved += 1;
-        else failed += 1;
-      }
-
-      setBulkProgress({ done: approved + failed, total: highCandidates.length });
-    }
-
-    setBulkApproving(false);
-    setBulkProgress(null);
-    setBulkResults({ approved, failed });
+    await bulkApproveAction.run();
   }
+
 
   const laneCounts = useMemo(() => ({
     HIGH: candidates.filter((c) => c.status !== "DUPLICATE" && c.confidenceBand === "HIGH").length,
@@ -216,31 +201,31 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
               <button
                 type="button"
                 className="rounded border border-emerald-600 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
-                disabled={bulkApproving}
+                disabled={bulkApproveAction.running}
                 onClick={() => {
                   if (!window.confirm(`Approve all ${highCount} HIGH confidence candidate${highCount === 1 ? "" : "s"} in this run?`)) return;
                   void bulkApproveHigh();
                 }}
               >
-                {bulkApproving
-                  ? `Approving… ${bulkProgress?.done ?? 0}/${bulkProgress?.total ?? highCount}`
+                {bulkApproveAction.running
+                  ? `Approving… ${bulkApproveAction.progress?.done ?? 0}/${bulkApproveAction.progress?.total ?? highCount}`
                   : `Approve all HIGH (${highCount})`}
               </button>
             );
           })()}
         </div>
       </div>
-      {bulkResults ? (
+      {bulkApproveAction.results ? (
         <div className={`flex items-center justify-between rounded border px-3 py-2 text-sm ${
-          bulkResults.failed > 0
+          bulkApproveAction.results.failed > 0
             ? "border-amber-500/40 bg-amber-500/10 text-amber-800"
             : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800"
         }`}>
           <span>
-            Bulk approve complete: {bulkResults.approved} approved
-            {bulkResults.failed > 0 ? `, ${bulkResults.failed} failed` : ""}
+            Bulk approve complete: {bulkApproveAction.results.succeeded} approved
+            {bulkApproveAction.results.failed > 0 ? `, ${bulkApproveAction.results.failed} failed` : ""}
           </span>
-          <button type="button" onClick={() => setBulkResults(null)}>×</button>
+          <button type="button" onClick={bulkApproveAction.clearResults}>×</button>
         </div>
       ) : null}
       {importImageError ? (
