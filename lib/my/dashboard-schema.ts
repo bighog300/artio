@@ -99,6 +99,9 @@ export const MyDashboardResponseSchema = z.object({
     upcomingEvents: z.array(EventSummarySchema),
     recentArtwork: z.array(ArtworkSummarySchema),
   }),
+  publisherNotice: z.object({
+    noticeId: z.string(),
+  }).nullable().optional(),
 });
 export type MyDashboardResponse = z.infer<typeof MyDashboardResponseSchema>;
 

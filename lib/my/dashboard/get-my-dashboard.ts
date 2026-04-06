@@ -36,6 +36,22 @@ function withAttentionTimestamps(createdAt: Date, updatedAt?: Date) {
   };
 }
 
+export async function getPublisherApprovalNotice(userId: string): Promise<{ id: string } | null> {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const record = await db.accessRequest.findFirst({
+    where: {
+      userId,
+      requestedRole: "OPERATOR",
+      status: "APPROVED",
+      reviewedAt: { gte: thirtyDaysAgo },
+      dismissedAt: null,
+    },
+    select: { id: true },
+    orderBy: { reviewedAt: "desc" },
+  });
+  return record ? { id: record.id } : null;
+}
+
 export async function getMyDashboard({ userId, venueId }: { userId: string; venueId?: string | null }): Promise<MyDashboardResponse> {
   try {
   const memberships = await db.venueMembership.findMany({
@@ -51,7 +67,7 @@ export async function getMyDashboard({ userId, venueId }: { userId: string; venu
 
   const artist = await db.artist.findUnique({ where: { userId }, select: { id: true } });
 
-  const [events, artworks, pendingInvites, eventCountsByStatus, venueCountsByStatus, artworkDraftCount, artworkPublishedCount] = await Promise.all([
+  const [events, artworks, pendingInvites, eventCountsByStatus, venueCountsByStatus, artworkDraftCount, artworkPublishedCount, notice] = await Promise.all([
     db.event.findMany({
       where: {
         AND: [{ deletedAt: null }, {
@@ -107,6 +123,7 @@ export async function getMyDashboard({ userId, venueId }: { userId: string; venu
     ]),
     artist?.id ? db.artwork.count({ where: { artistId: artist.id, deletedAt: null, isPublished: false } }) : Promise.resolve(0),
     artist?.id ? db.artwork.count({ where: { artistId: artist.id, deletedAt: null, isPublished: true } }) : Promise.resolve(0),
+    getPublisherApprovalNotice(userId),
   ]);
 
   const venuesForContext = memberships.map((m) => ({ id: m.venueId, name: m.venue.name, role: m.role }));
@@ -234,6 +251,7 @@ export async function getMyDashboard({ userId, venueId }: { userId: string; venu
         imageUrl: a.featuredAsset?.url ?? null,
       })),
     },
+    publisherNotice: notice ? { noticeId: notice.id } : null,
   };
 
   return MyDashboardResponseSchema.parse(payload);

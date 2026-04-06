@@ -526,6 +526,7 @@ model AccessRequest {
   reason          String?
   rejectionReason String?
   reviewedAt      DateTime?
+  dismissedAt     DateTime?
   reviewedById    String?             @db.Uuid
   reviewedBy      User?               @relation("AccessRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   user            User                @relation("AccessRequestRequester", fields: [userId], references: [id], onDelete: Cascade)
