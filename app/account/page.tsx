@@ -6,6 +6,7 @@ import { LocationSettings } from "@/app/account/location-settings";
 import { AccountPageTabs } from "@/app/account/account-page-tabs";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { GetStartedEntryPoint } from "@/components/onboarding/get-started-entry-point";
+import { PageShell } from "@/components/ui/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export default async function AccountPage() {
   ]);
 
   return (
-    <main className="space-y-2 p-6">
+    <PageShell className="page-stack">
       <h1 className="text-2xl font-semibold">Account</h1>
       <OnboardingPanel />
       <GetStartedEntryPoint />
@@ -42,6 +43,6 @@ export default async function AccountPage() {
         )}
       />
       <LogoutButton />
-    </main>
+    </PageShell>
   );
 }

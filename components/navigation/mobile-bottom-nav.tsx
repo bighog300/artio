@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Compass, Home, MapPin, Menu, Palette, Search, Sparkles, UserCircle, Users } from "lucide-react";
+import { CalendarDays, Compass, Home, ImageIcon, MapPin, Menu, Search, Sparkles, UserCircle, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 type MobileBottomNavProps = {
@@ -14,8 +14,8 @@ type MobileBottomNavInnerProps = MobileBottomNavProps & { pathname: string };
 const ITEMS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/venues", label: "Venues", icon: MapPin },
-  { href: "/artists", label: "Artists", icon: Palette },
-  { href: "/artwork", label: "Artwork", icon: Palette },
+  { href: "/artists", label: "Artists", icon: Users },
+  { href: "/artwork", label: "Artwork", icon: ImageIcon },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
 ] as const;
 

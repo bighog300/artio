@@ -43,10 +43,34 @@ export default async function Home() {
 
   return (
     <PageShell className="page-stack">
-      <div className="section-stack">
-        <h1 className="type-h1">Artio</h1>
-        <p className="type-caption">Discover art events and keep up with the scenes you care about.</p>
-      </div>
+      <section className="section-stack rounded-2xl border border-border bg-card px-6 py-10 md:px-10 md:py-14">
+        <div className="max-w-2xl space-y-3">
+          <h1 className="type-h1">
+            Discover the art scenes<br className="hidden md:block" /> you care about
+          </h1>
+          <p className="type-caption text-base">
+            Artio surfaces exhibitions, openings, talks, and fairs — from your local galleries to international art fairs — and keeps you up with the venues and artists you follow.
+          </p>
+        </div>
+        {!user ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/events"
+              className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:brightness-110"
+            >
+              Browse events
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm text-foreground transition hover:bg-muted"
+            >
+              Sign in
+            </Link>
+          </div>
+        ) : (
+          <GetStartedEntryPoint />
+        )}
+      </section>
 
       <section className="card-grid">
         {allTiles.map((tile) => (
@@ -58,14 +82,6 @@ export default async function Home() {
           </Link>
         ))}
       </section>
-
-      {!user ? (
-        <Link className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm text-foreground transition hover:bg-muted" href="/login">
-          Sign in
-        </Link>
-      ) : (
-        <GetStartedEntryPoint />
-      )}
 
       <CuratedCollectionsRail />
       <NetworkCollectionsRail />

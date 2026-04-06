@@ -9,6 +9,7 @@ import { GetStartedBanner } from "@/components/onboarding/get-started-banner";
 import { getAuthDebugRequestMeta, logAuthDebug } from "@/lib/auth-debug";
 import { TrendingCollectionsRail } from "@/components/collections/trending-collections-rail";
 import { NetworkCollectionsRail } from "@/components/collections/network-collections-rail";
+import { PageShell } from "@/components/ui/page-shell";
 
 // Auth-gated page: keep Node runtime so `getSessionUser()` (NextAuth `getServerSession`) can
 // reliably read session cookies in production deployments and avoid login redirect loops.
@@ -29,10 +30,10 @@ export default async function ForYouPage() {
 
   if (!hasDatabaseUrl()) {
     return (
-      <main className="space-y-4 p-6">
+      <PageShell className="page-stack">
         <PageHeader title="For You" subtitle="Personalized picks based on your follows and engagement." />
         <p>Set DATABASE_URL to view personalized recommendations locally.</p>
-      </main>
+      </PageShell>
     );
   }
 
@@ -44,7 +45,7 @@ export default async function ForYouPage() {
   const isFirstRun = followCount === 0 && savedSearchCount === 0;
 
   return (
-    <main className="space-y-4 p-6">
+    <PageShell className="page-stack">
       <PageHeader title="For You" subtitle="Personalized picks based on your follows and engagement." />
       <GetStartedBanner />
       {isFirstRun ? (
@@ -59,6 +60,6 @@ export default async function ForYouPage() {
       ) : <ForYouClient />}
       <NetworkCollectionsRail />
       <TrendingCollectionsRail />
-    </main>
+    </PageShell>
   );
 }

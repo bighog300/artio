@@ -5,6 +5,7 @@ import NeedsAttentionPanel from "@/app/my/_components/NeedsAttentionPanel";
 import StatusTileGroups from "@/app/my/_components/StatusTileGroups";
 import { EmptyState } from "@/components/ui/empty-state";
 import { RequestPublisherAccessCard } from "@/components/my/request-publisher-access-card";
+import { PageShell } from "@/components/ui/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export default async function MyDashboardPage({ searchParams }: { searchParams: 
 
   if (!hasAnyContent) {
     return (
-      <main className="space-y-6 p-6">
+      <PageShell className="page-stack">
         <EmptyState
           title="Welcome to your publisher hub"
           body="Start by creating a venue. Once you have a venue, you can publish events and manage your team."
@@ -42,12 +43,12 @@ export default async function MyDashboardPage({ searchParams }: { searchParams: 
           ]}
         />
         {!hasVenueAccess ? <RequestPublisherAccessCard currentRole={user.role} /> : null}
-      </main>
+      </PageShell>
     );
   }
 
   return (
-    <main className="space-y-6 p-6">
+    <PageShell className="page-stack">
       <NeedsAttentionPanel attention={data.attention} />
       <StatusTileGroups counts={data.counts} venueId={venueId} />
       {!hasVenueAccess ? (
@@ -56,6 +57,6 @@ export default async function MyDashboardPage({ searchParams }: { searchParams: 
           <RequestPublisherAccessCard currentRole={user.role} />
         </section>
       ) : null}
-    </main>
+    </PageShell>
   );
 }
