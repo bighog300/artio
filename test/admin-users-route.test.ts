@@ -14,6 +14,7 @@ type MockUser = {
   isTrustedPublisher?: boolean;
   trustedPublisherSince?: Date | null;
   trustedPublisherById?: string | null;
+  sessionRevokedAt?: Date | null;
 };
 
 function buildDeps(users: MockUser[]) {

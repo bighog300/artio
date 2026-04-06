@@ -30,8 +30,13 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
         where: {
           artistId: artist.id,
           title: query ? { contains: query, mode: "insensitive" } : undefined,
-          isPublished:
-            status?.toLowerCase() === "published" ? true : status?.toLowerCase() === "draft" ? false : undefined,
+          isPublished: status?.toLowerCase() === "published" ? true : status?.toLowerCase() === "draft" ? false : undefined,
+          status:
+            status?.toLowerCase() === "in-review"
+              ? "IN_REVIEW"
+              : status?.toLowerCase() === "needs-changes"
+                ? { in: ["REJECTED", "CHANGES_REQUESTED"] }
+                : undefined,
           deletedAt: showArchived ? { not: null } : null,
         },
         orderBy: sort === "title" ? { title: "asc" } : { updatedAt: "desc" },
@@ -90,17 +95,23 @@ export default async function MyArtworkPage({ searchParams }: { searchParams: Ar
     <main className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <form className="flex gap-2"><input name="q" defaultValue={query} className="h-9 rounded border px-2 text-sm" placeholder="Search artwork" /><Button size="sm">Search</Button></form>
-        {(["Draft", "Published", "Archived"] as const).map((chip) => {
-          const isActive = status?.toLowerCase() === chip.toLowerCase();
+        {([
+          { label: "Draft", value: "draft", href: "/my/artwork?status=draft" },
+          { label: "Published", value: "published", href: "/my/artwork?status=published" },
+          { label: "In review", value: "in-review", href: "/my/artwork?status=in-review" },
+          { label: "Needs changes", value: "needs-changes", href: "/my/artwork?status=needs-changes" },
+          { label: "Archived", value: "archived", href: "/my/artwork?status=archived&showArchived=1" },
+        ] as const).map((chip) => {
+          const isActive = status?.toLowerCase() === chip.value;
           return (
             <Link
-              key={chip}
+              key={chip.value}
               className={isActive
                 ? "rounded border border-foreground bg-foreground px-2 py-1 text-xs text-background"
                 : "rounded border px-2 py-1 text-xs hover:bg-muted"}
-              href={`/my/artwork?status=${chip}${chip === "Archived" ? "&showArchived=1" : ""}`}
+              href={chip.href}
             >
-              {chip}
+              {chip.label}
             </Link>
           );
         })}

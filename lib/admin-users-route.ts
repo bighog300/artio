@@ -217,11 +217,12 @@ export async function handleAdminTrustedPublisherUpdate(req: NextRequest, params
     const { ip, userAgent } = getRequestDetails(req);
 
     const updatedUser = await deps.appDb.$transaction(async (tx) => {
+      const now = new Date();
       const user = await tx.user.update({
         where: { id: targetUser.id },
         data: enabled
-          ? { isTrustedPublisher: true, trustedPublisherSince: new Date(), trustedPublisherById: actor.id }
-          : { isTrustedPublisher: false },
+          ? { isTrustedPublisher: true, trustedPublisherSince: now, trustedPublisherById: actor.id, sessionRevokedAt: now }
+          : { isTrustedPublisher: false, sessionRevokedAt: now },
         select: {
           id: true,
           email: true,

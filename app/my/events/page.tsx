@@ -14,7 +14,7 @@ import { publisherStatusVariant } from "@/lib/publisher-status-variant";
 
 export const dynamic = "force-dynamic";
 
-type EventsSearchParams = Promise<{ q?: string; query?: string; status?: string; venueId?: string; sort?: string; dateFrom?: string; dateTo?: string; showArchived?: string }>;
+type EventsSearchParams = Promise<{ q?: string; query?: string; status?: string; venueId?: string; sort?: string; dateFrom?: string; dateTo?: string; showArchived?: string; offset?: string }>;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -44,6 +44,7 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
   const venueId = rawVenueId && UUID_RE.test(rawVenueId.trim()) ? rawVenueId.trim() : undefined;
   const showArchived = params.showArchived === "1" || status?.toLowerCase() === "archived";
   const sort = params.sort ?? "upcoming";
+  const offset = Math.max(0, Number.parseInt(params.offset ?? "0", 10) || 0);
   const dateWhere: { startAt?: { gte?: Date; lte?: Date } } = dateFrom || dateTo ? {
     startAt: {
       ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
@@ -53,17 +54,37 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
 
   const memberships = await db.venueMembership.findMany({ where: { userId: user.id, role: { in: ["OWNER", "EDITOR"] } }, select: { venueId: true, venue: { select: { name: true } } } });
   const venueIds = memberships.map((v) => v.venueId);
+  const artist = await db.artist.findUnique({ where: { userId: user.id }, select: { id: true } });
+  const scopeOr = [
+    venueId ? { venueId } : (venueIds.length ? { venueId: { in: venueIds } } : null),
+    artist?.id ? { eventArtists: { some: { artistId: artist.id } } } : null,
+  ].filter(Boolean);
 
-  const events = await db.event.findMany({
-    where: {
-      venueId: venueId ? venueId : (venueIds.length ? { in: venueIds } : undefined),
-      title: query ? { contains: query, mode: "insensitive" } : undefined,
-      ...dateWhere,
-      ...buildEventStatusWhere(status, showArchived),
-    },
-    select: { id: true, title: true, slug: true, startAt: true, updatedAt: true, venueId: true, deletedAt: true, venue: { select: { name: true } }, isPublished: true, submissions: { where: { type: "EVENT" }, take: 1, orderBy: { updatedAt: "desc" }, select: { status: true } } },
-    orderBy: sort === "updated" ? { updatedAt: "desc" } : { startAt: "asc" },
-  });
+  const eventsWhere = {
+    AND: [
+      {
+        OR: scopeOr as Array<Record<string, unknown>>,
+      },
+      {
+        title: query ? { contains: query, mode: "insensitive" } : undefined,
+      },
+      dateWhere,
+      buildEventStatusWhere(status, showArchived),
+    ],
+  };
+
+  const [events, totalCount] = scopeOr.length === 0
+    ? [[], 0]
+    : await Promise.all([
+      db.event.findMany({
+        where: eventsWhere,
+        select: { id: true, title: true, slug: true, startAt: true, updatedAt: true, venueId: true, deletedAt: true, venue: { select: { name: true } }, isPublished: true, submissions: { where: { type: "EVENT" }, take: 1, orderBy: { updatedAt: "desc" }, select: { status: true } } },
+        orderBy: sort === "updated" ? { updatedAt: "desc" } : { startAt: "asc" },
+        skip: offset,
+        take: 100,
+      }),
+      db.event.count({ where: eventsWhere }),
+    ]);
 
   const rows = events;
 
@@ -112,6 +133,18 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
     if (dateFrom) p.set("dateFrom", dateFrom);
     if (dateTo) p.set("dateTo", dateTo);
     p.set("sort", sortValue);
+    return `/my/events?${p.toString()}`;
+  };
+  const buildOffsetHref = (nextOffset: number) => {
+    const p = new URLSearchParams();
+    if (venueId) p.set("venueId", venueId);
+    if (status) p.set("status", status);
+    if (query) p.set("q", query);
+    if (dateFrom) p.set("dateFrom", dateFrom);
+    if (dateTo) p.set("dateTo", dateTo);
+    if (sort && sort !== "upcoming") p.set("sort", sort);
+    if (showArchived) p.set("showArchived", "1");
+    p.set("offset", String(nextOffset));
     return `/my/events?${p.toString()}`;
   };
 
@@ -197,6 +230,13 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
               </Button>
             </>
           )}
+        </div>
+      )}
+      {totalCount > offset + rows.length && (
+        <div className="flex justify-center pt-2">
+          <Button asChild size="sm" variant="outline">
+            <Link href={buildOffsetHref(offset + rows.length)}>Load more</Link>
+          </Button>
         </div>
       )}
     </main>

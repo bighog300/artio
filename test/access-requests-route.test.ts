@@ -9,7 +9,14 @@ type Role = "USER" | "EDITOR" | "ADMIN";
 type RequestStatus = "PENDING" | "APPROVED" | "REJECTED";
 type RequestedRole = "VIEWER" | "MODERATOR" | "OPERATOR" | "ADMIN";
 
-type UserRow = { id: string; email: string; role: Role };
+type UserRow = {
+  id: string;
+  email: string;
+  role: Role;
+  isTrustedPublisher?: boolean;
+  trustedPublisherSince?: Date | null;
+  trustedPublisherById?: string | null;
+};
 type RequestRow = {
   id: string;
   userId: string;
@@ -33,10 +40,22 @@ function createDeps(seed: { users: UserRow[]; requests: RequestRow[] }) {
   const db = {
     user: {
       findUnique: async ({ where }: { where: { id: string } }) => state.users.find((u) => u.id === where.id) ?? null,
-      update: async ({ where, data }: { where: { id: string }; data: { role: Role } }) => {
+      update: async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: {
+          role: Role;
+          isTrustedPublisher?: boolean;
+          trustedPublisherSince?: Date;
+          trustedPublisherById?: string;
+          sessionRevokedAt?: Date;
+        };
+      }) => {
         const user = state.users.find((u) => u.id === where.id);
         if (!user) throw new Error("missing_user");
-        user.role = data.role;
+        Object.assign(user, data);
         return { ...user };
       },
     },
@@ -157,6 +176,7 @@ test("admin approves request updates user role and blocks double-approval", asyn
   const approved = await handleApproveAccessRequest(req, Promise.resolve({ id: "00000000-0000-4000-8000-000000000111" }), { id: "admin-1", email: "admin@example.com", role: "ADMIN" }, deps);
   assert.equal(approved.status, 200);
   assert.equal(state.users[0]?.role, "EDITOR");
+  assert.equal(state.users[0]?.isTrustedPublisher, true);
   assert.equal(hasGlobalVenueAccess(state.users[0]?.role), true);
 
   const second = await handleApproveAccessRequest(req, Promise.resolve({ id: "00000000-0000-4000-8000-000000000111" }), { id: "admin-1", email: "admin@example.com", role: "ADMIN" }, deps);

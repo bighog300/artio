@@ -141,7 +141,20 @@ export async function handleApproveAccessRequest(
       if (!before) throw new Error("target_missing");
 
       const nextRole = requestedRoleToSystemRole[request.requestedRole.toLowerCase() as "viewer" | "moderator" | "operator" | "admin"];
-      await tx.user.update({ where: { id: request.userId }, data: { role: nextRole } });
+      const isOperatorApproval = request.requestedRole === "OPERATOR";
+      const now = new Date();
+      await tx.user.update({
+        where: { id: request.userId },
+        data: isOperatorApproval
+          ? {
+              role: nextRole,
+              isTrustedPublisher: true,
+              trustedPublisherSince: now,
+              trustedPublisherById: actor.id,
+              sessionRevokedAt: now,
+            }
+          : { role: nextRole },
+      });
 
       const metadata = {
         actorUserId: actor.id,
@@ -164,6 +177,29 @@ export async function handleApproveAccessRequest(
           userAgent,
         },
       });
+
+      if (isOperatorApproval) {
+        const trustedPublisherMetadata = {
+          actorUserId: actor.id,
+          actorEmail: actor.email,
+          requestId: request.id,
+          targetUserId: request.userId,
+          requestedRole: request.requestedRole,
+          grantedAt: now.toISOString(),
+        } satisfies Prisma.InputJsonValue;
+
+        await tx.adminAuditLog.create({
+          data: {
+            actorEmail: actor.email,
+            action: "USER_TRUSTED_PUBLISHER_GRANTED",
+            targetType: "user",
+            targetId: request.userId,
+            metadata: trustedPublisherMetadata,
+            ip,
+            userAgent,
+          },
+        });
+      }
 
       return updatedRequest;
     });

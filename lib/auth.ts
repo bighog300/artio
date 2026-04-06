@@ -194,16 +194,29 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, trigger }) {
       if (!token.email) return token;
 
-      const shouldRefresh =
+      let shouldRefresh =
         trigger === "signIn" ||
         trigger === "update" ||
         !token.sub ||
         !token.role;
 
+      if (!shouldRefresh && token.sub && typeof token.iat === "number") {
+        const sessionState = await db.user.findUnique({
+          where: { id: token.sub },
+          select: { sessionRevokedAt: true },
+        });
+
+        if (sessionState?.sessionRevokedAt && token.iat * 1000 < sessionState.sessionRevokedAt.getTime()) {
+          shouldRefresh = true;
+        }
+      }
+
       if (!shouldRefresh) return token;
 
       const normalizedEmail = normalizeEmail(token.email);
-      const dbUser = await db.user.findUnique({ where: { email: normalizedEmail } });
+      const dbUser = await db.user.findUnique({
+        where: token.sub ? { id: token.sub } : { email: normalizedEmail },
+      });
       if (dbUser) {
         token.sub = dbUser.id;
         token.role = getEffectiveRole(normalizedEmail, dbUser.role as SessionUser["role"]);
