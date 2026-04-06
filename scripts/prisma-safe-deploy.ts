@@ -17,6 +17,8 @@ const RESOLVABLE_AS_ROLLED_BACK = new Set([
   // Failed on first apply due to ADD CONSTRAINT IF NOT
   // EXISTS syntax error — fixed in subsequent commit
   "20270409120000_discovery_template_suggestion",
+  // FK on IngestRun before IngestRun existed
+  "20260406130000_gallery_first_ingestion",
 ]);
 
 const RESOLVABLE_AS_APPLIED = new Set(["20261203105000_enrichment_provenance"]);
@@ -36,6 +38,8 @@ const ALWAYS_RESOLVE_AS_ROLLED_BACK = new Set([
   // Failed on first apply — syntax error fixed,
   // resolve unconditionally on all databases
   "20270409120000_discovery_template_suggestion",
+  // FK on IngestRun before IngestRun existed
+  "20260406130000_gallery_first_ingestion",
 ]);
 
 const RESOLVABLE_FAILED_MIGRATIONS = new Set([

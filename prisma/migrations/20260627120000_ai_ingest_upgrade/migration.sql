@@ -75,3 +75,9 @@ ALTER TABLE "IngestExtractedEvent" ADD CONSTRAINT "IngestExtractedEvent_runId_fk
 
 -- AddForeignKey
 ALTER TABLE "IngestExtractedEvent" ADD CONSTRAINT "IngestExtractedEvent_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- BackfillColumn: add lastIngestRunId to GallerySource now that IngestRun exists
+ALTER TABLE "GallerySource" ADD COLUMN "lastIngestRunId" UUID;
+
+-- AddForeignKey
+ALTER TABLE "GallerySource" ADD CONSTRAINT "GallerySource_lastIngestRunId_fkey" FOREIGN KEY ("lastIngestRunId") REFERENCES "IngestRun"("id") ON DELETE SET NULL ON UPDATE CASCADE;

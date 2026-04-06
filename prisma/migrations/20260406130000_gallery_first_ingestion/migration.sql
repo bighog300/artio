@@ -20,7 +20,6 @@ CREATE TABLE "GallerySource" (
   "lastCrawlStatus" "GalleryCrawlStatus" NOT NULL DEFAULT 'PENDING',
   "crawlFailureCount" INTEGER NOT NULL DEFAULT 0,
   "lastContentHash" TEXT,
-  "lastIngestRunId" UUID,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMPTZ NOT NULL,
   CONSTRAINT "GallerySource_pkey" PRIMARY KEY ("id")
@@ -130,7 +129,6 @@ CREATE INDEX "IngestMetrics_bucketDate_idx" ON "IngestMetrics"("bucketDate");
 
 -- AddForeignKey
 ALTER TABLE "GallerySource" ADD CONSTRAINT "GallerySource_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "GallerySource" ADD CONSTRAINT "GallerySource_lastIngestRunId_fkey" FOREIGN KEY ("lastIngestRunId") REFERENCES "IngestRun"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 ALTER TABLE "GalleryPage" ADD CONSTRAINT "GalleryPage_gallerySourceId_fkey" FOREIGN KEY ("gallerySourceId") REFERENCES "GallerySource"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
