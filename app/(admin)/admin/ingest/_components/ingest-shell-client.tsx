@@ -51,7 +51,7 @@ function getActiveTab(pathname: string): string {
     || pathname.startsWith("/admin/ingest/coverage")
     || pathname.startsWith("/admin/ingest/goals")
   ) return "venues";
-  if (pathname.startsWith("/admin/ingest/discovery")) return "discovery";
+  if (pathname.startsWith("/admin/ingest/discovery") || pathname.startsWith("/admin/ingest/directory-sources")) return "discovery";
   return "ops";
 }
 
@@ -134,6 +134,7 @@ export default function IngestShellClient({ stats, pipelineFlags, children }: Pr
     ],
     discovery: [
       { key: "disc-jobs", label: "Jobs", href: "/admin/ingest/discovery" },
+      { key: "disc-dirs", label: "Directory sources", href: "/admin/ingest/directory-sources" },
       {
         key: "disc-perf",
         label: "Template performance",
