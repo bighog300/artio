@@ -5,9 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import IngestCandidateActions from "@/app/(admin)/admin/ingest/_components/ingest-candidate-actions";
 import IngestConfidenceBadge from "@/app/(admin)/admin/ingest/_components/ingest-confidence-badge";
-import IngestImageCell from "@/app/(admin)/admin/ingest/_components/ingest-image-cell";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useBulkAction } from "@/app/(admin)/admin/ingest/_hooks/use-bulk-action";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 
 const KEYBOARD_SHORTCUTS = [
   { key: "J / K", label: "navigate" },
@@ -48,6 +48,57 @@ function getConfidenceReasons(value: unknown): string[] | null {
   );
   return reasons.length > 0 ? reasons : null;
 }
+
+function ConfidenceBar({
+  high,
+  medium,
+  low,
+}: {
+  high: number;
+  medium: number;
+  low: number;
+}) {
+  const total = high + medium + low;
+  if (total === 0) return null;
+
+  const highPct = Math.round((high / total) * 100);
+  const medPct = Math.round((medium / total) * 100);
+  const lowPct = 100 - highPct - medPct;
+
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-muted-foreground">Queue confidence ratio</p>
+      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
+        {highPct > 0 ? (
+          <div
+            className="bg-emerald-500 transition-all"
+            style={{ width: `${highPct}%` }}
+            title={`HIGH: ${high} (${highPct}%)`}
+          />
+        ) : null}
+        {medPct > 0 ? (
+          <div
+            className="bg-amber-400 transition-all"
+            style={{ width: `${medPct}%` }}
+            title={`MEDIUM: ${medium} (${medPct}%)`}
+          />
+        ) : null}
+        {lowPct > 0 ? (
+          <div
+            className="bg-rose-400 transition-all"
+            style={{ width: `${lowPct}%` }}
+            title={`LOW: ${low} (${lowPct}%)`}
+          />
+        ) : null}
+      </div>
+      <div className="flex gap-3 text-xs text-muted-foreground">
+        {highPct > 0 ? <span className="text-emerald-700">{highPct}% HIGH</span> : null}
+        {medPct > 0 ? <span className="text-amber-700">{medPct}% MEDIUM</span> : null}
+        {lowPct > 0 ? <span className="text-rose-700">{lowPct}% LOW</span> : null}
+      </div>
+    </div>
+  );
+}
 export default function IngestEventQueueClient({
   candidates: initialCandidates,
   totalPending,
@@ -83,14 +134,6 @@ export default function IngestEventQueueClient({
   const [confidenceFilter, setConfidenceFilter] = useState<
     "all" | "HIGH" | "MEDIUM" | "LOW"
   >("all");
-  const [importingImageFor, setImportingImageFor] = useState<string | null>(
-    null,
-  );
-  const [importedImageFor, setImportedImageFor] = useState<Set<string>>(
-    new Set(),
-  );
-  const [importFailedFor, setImportFailedFor] = useState<Set<string>>(new Set());
-  const [importImageError, setImportImageError] = useState<string | null>(null);
   const [pipelineStatusById, setPipelineStatusById] = useState<
     Record<string, {
       linked: boolean;
@@ -152,45 +195,6 @@ export default function IngestEventQueueClient({
   useEffect(() => {
     setCandidates(initialCandidates);
   }, [initialCandidates]);
-
-  async function importImage(
-    candidateId: string,
-    runId: string,
-    imageUrl: string,
-    setAsFeatured: boolean,
-  ) {
-    setImportingImageFor(candidateId);
-    setImportImageError(null);
-    try {
-      const res = await fetch(
-        `/api/admin/ingest/runs/${runId}/import-venue-image`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl, setAsFeatured }),
-        },
-      );
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as {
-          error?: { message?: string };
-        };
-        setImportFailedFor((prev) => new Set([...prev, candidateId]));
-        setImportImageError(body.error?.message ?? "Import failed.");
-        return;
-      }
-      setImportedImageFor((prev) => new Set([...prev, candidateId]));
-      setImportFailedFor((prev) => {
-        const next = new Set(prev);
-        next.delete(candidateId);
-        return next;
-      });
-    } catch {
-      setImportFailedFor((prev) => new Set([...prev, candidateId]));
-      setImportImageError("Import failed.");
-    } finally {
-      setImportingImageFor(null);
-    }
-  }
 
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -553,18 +557,6 @@ export default function IngestEventQueueClient({
           scroll down to load more.
         </div>
       ) : null}
-      {importImageError ? (
-        <div className="mb-3 flex items-center justify-between rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
-          <span>{importImageError}</span>
-          <button
-            type="button"
-            className="text-amber-700"
-            onClick={() => setImportImageError(null)}
-          >
-            ×
-          </button>
-        </div>
-      ) : null}
       {bulkApproveAction.results ? (
         <div
           className={`mb-3 flex items-center justify-between rounded border px-3 py-2 text-sm ${
@@ -678,13 +670,23 @@ export default function IngestEventQueueClient({
           </div>
         </div>
       ) : null}
+      {(() => {
+        const high = filteredCandidates.filter((c) => c.confidenceBand === "HIGH" && c.status === "PENDING").length;
+        const medium = filteredCandidates.filter((c) => c.confidenceBand === "MEDIUM" && c.status === "PENDING").length;
+        const low = filteredCandidates.filter((c) => c.confidenceBand === "LOW" && c.status === "PENDING").length;
+        return high + medium + low > 0 ? (
+          <div className="mb-3">
+            <ConfidenceBar high={high} medium={medium} low={low} />
+          </div>
+        ) : null;
+      })()}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1120px] text-sm">
+        <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="border-b text-left">
               <th className="px-2 py-2" />
               <th className="px-3 py-2">Confidence</th>
-              <th className="px-3 py-2">Image</th>
+              <th className="w-12 px-3 py-2">Image</th>
               <th className="px-3 py-2">Title</th>
               <th className="px-3 py-2">Start Date</th>
               <th className="px-3 py-2">Venue</th>
@@ -720,31 +722,25 @@ export default function IngestEventQueueClient({
                     />
                   </td>
                   <td className="px-3 py-2">
-                    <IngestImageCell
-                      imageUrl={candidate.imageUrl}
-                      blobImageUrl={candidate.blobImageUrl}
-                      altText={candidate.title}
-                      importStatus={
-                        importedImageFor.has(candidate.id)
-                          ? "imported"
-                          : importFailedFor.has(candidate.id)
-                            ? "failed"
-                            : importingImageFor === candidate.id
-                              ? "importing"
-                              : "none"
-                      }
-                      onImport={
-                        candidate.imageUrl && candidate.status !== "DUPLICATE"
-                          ? () =>
-                              importImage(
-                                candidate.id,
-                                candidate.run.id,
-                                candidate.imageUrl!,
-                                true,
-                              )
-                          : undefined
-                      }
-                    />
+                    {(() => {
+                      const display = resolveAssetDisplay({
+                        legacyUrl: candidate.blobImageUrl ?? candidate.imageUrl,
+                        requestedVariant: "thumb",
+                      });
+                      return display.url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={display.url}
+                          alt={candidate.title}
+                          className="h-10 w-10 flex-shrink-0 rounded object-cover bg-muted"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="h-10 w-10 flex-shrink-0 rounded bg-muted" />
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2 font-medium">
                     <button

@@ -6,6 +6,7 @@ import IngestStatusBadge from "@/app/(admin)/admin/ingest/_components/ingest-sta
 import IngestCandidateActions from "@/app/(admin)/admin/ingest/_components/ingest-candidate-actions";
 import IngestConfidenceBadge from "@/app/(admin)/admin/ingest/_components/ingest-confidence-badge";
 import IngestImageCell from "@/app/(admin)/admin/ingest/_components/ingest-image-cell";
+import { resolveAssetDisplay } from "@/lib/assets/resolve-asset-display";
 
 type ConfidenceBand = "HIGH" | "MEDIUM" | "LOW";
 type Lane = "HIGH" | "NEEDS_REVIEW" | "LOW" | "ALL";
@@ -45,46 +46,14 @@ function inLane(candidate: Candidate, lane: Lane): boolean {
 }
 
 export default function IngestRunCandidates({ candidates, venueId, runId }: { candidates: Candidate[]; venueId: string; runId: string }) {
+  void runId;
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [showReasons, setShowReasons] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [lane, setLane] = useState<Lane>("HIGH");
-  const [importingImageFor, setImportingImageFor] = useState<string | null>(null);
-  const [importedImageFor, setImportedImageFor] = useState<Set<string>>(new Set());
-  const [importFailedFor, setImportFailedFor] = useState<Set<string>>(new Set());
-  const [importImageError, setImportImageError] = useState<string | null>(null);
   const [pipelineOpenById, setPipelineOpenById] = useState<Record<string, boolean>>({});
   const [pipelineDataById, setPipelineDataById] = useState<Record<string, PipelineStatus | null>>({});
   const [pipelineLoadingById, setPipelineLoadingById] = useState<Record<string, boolean>>({});
-
-  async function importImage(candidateId: string, imageUrl: string, setAsFeatured: boolean) {
-    setImportingImageFor(candidateId);
-    setImportImageError(null);
-    try {
-      const res = await fetch(`/api/admin/ingest/runs/${runId}/import-venue-image`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl, setAsFeatured }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
-        setImportFailedFor((prev) => new Set([...prev, candidateId]));
-        setImportImageError(body.error?.message ?? "Import failed.");
-        return;
-      }
-      setImportedImageFor((prev) => new Set([...prev, candidateId]));
-      setImportFailedFor((prev) => {
-        const next = new Set(prev);
-        next.delete(candidateId);
-        return next;
-      });
-    } catch {
-      setImportFailedFor((prev) => new Set([...prev, candidateId]));
-      setImportImageError("Import failed.");
-    } finally {
-      setImportingImageFor(null);
-    }
-  }
 
   const highCandidates = useMemo(
     () =>
@@ -228,14 +197,8 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
           <button type="button" onClick={bulkApproveAction.clearResults}>×</button>
         </div>
       ) : null}
-      {importImageError ? (
-        <div className="flex items-center justify-between rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
-          <span>{importImageError}</span>
-          <button type="button" className="text-amber-700" onClick={() => setImportImageError(null)}>×</button>
-        </div>
-      ) : null}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[960px] text-sm">
+        <table className="w-full min-w-[800px] text-sm">
           <thead>
             <tr className="border-b text-left">
               <th className="px-3 py-2">Title</th>
@@ -275,25 +238,25 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
                     <td className="px-3 py-2">{candidate.startAt ? new Date(candidate.startAt).toLocaleString() : "—"}</td>
                     <td className="px-3 py-2">{candidate.locationText ?? "—"}</td>
                     <td className="px-3 py-2">
-                      <IngestImageCell
-                        imageUrl={candidate.imageUrl}
-                        blobImageUrl={candidate.blobImageUrl}
-                        altText={candidate.title}
-                        importStatus={
-                          importedImageFor.has(candidate.id)
-                            ? "imported"
-                            : importFailedFor.has(candidate.id)
-                              ? "failed"
-                              : importingImageFor === candidate.id
-                                ? "importing"
-                                : "none"
-                        }
-                        onImport={
-                          candidate.imageUrl && candidate.status !== "DUPLICATE"
-                            ? () => importImage(candidate.id, candidate.imageUrl!, true)
-                            : undefined
-                        }
-                      />
+                      {(() => {
+                        const display = resolveAssetDisplay({
+                          legacyUrl: candidate.blobImageUrl ?? candidate.imageUrl,
+                          requestedVariant: "thumb",
+                        });
+                        return display.url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={display.url}
+                            alt={candidate.title}
+                            className="h-10 w-10 flex-shrink-0 rounded object-cover bg-muted"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="h-10 w-10 flex-shrink-0 rounded bg-muted" />
+                        );
+                      })()}
                     </td>
                     <td className="px-3 py-2">
                       <IngestConfidenceBadge

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 type Props = {
   stats: {
@@ -13,6 +13,9 @@ type Props = {
     pendingArtists: number;
     pendingArtworks: number;
     readyToPublish: number;
+    pendingVenueImages?: number;
+    pendingOnboarding?: number;
+    artworksWithGaps?: number;
   };
   pipelineFlags: {
     ingestEnabled: boolean;
@@ -24,390 +27,237 @@ type Props = {
   children: React.ReactNode;
 };
 
-function StatCard({
-  label,
-  value,
-  note,
-  accentClassName,
-  href,
-  urgent,
-}: {
+type NavItem = {
+  key: string;
   label: string;
-  value: number;
-  note: string;
-  accentClassName?: string;
-  href?: string;
-  urgent?: boolean;
-}) {
-  const content = (
-    <article
-      className={`rounded-lg border bg-background p-3 transition-colors ${
-        urgent && value > 0 ? "border-amber-300 bg-amber-50/50" : ""
-      } ${href ? "cursor-pointer hover:bg-muted/40" : ""}`}
-    >
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold tabular-nums ${
-        urgent && value > 0
-          ? "text-amber-700"
-          : accentClassName ?? "text-muted-foreground"
-      }`}>{value}</p>
-      <p className={`text-xs ${
-        urgent && value > 0
-          ? "text-amber-700"
-          : accentClassName ?? "text-muted-foreground"
-      }`}>
-        {note}
-      </p>
-    </article>
-  );
+  href: string;
+  badge?: number;
+  badgeVariant?: "amber" | "red";
+} | {
+  isDivider: true;
+};
 
-  if (href) {
-    return <Link href={href}>{content}</Link>;
-  }
-
-  return content;
-}
-
-function ConfidenceBar({
-  high,
-  medium,
-  low,
-}: {
-  high: number;
-  medium: number;
-  low: number;
-}) {
-  const total = high + medium + low;
-  if (total === 0) return null;
-
-  const highPct = Math.round((high / total) * 100);
-  const medPct = Math.round((medium / total) * 100);
-  const lowPct = 100 - highPct - medPct;
-
-  return (
-    <div className="space-y-1">
-      <p className="text-xs text-muted-foreground">Queue confidence ratio</p>
-      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
-        {highPct > 0 ? (
-          <div
-            className="bg-emerald-500 transition-all"
-            style={{ width: `${highPct}%` }}
-            title={`HIGH: ${high} (${highPct}%)`}
-          />
-        ) : null}
-        {medPct > 0 ? (
-          <div
-            className="bg-amber-400 transition-all"
-            style={{ width: `${medPct}%` }}
-            title={`MEDIUM: ${medium} (${medPct}%)`}
-          />
-        ) : null}
-        {lowPct > 0 ? (
-          <div
-            className="bg-rose-400 transition-all"
-            style={{ width: `${lowPct}%` }}
-            title={`LOW: ${low} (${lowPct}%)`}
-          />
-        ) : null}
-      </div>
-      <div className="flex gap-3 text-xs text-muted-foreground">
-        {highPct > 0 ? <span className="text-emerald-700">{highPct}% HIGH</span> : null}
-        {medPct > 0 ? <span className="text-amber-700">{medPct}% MEDIUM</span> : null}
-        {lowPct > 0 ? <span className="text-rose-700">{lowPct}% LOW</span> : null}
-      </div>
-    </div>
-  );
+function getActiveTab(pathname: string): string {
+  if (pathname === "/admin/ingest") return "queue";
+  if (pathname.startsWith("/admin/ingest/artists")) return "artists";
+  if (pathname.startsWith("/admin/ingest/artworks")) return "artworks";
+  if (pathname.startsWith("/admin/ingest/ready-to-publish")) return "publish";
+  if (
+    pathname.startsWith("/admin/ingest/venue-generation")
+    || pathname.startsWith("/admin/ingest/venue-images")
+    || pathname.startsWith("/admin/ingest/venue-onboarding")
+    || pathname.startsWith("/admin/ingest/venue-map")
+    || pathname.startsWith("/admin/ingest/regions")
+    || pathname.startsWith("/admin/ingest/coverage")
+    || pathname.startsWith("/admin/ingest/goals")
+  ) return "venues";
+  if (pathname.startsWith("/admin/ingest/discovery")) return "discovery";
+  return "ops";
 }
 
 export default function IngestShellClient({ stats, pipelineFlags, children }: Props) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const PIPELINE_FLAGS = [
+    { label: "Events", on: pipelineFlags.ingestEnabled },
+    { label: "Artists", on: pipelineFlags.artistIngestEnabled },
+    { label: "Artworks", on: pipelineFlags.artworkIngestEnabled },
+    { label: "Images", on: pipelineFlags.imageEnabled },
+    { label: "Enrichment", on: pipelineFlags.venueEnrichmentEnabled },
+  ];
+
+  const PRIMARY_NAV: NavItem[] = [
+    {
+      key: "queue",
+      label: "Event queue",
+      href: "/admin/ingest",
+      badge: stats.total,
+      badgeVariant: "amber",
+    },
+    {
+      key: "artists",
+      label: "Artists",
+      href: "/admin/ingest/artists",
+      badge: stats.pendingArtists,
+      badgeVariant: "amber",
+    },
+    {
+      key: "artworks",
+      label: "Artworks",
+      href: "/admin/ingest/artworks",
+      badge: stats.pendingArtworks,
+      badgeVariant: "amber",
+    },
+    {
+      key: "publish",
+      label: "Ready to publish",
+      href: "/admin/ingest/ready-to-publish",
+      badge: stats.readyToPublish,
+      badgeVariant: "amber",
+    },
+    { isDivider: true },
+    { key: "venues", label: "Venues", href: "/admin/ingest/venue-generation" },
+    { key: "discovery", label: "Discovery", href: "/admin/ingest/discovery" },
+    { isDivider: true },
+    {
+      key: "ops",
+      label: "Ops",
+      href: "/admin/ingest/runs",
+      badge: stats.failedLast24h || undefined,
+      badgeVariant: stats.failedLast24h > 0 ? "red" : "amber",
+    },
+  ];
+
+  const SECONDARY_NAV: Record<string, NavItem[]> = {
+    venues: [
+      { key: "venue-gen", label: "Generation", href: "/admin/ingest/venue-generation" },
+      {
+        key: "venue-images",
+        label: "Images",
+        href: "/admin/ingest/venue-images",
+        badge: stats.pendingVenueImages ?? 0,
+        badgeVariant: "amber",
+      },
+      {
+        key: "onboarding",
+        label: "Onboarding",
+        href: "/admin/ingest/venue-onboarding",
+        badge: stats.pendingOnboarding ?? 0,
+        badgeVariant: "amber",
+      },
+      { key: "venue-map", label: "Map", href: "/admin/ingest/venue-map" },
+      { isDivider: true },
+      { key: "regions", label: "Regions", href: "/admin/ingest/regions" },
+      { key: "coverage", label: "Coverage", href: "/admin/ingest/coverage" },
+      { key: "goals", label: "Goals", href: "/admin/ingest/goals" },
+    ],
+    discovery: [
+      { key: "disc-jobs", label: "Jobs", href: "/admin/ingest/discovery" },
+      {
+        key: "disc-perf",
+        label: "Template performance",
+        href: "/admin/ingest/discovery?tab=performance",
+      },
+      {
+        key: "disc-sugg",
+        label: "Suggestions",
+        href: "/admin/ingest/discovery?tab=suggestions",
+      },
+    ],
+    ops: [
+      {
+        key: "runs",
+        label: "Runs",
+        href: "/admin/ingest/runs",
+        badge: stats.failedLast24h || undefined,
+        badgeVariant: "red",
+      },
+      { key: "schedule", label: "Schedule", href: "/admin/ingest/runs?tab=schedule" },
+      { key: "logs", label: "Logs", href: "/admin/ingest/runs?tab=logs" },
+      { key: "health", label: "Health", href: "/admin/ingest/runs?tab=health" },
+      { isDivider: true },
+      { key: "enrich", label: "Enrich", href: "/admin/ingest/enrich" },
+      { key: "quality", label: "Quality", href: "/admin/ingest/quality" },
+      {
+        key: "gaps",
+        label: "Data gaps",
+        href: "/admin/ingest/data-gaps",
+        badge: (stats.artworksWithGaps ?? 0) || undefined,
+        badgeVariant: "amber",
+      },
+      { key: "dupes", label: "Duplicates", href: "/admin/ingest/duplicates" },
+    ],
+  };
+
+  const activeTab = getActiveTab(pathname);
+  const secondaryItems = SECONDARY_NAV[activeTab];
 
   return (
     <main className="space-y-4">
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-        <StatCard
-          label="Pending"
-          value={stats.total}
-          note="Pending candidates"
-          accentClassName={
-            stats.total > 0 ? "text-amber-700" : "text-muted-foreground"
-          }
-        />
-        <StatCard
-          label="High confidence"
-          value={stats.high}
-          note="Ready to approve"
-          accentClassName="text-emerald-700"
-        />
-        <StatCard
-          label="Needs review"
-          value={stats.medium}
-          note="Needs review"
-          accentClassName={
-            stats.medium > 0 ? "text-amber-700" : "text-muted-foreground"
-          }
-        />
-        <StatCard
-          label="Likely noise"
-          value={stats.low}
-          note="Likely noise"
-          accentClassName={
-            stats.low > 0 ? "text-rose-700" : "text-muted-foreground"
-          }
-        />
-        <StatCard
-          label="Failed runs (24h)"
-          value={stats.failedLast24h}
-          note={
-            stats.failedLast24h > 0 ? "Needs attention" : "No recent failures"
-          }
-          urgent
-          href="/admin/ingest/runs?status=FAILED"
-        />
-        <StatCard
-          label="Artist candidates"
-          value={stats.pendingArtists}
-          note={stats.pendingArtists > 0 ? "Awaiting review" : "Queue clear"}
-          urgent
-          href="/admin/ingest/artists"
-        />
-        <StatCard
-          label="Artwork candidates"
-          value={stats.pendingArtworks}
-          note={stats.pendingArtworks > 0 ? "Awaiting review" : "Queue clear"}
-          urgent
-          href="/admin/ingest/artworks"
-        />
-      </section>
-
-      <ConfidenceBar high={stats.high} medium={stats.medium} low={stats.low} />
-
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="text-muted-foreground">Pipeline:</span>
-        {[
-          { label: "Events", on: pipelineFlags.ingestEnabled },
-          { label: "Artists", on: pipelineFlags.artistIngestEnabled },
-          { label: "Artworks", on: pipelineFlags.artworkIngestEnabled },
-          { label: "Images", on: pipelineFlags.imageEnabled },
-          { label: "Enrichment", on: pipelineFlags.venueEnrichmentEnabled },
-        ].map(({ label, on }) => (
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-background px-3 py-2 text-xs">
+        <span className="mr-1 text-muted-foreground">Pipeline:</span>
+        {PIPELINE_FLAGS.map(({ label, on }) => (
           <span
             key={label}
-            className={`rounded-full px-2 py-0.5 font-medium ${
-              on
-                ? "bg-emerald-100 text-emerald-800"
-                : "bg-muted text-muted-foreground line-through"
-            }`}
+            className={`rounded-full px-2 py-0.5 font-medium ${on ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground line-through"}`}
           >
             {label}
           </span>
         ))}
+        <span className="ml-auto flex items-center gap-3">
+          {stats.failedLast24h > 0 ? (
+            <Link
+              href="/admin/ingest/runs?status=FAILED"
+              className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800"
+            >
+              {stats.failedLast24h} failed run{stats.failedLast24h === 1 ? "" : "s"}
+            </Link>
+          ) : null}
+          <span className="text-muted-foreground">02:50 UTC daily</span>
+        </span>
       </div>
 
-      <nav className="flex items-end gap-0 overflow-x-auto border-b">
-        <div className="flex flex-col">
-          <span
-            className="hidden select-none px-2 pb-0.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 lg:block"
-            aria-hidden="true"
-          >
-            Review
-          </span>
-          <div className="flex items-end">
-            <Link
-              href="/admin/ingest"
-              className={`rounded-t-md px-3 py-2 text-sm ${pathname === "/admin/ingest" ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <span className="flex items-center gap-1.5">
-                Event Queue
-                {stats.total > 0 ? (
-                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
-                    {stats.total}
+      <div className="mb-4 overflow-hidden rounded-lg border bg-background">
+        <div className="flex items-end gap-0 overflow-x-auto border-b px-1">
+          {PRIMARY_NAV.map((item, i) => {
+            if ("isDivider" in item) {
+              return <span key={i} className="mx-2 h-4 w-px self-center bg-border" />;
+            }
+            const active = activeTab === item.key;
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={`mb-[-1px] flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm ${active ? "border-foreground font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              >
+                {item.label}
+                {item.badge && item.badge > 0 ? (
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums ${item.badgeVariant === "red" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}
+                  >
+                    {item.badge}
                   </span>
                 ) : null}
-              </span>
-            </Link>
-            <Link
-              href="/admin/ingest/artists"
-              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artists") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <span className="flex items-center gap-1.5">
-                Artists
-                {stats.pendingArtists > 0 ? (
-                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
-                    {stats.pendingArtists}
-                  </span>
-                ) : null}
-              </span>
-            </Link>
-            <Link
-              href="/admin/ingest/artworks"
-              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/artworks") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <span className="flex items-center gap-1.5">
-                Artworks
-                {stats.pendingArtworks > 0 ? (
-                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
-                    {stats.pendingArtworks}
-                  </span>
-                ) : null}
-              </span>
-            </Link>
-            <Link
-              href="/admin/ingest/ready-to-publish"
-              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/ready-to-publish") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <span className="flex items-center gap-1.5">
-                Ready to Publish
-                {stats.readyToPublish > 0 ? (
-                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-amber-800">
-                    {stats.readyToPublish}
-                  </span>
-                ) : null}
-              </span>
-            </Link>
-          </div>
+              </Link>
+            );
+          })}
         </div>
 
-        <span
-          className="mx-2 self-stretch border-l border-border/60"
-          aria-hidden="true"
-        />
-        <div className="flex flex-col">
-          <span
-            className="hidden select-none px-2 pb-0.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 lg:block"
-            aria-hidden="true"
-          >
-            Pipeline
-          </span>
-          <div className="flex items-end">
-            <Link
-              href="/admin/ingest/discovery"
-              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/discovery") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Discovery
-            </Link>
-            <Link
-              href="/admin/ingest/regions"
-              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/regions") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Regions
-            </Link>
-            <Link
-              href="/admin/ingest/coverage"
-              className={`rounded-t-md px-3 py-2 text-sm ${
-                pathname.startsWith("/admin/ingest/coverage")
-                  ? "bg-muted font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Coverage
-            </Link>
-            <Link
-              href="/admin/ingest/goals"
-              className={`rounded-t-md px-3 py-2 text-sm ${
-                pathname.startsWith("/admin/ingest/goals")
-                  ? "bg-muted font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Goals
-            </Link>
-            <Link
-              href="/admin/ingest/venue-generation"
-              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/venue-generation") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Venue Gen
-            </Link>
-            <Link
-              href="/admin/ingest/venue-images"
-              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/venue-images") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Venue Images
-            </Link>
-            <Link
-              href="/admin/ingest/venue-onboarding"
-              className={`rounded-t-md px-3 py-2 text-sm ${
-                pathname.startsWith("/admin/ingest/venue-onboarding")
-                  ? "bg-muted font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Onboarding
-            </Link>
-          </div>
-        </div>
+        {secondaryItems ? (
+          <div className="flex flex-wrap items-center gap-1 bg-muted/40 px-2 py-1.5">
+            {secondaryItems.map((item, i) => {
+              if ("isDivider" in item) {
+                return <span key={i} className="mx-1 h-4 w-px self-center bg-border" />;
+              }
 
-        <span
-          className="mx-2 self-stretch border-l border-border/60"
-          aria-hidden="true"
-        />
-        <div className="flex flex-col">
-          <span
-            className="hidden select-none px-2 pb-0.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 lg:block"
-            aria-hidden="true"
-          >
-            Operations
-          </span>
-          <div className="flex items-end">
-            <Link
-              href="/admin/ingest/runs"
-              className={`rounded-t-md px-3 py-2 text-sm ${pathname.startsWith("/admin/ingest/runs") ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Pipeline ops
-            </Link>
-            <Link
-              href="/admin/ingest/enrich"
-              className={`rounded-t-md px-3 py-2 text-sm ${
-                pathname.startsWith("/admin/ingest/enrich")
-                  ? "bg-muted font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Enrich
-            </Link>
-            <Link
-              href="/admin/ingest/venue-map"
-              className={`rounded-t-md px-3 py-2 text-sm ${
-                pathname.startsWith("/admin/ingest/venue-map")
-                  ? "bg-muted font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Venue Map
-            </Link>
-            <Link
-              href="/admin/ingest/quality"
-              className={`rounded-t-md px-3 py-2 text-sm ${
-                pathname.startsWith("/admin/ingest/quality")
-                  ? "bg-muted font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Quality
-            </Link>
-            <Link
-              href="/admin/ingest/data-gaps"
-              className={`rounded-t-md px-3 py-2 text-sm ${
-                pathname.startsWith("/admin/ingest/data-gaps")
-                  ? "bg-muted font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Data Gaps
-            </Link>
-            <Link
-              href="/admin/ingest/duplicates"
-              className={`rounded-t-md px-3 py-2 text-sm ${
-                pathname.startsWith("/admin/ingest/duplicates")
-                  ? "bg-muted font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Duplicates
-            </Link>
+              const isPathMatch = pathname.startsWith(item.href.split("?")[0]);
+              const itemUrl = new URL(item.href, "https://example.local");
+              const tab = itemUrl.searchParams.get("tab");
+              const active = tab
+                ? isPathMatch && searchParams.get("tab") === tab
+                : isPathMatch && (item.key !== "disc-jobs" || !searchParams.get("tab"));
+
+              return (
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs ${active ? "bg-background font-medium text-foreground" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}
+                >
+                  {item.label}
+                  {item.badge && item.badge > 0 ? (
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${item.badgeVariant === "red" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}
+                    >
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
           </div>
-        </div>
-      </nav>
+        ) : null}
+      </div>
 
       {children}
     </main>
