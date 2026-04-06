@@ -45,6 +45,10 @@ export const ADMIN_SECTIONS: AdminNavSection[] = [
     ],
   },
   {
+    label: "Settings",
+    links: [{ href: "/admin/settings/environment", label: "Environment" }],
+  },
+  {
     label: "Config",
     links: [
       { href: "/admin/users", label: "Users" },

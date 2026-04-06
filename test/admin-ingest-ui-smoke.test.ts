@@ -58,3 +58,15 @@ test("admin ingest artist and artwork queues expose observability filters", () =
     assert.match(source, /matchesImageFilter/);
   }
 });
+
+test("environment status page includes key env var names", () => {
+  const source = readFileSync(
+    "app/(admin)/admin/settings/environment/env-definitions.ts",
+    "utf8"
+  );
+  assert.match(source, /AUTH_SECRET/);
+  assert.match(source, /OPENAI_API_KEY/);
+  assert.match(source, /DATABASE_URL/);
+  assert.match(source, /BLOB_READ_WRITE_TOKEN/);
+  assert.match(source, /AI_INGEST_ENABLED/);
+});
