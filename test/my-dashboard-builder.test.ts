@@ -13,6 +13,7 @@ test("getMyDashboard returns validated payload with venue scope", async () => {
     artworkFindMany: db.artwork.findMany,
     artworkCount: db.artwork.count,
     venueInviteFindMany: db.venueInvite.findMany,
+    accessRequestFindFirst: db.accessRequest.findFirst,
   };
 
   db.venueMembership.findMany = (async () => [
@@ -65,6 +66,7 @@ test("getMyDashboard returns validated payload with venue scope", async () => {
       createdAt: new Date("2026-01-04T00:00:00.000Z"),
     },
   ]) as typeof db.venueInvite.findMany;
+  db.accessRequest.findFirst = (async () => null) as typeof db.accessRequest.findFirst;
 
   let eventCountCall = 0;
   db.event.count = (async () => {
@@ -100,5 +102,6 @@ test("getMyDashboard returns validated payload with venue scope", async () => {
     db.artwork.findMany = original.artworkFindMany;
     db.artwork.count = original.artworkCount;
     db.venueInvite.findMany = original.venueInviteFindMany;
+    db.accessRequest.findFirst = original.accessRequestFindFirst;
   }
 });
