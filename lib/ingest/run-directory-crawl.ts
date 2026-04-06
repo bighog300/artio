@@ -205,10 +205,6 @@ export async function runDirectoryCrawl(args: {
           done = true;
           nextCursorLetter = "A";
           nextCursorPage = 1;
-          await args.db.directorySource.update({
-            where: { id: source.id },
-            data: { lastCrawledAt: now },
-          });
           break;
         }
         nextCursorLetter = next;
