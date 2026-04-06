@@ -1,5 +1,5 @@
 {
-  "rootDirectory": "artio-main"
+ 
   "installCommand": "pnpm run vercel:install",
   "buildCommand": "pnpm run vercel:build"
 }
