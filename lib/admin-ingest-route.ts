@@ -14,6 +14,7 @@ import { getAdminIngestHealthData } from "@/lib/ingest/health-query";
 import { discoverArtist } from "@/lib/ingest/artist-discovery";
 import { extractArtworksForEvent } from "@/lib/ingest/artwork-extraction";
 import { autoTagEvent } from "@/lib/ingest/auto-tag-event";
+import { enqueueGalleryIngestionForVenue } from "@/lib/ingestion/bootstrap";
 
 type AdminActor = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN" };
 
@@ -161,6 +162,8 @@ export async function handleAdminIngestRun(req: NextRequest, params: { venueId?:
     }
 
     const result = await resolved.runExtraction({ venueId: venue.id, sourceUrl, model: parsedBody.data.model });
+
+    await enqueueGalleryIngestionForVenue(venue.id, sourceUrl).catch(() => undefined);
 
     await resolved.logAction({
       actorEmail: actor.email,

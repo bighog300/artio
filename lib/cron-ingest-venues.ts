@@ -10,6 +10,7 @@ import { autoApproveEventCandidate } from "@/lib/ingest/auto-approve-event-candi
 import { autoApproveArtistCandidate } from "@/lib/ingest/auto-approve-artist-candidate";
 import { autoApproveArtworkCandidate } from "@/lib/ingest/auto-approve-artwork-candidate";
 import { logWarn } from "@/lib/logging";
+import { enqueueGalleryIngestionForVenue } from "@/lib/ingestion/bootstrap";
 
 const CRON_NAME = "ingest_venues";
 const ROUTE = "/api/cron/ingest/venues";
@@ -392,6 +393,7 @@ export async function runCronIngestVenues(
             continue;
           }
           const result = await runExtraction({ venueId: item.venue.id, sourceUrl });
+          await enqueueGalleryIngestionForVenue(item.venue.id, sourceUrl).catch(() => undefined);
 
           const autoPublishEvents = settings?.regionAutoPublishEvents ?? false;
           if (autoPublishEvents && result.createdCount > 0) {

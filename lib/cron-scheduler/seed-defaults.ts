@@ -17,6 +17,8 @@ export const DEFAULT_CRON_JOBS: CronJobCreateInput[] = [
   { name: "ingest_venues", displayName: "Venue Ingest", endpoint: "/api/cron/ingest/venues", schedule: "50 2 * * *", enabled: true },
   { name: "ingest_regions", displayName: "Region Ingest", endpoint: "/api/cron/ingest/regions", schedule: "0 2 * * *", enabled: true },
   { name: "ingest_discovery", displayName: "Ingest Discovery", endpoint: "/api/cron/ingest/discovery", schedule: "0 * * * *", enabled: false },
+  { name: "ingest_gallery_sync", displayName: "Gallery Sync Queue", endpoint: "/api/cron/ingest/gallery", schedule: "*/30 * * * *", enabled: true },
+  { name: "ingest_worker", displayName: "Ingestion Worker Tick", endpoint: "/api/internal/ingestion/worker?limit=25", schedule: "*/5 * * * *", enabled: false },
   { name: "sync_google_events", displayName: "Google Event Sync", endpoint: "/api/cron/sync-google-events", schedule: "0 3 * * *", enabled: false },
   { name: "geocode_venues", displayName: "Geocode Venues", endpoint: "/api/cron/geocode-venues", schedule: "0 4 * * *", enabled: false },
   { name: "ingest_backfill_artists", displayName: "Backfill Event Artists", endpoint: "/api/cron/ingest/backfill-artists", schedule: "20 4 * * *", enabled: true },
