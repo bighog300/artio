@@ -200,15 +200,12 @@ export const authOptions: NextAuthOptions = {
         !token.sub ||
         !token.role;
 
-      if (!shouldRefresh && token.sub && typeof token.iat === "number") {
-        const sessionState = await db.user.findUnique({
-          where: { id: token.sub },
-          select: { sessionRevokedAt: true },
-        });
-
-        if (sessionState?.sessionRevokedAt && token.iat * 1000 < sessionState.sessionRevokedAt.getTime()) {
-          shouldRefresh = true;
-        }
+      if (
+        !shouldRefresh &&
+        typeof token.iat === "number" &&
+        typeof token.sessionRevokedAt === "number"
+      ) {
+        if (token.iat * 1000 < token.sessionRevokedAt) shouldRefresh = true;
       }
 
       if (!shouldRefresh) return token;
@@ -222,6 +219,7 @@ export const authOptions: NextAuthOptions = {
         token.role = getEffectiveRole(normalizedEmail, dbUser.role as SessionUser["role"]);
         token.name = dbUser.name ?? token.name;
         token.isTrustedPublisher = dbUser.isTrustedPublisher;
+        token.sessionRevokedAt = dbUser.sessionRevokedAt?.getTime() ?? null;
       } else {
         token.role = getEffectiveRole(normalizedEmail, "USER");
       }

@@ -55,10 +55,12 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Eve
   const memberships = await db.venueMembership.findMany({ where: { userId: user.id, role: { in: ["OWNER", "EDITOR"] } }, select: { venueId: true, venue: { select: { name: true } } } });
   const venueIds = memberships.map((v) => v.venueId);
   const artist = await db.artist.findUnique({ where: { userId: user.id }, select: { id: true } });
-  const scopeOr = [
-    venueId ? { venueId } : (venueIds.length ? { venueId: { in: venueIds } } : null),
-    artist?.id ? { eventArtists: { some: { artistId: artist.id } } } : null,
-  ].filter(Boolean);
+  const scopeOr = venueId
+    ? [{ venueId }]
+    : [
+        venueIds.length ? { venueId: { in: venueIds } } : null,
+        artist?.id ? { eventArtists: { some: { artistId: artist.id } } } : null,
+      ].filter(Boolean);
 
   const eventsWhere = {
     AND: [

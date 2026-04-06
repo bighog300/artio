@@ -14,5 +14,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     role?: "USER" | "EDITOR" | "ADMIN";
     isTrustedPublisher?: boolean;
+    sessionRevokedAt?: number | null;
   }
 }

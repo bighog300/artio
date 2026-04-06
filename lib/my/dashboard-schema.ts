@@ -64,7 +64,7 @@ export const ArtworkSummarySchema = z.object({
   title: z.string(),
   status: z.enum(["Draft", "Published"]),
   updatedAtISO: z.string().datetime(),
-  imageUrl: z.string().url().nullable(),
+  imageUrl: z.string().nullable(),
 });
 export type ArtworkSummary = z.infer<typeof ArtworkSummarySchema>;
 
