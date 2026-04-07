@@ -73,7 +73,7 @@ function ChipButton({
 
 export default function ReadyToPublishClient({
   records,
-  userRole: _userRole,
+  userRole,
 }: {
   records: UnifiedRecord[];
   userRole?: "USER" | "EDITOR" | "ADMIN";
@@ -330,14 +330,18 @@ export default function ReadyToPublishClient({
                     <Link href={record.remediationHref}>{record.remediationLabel}</Link>
                   </Button>
                 ) : null}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={workingId === record.id || record.blockers.length > 0}
-                  onClick={() => void publishRecord(record)}
-                >
-                  {workingId === record.id ? "Publishing…" : record.warnings.length > 0 ? "Publish anyway" : "Publish"}
-                </Button>
+                {userRole === "ADMIN" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={workingId === record.id || record.blockers.length > 0}
+                    onClick={() => void publishRecord(record)}
+                  >
+                    {workingId === record.id ? "Publishing…" : record.warnings.length > 0 ? "Publish anyway" : "Publish"}
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Admin only</span>
+                )}
               </div>
             </div>
 
