@@ -73,6 +73,11 @@ export default function IngestCandidateActions({
   const [loadingAction, setLoadingAction] = useState<"approve" | "reject" | "approve_publish" | "restore" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [missingTimezone, setMissingTimezone] = useState(false);
+  const [missingStartAt, setMissingStartAt] = useState(false);
+  const [retryPatch, setRetryPatch] = useState<{ startAt: string; timezone: string }>({
+    startAt: patch?.startAt ?? "",
+    timezone: patch?.timezone ?? "",
+  });
   const [linkedArtistCount, setLinkedArtistCount] = useState<number | null>(null);
   const [imageSkipWarning, setImageSkipWarning] = useState<string | null>(null);
   const [approvedEventId, setApprovedEventId] = useState<string | null>(createdEventId);
@@ -91,6 +96,13 @@ export default function IngestCandidateActions({
   useEffect(() => {
     setApprovedEventId(createdEventId);
   }, [createdEventId]);
+
+  useEffect(() => {
+    setRetryPatch({
+      startAt: patch?.startAt ?? "",
+      timezone: patch?.timezone ?? "",
+    });
+  }, [patch?.startAt, patch?.timezone]);
 
   useEffect(() => {
     if (!approvedEventId) return;
@@ -118,6 +130,7 @@ export default function IngestCandidateActions({
     if (loadingAction || status !== "PENDING") return;
     setError(null);
     setMissingTimezone(false);
+    setMissingStartAt(false);
     setImageSkipWarning(null);
     setLoadingAction("approve");
     try {
@@ -130,6 +143,7 @@ export default function IngestCandidateActions({
         const body = (await res.json().catch(() => null)) as { error?: { details?: unknown } } | null;
         const missingFields = extractMissingFields(body?.error?.details);
         setMissingTimezone(missingFields.includes("timezone"));
+        setMissingStartAt(missingFields.includes("startAt"));
         setError(getActionError(res.status, body?.error?.details));
         return;
       }
@@ -155,22 +169,24 @@ export default function IngestCandidateActions({
   }
 
 
-  async function approveAndPublish() {
+  async function approveAndPublish(overridePatch?: { startAt?: string | null; timezone?: string | null }) {
     if (loadingAction || status !== "PENDING") return;
     setError(null);
     setMissingTimezone(false);
+    setMissingStartAt(false);
     setImageSkipWarning(null);
     setLoadingAction("approve_publish");
     try {
       const res = await fetch(`/api/admin/ingest/extracted-events/${candidateId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ publishImmediately: true, ...(patch ?? {}) }),
+        body: JSON.stringify({ publishImmediately: true, ...(patch ?? {}), ...(overridePatch ?? {}) }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: { details?: unknown } } | null;
         const missingFields = extractMissingFields(body?.error?.details);
         setMissingTimezone(missingFields.includes("timezone"));
+        setMissingStartAt(missingFields.includes("startAt"));
         setError(getActionError(res.status, body?.error?.details));
         return;
       }
@@ -198,6 +214,7 @@ export default function IngestCandidateActions({
 
     setError(null);
     setMissingTimezone(false);
+    setMissingStartAt(false);
     setLoadingAction("reject");
     try {
       const res = await fetch(`/api/admin/ingest/extracted-events/${candidateId}/reject`, {
@@ -269,9 +286,63 @@ export default function IngestCandidateActions({
         <InlineBanner>
           <div className="space-y-1">
             <div>{error}</div>
-            {missingTimezone ? (
+            {missingTimezone && !missingStartAt ? (
               <div>
                 Timezone missing. Set venue timezone to approve. <Link href={`/admin/venues/${venueId}`} className="underline">Edit venue</Link>.
+              </div>
+            ) : null}
+            {(missingTimezone || missingStartAt) ? (
+              <div className="mt-2 space-y-2 rounded border bg-background p-2">
+                <p className="text-xs text-muted-foreground">Enter missing schedule fields and retry publish:</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {missingStartAt ? (
+                    <label className="flex flex-col gap-1 text-xs">
+                      <span className="font-medium text-muted-foreground">Start at</span>
+                      <input
+                        type="datetime-local"
+                        className="rounded border px-2 py-1 text-sm"
+                        value={retryPatch.startAt}
+                        onChange={(event) => setRetryPatch((prev) => ({ ...prev, startAt: event.target.value }))}
+                      />
+                    </label>
+                  ) : null}
+                  {missingTimezone ? (
+                    <label className="flex flex-col gap-1 text-xs">
+                      <span className="font-medium text-muted-foreground">Timezone (IANA)</span>
+                      <input
+                        type="text"
+                        className="rounded border px-2 py-1 text-sm"
+                        value={retryPatch.timezone}
+                        onChange={(event) => setRetryPatch((prev) => ({ ...prev, timezone: event.target.value }))}
+                        placeholder="America/New_York"
+                      />
+                    </label>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={
+                      loadingAction !== null
+                      || (missingStartAt && !retryPatch.startAt.trim())
+                      || (missingTimezone && !retryPatch.timezone.trim())
+                    }
+                    onClick={() =>
+                      approveAndPublish({
+                        startAt: retryPatch.startAt.trim() || undefined,
+                        timezone: retryPatch.timezone.trim() || undefined,
+                      })
+                    }
+                  >
+                    Retry with these fields
+                  </Button>
+                  {missingTimezone ? (
+                    <Link href={`/admin/venues/${venueId}`} className="text-xs underline text-muted-foreground">
+                      Edit venue timezone
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>
@@ -285,7 +356,7 @@ export default function IngestCandidateActions({
           <Button
             size="sm"
             variant="outline"
-            onClick={approveAndPublish}
+            onClick={() => void approveAndPublish()}
             disabled={status !== "PENDING" || loadingAction !== null}
             className="border-emerald-600 text-emerald-800 hover:bg-emerald-50"
           >

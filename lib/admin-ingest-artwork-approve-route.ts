@@ -1,5 +1,5 @@
 import { apiError } from "@/lib/api";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { ensureUniqueArtworkSlugWithDeps, slugifyArtworkTitle } from "@/lib/artwork-slug";
 import { ensureUniqueArtistSlugWithDeps, slugifyArtistName } from "@/lib/artist-slug";
