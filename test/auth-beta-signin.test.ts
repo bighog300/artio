@@ -13,6 +13,7 @@ test("auth signIn denies when beta mode enabled with empty allowlist", async () 
   process.env.BETA_ADMIN_EMAILS = "";
 
   db.user.upsert = (async () => ({ id: "user-1" })) as typeof db.user.upsert;
+  db.user.findUnique = (async () => null) as typeof db.user.findUnique;
 
   const result = await authOptions.callbacks!.signIn!({ user: { email: "blocked@example.com", name: null, image: null } as never, account: null as never, profile: undefined, email: undefined, credentials: undefined });
   assert.equal(result, false);
@@ -29,6 +30,7 @@ test("auth signIn allows allowlisted email in beta mode", async () => {
     upsertCalled = true;
     return { id: "user-1" };
   }) as typeof db.user.upsert;
+  db.user.findUnique = (async () => null) as typeof db.user.findUnique;
 
   const result = await authOptions.callbacks!.signIn!({ user: { email: "allow@example.com", name: null, image: null } as never, account: null as never, profile: undefined, email: undefined, credentials: undefined });
   assert.equal(result, true);
@@ -46,6 +48,7 @@ test("auth signIn upgrades allowlisted admin user to ADMIN and normalizes email"
     captured = input;
     return { id: "user-admin" };
   }) as typeof db.user.upsert;
+  db.user.findUnique = (async () => null) as typeof db.user.findUnique;
 
   const result = await authOptions.callbacks!.signIn!({ user: { email: "  ADMIN@Test.com ", name: "Admin", image: null } as never, account: null as never, profile: undefined, email: undefined, credentials: undefined });
   assert.equal(result, true);

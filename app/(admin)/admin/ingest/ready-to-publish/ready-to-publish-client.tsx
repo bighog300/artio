@@ -222,6 +222,7 @@ export default function ReadyToPublishClient({
   }
 
   async function bulkPublishReady() {
+    if (userRole !== "ADMIN") return;
     if (bulkPublishing) return;
     const eligible = filtered.filter((r) => r.readinessScore >= 80);
     if (!eligible.length) return;
@@ -261,9 +262,13 @@ export default function ReadyToPublishClient({
           <h2 className="text-sm font-semibold">Unified publish queue</h2>
           {publishedName ? <p className="text-xs text-emerald-700">Published {publishedName}</p> : null}
         </div>
-        <Button size="sm" variant="outline" disabled={bulkPublishing || readyCount === 0} onClick={() => void bulkPublishReady()}>
-          {bulkPublishing ? `Publishing… ${bulkProgress?.done ?? 0}/${bulkProgress?.total ?? 0}` : `Publish all ready (${readyCount})`}
-        </Button>
+        {userRole === "ADMIN" ? (
+          <Button size="sm" variant="outline" disabled={bulkPublishing || readyCount === 0} onClick={() => void bulkPublishReady()}>
+            {bulkPublishing ? `Publishing… ${bulkProgress?.done ?? 0}/${bulkProgress?.total ?? 0}` : `Publish all ready (${readyCount})`}
+          </Button>
+        ) : (
+          <span className="text-xs text-muted-foreground">Admin only</span>
+        )}
       </div>
 
       {bulkResults ? (
