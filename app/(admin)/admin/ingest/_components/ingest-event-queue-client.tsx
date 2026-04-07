@@ -49,6 +49,14 @@ function getConfidenceReasons(value: unknown): string[] | null {
   return reasons.length > 0 ? reasons : null;
 }
 
+function getMissingSignals(candidate: QueueCandidate): string[] {
+  const missing: string[] = [];
+  if (!candidate.startAt) missing.push("No date");
+  if (!candidate.imageUrl && !candidate.blobImageUrl) missing.push("No image");
+  if (candidate.artistNames.length === 0) missing.push("No artists");
+  return missing;
+}
+
 function ConfidenceBar({
   high,
   medium,
@@ -161,6 +169,8 @@ export default function IngestEventQueueClient({
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const [candidates, setCandidates] = useState<QueueCandidate[]>(initialCandidates);
+  const [rescoring, setRescoring] = useState(false);
+  const [rescoreResult, setRescoreResult] = useState<{ rescored: number } | null>(null);
 
   function initDraft(candidate: QueueCandidate) {
     const candidateEndAt =
@@ -278,6 +288,21 @@ export default function IngestEventQueueClient({
     setSelectedIds(new Set());
     setBulkEditOpen(false);
     setBulkEditDraft({ timezone: "", rejectionReason: "" });
+  }
+
+  async function rescoreAll() {
+    setRescoring(true);
+    setRescoreResult(null);
+    try {
+      const res = await fetch("/api/admin/ingest/rescore-pending", { method: "POST" });
+      const data = await res.json() as { rescored?: number };
+      setRescoreResult({ rescored: data.rescored ?? 0 });
+      router.refresh();
+    } catch {
+      // silent — router.refresh will show current state
+    } finally {
+      setRescoring(false);
+    }
   }
 
   function goToNextPage() {
@@ -549,6 +574,19 @@ export default function IngestEventQueueClient({
               )
             </button>
           ) : null}
+          <button
+            type="button"
+            className="rounded border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+            disabled={rescoring}
+            onClick={() => void rescoreAll()}
+          >
+            {rescoring ? "Rescoring…" : "Rescore all"}
+          </button>
+          {rescoreResult ? (
+            <span className="text-xs text-muted-foreground">
+              {rescoreResult.rescored} rescored
+            </span>
+          ) : null}
         </div>
       </div>
       {(totalPending ?? 0) > candidates.length ? (
@@ -756,6 +794,22 @@ export default function IngestEventQueueClient({
                     >
                       {candidate.title}
                     </button>
+                    {(() => {
+                      const missing = getMissingSignals(candidate);
+                      if (missing.length === 0 || candidate.status !== "PENDING") return null;
+                      return (
+                        <div className="mt-0.5 flex flex-wrap gap-1">
+                          {missing.map((label) => (
+                            <span
+                              key={label}
+                              className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2">
                     {candidate.startAt
@@ -849,24 +903,25 @@ export default function IngestEventQueueClient({
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-col gap-1">
-                      <Link
-                        href={`/admin/ingest/runs/${candidate.run.id}`}
-                        className="text-xs underline"
-                      >
-                        Run details
-                      </Link>
-                      <a
-                        href={candidate.run.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="max-w-[280px] truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
-                        title={candidate.run.sourceUrl}
-                      >
-                        ↗ {candidate.run.sourceUrl}
-                      </a>
-                    </div>
+                  <td className="px-3 py-2 text-xs">
+                    <a
+                      href={candidate.run.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block max-w-[180px] truncate text-muted-foreground underline hover:text-foreground"
+                      title={candidate.run.sourceUrl}
+                    >
+                      {(() => {
+                        try {
+                          return new URL(candidate.run.sourceUrl).hostname.replace(/^www\./, "");
+                        } catch {
+                          return candidate.run.sourceUrl;
+                        }
+                      })()}
+                    </a>
+                    <Link href={`/admin/ingest/runs/${candidate.run.id}`} className="mt-1 inline-block text-xs underline">
+                      Run details
+                    </Link>
                   </td>
                   <td className="px-3 py-2">
                     <IngestCandidateActions

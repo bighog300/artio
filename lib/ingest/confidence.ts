@@ -81,8 +81,8 @@ export function computeConfidence(
   candidate: NormalizedExtractedEvent,
   context: { status?: "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE"; inherited?: boolean; venueName?: string | null; extractionMethod?: "json_ld" | "openai"; highMin?: number | null; mediumMin?: number | null } = {},
 ): { score: number; band: ConfidenceBand; reasons: string[] } {
-  let score = 40;
-  const reasons: string[] = ["base score"];
+  let score = 0;
+  const reasons: string[] = [];
 
   if (candidate.startAt) {
     score += 20;
@@ -112,6 +112,28 @@ export function computeConfidence(
   if (descLength > 5000) {
     score -= 10;
     reasons.push("description unusually long");
+  }
+
+  const artistCount = candidate.artistNames?.length ?? 0;
+  if (artistCount === 1) {
+    score += 8;
+    reasons.push("named artist present");
+  } else if (artistCount >= 2) {
+    score += 13;
+    reasons.push(`${artistCount} named artists`);
+  }
+
+  if (candidate.imageUrl?.trim()) {
+    score += 8;
+    reasons.push("event image present");
+  }
+
+  if (candidate.startAt) {
+    const daysUntilStart = (candidate.startAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+    if (daysUntilStart >= 0 && daysUntilStart <= 90) {
+      score += 5;
+      reasons.push("starts within 90 days");
+    }
   }
 
   if (isSpecificUrl(candidate.sourceUrl)) {
@@ -147,8 +169,11 @@ export function computeConfidence(
   }
 
   if (context.extractionMethod === "json_ld") {
-    score += 15;
+    score += 20;
     reasons.push("structured json-ld source");
+  } else if (context.extractionMethod === "openai") {
+    score += 5;
+    reasons.push("ai-structured extraction");
   }
 
   if (context.status === "DUPLICATE") {

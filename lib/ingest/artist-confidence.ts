@@ -70,7 +70,8 @@ export function scoreArtistCandidate(candidate: {
     reasons.push(`name looks like institution/venue (${candidate.searchQuery})`);
   }
 
-  const band = score >= 80 ? "HIGH" : score >= 50 ? "MEDIUM" : "LOW";
+  const clampedScore = Math.min(100, Math.max(0, score));
+  const band = clampedScore >= 70 ? "HIGH" : clampedScore >= 50 ? "MEDIUM" : "LOW";
 
-  return { score, band, reasons };
+  return { score: clampedScore, band, reasons };
 }

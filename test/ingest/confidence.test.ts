@@ -16,12 +16,14 @@ test("complete candidate scores HIGH", () => {
 
   const result = computeConfidence({
     title: "Summer Opening Night",
-    startAt: new Date("2026-07-01T19:00:00.000Z"),
-    endAt: new Date("2026-07-01T22:00:00.000Z"),
+    startAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    endAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000),
     timezone: "UTC",
     locationText: "Main Hall",
     description: "A full evening program with artist talks, live score, and opening reception.",
     sourceUrl: "https://venue.example/events/2026-07-01/summer-opening",
+    artistNames: ["Alice Smith"],
+    imageUrl: "https://example.com/img.jpg",
   });
 
   assert.equal(result.band, "HIGH");
@@ -37,10 +39,12 @@ test("missing key fields scores LOW", () => {
     locationText: null,
     description: "short",
     sourceUrl: "https://venue.example/",
+    artistNames: [],
+    imageUrl: null,
   });
 
   assert.equal(result.band, "LOW");
-  assert.ok(result.score <= 44);
+  assert.ok(result.score <= 20);
 });
 
 test("generic title is penalized", () => {
@@ -52,6 +56,8 @@ test("generic title is penalized", () => {
     locationText: "Main Hall",
     description: "A long enough description that still should get title penalty from generic name.",
     sourceUrl: "https://venue.example/events/home",
+    artistNames: [],
+    imageUrl: null,
   });
 
   assert.ok(result.reasons.some((reason) => reason.includes("generic title")));
@@ -64,12 +70,14 @@ test("threshold env controls bands", () => {
 
   const result = computeConfidence({
     title: "Talk",
-    startAt: new Date("2026-07-01T19:00:00.000Z"),
+    startAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     endAt: null,
     timezone: "UTC",
-    locationText: null,
-    description: "brief",
-    sourceUrl: "https://venue.example/",
+    locationText: "Main Hall",
+    description: "A concise but descriptive listing with enough detail.",
+    sourceUrl: "https://venue.example/events/talk",
+    artistNames: ["Alice Smith"],
+    imageUrl: null,
   });
 
   assert.equal(result.band, "MEDIUM");
@@ -90,6 +98,8 @@ test("recognizes exhibition and programme specific urls", () => {
     timezone: null,
     locationText: null,
     description: "",
+    artistNames: [],
+    imageUrl: null,
   };
 
   const exhibition = computeConfidence({ ...expectedHighConfidence, sourceUrl: "https://venue.example/exhibitions/artist-name" });
@@ -124,11 +134,11 @@ test("json-ld extraction method adds confidence bonus and reason", () => {
   const withoutMethod = computeConfidence(candidate);
   const withJsonLd = computeConfidence(candidate, { extractionMethod: "json_ld" });
 
-  assert.equal(withJsonLd.score, Math.min(100, withoutMethod.score + 15));
+  assert.equal(withJsonLd.score, Math.min(100, withoutMethod.score + 20));
   assert.ok(withJsonLd.reasons.includes("structured json-ld source"));
 });
 
-test("confidence remains unchanged without extractionMethod context", () => {
+test("openai extraction method adds confidence bonus and reason", () => {
   const candidate = {
     title: "Stable",
     startAt: new Date("2026-07-01T19:00:00.000Z"),
@@ -144,5 +154,58 @@ test("confidence remains unchanged without extractionMethod context", () => {
   const baseline = computeConfidence(candidate);
   const explicitOpenAi = computeConfidence(candidate, { extractionMethod: "openai" });
 
-  assert.deepEqual(explicitOpenAi, baseline);
+  assert.equal(explicitOpenAi.score, Math.min(100, baseline.score + 5));
+  assert.ok(explicitOpenAi.reasons.includes("ai-structured extraction"));
+});
+
+test("artist names boost score", () => {
+  const baseCandidate = {
+    title: "Gallery Show",
+    startAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    endAt: null,
+    timezone: "UTC",
+    locationText: "Main Gallery",
+    description: "A solo exhibition featuring new works.",
+    sourceUrl: "https://venue.example/events/gallery-show",
+    artistNames: [],
+    imageUrl: null,
+  };
+
+  const base = computeConfidence(baseCandidate);
+  const withArtists = computeConfidence({
+    ...baseCandidate,
+    artistNames: ["Alice Smith", "Bob Jones"],
+    imageUrl: "https://venue.example/img.jpg",
+  });
+
+  assert.ok(withArtists.score > base.score);
+  assert.ok(withArtists.reasons.some((r) => r.includes("named artists")));
+  assert.ok(withArtists.reasons.some((r) => r.includes("event image")));
+});
+
+test("recency bonus applies within 90 days", () => {
+  const soon = computeConfidence({
+    title: "Upcoming Show",
+    startAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    endAt: null,
+    timezone: "UTC",
+    locationText: null,
+    description: null,
+    sourceUrl: null,
+    artistNames: [],
+    imageUrl: null,
+  });
+  const far = computeConfidence({
+    title: "Upcoming Show",
+    startAt: new Date(Date.now() + 200 * 24 * 60 * 60 * 1000),
+    endAt: null,
+    timezone: "UTC",
+    locationText: null,
+    description: null,
+    sourceUrl: null,
+    artistNames: [],
+    imageUrl: null,
+  });
+  assert.ok(soon.score > far.score);
+  assert.ok(soon.reasons.some((r) => r.includes("90 days")));
 });
