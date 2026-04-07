@@ -191,13 +191,13 @@ test("extractEventsWithOpenAI uses default model and Responses API request shape
     };
   } | undefined;
   assert.deepEqual(schema?.required, ["events", "venueDescription", "venueCoverImageUrl", "venueOpeningHours", "venueContactEmail", "venueInstagramUrl", "venueFacebookUrl"]);
-  assert.deepEqual(schema?.properties?.venueDescription?.type, ["string", "null"]);
+  assert.deepEqual(schema?.properties?.venueDescription?.anyOf, [{ type: "string" }, { type: "null" }]);
   const eventItems = schema?.properties?.events?.items;
   assert.ok(Array.isArray(eventItems?.required));
   assert.deepEqual(eventItems?.required, ["title", "startAt", "endAt", "timezone", "locationText", "description", "sourceUrl", "artistNames", "imageUrl"]);
-  const startAtType = eventItems?.properties?.startAt?.type;
-  assert.ok(Array.isArray(startAtType));
-  assert.deepEqual(startAtType, ["string", "null"]);
+  const startAtAnyOf = eventItems?.properties?.startAt?.anyOf;
+  assert.ok(Array.isArray(startAtAnyOf));
+  assert.deepEqual(startAtAnyOf, [{ type: "string" }, { type: "null" }]);
   assert.equal(schema?.properties?.events?.items?.properties?.sourceUrl?.format, undefined);
   assert.equal(capturedBody.response_format, undefined);
 
