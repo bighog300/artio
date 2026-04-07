@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { logAdminAction } from "@/lib/admin-audit";
 import { handleAdminIngestRestore } from "@/lib/admin-ingest-route";

@@ -542,7 +542,11 @@ export default function ArtworksClient({
     setWorkingId(id);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/ingest/artworks/${id}/reject`, { method: "POST" });
+      const res = await fetch(`/api/admin/ingest/artworks/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
       if (!res.ok) {
         setError("Failed to reject artwork candidate.");
         return;

@@ -464,7 +464,11 @@ export default function ArtistsClient({
     setWorkingId(id);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/ingest/artists/${id}/reject`, { method: "POST" });
+      const res = await fetch(`/api/admin/ingest/artists/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
       if (!res.ok) {
         setError("Failed to reject artist candidate.");
         return;

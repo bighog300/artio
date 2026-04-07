@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { importApprovedArtistImage } from "@/lib/ingest/import-approved-artist-image";
 import { idParamSchema, zodDetails } from "@/lib/validators";
