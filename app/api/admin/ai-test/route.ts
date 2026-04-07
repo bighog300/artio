@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
         },
         model: settings?.ingestModel ?? "",
         apiKey,
-        maxOutputTokens: 10,
+        maxOutputTokens: 100,
       });
 
       return NextResponse.json(

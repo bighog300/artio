@@ -62,7 +62,7 @@ function getStructuredPayload(raw: OpenAIResponsesApiResponse): unknown {
 }
 
 async function extract(params: ExtractionParams): Promise<ExtractionResult> {
-  const model = params.model?.trim() || "gpt-4o-mini";
+  const model = params.model?.trim() || "gpt-4o";
   const maxOutputTokens = params.maxOutputTokens ?? 4000;
   const processedHtml = preprocessHtml(params.html);
 
