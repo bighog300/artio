@@ -11,6 +11,20 @@ async function processOne() {
 
   try {
     switch (job.type) {
+      case "crawl-page": {
+        const payload = job.payload as { galleryPageId: string; gallerySourceId: string };
+        await enqueueIngestionJob(
+          "extract-page",
+          {
+            galleryPageId: payload.galleryPageId,
+            gallerySourceId: payload.gallerySourceId,
+            pageUrl: "",
+          },
+          { idempotencyKey: `extract-page:${payload.galleryPageId}` },
+        );
+        await markJobSucceeded(job, { forwarded: true });
+        break;
+      }
       case "crawl-gallery": {
         const payload = job.payload as { gallerySourceId: string };
         const result = await crawlGallerySource(payload.gallerySourceId);
@@ -41,6 +55,11 @@ async function processOne() {
           create: { directorySourceId: payload.directorySourceId, entityUrl: payload.entityUrl, lastSeenAt: new Date() },
         });
         await markJobSucceeded(job, { entityUrl: payload.entityUrl });
+        break;
+      }
+      case "enrich-artist":
+      case "enrich-artwork": {
+        await markJobSucceeded(job, { skipped: true, reason: "not_implemented" });
         break;
       }
       default:
