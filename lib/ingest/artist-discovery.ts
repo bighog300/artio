@@ -18,14 +18,14 @@ const artistExtractionSchema = {
   additionalProperties: false,
   required: ["name", "bio", "mediums", "websiteUrl", "instagramUrl", "twitterUrl", "nationality", "birthYear"],
   properties: {
-    name: { type: ["string", "null"] },
-    bio: { type: ["string", "null"] },
+    name: { anyOf: [{ type: "string" }, { type: "null" }] },
+    bio: { anyOf: [{ type: "string" }, { type: "null" }] },
     mediums: { type: "array", items: { type: "string" } },
-    websiteUrl: { type: ["string", "null"] },
-    instagramUrl: { type: ["string", "null"] },
-    twitterUrl: { type: ["string", "null"] },
-    nationality: { type: ["string", "null"] },
-    birthYear: { type: ["integer", "null"] },
+    websiteUrl: { anyOf: [{ type: "string" }, { type: "null" }] },
+    instagramUrl: { anyOf: [{ type: "string" }, { type: "null" }] },
+    twitterUrl: { anyOf: [{ type: "string" }, { type: "null" }] },
+    nationality: { anyOf: [{ type: "string" }, { type: "null" }] },
+    birthYear: { anyOf: [{ type: "integer" }, { type: "null" }] },
   },
 } as const;
 
