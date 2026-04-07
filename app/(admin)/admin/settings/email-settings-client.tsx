@@ -25,7 +25,6 @@ type EmailSettingsProps = {
 
 export default function EmailSettingsClient(props: EmailSettingsProps) {
   const [enabled, setEnabled] = useState(props.initial.emailEnabled);
-  const [resendApiKey, setResendApiKey] = useState("");
   const [fromAddress, setFromAddress] = useState(props.initial.resendFromAddress ?? "");
   const [batchSize, setBatchSize] = useState(
     props.initial.emailOutboxBatchSize !== null ? String(props.initial.emailOutboxBatchSize) : "",
@@ -45,7 +44,6 @@ export default function EmailSettingsClient(props: EmailSettingsProps) {
       const parsedBatchSize = batchSize.trim() ? Number.parseInt(batchSize.trim(), 10) : null;
       const body = {
         emailEnabled: enabled,
-        resendApiKey: resendApiKey.trim() || null,
         resendFromAddress: fromAddress.trim() || null,
         emailOutboxBatchSize:
           Number.isFinite(parsedBatchSize) && parsedBatchSize! >= 1 && parsedBatchSize! <= 100 ? parsedBatchSize : null,
@@ -109,7 +107,6 @@ export default function EmailSettingsClient(props: EmailSettingsProps) {
         body: JSON.stringify({
           emailEnabled: false,
           emailFromAddress: null,
-          resendApiKey: null,
           resendFromAddress: null,
           emailOutboxBatchSize: null,
         }),
@@ -120,7 +117,6 @@ export default function EmailSettingsClient(props: EmailSettingsProps) {
         return;
       }
       setEnabled(false);
-      setResendApiKey("");
       setFromAddress("");
       setBatchSize("");
       setStatus("saved");
@@ -158,29 +154,7 @@ export default function EmailSettingsClient(props: EmailSettingsProps) {
         </p>
       </div>
 
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor="resend-api-key">
-          Resend API Key
-        </label>
-        <p className="text-xs text-muted-foreground">
-          API key used to authenticate with Resend for outbound delivery.
-        </p>
-        <input
-          id="resend-api-key"
-          type="password"
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          value={resendApiKey}
-          onChange={(e) => {
-            setResendApiKey(e.target.value);
-            setStatus("idle");
-          }}
-          placeholder={props.initial.resendApiKeySet ? "•••••••• (stored)" : "re_..."}
-          disabled={saving}
-          autoComplete="off"
-        />
-      </div>
-
-      <div className="space-y-1.5">
+            <div className="space-y-1.5">
         <label className="text-sm font-medium" htmlFor="resend-from-address">
           From Address
         </label>

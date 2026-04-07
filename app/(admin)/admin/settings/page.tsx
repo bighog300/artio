@@ -63,6 +63,19 @@ export default async function AdminSettingsPage() {
         alertWebhookSecretSet: Boolean(settings.alertWebhookSecret),
         googleIndexingEnabled: settings.googleIndexingEnabled,
         googleServiceAccountJsonSet: Boolean(settings.googleServiceAccountJson),
+        envFallbacks: {
+          OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY?.trim()),
+          GEMINI_API_KEY: Boolean(process.env.GEMINI_API_KEY?.trim()),
+          ANTHROPIC_API_KEY: Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
+          GOOGLE_PSE_API_KEY: Boolean(process.env.GOOGLE_PSE_API_KEY?.trim()),
+          GOOGLE_PSE_CX: Boolean(process.env.GOOGLE_PSE_CX?.trim()),
+          BRAVE_SEARCH_API_KEY: Boolean(process.env.BRAVE_SEARCH_API_KEY?.trim()),
+          RESEND_API_KEY: Boolean(process.env.RESEND_API_KEY?.trim()),
+          STRIPE_SECRET_KEY: Boolean(process.env.STRIPE_SECRET_KEY?.trim()),
+          STRIPE_PUBLISHABLE_KEY: Boolean(process.env.STRIPE_PUBLISHABLE_KEY?.trim()),
+          STRIPE_WEBHOOK_SECRET: Boolean(process.env.STRIPE_WEBHOOK_SECRET?.trim()),
+          GOOGLE_SERVICE_ACCOUNT_JSON: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON?.trim()),
+        },
       } satisfies SiteSettingsShape} />
     </div>
   );

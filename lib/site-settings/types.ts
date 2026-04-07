@@ -51,4 +51,17 @@ export interface SiteSettingsShape {
   googleIndexingEnabled: boolean;
   googleServiceAccountJsonSet: boolean;
   resendConfigured?: boolean;
+  envFallbacks?: {
+    OPENAI_API_KEY: boolean;
+    GEMINI_API_KEY: boolean;
+    ANTHROPIC_API_KEY: boolean;
+    GOOGLE_PSE_API_KEY: boolean;
+    GOOGLE_PSE_CX: boolean;
+    BRAVE_SEARCH_API_KEY: boolean;
+    RESEND_API_KEY: boolean;
+    STRIPE_SECRET_KEY: boolean;
+    STRIPE_PUBLISHABLE_KEY: boolean;
+    STRIPE_WEBHOOK_SECRET: boolean;
+    GOOGLE_SERVICE_ACCOUNT_JSON: boolean;
+  };
 }

@@ -34,32 +34,32 @@ const SERVICE_LABELS: Record<string, {
   tab: string;
 }> = {
   googlePse:
-    { label: "Google PSE", tab: "ingest-ai" },
+    { label: "Google PSE", tab: "configuration" },
   brave:
-    { label: "Brave Search", tab: "ingest-ai" },
+    { label: "Brave Search", tab: "configuration" },
   openai:
-    { label: "OpenAI", tab: "ingest-ai" },
+    { label: "OpenAI", tab: "configuration" },
   gemini:
-    { label: "Gemini", tab: "ingest-ai" },
+    { label: "Gemini", tab: "configuration" },
   claude:
-    { label: "Anthropic", tab: "ingest-ai" },
+    { label: "Anthropic", tab: "configuration" },
   resend:
-    { label: "Resend", tab: "email" },
+    { label: "Resend", tab: "configuration" },
   stripe:
-    { label: "Stripe", tab: "payments" },
+    { label: "Stripe", tab: "configuration" },
   googleIndexing:
-    { label: "Google Indexing", tab: "seo" },
+    { label: "Google Indexing", tab: "configuration" },
 };
 
 const CONFIG_LINKS: Record<string, string> = {
-  googlePseConfigured: "/admin/settings?tab=ingest-ai",
-  braveConfigured: "/admin/settings?tab=ingest-ai",
-  openAiConfigured: "/admin/settings?tab=ingest-ai",
-  geminiConfigured: "/admin/settings?tab=ingest-ai",
-  anthropicConfigured: "/admin/settings?tab=ingest-ai",
-  resendConfigured: "/admin/settings?tab=email",
-  stripeConfigured: "/admin/settings?tab=payments",
-  googleIndexingConfigured: "/admin/settings?tab=seo",
+  googlePseConfigured: "/admin/settings?tab=configuration",
+  braveConfigured: "/admin/settings?tab=configuration",
+  openAiConfigured: "/admin/settings?tab=configuration",
+  geminiConfigured: "/admin/settings?tab=configuration",
+  anthropicConfigured: "/admin/settings?tab=configuration",
+  resendConfigured: "/admin/settings?tab=configuration",
+  stripeConfigured: "/admin/settings?tab=configuration",
+  googleIndexingConfigured: "/admin/settings?tab=configuration",
 };
 
 const SERVICE_CONFIG_KEYS: Record<string, keyof ConnectivityPanelProps["initial"]> = {

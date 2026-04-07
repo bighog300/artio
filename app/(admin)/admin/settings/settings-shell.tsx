@@ -9,10 +9,11 @@ import IngestSettingsClient from "./ingest-settings-client";
 import PaymentsSettingsClient from "./payments-settings-client";
 import SeoSettingsClient from "./seo-settings-client";
 import CronSettingsClient from "./cron-settings-client";
+import ConfigurationClient from "./configuration-client";
 import { ConnectivityPanel } from "./connectivity-panel";
 import type { SiteSettingsShape } from "@/lib/site-settings/types";
 
-const TABS = ["general", "email", "ingest-ai", "payments", "notifications", "seo", "ops", "cron"] as const;
+const TABS = ["general", "email", "ingest-ai", "payments", "notifications", "seo", "ops", "cron", "configuration"] as const;
 type TabKey = (typeof TABS)[number];
 
 function isTab(value: string | null): value is TabKey { return !!value && (TABS as readonly string[]).includes(value); }
@@ -62,6 +63,7 @@ export default function SettingsShell({ initial }: { initial: SiteSettingsShape 
           <TabsTrigger className="justify-start" value="seo">SEO</TabsTrigger>
           <TabsTrigger className="justify-start" value="ops">Ops</TabsTrigger>
           <TabsTrigger className="justify-start" value="cron">Scheduled Jobs</TabsTrigger>
+          <TabsTrigger className="justify-start" value="configuration">Configuration</TabsTrigger>
         </TabsList>
 
         <div>
@@ -73,12 +75,6 @@ export default function SettingsShell({ initial }: { initial: SiteSettingsShape 
           artistBioSystemPrompt: initial.artistBioSystemPrompt,
           ingestModel: initial.ingestModel,
           ingestMaxOutputTokens: initial.ingestMaxOutputTokens,
-          openAiApiKeySet: initial.openAiApiKeySet,
-          geminiApiKeySet: initial.geminiApiKeySet,
-          anthropicApiKeySet: initial.anthropicApiKeySet,
-          googlePseApiKeySet: initial.googlePseApiKeySet,
-          braveSearchApiKeySet: initial.braveSearchApiKeySet,
-          googlePseCx: initial.googlePseCx,
           eventExtractionProvider: initial.eventExtractionProvider,
           artworkExtractionProvider: initial.artworkExtractionProvider,
           artistLookupProvider: initial.artistLookupProvider,
@@ -104,15 +100,39 @@ export default function SettingsShell({ initial }: { initial: SiteSettingsShape 
           autoTagModel: initial.autoTagModel,
         }} /></TabsContent>
           <TabsContent value="payments"><PaymentsSettingsClient initial={{
-          stripePublishableKey: initial.stripePublishableKey,
           stripeSecretKeySet: initial.stripeSecretKeySet,
-          stripeWebhookSecretSet: initial.stripeWebhookSecretSet,
           platformFeePercent: initial.platformFeePercent,
         }} /></TabsContent>
           <TabsContent value="notifications"><NotificationSettings initial={initial} /></TabsContent>
           <TabsContent value="seo"><SeoSettingsClient initial={{ googleIndexingEnabled: initial.googleIndexingEnabled, googleServiceAccountJsonSet: initial.googleServiceAccountJsonSet }} /></TabsContent>
           <TabsContent value="ops"><OpsSettings initial={initial} /></TabsContent>
           <TabsContent value="cron"><CronSettingsClient /></TabsContent>
+          <TabsContent value="configuration"><ConfigurationClient initial={{
+            openAiApiKeySet: initial.openAiApiKeySet,
+            geminiApiKeySet: initial.geminiApiKeySet,
+            anthropicApiKeySet: initial.anthropicApiKeySet,
+            googlePseApiKeySet: initial.googlePseApiKeySet,
+            googlePseCx: initial.googlePseCx,
+            braveSearchApiKeySet: initial.braveSearchApiKeySet,
+            resendApiKeySet: initial.resendApiKeySet,
+            stripePublishableKey: initial.stripePublishableKey,
+            stripeSecretKeySet: initial.stripeSecretKeySet,
+            stripeWebhookSecretSet: initial.stripeWebhookSecretSet,
+            googleServiceAccountJsonSet: initial.googleServiceAccountJsonSet,
+            envFallbacks: initial.envFallbacks ?? {
+              OPENAI_API_KEY: false,
+              GEMINI_API_KEY: false,
+              ANTHROPIC_API_KEY: false,
+              GOOGLE_PSE_API_KEY: false,
+              GOOGLE_PSE_CX: false,
+              BRAVE_SEARCH_API_KEY: false,
+              RESEND_API_KEY: false,
+              STRIPE_SECRET_KEY: false,
+              STRIPE_PUBLISHABLE_KEY: false,
+              STRIPE_WEBHOOK_SECRET: false,
+              GOOGLE_SERVICE_ACCOUNT_JSON: false,
+            },
+          }} /></TabsContent>
         </div>
       </Tabs>
     </div>
