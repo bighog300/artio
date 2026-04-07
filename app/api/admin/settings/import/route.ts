@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/admin";
 import { apiError } from "@/lib/api";
 import { isAuthError } from "@/lib/auth";
+import { logAdminAction } from "@/lib/admin-audit";
 import { getSiteSettings } from "@/lib/site-settings/get-site-settings";
 import { updateSiteSettings } from "@/lib/site-settings/update-site-settings";
 
@@ -21,7 +22,7 @@ const fmt = (v: unknown) => typeof v === "string" ? (v.length > 60 ? `${v.slice(
 export async function POST(req: NextRequest) {
   unstable_noStore();
   try {
-    await requireAdmin();
+    const admin = await requireAdmin();
     const body = await req.json();
     if (secretFields.some((f) => Object.prototype.hasOwnProperty.call(body?.settings ?? {}, f))) return apiError(400, "secrets_not_allowed", "secrets_not_allowed");
 
@@ -41,6 +42,16 @@ export async function POST(req: NextRequest) {
 
     if (req.nextUrl.searchParams.get("apply") === "true") {
       await updateSiteSettings(incoming);
+      void logAdminAction({
+        actorEmail: admin.email,
+        action: "SETTINGS_IMPORTED",
+        targetType: "site_settings",
+        targetId: "default",
+        metadata: {
+          fieldsApplied: willChange.length,
+          fields: willChange.map((c) => c.field),
+        },
+      });
       return NextResponse.json({ ok: true, applied: willChange.length });
     }
 

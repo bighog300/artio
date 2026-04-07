@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
+import { logAdminAction } from "@/lib/admin-audit";
 import { withAdminRoute } from "@/lib/admin-route";
 import { getSiteSettings } from "@/lib/site-settings/get-site-settings";
 import { updateSiteSettings } from "@/lib/site-settings/update-site-settings";
@@ -215,11 +216,12 @@ export async function handleAdminSettingsPatch(
   req: Request,
   deps: {
     updateSiteSettingsFn?: typeof updateSiteSettings;
+    getSiteSettingsFn?: typeof getSiteSettings;
     requireAdminFn?: typeof requireAdmin;
   } = {},
 ) {
   return withAdminRoute(
-    async () => {
+    async ({ actorEmail }) => {
       const parsed = patchSchema.safeParse(await parseBody(req));
       if (!parsed.success)
         return apiError(
@@ -229,9 +231,59 @@ export async function handleAdminSettingsPatch(
           zodDetails(parsed.error),
         );
 
+      const before = await (deps.getSiteSettingsFn ?? getSiteSettings)();
       const updated = await (deps.updateSiteSettingsFn ?? updateSiteSettings)(
         parsed.data,
       );
+
+      const SECRET_FIELDS = new Set([
+        "openAiApiKey",
+        "geminiApiKey",
+        "anthropicApiKey",
+        "googlePseApiKey",
+        "braveSearchApiKey",
+        "resendApiKey",
+        "stripeSecretKey",
+        "stripeWebhookSecret",
+        "stripePublishableKey",
+        "googleServiceAccountJson",
+        "alertWebhookSecret",
+        "analyticsSalt",
+      ]);
+
+      type AuditValue = string | number | boolean | null;
+      const normalizeAuditValue = (value: unknown): AuditValue => {
+        if (value == null) return null;
+        if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+          return value;
+        }
+        return String(value);
+      };
+
+      const changes: Record<string, { from: AuditValue; to: AuditValue }> = {};
+      for (const [key, newVal] of Object.entries(parsed.data)) {
+        if (newVal === undefined) continue;
+        const oldVal = (before as Record<string, unknown>)[key];
+        if (oldVal === newVal) continue;
+        changes[key] = SECRET_FIELDS.has(key)
+          ? {
+              from: oldVal != null ? "[set]" : "[not set]",
+              to: newVal != null ? "[set]" : "[not set]",
+            }
+          : { from: normalizeAuditValue(oldVal), to: normalizeAuditValue(newVal) };
+      }
+
+      if (Object.keys(changes).length > 0) {
+        void logAdminAction({
+          actorEmail,
+          action: "SETTINGS_UPDATED",
+          targetType: "site_settings",
+          targetId: "default",
+          metadata: { changes },
+          req,
+        });
+      }
+
       return Response.json({
         ok: true,
         settings: {

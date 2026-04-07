@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
 import { apiError } from "@/lib/api";
 import { isAuthError } from "@/lib/auth";
+import { logAdminAction } from "@/lib/admin-audit";
 import { getSiteSettings } from "@/lib/site-settings/get-site-settings";
 import { updateSiteSettings } from "@/lib/site-settings/update-site-settings";
 
@@ -25,7 +26,7 @@ const ENV_TO_DB_MAP = [
 export async function POST() {
   unstable_noStore();
   try {
-    await requireAdmin();
+    const admin = await requireAdmin();
     const settings = await getSiteSettings();
     const toSync: Record<string, string> = {};
     const synced: string[] = [];
@@ -43,7 +44,16 @@ export async function POST() {
       }
     }
 
-    if (Object.keys(toSync).length > 0) await updateSiteSettings(toSync);
+    if (Object.keys(toSync).length > 0) {
+      await updateSiteSettings(toSync);
+      void logAdminAction({
+        actorEmail: admin.email,
+        action: "SETTINGS_SYNCED_FROM_ENV",
+        targetType: "site_settings",
+        targetId: "default",
+        metadata: { synced, alreadySet, notFound },
+      });
+    }
     return NextResponse.json({ ok: true, synced, alreadySet, notFound });
   } catch (error) {
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");

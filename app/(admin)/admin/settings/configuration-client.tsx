@@ -159,6 +159,14 @@ export default function ConfigurationClient({ initial }: ConfigurationProps) {
   const fromEnv = (dbSet: boolean, envSet: boolean) => !dbSet && envSet;
 
   return <div className="space-y-4">
+    <div className="flex justify-end">
+      <a
+        href="/admin/settings/log"
+        className="text-xs text-muted-foreground underline hover:text-foreground"
+      >
+        View change log →
+      </a>
+    </div>
     <section className="rounded-lg border p-4 space-y-3">
       <div className="flex items-center justify-between"><h3 className="font-semibold">AI providers</h3><Button onClick={() => void saveGroup("ai", { openAiApiKey: visible.openAi ? (inputs.openAi?.trim() || null) : undefined, geminiApiKey: visible.gemini ? (inputs.gemini?.trim() || null) : undefined, anthropicApiKey: visible.anthropic ? (inputs.anthropic?.trim() || null) : undefined })} disabled={saving.ai}>{saving.ai ? "Saving…" : "Save"}</Button></div>
       {[["OpenAI API key","openAi","openAiApiKeySet","OPENAI_API_KEY"],["Gemini API key","gemini","geminiApiKeySet","GEMINI_API_KEY"],["Anthropic API key","anthropic","anthropicApiKeySet","ANTHROPIC_API_KEY"]].map(([label,key,flag,env]) => {

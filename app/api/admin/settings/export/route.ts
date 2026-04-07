@@ -2,6 +2,7 @@ import { unstable_noStore } from "next/cache";
 import { requireAdmin } from "@/lib/admin";
 import { apiError } from "@/lib/api";
 import { isAuthError } from "@/lib/auth";
+import { logAdminAction } from "@/lib/admin-audit";
 import { getSiteSettings } from "@/lib/site-settings/get-site-settings";
 
 export const runtime = "nodejs";
@@ -11,7 +12,7 @@ const SECRET_KEYS = new Set(["openAiApiKey", "geminiApiKey", "anthropicApiKey", 
 export async function GET() {
   unstable_noStore();
   try {
-    await requireAdmin();
+    const admin = await requireAdmin();
     const settings = await getSiteSettings();
     const exported: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(settings)) {
@@ -21,6 +22,13 @@ export async function GET() {
     }
     const now = new Date();
     const d = now.toISOString().slice(0, 10);
+    void logAdminAction({
+      actorEmail: admin.email,
+      action: "SETTINGS_EXPORTED",
+      targetType: "site_settings",
+      targetId: "default",
+      metadata: { exportedAt: new Date().toISOString() },
+    });
     return new Response(JSON.stringify({ _exportedAt: now.toISOString(), _version: 1, settings: exported }, null, 2), {
       headers: {
         "Content-Type": "application/json",
