@@ -114,7 +114,7 @@ export default function HealthContent({ data }: Props) {
             <ul className="space-y-1 text-sm text-muted-foreground">
               {data.discovery7Days.recentFailures.map((failure) => (
                 <li key={failure.id}>
-                  {new Date(failure.createdAt).toLocaleString()} · {failure.searchProvider} · {failure.region || "—"} · {failure.entityType}
+                  {new Date(failure.createdAt).toLocaleString("en-GB", { timeZone: "UTC" })} · {failure.searchProvider} · {failure.region || "—"} · {failure.entityType}
                   {failure.queryFailCount > 0 ? ` · query fails ${failure.queryFailCount}` : ""}
                   {failure.errorMessage ? ` · ${failure.errorMessage}` : ""}
                 </li>
@@ -216,7 +216,7 @@ export default function HealthContent({ data }: Props) {
             <tbody>
               {data.last24hRuns.map((run) => (
                 <tr key={run.id} className="border-b align-top">
-                  <td className="px-3 py-2">{new Date(run.createdAt).toLocaleString()}</td>
+                  <td className="px-3 py-2">{new Date(run.createdAt).toLocaleString("en-GB", { timeZone: "UTC" })}</td>
                   <td className="px-3 py-2">{run.venueName ?? run.venueId}</td>
                   <td className="px-3 py-2"><IngestStatusBadge status={run.status} /></td>
                   <td className="px-3 py-2">{run.createdCandidates}</td>

@@ -15,7 +15,7 @@ function statusClassName(status: string): string {
 }
 
 function formatDate(value: Date | null) {
-  return value ? value.toLocaleString() : "—";
+  return value ? value.toLocaleString("en-GB", { timeZone: "UTC" }) : "—";
 }
 
 export default async function AdminIngestRegionDetailPage({

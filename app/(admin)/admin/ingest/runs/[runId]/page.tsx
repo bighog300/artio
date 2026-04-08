@@ -92,8 +92,8 @@ export default async function AdminIngestRunDetailPage({ params }: { params: Pro
           <div><dt className="text-muted-foreground">Venue</dt><dd className="font-medium">{run.venue.name}</dd></div>
           <div><dt className="text-muted-foreground">Source URL</dt><dd className="break-all text-xs">{run.sourceUrl}</dd></div>
           <div><dt className="text-muted-foreground">Status</dt><dd><IngestStatusBadge status={run.status} /></dd></div>
-          <div><dt className="text-muted-foreground">Started At</dt><dd>{run.startedAt ? new Date(run.startedAt).toLocaleString() : "—"}</dd></div>
-          <div><dt className="text-muted-foreground">Finished At</dt><dd>{run.finishedAt ? new Date(run.finishedAt).toLocaleString() : "—"}</dd></div>
+          <div><dt className="text-muted-foreground">Started At</dt><dd>{run.startedAt ? new Date(run.startedAt).toLocaleString("en-GB", { timeZone: "UTC" }) : "—"}</dd></div>
+          <div><dt className="text-muted-foreground">Finished At</dt><dd>{run.finishedAt ? new Date(run.finishedAt).toLocaleString("en-GB", { timeZone: "UTC" }) : "—"}</dd></div>
           <div><dt className="text-muted-foreground">Fetch Status</dt><dd>{run.fetchStatus ?? "—"}</dd></div>
           <div><dt className="text-muted-foreground">Error Code</dt><dd>{run.errorCode ?? "—"}</dd></div>
           <div><dt className="text-muted-foreground">Fetch Final URL</dt><dd className="break-all text-xs">{run.fetchFinalUrl ?? "—"}</dd></div>

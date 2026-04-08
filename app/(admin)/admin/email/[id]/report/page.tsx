@@ -44,7 +44,7 @@ export default async function CampaignReportPage({ params }: { params: Promise<{
       />
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Badge variant="outline">{campaign.status}</Badge>
-        <span>{campaign.sentAt ? `Sent ${new Date(campaign.sentAt).toLocaleString()}` : "Not sent yet"}</span>
+        <span>{campaign.sentAt ? `Sent ${new Date(campaign.sentAt).toLocaleString("en-GB", { timeZone: "UTC" })}` : "Not sent yet"}</span>
       </div>
       <div className="grid gap-3 md:grid-cols-4">
         {[
