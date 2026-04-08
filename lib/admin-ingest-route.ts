@@ -396,7 +396,11 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
         return {
           candidate: updated,
           createdEventId: updated.createdEventId as string,
+          eventTitle: candidate.title,
+          eventDescription: candidate.description ?? null,
+          autoTagSettings: null,
           unmatchedNames: [] as string[],
+          sparseArtistNames: [] as string[],
           artistSettings: null as {
             googlePseApiKey: string | undefined;
             googlePseCx: string | undefined;
@@ -413,6 +417,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
             openAiApiKey: string | null | undefined;
           } | null,
           sourceUrl: candidate.sourceUrl,
+          linkedArtistCount: 0,
           published: publishImmediately,
           imageContext: {
             runId: candidate.runId,
@@ -816,6 +821,11 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required", undefined, requestId);
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Editor role required", undefined, requestId);
+    console.error("handleAdminIngestApprove_unexpected_error", {
+      requestId,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return apiError(500, "internal_error", "Unexpected server error", undefined, requestId);
   }
 }
