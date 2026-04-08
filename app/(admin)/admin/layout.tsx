@@ -7,17 +7,18 @@ import { ADMIN_SECTIONS } from "./_components/admin-nav-sections";
 
 async function getSidebarCounts() {
   try {
-    const [submissions, ingest, venueClaims, readyArtists, readyArtworks, accessRequests] = await Promise.all([
+    const [moderationQueue, ingest, venueClaims, readyArtists, readyArtworks, accessRequests, artworkOrders] = await Promise.all([
       db.submission.count({ where: { status: "IN_REVIEW" } }),
       db.ingestExtractedEvent.count({ where: { status: "PENDING", duplicateOfId: null } }),
       db.venueClaimRequest.count({ where: { status: "PENDING_VERIFICATION" } }),
       db.artist.count({ where: { status: "IN_REVIEW", isAiDiscovered: true, deletedAt: null } }),
       db.artwork.count({ where: { status: "IN_REVIEW", deletedAt: null, ingestCandidate: { isNot: null } } }),
       db.accessRequest.count({ where: { status: "PENDING" } }),
+      db.artworkOrder.count({ where: { status: "PENDING" } }),
     ]);
-    return { submissions, ingest, venueClaims, readyToPublish: readyArtists + readyArtworks, accessRequests };
+    return { moderationQueue, ingest, venueClaims, readyToPublish: readyArtists + readyArtworks, accessRequests, artworkOrders };
   } catch {
-    return { submissions: null, ingest: null, venueClaims: null, readyToPublish: null, accessRequests: null };
+    return { moderationQueue: null, ingest: null, venueClaims: null, readyToPublish: null, accessRequests: null, artworkOrders: null };
   }
 }
 
@@ -55,9 +56,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             ]}
             adminSections={ADMIN_SECTIONS}
             pendingCounts={{
-              "/admin/submissions": sidebarCounts.submissions,
+              "/admin/submissions": sidebarCounts.moderationQueue,
+              "/admin/moderation": sidebarCounts.moderationQueue,
               "/admin/ingest": sidebarCounts.ingest,
               "/admin/venue-claims": sidebarCounts.venueClaims,
+              "/admin/artwork-orders": sidebarCounts.artworkOrders,
               "/admin/ingest/ready-to-publish": sidebarCounts.readyToPublish,
               "/admin/access-requests": sidebarCounts.accessRequests,
             }}

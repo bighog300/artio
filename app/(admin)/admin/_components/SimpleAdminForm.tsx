@@ -9,9 +9,10 @@ type Props = {
   method: "POST" | "PATCH";
   initial: Record<string, unknown>;
   fields: Array<{ name: string; label: string; type?: string }>;
+  redirectPath: string;
 };
 
-export default function SimpleAdminForm({ title, endpoint, method, initial, fields }: Props) {
+export default function SimpleAdminForm({ title, endpoint, method, initial, fields, redirectPath }: Props) {
   const router = useRouter();
   const [form, setForm] = useState<Record<string, unknown>>(initial);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,7 @@ export default function SimpleAdminForm({ title, endpoint, method, initial, fiel
       setError(body?.message || "Save failed");
       return;
     }
-    router.push(title.includes("Event") ? "/admin/events" : title.includes("Artist") ? "/admin/artists" : "/admin/venues");
+    router.push(redirectPath);
     router.refresh();
   }
 

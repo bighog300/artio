@@ -143,8 +143,45 @@ function GeneralSettings({ initial }: { initial: SiteSettingsShape }) {
   const [value, setValue] = useState("");
   const [show, setShow] = useState(false);
   const [saving, setSaving] = useState(false);
-  async function save() { setSaving(true); await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ analyticsSalt: value.trim() || null }) }); setSaving(false); }
-  return <section className="rounded-lg border bg-background p-4 space-y-4"><h2 className="text-base font-semibold">General</h2><div className="space-y-2"><label className="text-sm font-medium">Analytics salt</label>{show ? <input type="password" className="w-full rounded-md border px-3 py-2 text-sm" value={value} onChange={(e)=>setValue(e.target.value)} placeholder={initial.analyticsSalt ? "•••••••• (stored)" : "salt"} /> : <div className="text-xs text-muted-foreground">{initial.analyticsSalt ? "••••••••" : "Not set"} <button type="button" className="underline" onClick={()=>setShow(true)}>Change</button></div>}<p className="text-xs text-muted-foreground">Changing this salt invalidates existing page-view deduplication counts.</p></div><Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save settings"}</Button></section>;
+  async function save() {
+    setSaving(true);
+    await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ analyticsSalt: value.trim() || null }),
+    });
+    setSaving(false);
+  }
+  return (
+    <section className="rounded-lg border bg-background p-4 space-y-4">
+      <h2 className="text-base font-semibold">General</h2>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Analytics salt</label>
+        {show ? (
+          <input
+            type="password"
+            className="w-full rounded-md border px-3 py-2 text-sm"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={initial.analyticsSalt ? "•••••••• (stored)" : "salt"}
+          />
+        ) : (
+          <div className="text-xs text-muted-foreground">
+            {initial.analyticsSalt ? "••••••••" : "Not set"}{" "}
+            <button type="button" className="underline" onClick={() => setShow(true)}>
+              Change
+            </button>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Changing this salt invalidates existing page-view deduplication counts.
+        </p>
+      </div>
+      <Button onClick={save} disabled={saving}>
+        {saving ? "Saving…" : "Save settings"}
+      </Button>
+    </section>
+  );
 }
 
 function NotificationSettings({ initial }: { initial: SiteSettingsShape }) {
@@ -152,8 +189,43 @@ function NotificationSettings({ initial }: { initial: SiteSettingsShape }) {
   const [url, setUrl] = useState(initial.editorialNotificationsWebhookUrl ?? "");
   const [emailEnabled, setEmailEnabled] = useState(initial.editorialNotificationsEmailEnabled);
   const [saving, setSaving] = useState(false);
-  async function save() { setSaving(true); await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ editorialNotifyTo: to.trim() || null, editorialNotificationsWebhookUrl: url.trim() || null, editorialNotificationsEmailEnabled: emailEnabled }) }); setSaving(false); }
-  return <section className="rounded-lg border bg-background p-4 space-y-4"><h2 className="text-base font-semibold">Notifications</h2><input className="w-full rounded-md border px-3 py-2 text-sm" value={to} onChange={(e)=>setTo(e.target.value)} placeholder="team@example.com" /><input className="w-full rounded-md border px-3 py-2 text-sm" value={url} onChange={(e)=>setUrl(e.target.value)} placeholder="https://..." /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={emailEnabled} onChange={(e)=>setEmailEnabled(e.target.checked)} />Enable editorial notification emails</label><Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save settings"}</Button></section>;
+  async function save() {
+    setSaving(true);
+    await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        editorialNotifyTo: to.trim() || null,
+        editorialNotificationsWebhookUrl: url.trim() || null,
+        editorialNotificationsEmailEnabled: emailEnabled,
+      }),
+    });
+    setSaving(false);
+  }
+  return (
+    <section className="rounded-lg border bg-background p-4 space-y-4">
+      <h2 className="text-base font-semibold">Notifications</h2>
+      <input
+        className="w-full rounded-md border px-3 py-2 text-sm"
+        value={to}
+        onChange={(e) => setTo(e.target.value)}
+        placeholder="team@example.com"
+      />
+      <input
+        className="w-full rounded-md border px-3 py-2 text-sm"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        placeholder="https://..."
+      />
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={emailEnabled} onChange={(e) => setEmailEnabled(e.target.checked)} />
+        Enable editorial notification emails
+      </label>
+      <Button onClick={save} disabled={saving}>
+        {saving ? "Saving…" : "Save settings"}
+      </Button>
+    </section>
+  );
 }
 
 function OpsSettings({ initial }: { initial: SiteSettingsShape }) {
@@ -161,6 +233,46 @@ function OpsSettings({ initial }: { initial: SiteSettingsShape }) {
   const [secret, setSecret] = useState("");
   const [show, setShow] = useState(false);
   const [saving, setSaving] = useState(false);
-  async function save() { setSaving(true); await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alertWebhookUrl: url.trim() || null, alertWebhookSecret: show ? (secret.trim() || null) : undefined }) }); setSaving(false); }
-  return <section className="rounded-lg border bg-background p-4 space-y-4"><h2 className="text-base font-semibold">Ops</h2><input className="w-full rounded-md border px-3 py-2 text-sm" value={url} onChange={(e)=>setUrl(e.target.value)} placeholder="https://..." />{show ? <input type="password" className="w-full rounded-md border px-3 py-2 text-sm" value={secret} onChange={(e)=>setSecret(e.target.value)} placeholder={Boolean(initial.alertWebhookSecretSet) ? "•••••••• (stored)" : "secret"} /> : <div className="text-xs text-muted-foreground">{Boolean(initial.alertWebhookSecretSet) ? "Secret stored." : "Secret not set."} <button className="underline" type="button" onClick={()=>setShow(true)}>Change</button></div>}<Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save settings"}</Button></section>;
+  async function save() {
+    setSaving(true);
+    await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        alertWebhookUrl: url.trim() || null,
+        alertWebhookSecret: show ? (secret.trim() || null) : undefined,
+      }),
+    });
+    setSaving(false);
+  }
+  return (
+    <section className="rounded-lg border bg-background p-4 space-y-4">
+      <h2 className="text-base font-semibold">Ops</h2>
+      <input
+        className="w-full rounded-md border px-3 py-2 text-sm"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        placeholder="https://..."
+      />
+      {show ? (
+        <input
+          type="password"
+          className="w-full rounded-md border px-3 py-2 text-sm"
+          value={secret}
+          onChange={(e) => setSecret(e.target.value)}
+          placeholder={Boolean(initial.alertWebhookSecretSet) ? "•••••••• (stored)" : "secret"}
+        />
+      ) : (
+        <div className="text-xs text-muted-foreground">
+          {Boolean(initial.alertWebhookSecretSet) ? "Secret stored." : "Secret not set."}{" "}
+          <button className="underline" type="button" onClick={() => setShow(true)}>
+            Change
+          </button>
+        </div>
+      )}
+      <Button onClick={save} disabled={saving}>
+        {saving ? "Saving…" : "Save settings"}
+      </Button>
+    </section>
+  );
 }

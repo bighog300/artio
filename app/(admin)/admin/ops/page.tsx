@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { requireAdmin } from "@/lib/admin";
 import { getServerBaseUrl } from "@/lib/server/get-base-url";
+import AdminPageHeader from "../_components/AdminPageHeader";
 import { CronTriggerButtons } from "./cron-trigger-buttons";
 
 async function fetchJson(path: string, token?: string) {
@@ -21,21 +23,32 @@ export default async function AdminOpsPage() {
 
   return (
     <main className="p-6 space-y-4">
+      <AdminPageHeader title="Ops" description="System health and operational controls." />
       <h1 className="text-2xl font-semibold">Ops Dashboard</h1>
       <p>Status: {degraded ? "Degraded" : "OK"}</p>
       <section>
         <h2 className="font-medium">Health</h2>
-        <pre className="text-xs bg-muted p-3 rounded">{JSON.stringify(health, null, 2)}</pre>
+        <div className="rounded-lg border bg-background p-4">
+          <pre className="text-xs">{JSON.stringify(health, null, 2)}</pre>
+        </div>
       </section>
       <section>
         <h2 className="font-medium">Ops Metrics</h2>
-        <pre className="text-xs bg-muted p-3 rounded">{JSON.stringify(ops ?? { note: "OPS_SECRET not configured or endpoint unauthorized" }, null, 2)}</pre>
+        <div className="rounded-lg border bg-background p-4">
+          <pre className="text-xs">{JSON.stringify(ops ?? { note: "OPS_SECRET not configured or endpoint unauthorized" }, null, 2)}</pre>
+        </div>
       </section>
       <section className="space-x-3">
-        <Link href="/admin/ops/jobs" className="underline">Open Jobs Panel</Link>
-        <Link href="/admin/ops/audit" className="underline">View Admin Audit Log</Link>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/admin/ops/jobs">Open Jobs Panel</Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/admin/ops/audit">View Admin Audit Log</Link>
+        </Button>
         <CronTriggerButtons />
-        <Link href="/admin/ops/email" className="underline">Open Outbox Monitoring</Link>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/admin/ops/email">Open Outbox Monitoring</Link>
+        </Button>
         <p className="text-xs text-muted-foreground">
           Dry runs use the Jobs panel for authenticated triggering.
           {" "}These buttons call the cron endpoint directly and require

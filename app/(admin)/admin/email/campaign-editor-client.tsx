@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CAMPAIGN_AUDIENCES, type CampaignAudience, type CampaignType, type EmailCampaign, formatAudience } from "./campaign-types";
 
@@ -24,6 +25,7 @@ function toIsoOrNull(value: string): string | null {
 }
 
 export default function CampaignEditorClient({ campaignId }: CampaignEditorClientProps) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const [bodyHtml, setBodyHtml] = useState("<p>Hello from Artio.</p>");
@@ -173,8 +175,8 @@ export default function CampaignEditorClient({ campaignId }: CampaignEditorClien
         if (!createRes.ok) throw new Error("Failed to create campaign");
         const created = (await createRes.json()) as EmailCampaign;
         setActiveCampaignId(created.id);
-        window.history.replaceState(null, "", `/admin/email/${created.id}`);
         setSaveState("saved");
+        router.push("/admin/email");
         return created.id;
       } else {
         const updateRes = await fetch(`/api/admin/email/campaigns/${activeCampaignId}`, {
@@ -214,6 +216,9 @@ export default function CampaignEditorClient({ campaignId }: CampaignEditorClien
 
   return (
     <div className="space-y-4">
+      <Link href="/admin/email" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
+        ← Back to campaigns
+      </Link>
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1 text-sm">
           <span className="font-medium">Campaign name</span>

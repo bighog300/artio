@@ -173,6 +173,8 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
   const [rowError, setRowError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [advanceOpen, setAdvanceOpen] = useState(false);
+  const [advanceConfirmation, setAdvanceConfirmation] = useState("");
 
   const mutateDone = useMemo(() => onAfterMutate ?? (() => router.refresh()), [onAfterMutate, router]);
   const controlsDisabled = isSaving || isArchiving || isDeleting || isPublishing || isAdvancing || isGeocoding;
@@ -313,15 +315,18 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
 
   async function advance() {
     if (!advanceToStatus) return;
+    if (advanceToStatus === "APPROVED") {
+      setAdvanceOpen(true);
+      return;
+    }
+    await runAdvance();
+  }
+
+  async function runAdvance() {
+    if (!advanceToStatus) return;
     setRowError(null);
     setIsAdvancing(true);
     try {
-      if (advanceToStatus === "APPROVED") {
-        const confirmed = window.confirm(
-          "Move to APPROVED? This is one step before publishing and cannot be undone automatically."
-        );
-        if (!confirmed) return;
-      }
       const res = await requestInlinePatch(patchUrl, { status: advanceToStatus });
       if (!res.ok) {
         const message = actionErrorMessage(res.status, "Advance failed");
@@ -335,6 +340,13 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
     } finally {
       setIsAdvancing(false);
     }
+  }
+
+  async function confirmAdvance() {
+    if (!isHardDeleteConfirmMatch(advanceConfirmation, "APPROVE")) return;
+    await runAdvance();
+    setAdvanceOpen(false);
+    setAdvanceConfirmation("");
   }
 
   async function unpublish() {
@@ -534,6 +546,46 @@ export default function AdminInlineRowActions<T extends Record<string, unknown>>
               disabled={!isHardDeleteConfirmMatch(deleteConfirmation, "DELETE") || isDeleting}
             >
               {isDeleting ? "Deleting…" : "Delete permanently"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={advanceOpen}
+        onOpenChange={(nextOpen) => {
+          setAdvanceOpen(nextOpen);
+          if (!nextOpen) setAdvanceConfirmation("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move to APPROVED?</DialogTitle>
+            <DialogDescription>
+              This is one step before publishing and cannot be undone automatically.
+              {" "}
+              Type APPROVE to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <label className="grid gap-1 text-sm" htmlFor={`inline-advance-confirm-${id}`}>
+            Confirmation
+            <input
+              id={`inline-advance-confirm-${id}`}
+              className="w-full rounded border p-2"
+              autoComplete="off"
+              value={advanceConfirmation}
+              onChange={(event) => setAdvanceConfirmation(event.target.value)}
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setAdvanceOpen(false)} disabled={isAdvancing}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void confirmAdvance()}
+              disabled={!isHardDeleteConfirmMatch(advanceConfirmation, "APPROVE") || isAdvancing}
+            >
+              {isAdvancing ? "Advancing…" : "Confirm"}
             </Button>
           </div>
         </DialogContent>

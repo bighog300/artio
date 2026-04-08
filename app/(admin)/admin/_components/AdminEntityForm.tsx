@@ -33,6 +33,7 @@ export default function AdminEntityForm({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState<Set<string>>(new Set());
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function toInputValue(name: string, value: unknown) {
     if (name === "mediums" && Array.isArray(value)) {
@@ -60,39 +61,44 @@ export default function AdminEntityForm({
       })
     );
 
-    const res = await fetch(endpoint, {
-      method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      if (res.status === 409 && body?.error?.code === "publish_blocked") {
-        const blockers: unknown[] = Array.isArray(body?.error?.details?.blockers) ? body.error.details.blockers : [];
-        const nextFieldErrors = blockers.reduce<Record<string, string>>((acc, blocker) => {
-          if (
-            blocker !== null &&
-            typeof blocker === "object" &&
-            "id" in blocker &&
-            "message" in blocker &&
-            typeof (blocker as Record<string, unknown>).id === "string" &&
-            typeof (blocker as Record<string, unknown>).message === "string"
-          ) {
-            acc[(blocker as Record<string, unknown>).id as string] =
-              (blocker as Record<string, unknown>).message as string;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(endpoint, {
+        method,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        if (res.status === 409 && body?.error?.code === "publish_blocked") {
+          const blockers: unknown[] = Array.isArray(body?.error?.details?.blockers) ? body.error.details.blockers : [];
+          const nextFieldErrors = blockers.reduce<Record<string, string>>((acc, blocker) => {
+            if (
+              blocker !== null &&
+              typeof blocker === "object" &&
+              "id" in blocker &&
+              "message" in blocker &&
+              typeof (blocker as Record<string, unknown>).id === "string" &&
+              typeof (blocker as Record<string, unknown>).message === "string"
+            ) {
+              acc[(blocker as Record<string, unknown>).id as string] =
+                (blocker as Record<string, unknown>).message as string;
+            }
+            return acc;
+          }, {});
+          if (Object.keys(nextFieldErrors).length > 0) {
+            setFieldErrors(nextFieldErrors);
+            return;
           }
-          return acc;
-        }, {});
-        if (Object.keys(nextFieldErrors).length > 0) {
-          setFieldErrors(nextFieldErrors);
-          return;
         }
+        setError(body?.message || body?.error?.message || "Save failed");
+        return;
       }
-      setError(body?.message || body?.error?.message || "Save failed");
-      return;
+      router.push(redirectPath);
+      router.refresh();
+    } finally {
+      setIsSubmitting(false);
     }
-    router.push(redirectPath);
-    router.refresh();
   }
 
   return (
@@ -109,6 +115,7 @@ export default function AdminEntityForm({
                 setForm((prev) => ({ ...prev, [field.name]: ev.target.value }));
                 setDirty((prev) => new Set(prev).add(field.name));
               }}
+              disabled={isSubmitting}
               className="border p-2 rounded w-full"
             />
             {fieldErrors[field.name] ? <p className="text-xs text-red-500 mt-0.5">{fieldErrors[field.name]}</p> : null}
@@ -122,12 +129,15 @@ export default function AdminEntityForm({
               setForm((prev) => ({ ...prev, isPublished: ev.target.checked }));
               setDirty((prev) => new Set(prev).add("isPublished"));
             }}
+            disabled={isSubmitting}
             className="mr-2"
           />
           Published
         </label>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        <Button type="submit">Save</Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Saving…" : "Save"}
+        </Button>
       </form>
       {uploadTargetId === "new" ? <p className="text-sm text-muted-foreground">Save first to add images.</p> : <ImageGalleryManager entityType={uploadTargetType} entityId={uploadTargetId} altRequired={altRequired} />}
     </main>
