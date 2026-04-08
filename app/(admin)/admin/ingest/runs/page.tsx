@@ -122,7 +122,7 @@ export default async function AdminIngestRunsPage({
             <tbody>
               {runs.map((run) => (
                 <tr key={run.id} className="border-b align-top">
-                  <td className="px-3 py-2">{new Date(run.createdAt).toLocaleString()}</td>
+                  <td className="px-3 py-2">{new Date(run.createdAt).toLocaleString("en-GB", { timeZone: "UTC" })}</td>
                   <td className="px-3 py-2">{run.venue.name}</td>
                   <td className="px-3 py-2"><IngestStatusBadge status={run.status} /></td>
                   <td className="px-3 py-2 break-all text-xs text-muted-foreground">{run.sourceUrl}</td>

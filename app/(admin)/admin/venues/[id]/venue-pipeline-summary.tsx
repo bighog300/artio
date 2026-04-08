@@ -65,7 +65,7 @@ export function VenuePipelineSummary({
                 <tr key={run.id} className="border-b">
                   <td className="py-1.5 pr-4 text-xs text-muted-foreground">
                     <Link href={`/admin/ingest/runs/${run.id}`} className="underline hover:text-foreground">
-                      {new Date(run.createdAt).toLocaleDateString()}
+                      {new Date(run.createdAt).toLocaleDateString("en-GB", { timeZone: "UTC" })}
                     </Link>
                   </td>
                   <td className="py-1.5 pr-4">
