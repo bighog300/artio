@@ -41,6 +41,7 @@ export default async function AdminModerationPage({ searchParams }: { searchPara
         id: true,
         status: true,
         type: true,
+        note: true,
         submittedAt: true,
         createdAt: true,
         decisionReason: true,
@@ -59,19 +60,22 @@ export default async function AdminModerationPage({ searchParams }: { searchPara
     <main className="space-y-6">
       <AdminPageHeader title="Moderation" description="Review and action content discovered and extracted by the AI ingest pipeline." />
       <ModerationClient
-        initialItems={items.map((item) => ({
-          submissionId: item.id,
-          status: item.status,
-          entityType: item.type,
-          title: item.targetEvent?.title ?? item.targetVenue?.name ?? item.targetArtist?.name ?? "Untitled",
-          entityId: item.targetEvent?.id ?? item.targetVenue?.id ?? item.targetArtist?.id ?? "",
-          slug: item.targetEvent?.slug ?? item.targetVenue?.slug ?? item.targetArtist?.slug ?? null,
-          submittedAtISO: (item.submittedAt ?? item.createdAt).toISOString(),
-          decisionReason: item.decisionReason ?? null,
-          decidedAt: item.decidedAt?.toISOString() ?? null,
-          publisher: item.submitter.name ?? item.submitter.email,
-          isAiSource: item.isAiGenerated,
-        }))}
+        initialItems={items.map((item) => {
+          const artworkId = item.note?.startsWith("artworkId:") ? item.note.replace("artworkId:", "").trim() : null;
+          return {
+            submissionId: item.id,
+            status: item.status,
+            entityType: item.type,
+            title: item.targetEvent?.title ?? item.targetVenue?.name ?? item.targetArtist?.name ?? "Untitled",
+            entityId: item.targetEvent?.id ?? item.targetVenue?.id ?? item.targetArtist?.id ?? artworkId ?? "",
+            slug: item.targetEvent?.slug ?? item.targetVenue?.slug ?? item.targetArtist?.slug ?? null,
+            submittedAtISO: (item.submittedAt ?? item.createdAt).toISOString(),
+            decisionReason: item.decisionReason ?? null,
+            decidedAt: item.decidedAt?.toISOString() ?? null,
+            publisher: item.submitter.name ?? item.submitter.email,
+            isAiSource: item.isAiGenerated,
+          };
+        })}
         page={page}
         total={total}
         pageSize={PAGE_SIZE}

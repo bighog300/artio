@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { requireEditor } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import type { EntityType, ModerationDeps, QueueItem } from "@/lib/admin-moderation-route";
 import { decideSubmission } from "@/lib/moderation-decision-service";
 
@@ -12,8 +12,8 @@ function queueSort(items: QueueItem[]) {
 export function createAdminModerationDeps(): ModerationDeps {
   return {
     requireAdminUser: async () => {
-      const user = await requireEditor();
-      return { id: user.id, email: user.email, role: user.role };
+      const user = await requireAdmin();
+      return { id: user.id, email: user.email, role: "ADMIN" as const };
     },
     getQueueItems: async () => {
       const [artistSubmissions, venueSubmissions, eventSubmissions] = await Promise.all([
