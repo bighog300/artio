@@ -127,6 +127,7 @@ export default async function AdminHomePage() {
                 <time
                   className="text-xs text-muted-foreground shrink-0"
                   dateTime={entry.createdAt.toISOString()}
+                  suppressHydrationWarning
                 >
                   {formatRelativeTime(entry.createdAt)}
                 </time>
