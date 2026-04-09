@@ -71,10 +71,16 @@ export async function decideSubmission(input: DecideSubmissionInput, dbClient: D
 
     if (isApprove) {
       if (submission.type === "ARTIST" && submission.targetArtistId) {
-        await tx.artist.update({ where: { id: submission.targetArtistId }, data: { ...publishedStateAt(decidedAt) } });
+        await tx.artist.update({
+          where: { id: submission.targetArtistId },
+          data: { isPublished: true, status: "PUBLISHED" },
+        });
       }
       if (submission.type === "VENUE" && submission.targetVenueId) {
-        await tx.venue.update({ where: { id: submission.targetVenueId }, data: { ...publishedStateAt(decidedAt) } });
+        await tx.venue.update({
+          where: { id: submission.targetVenueId },
+          data: { isPublished: true, status: "PUBLISHED" },
+        });
       }
       if (submission.type === "EVENT" && submission.targetEventId) {
         await tx.event.update({ where: { id: submission.targetEventId }, data: { ...publishedStateAt(decidedAt) } });
@@ -83,7 +89,7 @@ export async function decideSubmission(input: DecideSubmissionInput, dbClient: D
         const artworkId = submission.note.replace("artworkId:", "").trim();
         await tx.artwork.update({
           where: { id: artworkId },
-          data: { ...publishedStateAt(decidedAt) },
+          data: { isPublished: true, status: "PUBLISHED" },
         });
       }
     }
