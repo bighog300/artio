@@ -65,6 +65,10 @@ export async function GET() {
     if (isAuthError(error)) {
       return apiError(401, "unauthorized", "Authentication required");
     }
+    console.error("admin_venues_ingest_status_unexpected_error", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }

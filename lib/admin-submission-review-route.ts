@@ -131,6 +131,10 @@ export async function handleApproveSubmission(params: Promise<{ id: string }>, d
   } catch (error) {
     if (isAuthError(error) || (error instanceof Error && error.message === "unauthorized")) return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof ForbiddenError || (error instanceof Error && error.message === "forbidden")) return apiError(403, "forbidden", "Admin role required");
+    console.error("submissions_approve_unexpected_error", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }
@@ -184,6 +188,10 @@ export async function handleRequestChangesSubmission(req: NextRequest, params: P
   } catch (error) {
     if (isAuthError(error) || (error instanceof Error && error.message === "unauthorized")) return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof ForbiddenError || (error instanceof Error && error.message === "forbidden")) return apiError(403, "forbidden", "Admin role required");
+    console.error("submissions_request_changes_unexpected_error", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }

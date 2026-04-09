@@ -125,6 +125,10 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
   } catch (error) {
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
     if (isForbiddenError(error)) return apiError(403, "forbidden", "Admin role required");
+    console.error("admin_email_campaigns_id_send_unexpected_error", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }

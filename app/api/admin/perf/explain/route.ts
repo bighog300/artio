@@ -34,6 +34,10 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     captureException(error, { route: "/api/admin/perf/explain", requestId });
+    console.error("admin_perf_explain_unexpected_error", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return apiError(500, "internal_error", "Unexpected server error", undefined, requestId);
   }
 }

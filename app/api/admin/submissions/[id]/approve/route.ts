@@ -32,7 +32,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     },
     setVenueDraft: async () => undefined,
     publishArtist: async (artistId) => {
-      await db.artist.update({ where: { id: artistId }, data: { isPublished: true } });
+      await db.artist.update({ where: { id: artistId }, data: { isPublished: true, status: "PUBLISHED" } });
     },
     setArtistDraft: async () => undefined,
     publishEvent: async (eventId) => {
