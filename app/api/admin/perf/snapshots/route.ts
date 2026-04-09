@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       items: pageItems,
       nextCursor: hasMore ? pageItems[pageItems.length - 1]?.id ?? null : null,
     });
-  } catch {
+  } catch (error) {
     console.error("admin_perf_snapshots_unexpected_error", {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,

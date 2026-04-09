@@ -22,7 +22,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 
     if (!snapshot) return apiError(404, "not_found", "Snapshot not found");
     return NextResponse.json(snapshot);
-  } catch {
+  } catch (error) {
     console.error("admin_perf_snapshots_id_unexpected_error", {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
@@ -50,7 +50,7 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
 
     await db.perfSnapshot.delete({ where: { id: parsed.data.id } });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
     console.error("admin_perf_snapshots_id_unexpected_error", {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
