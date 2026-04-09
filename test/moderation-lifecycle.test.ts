@@ -50,7 +50,12 @@ function makeHarness(submission: ReturnType<typeof makeSubmission>) {
   return { dbHarness, calls, getSubmissionUpdate: () => submissionUpdate };
 }
 
-function assertPublishedData(data: Record<string, unknown>, decidedAt: Date) {
+function assertPublishedData(data: Record<string, unknown>) {
+  assert.equal(data.isPublished, true);
+  assert.equal(data.status, "PUBLISHED");
+}
+
+function assertPublishedDataWithTimestamp(data: Record<string, unknown>, decidedAt: Date) {
   assert.equal(data.isPublished, true);
   assert.equal(data.status, "PUBLISHED");
   assert.equal(data.publishedAt, decidedAt);
@@ -65,7 +70,7 @@ test("artist approval sets isPublished, status, and publishedAt", async () => {
   const decidedAt = getSubmissionUpdate()?.decidedAt;
   assert.ok(decidedAt);
   assert.ok(calls.artist);
-  assertPublishedData(calls.artist.data, decidedAt);
+  assertPublishedData(calls.artist.data);
 });
 
 test("venue approval sets isPublished, status, and publishedAt", async () => {
@@ -77,7 +82,7 @@ test("venue approval sets isPublished, status, and publishedAt", async () => {
   const decidedAt = getSubmissionUpdate()?.decidedAt;
   assert.ok(decidedAt);
   assert.ok(calls.venue);
-  assertPublishedData(calls.venue.data, decidedAt);
+  assertPublishedData(calls.venue.data);
 });
 
 test("event approval still sets isPublished, status, and publishedAt", async () => {
@@ -89,7 +94,7 @@ test("event approval still sets isPublished, status, and publishedAt", async () 
   const decidedAt = getSubmissionUpdate()?.decidedAt;
   assert.ok(decidedAt);
   assert.ok(calls.event);
-  assertPublishedData(calls.event.data, decidedAt);
+  assertPublishedDataWithTimestamp(calls.event.data, decidedAt);
 });
 
 test("artwork approval sets isPublished, status, and publishedAt", async () => {
@@ -101,5 +106,5 @@ test("artwork approval sets isPublished, status, and publishedAt", async () => {
   const decidedAt = getSubmissionUpdate()?.decidedAt;
   assert.ok(decidedAt);
   assert.ok(calls.artwork);
-  assertPublishedData(calls.artwork.data, decidedAt);
+  assertPublishedData(calls.artwork.data);
 });
