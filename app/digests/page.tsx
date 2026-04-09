@@ -11,7 +11,7 @@ import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 
 function formatPeriodRange(periodKey: string, createdAt: Date) {
   const weekly = periodKey.match(/^(\d{4})-W(\d{2})$/);
-  if (!weekly) return createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  if (!weekly) return createdAt.toLocaleDateString("en-GB", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
 
   const year = Number(weekly[1]);
   const week = Number(weekly[2]);
@@ -22,7 +22,7 @@ function formatPeriodRange(periodKey: string, createdAt: Date) {
   const sunday = new Date(monday);
   sunday.setUTCDate(monday.getUTCDate() + 6);
 
-  return `${monday.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${sunday.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+  return `${monday.toLocaleDateString("en-GB", { timeZone: "UTC", month: "short", day: "numeric" })} – ${sunday.toLocaleDateString("en-GB", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" })}`;
 }
 
 export default async function DigestsPage() {
@@ -63,7 +63,7 @@ export default async function DigestsPage() {
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">{item.savedSearch.name}</p>
                   <h2 className="mt-1 type-h3">{item.itemCount} events this week</h2>
-                  <p className="text-sm text-muted-foreground">{formatPeriodRange(item.periodKey, item.createdAt)} · Generated {item.createdAt.toLocaleDateString()}</p>
+                  <p className="text-sm text-muted-foreground">{formatPeriodRange(item.periodKey, item.createdAt)} · Generated {item.createdAt.toLocaleDateString("en-GB", { timeZone: "UTC" })}</p>
                 </div>
                 {isFresh || index === 0 ? <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">New</span> : null}
               </div>

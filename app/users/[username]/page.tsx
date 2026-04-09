@@ -133,7 +133,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
           {recentActivity.map((activity) => (
             <Link key={activity.id} href={activity.href} className="block rounded border p-3 text-sm hover:bg-muted/50">
               <div>{activity.text}</div>
-              <div className="text-xs text-muted-foreground">{new Date(activity.createdAt).toLocaleString()}</div>
+              <div className="text-xs text-muted-foreground">{new Date(activity.createdAt).toLocaleString("en-GB", { timeZone: "UTC" })}</div>
             </Link>
           ))}
         </div>
@@ -145,7 +145,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
           {savedEvents.map((item) => { const event = savedEventMap.get(item.targetId); return event ? (
             <Link key={item.targetId} href={`/events/${event.slug}`} className="rounded border p-3 text-sm hover:bg-muted/50">
               <div className="font-medium">{event.title}</div>
-              <div className="text-xs text-muted-foreground">{new Date(event.startAt).toLocaleDateString()}</div>
+              <div className="text-xs text-muted-foreground">{new Date(event.startAt).toLocaleDateString("en-GB", { timeZone: "UTC" })}</div>
             </Link>
           ) : null; })}
         </div>

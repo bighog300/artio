@@ -197,7 +197,7 @@ export default async function MyVenueEditPage({
                   <li key={event.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-2 text-sm">
                     <div>
                       <p className="font-medium">{event.title}</p>
-                      <p className="text-xs text-muted-foreground">{event.startAt.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">{event.startAt.toLocaleString("en-GB", { timeZone: "UTC" })}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-1">
                       <Button asChild size="sm" variant="outline">
