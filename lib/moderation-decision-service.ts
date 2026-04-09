@@ -146,6 +146,27 @@ export async function decideSubmission(input: DecideSubmissionInput, dbClient: D
       },
     });
 
+    const href = submission.type === "ARTIST"
+      ? "/my/artist"
+      : submission.type === "VENUE"
+        ? `/my/venues/${submission.targetVenueId ?? ""}`
+        : submission.type === "EVENT"
+          ? `/my/events/${submission.targetEvent?.slug ?? submission.targetEventId ?? ""}`
+          : null;
+
+    await tx.notification.create({
+      data: {
+        userId: submission.submitterUserId,
+        type: isApprove ? "SUBMISSION_APPROVED" : "SUBMISSION_REJECTED",
+        title: isApprove ? "Submission approved" : "Submission needs changes",
+        body: isApprove ? "Your submission has been approved and published." : (decisionReason ?? "Your submission was rejected by moderation."),
+        href,
+        dedupeKey: `submission:${submission.id}:${isApprove ? "approved" : "rejected"}`,
+        entityType: submission.type,
+        entityId: submission.targetArtistId ?? submission.targetVenueId ?? submission.targetEventId,
+      },
+    });
+
     return {
       submission: updated,
       idempotent: false as const,
