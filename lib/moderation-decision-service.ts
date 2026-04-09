@@ -46,7 +46,16 @@ export async function decideSubmission(input: DecideSubmissionInput, dbClient: D
   return dbClient.$transaction(async (tx) => {
     const submission = await tx.submission.findUnique({
       where: { id: input.submissionId },
-      include: {
+      select: {
+        id: true,
+        status: true,
+        type: true,
+        kind: true,
+        note: true,
+        submitterUserId: true,
+        targetArtistId: true,
+        targetVenueId: true,
+        targetEventId: true,
         submitter: { select: { id: true, email: true } },
         targetVenue: { select: { id: true, slug: true } },
         targetEvent: { select: { id: true, slug: true } },
@@ -110,6 +119,16 @@ export async function decideSubmission(input: DecideSubmissionInput, dbClient: D
         decidedAt,
         decisionReason,
         rejectionReason: decisionReason,
+      },
+      select: {
+        id: true,
+        status: true,
+        type: true,
+        targetArtistId: true,
+        targetVenueId: true,
+        targetEventId: true,
+        decisionReason: true,
+        decidedAt: true,
       },
     });
 
