@@ -67,7 +67,7 @@ export default async function SettingsLogPage({
               items.map((item) => (
                 <tr key={item.id} className="border-t">
                   <td className="px-3 py-2 whitespace-nowrap">
-                    <span title={formatDate(item.createdAt)}>
+                    <span title={formatDate(item.createdAt)} suppressHydrationWarning>
                       {formatRelativeTime(item.createdAt)}
                     </span>
                   </td>
