@@ -84,7 +84,7 @@ export default async function MyCollectionPage() {
                 <p className="font-medium">{order.artwork.title}</p>
                 <p className="text-sm text-muted-foreground">{order.artwork.artist.name}</p>
                 <p className="text-sm">{formatPrice(order.amountPaid, order.currency)}</p>
-                <p className="text-xs text-muted-foreground">Purchased {new Date(order.confirmedAt ?? order.createdAt).toLocaleDateString()}</p>
+                <p className="text-xs text-muted-foreground">Purchased {new Date(order.confirmedAt ?? order.createdAt).toLocaleDateString("en-GB", { timeZone: "UTC" })}</p>
               </Link>
             );
           })}

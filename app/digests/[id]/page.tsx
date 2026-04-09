@@ -48,7 +48,7 @@ export default async function DigestDetailPage({ params }: { params: Promise<{ i
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Digest snapshot</p>
             <h1 className="mt-1 text-2xl font-semibold text-foreground">{digest.savedSearch.name}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">{digest.periodKey} · Generated {digest.createdAt.toLocaleString()}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{digest.periodKey} · Generated {digest.createdAt.toLocaleString("en-GB", { timeZone: "UTC" })}</p>
           </div>
           <span className="rounded-full border border-border px-2.5 py-1 text-xs font-medium">{periodLabel(digest.periodKey)}</span>
         </div>
