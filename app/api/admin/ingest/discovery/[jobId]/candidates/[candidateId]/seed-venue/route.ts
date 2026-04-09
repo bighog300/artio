@@ -137,6 +137,10 @@ export async function POST(
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Forbidden");
     const message = error instanceof Error ? error.message : "Unexpected server error";
+    console.error("admin_ingest_discovery_jobId_candidates_candidateId_seed_venue_unexpected_error", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return apiError(500, "internal_error", message);
   }
 }

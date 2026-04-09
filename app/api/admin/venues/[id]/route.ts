@@ -34,6 +34,10 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   } catch (error) {
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
+    console.error("admin_venues_id_unexpected_error", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }

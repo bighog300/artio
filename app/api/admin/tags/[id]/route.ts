@@ -37,6 +37,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (error instanceof Error && error.message.includes("Unique constraint failed")) {
       return apiError(409, "conflict", "Tag slug already exists");
     }
+    console.error("admin_tags_id_unexpected_error", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }
@@ -59,6 +63,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     if (error instanceof Error && error.message.includes("Record to delete does not exist")) {
       return apiError(404, "not_found", "Tag not found");
     }
+    console.error("admin_tags_id_unexpected_error", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }

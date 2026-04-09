@@ -205,6 +205,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Forbidden");
+    console.error("admin_enrichment_runs_id_apply_unexpected_error", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }

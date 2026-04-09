@@ -66,6 +66,10 @@ export async function GET(req: NextRequest) {
     if (error instanceof Error && error.message === "forbidden") {
       return apiError(403, "forbidden", "Editor role required");
     }
+    console.error("admin_submissions_unexpected_error", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }

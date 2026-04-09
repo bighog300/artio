@@ -70,7 +70,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   if (parsedBody.action === "request_changes") {
-    await db.artwork.update({ where: { id: artwork.id }, data: { isPublished: false, status: "CHANGES_REQUESTED", deletedReason: `Changes requested: ${parsedBody.reason}` } });
+    await db.artwork.update({ where: { id: artwork.id }, data: { isPublished: false, status: "CHANGES_REQUESTED" } });
     await db.adminAuditLog.create({ data: { actorEmail: actor.email, action: "admin.artwork.moderation_intent", targetType: "artwork", targetId: artwork.id, metadata: { action: parsedBody.action, reason: parsedBody.reason } } });
     try {
       const submission = await db.submission.findFirst({
@@ -90,7 +90,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return ok({ ok: true, status: "CHANGES_REQUESTED", message: "Changes requested." });
   }
 
-  await db.artwork.update({ where: { id: artwork.id }, data: { isPublished: false, status: "REJECTED", deletedReason: `Rejected: ${parsedBody.reason}` } });
+  await db.artwork.update({ where: { id: artwork.id }, data: { isPublished: false, status: "REJECTED" } });
   await db.adminAuditLog.create({ data: { actorEmail: actor.email, action: "admin.artwork.moderation_intent", targetType: "artwork", targetId: artwork.id, metadata: { action: parsedBody.action, reason: parsedBody.reason } } });
   try {
     const submission = await db.submission.findFirst({
