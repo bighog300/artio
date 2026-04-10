@@ -29,6 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       key: `submissions:decision:user:${user.id}`,
       limit: RATE_LIMITS.submissions.limit,
       windowMs: RATE_LIMITS.submissions.windowMs,
+      fallbackToMemory: true,
     });
 
     const parsedId = idParamSchema.safeParse(await params);

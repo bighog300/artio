@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
       key: principalRateLimitKey(req, "admin:perf:explain", user.id),
       limit: RATE_LIMITS.adminPerfExplain.limit,
       windowMs: RATE_LIMITS.adminPerfExplain.windowMs,
+      fallbackToMemory: true,
     });
 
     if (process.env.PERF_EXPLAIN_ENABLED !== "true" || (process.env.NODE_ENV === "production" && process.env.PERF_EXPLAIN_ALLOW_PROD !== "true")) {
