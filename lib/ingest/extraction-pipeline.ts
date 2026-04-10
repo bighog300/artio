@@ -12,7 +12,7 @@ import { extractJsonLdEvents } from "@/lib/ingest/jsonld-extract";
 import { extractionJsonSchema, parseExtractedEventsFromModel, type NormalizedExtractedEvent, type VenueSnapshot } from "@/lib/ingest/schemas";
 import { clusterCandidates, computeSimilarityKey, scoreSimilarity } from "@/lib/ingest/similarity";
 import { inferTimezoneFromLatLng } from "@/lib/timezone";
-import { detectPlatform, getPlatformPromptHint, isJsRenderedPlatform, type Platform } from "@/lib/ingest/detect-platform";
+import { detectPlatform, getPlatformPromptHint, isJsRenderedPlatform, detectVenueType, getVenueTypePromptHint, type Platform, type VenueType } from "@/lib/ingest/detect-platform";
 import { enrichVenueFromSnapshot } from "@/lib/ingest/enrich-venue-from-snapshot";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 import { resolveRelativeHttpUrl } from "@/lib/ingest/url-utils";
@@ -60,6 +60,7 @@ const DEFAULT_SYSTEM_PROMPT_LINES = [
 function buildExtractionSystemPrompt(params: {
   ingestSystemPrompt: string | null | undefined;
   platformHint: string | null;
+  venueTypeHint: string | null;
   venueContext?: { name: string; address: string | null };
 }): string {
   const today = new Date().toISOString().slice(0, 10);
@@ -76,6 +77,7 @@ function buildExtractionSystemPrompt(params: {
     venueLine,
     `Today's date: ${today}`,
     params.platformHint,
+    params.venueTypeHint,
     "",
     ...staticPromptLines,
   ].filter(Boolean).join("\n");
@@ -330,6 +332,7 @@ export async function runVenueIngestExtraction(
   const detectPlatformFn = deps.detectPlatformFn ?? detectPlatform;
   const startedAtMs = now();
   let detectedPlatform: Platform | null = null;
+  let detectedVenueType: VenueType | null = null;
 
   const run = await store.ingestRun.create({
     data: {
@@ -354,6 +357,7 @@ export async function runVenueIngestExtraction(
     });
 
     detectedPlatform = detectPlatformFn(fetched.html, fetched.finalUrl);
+    detectedVenueType = detectVenueType(fetched.html, fetched.finalUrl);
 
     if (isJsRenderedPlatform(detectedPlatform)) {
       const finishedAt = new Date(now());
@@ -446,6 +450,7 @@ export async function runVenueIngestExtraction(
       }
 
       const platformHint = getPlatformPromptHint(detectedPlatform);
+      const venueTypeHint = getVenueTypePromptHint(detectedVenueType ?? "unknown");
       const venueContext = venue
         ? {
             name: venue.name,
@@ -488,6 +493,7 @@ export async function runVenueIngestExtraction(
         const systemPrompt = buildExtractionSystemPrompt({
           ingestSystemPrompt: settings?.ingestSystemPrompt,
           platformHint,
+          venueTypeHint,
           venueContext,
         });
 

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { detectPlatform, getPlatformPromptHint, isJsRenderedPlatform } from "@/lib/ingest/detect-platform";
+import { detectPlatform, detectVenueType, getPlatformPromptHint, getVenueTypePromptHint, isJsRenderedPlatform } from "@/lib/ingest/detect-platform";
 
 test("detectPlatform detects URL signals", () => {
   assert.equal(detectPlatform("<html></html>", "https://www.eventbrite.com/o/gallery-123/"), "eventbrite");
@@ -40,4 +40,33 @@ test("isJsRenderedPlatform flags wix and framer", () => {
   assert.equal(isJsRenderedPlatform("artlogic"), false);
   assert.equal(isJsRenderedPlatform("squarespace"), false);
   assert.equal(isJsRenderedPlatform("unknown"), false);
+});
+
+
+test("detectVenueType detects gallery signals", () => {
+  assert.equal(detectVenueType("<main>Upcoming exhibition opens Friday</main>", "https://example.com"), "gallery");
+});
+
+test("detectVenueType detects music signals without gallery overlap", () => {
+  assert.equal(detectVenueType("<main>Tonight's concert with headliner set</main>", "https://example.com"), "music");
+});
+
+test("detectVenueType resolves music+gallery overlap to gallery", () => {
+  assert.equal(detectVenueType("<main>concert exhibition opening night</main>", "https://example.com"), "gallery");
+});
+
+test("detectVenueType detects theatre signals", () => {
+  assert.equal(detectVenueType("<main>theatre matinee performance this weekend</main>", "https://example.com"), "theatre");
+});
+
+test("detectVenueType falls back to unknown", () => {
+  assert.equal(detectVenueType("<main>welcome to our homepage</main>", "https://example.com"), "unknown");
+});
+
+test("getVenueTypePromptHint returns expected values", () => {
+  assert.match(getVenueTypePromptHint("gallery") ?? "", /art gallery/i);
+  assert.match(getVenueTypePromptHint("museum") ?? "", /museum/i);
+  assert.match(getVenueTypePromptHint("theatre") ?? "", /theatre/i);
+  assert.match(getVenueTypePromptHint("music") ?? "", /music venue/i);
+  assert.equal(getVenueTypePromptHint("unknown"), null);
 });

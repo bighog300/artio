@@ -8,10 +8,24 @@ import { scoreArtistCandidate } from "@/lib/ingest/artist-confidence";
 import { autoApproveArtistCandidate } from "@/lib/ingest/auto-approve-artist-candidate";
 import { logWarn } from "@/lib/logging";
 
-export const DEFAULT_ARTIST_BIO_SYSTEM_PROMPT =
-  "Extract the artist profile from the following page HTML. Return only " +
-  "the structured data requested. If a field is not present on the page, " +
-  "return null for that field.";
+export const DEFAULT_ARTIST_BIO_SYSTEM_PROMPT = [
+  "You are extracting an artist profile from a webpage.",
+  "The page may cover a single artist or multiple — focus only on the primary artist named in the search query.",
+  "Return only values clearly stated on the page. Do not invent, infer, or hallucinate.",
+  "",
+  "Fields:",
+  "- name: Full name as it appears on the page. Return null if the page covers multiple artists or the name is ambiguous.",
+  "- bio: 2-4 sentence factual biography. Focus on medium, career, and notable exhibitions or collections. Return null if there is insufficient content to write a meaningful bio.",
+  "- mediums: Array of artistic mediums exactly as stated (e.g. ['oil painting', 'bronze sculpture', 'archival pigment print']). Return empty array if not stated.",
+  "- websiteUrl: Official artist website URL. Return null if not present.",
+  "- instagramUrl: Full https:// Instagram profile URL. Return null if not present.",
+  "- twitterUrl: Full https:// Twitter or X profile URL. Return null if not present.",
+  "- nationality: Country of origin or citizenship as a plain string. Return null if not stated.",
+  "- birthYear: Four-digit integer birth year only. Return null if not stated or only a decade is given.",
+  "",
+  "If the page is a 404, stub, login wall, or clearly unrelated to the artist, return null for all fields.",
+  "If the page is a search results page rather than a profile page, extract from the most relevant snippet only.",
+].join("\n");
 
 const artistExtractionSchema = {
   type: "object",
@@ -96,6 +110,20 @@ function toErrorMessage(error: unknown, fallback: string): string {
 }
 
 type SearchItem = { link: string; title: string; snippet: string };
+
+function buildSnippetContent(items: SearchItem[], artistName: string): string {
+  const body = items
+    .slice(0, 3)
+    .map((item) => `${item.title}\n${item.snippet}`)
+    .filter(Boolean)
+    .join("\n\n");
+  return `Artist: ${artistName}\n\nSearch result summaries:\n${body}`;
+}
+
+function snippetsSufficient(items: SearchItem[]): boolean {
+  const combined = items.map((item) => item.snippet).join(" ").trim();
+  return combined.length >= 120;
+}
 
 type ArtistDiscoveryDb = Pick<Prisma.TransactionClient, "artist" | "eventArtist" | "ingestExtractedArtist" | "ingestExtractedArtistEvent" | "ingestExtractedArtistRun"> & {
   siteSettings?: {
@@ -208,12 +236,16 @@ export async function discoverArtist(args: {
     ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(args.artistName)}`;
 
   let html = "";
-  try {
-    await assertSafeUrl(sourceUrl);
-    const fetched = await fetchHtmlWithGuards(sourceUrl);
-    html = fetched.html;
-  } catch {
-    html = "";
+  if (snippetsSufficient(searchItems)) {
+    html = buildSnippetContent(searchItems, args.artistName);
+  } else {
+    try {
+      await assertSafeUrl(sourceUrl);
+      const fetched = await fetchHtmlWithGuards(sourceUrl);
+      html = fetched.html;
+    } catch {
+      html = "";
+    }
   }
 
   const provider = getProvider((args.settings.artistBioProvider as ProviderName | null) ?? "claude");
