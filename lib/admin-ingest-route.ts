@@ -703,6 +703,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
             db: resolved.appDb,
             artistName: name,
             eventId: approved.createdEventId,
+            eventTitle: approved.eventTitle,
             settings: approved.artistSettings!,
           }).catch((err) =>
             console.error("[artist-discovery] failed for", name, err),
@@ -722,6 +723,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
             db: resolved.appDb,
             artistName: name,
             eventId: approved.createdEventId,
+            eventTitle: approved.eventTitle,
             settings: approved.artistSettings!,
           }).catch((err) =>
             console.error("[artist-enrichment] failed for", name, err),

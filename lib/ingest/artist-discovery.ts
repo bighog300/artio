@@ -125,6 +125,26 @@ function snippetsSufficient(items: SearchItem[]): boolean {
   return combined.length >= 120;
 }
 
+export function buildArtistSearchQuery(args: {
+  artistName: string;
+  eventTitle?: string | null;
+  venueName?: string | null;
+}): string {
+  const name = args.artistName.trim();
+  const words = name.split(/\s+/);
+
+  if (words.length <= 2) {
+    if (args.venueName) {
+      return `"${name}" artist ${args.venueName}`;
+    }
+    if (args.eventTitle) {
+      return `"${name}" artist ${args.eventTitle}`;
+    }
+  }
+
+  return `${name} artist`;
+}
+
 type ArtistDiscoveryDb = Pick<Prisma.TransactionClient, "artist" | "eventArtist" | "ingestExtractedArtist" | "ingestExtractedArtistEvent" | "ingestExtractedArtistRun"> & {
   siteSettings?: {
     findUnique: (args: {
@@ -139,6 +159,8 @@ export async function discoverArtist(args: {
   db: ArtistDiscoveryDb;
   artistName: string;
   eventId: string;
+  eventTitle?: string | null;
+  venueName?: string | null;
   settings: {
     googlePseApiKey?: string | null;
     googlePseCx?: string | null;
@@ -195,7 +217,11 @@ export async function discoverArtist(args: {
     return { status: "linked", candidateId: existingCandidate.id };
   }
 
-  const searchQuery = `${args.artistName} artist`;
+  const searchQuery = buildArtistSearchQuery({
+    artistName: args.artistName,
+    eventTitle: args.eventTitle,
+    venueName: args.venueName,
+  });
   const attemptedAt = new Date();
   const attemptStart = Date.now();
   let searchItems: SearchItem[] = [];
@@ -229,8 +255,20 @@ export async function discoverArtist(args: {
   const wikipediaMatch = searchItems.some((item) => item.link.includes("wikipedia.org"));
   const wikipediaItem = searchItems.find((item) => item.link.includes("wikipedia.org"));
   const nonSocialItem = searchItems.find((item) => !/(twitter\.com|instagram\.com|facebook\.com|tiktok\.com)/i.test(item.link));
+  const venuePageItem = args.venueName
+    ? searchItems.find((item) => {
+      try {
+        const hostname = new URL(item.link).hostname.toLowerCase();
+        const venueSlug = args.venueName!.toLowerCase().replace(/[^a-z0-9]/g, "");
+        return hostname.replace(/[^a-z0-9]/g, "").includes(venueSlug);
+      } catch {
+        return false;
+      }
+    })
+    : undefined;
 
-  const sourceUrl = wikipediaItem?.link
+  const sourceUrl = venuePageItem?.link
+    ?? wikipediaItem?.link
     ?? nonSocialItem?.link
     ?? searchItems[0]?.link
     ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(args.artistName)}`;

@@ -9,6 +9,8 @@ const CRON_NAME = "ingest_backfill_artists";
 const ROUTE = "/api/cron/ingest/backfill-artists";
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
+const ARTIST_DISCOVERY_CONCURRENCY = 3;
+const SEARCH_QUOTA_SOFT_LIMIT = 80;
 
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_LIMIT).default(DEFAULT_LIMIT),
@@ -24,10 +26,10 @@ type BackfillArtistsDeps = {
           artistNames: { isEmpty: false };
           eventArtists: { none: Record<string, never> };
         };
-        select: { id: true; artistNames: true };
+        select: { id: true; artistNames: true; title: true; venue: { select: { name: true } } };
         orderBy: { startAt: "desc" };
         take: number;
-      }) => Promise<Array<{ id: string; artistNames: string[] }>>;
+      }) => Promise<Array<{ id: string; artistNames: string[]; title: string | null; venue: { name: string } | null }>>;
     };
     eventArtist: {
       findMany: (args: {
@@ -86,6 +88,24 @@ function normalize(name: string) {
   return name.trim().toLowerCase();
 }
 
+export async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = [...items];
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    async () => {
+      while (queue.length > 0) {
+        const item = queue.shift();
+        if (item !== undefined) await fn(item).catch(() => {});
+      }
+    },
+  );
+  await Promise.all(workers);
+}
+
 export async function handleBackfillArtistsCron(req: Request, deps: BackfillArtistsDeps = defaultDeps) {
   const authFailure = deps.validateCronRequest(deps.extractCronSecret(req.headers), { route: ROUTE, method: req.method });
   if (authFailure) return authFailure;
@@ -130,7 +150,7 @@ export async function handleBackfillArtistsCron(req: Request, deps: BackfillArti
         artistNames: { isEmpty: false },
         eventArtists: { none: {} },
       },
-      select: { id: true, artistNames: true },
+      select: { id: true, artistNames: true, title: true, venue: { select: { name: true } } },
       orderBy: { startAt: "desc" },
       take: parsed.data.limit,
     });
@@ -138,6 +158,7 @@ export async function handleBackfillArtistsCron(req: Request, deps: BackfillArti
     let discovered = 0;
     let failed = 0;
     let unresolvedTotal = 0;
+    let searchQueriesUsed = 0;
 
     for (const event of events) {
       const existingLinks = await deps.db.eventArtist.findMany({
@@ -149,12 +170,21 @@ export async function handleBackfillArtistsCron(req: Request, deps: BackfillArti
       const unresolvedNames = event.artistNames.filter((name) => !linkedNames.has(normalize(name)));
       unresolvedTotal += unresolvedNames.length;
 
-      for (const artistName of unresolvedNames) {
+      await runWithConcurrency(unresolvedNames, ARTIST_DISCOVERY_CONCURRENCY, async (artistName) => {
         try {
+          if (searchQueriesUsed >= SEARCH_QUOTA_SOFT_LIMIT) {
+            logWarn({ message: "cron_backfill_artists_quota_soft_limit", searchQueriesUsed });
+            failed += 1;
+            return;
+          }
+          searchQueriesUsed += 1;
+
           await deps.discoverArtist({
             db: deps.db as never,
             eventId: event.id,
             artistName,
+            eventTitle: event.title,
+            venueName: event.venue?.name,
             settings: {
               googlePseApiKey: settings?.googlePseApiKey ?? process.env.GOOGLE_PSE_API_KEY,
               googlePseCx: settings?.googlePseCx ?? process.env.GOOGLE_PSE_CX,
@@ -170,7 +200,7 @@ export async function handleBackfillArtistsCron(req: Request, deps: BackfillArti
           failed += 1;
           logWarn({ message: "cron_backfill_artists_discover_failed", eventId: event.id, artistName, error });
         }
-      }
+      });
     }
 
     const summary = {

@@ -135,7 +135,15 @@ type IngestStore = {
   };
   ingestExtractedEvent: {
     findUnique: typeof db.ingestExtractedEvent.findUnique;
-    findMany: typeof db.ingestExtractedEvent.findMany;
+    findMany: typeof db.ingestExtractedEvent.findMany & ((args: {
+      where: {
+        venueId: string;
+        fingerprint: { in: string[] };
+      };
+      select: { fingerprint: true };
+      orderBy?: Record<string, unknown> | Record<string, unknown>[];
+      take?: number;
+    }) => Promise<Array<{ fingerprint: string }>>);
     create: typeof db.ingestExtractedEvent.create;
     update: typeof db.ingestExtractedEvent.update;
   };
@@ -537,26 +545,28 @@ export async function runVenueIngestExtraction(
 
     let dedupedCount = 0;
     const candidates: PendingCandidate[] = [];
-
-    for (const [index, event] of cappedCandidates.entries()) {
-      const fingerprint = fingerprintForCandidate({
+    const allFingerprints = cappedCandidates.map((event) =>
+      fingerprintForCandidate({
         venueId: params.venueId,
         title: event.title,
         startAt: event.startAt,
         locationText: event.locationText,
-      });
+      })
+    );
 
-      const existing = await store.ingestExtractedEvent.findUnique({
+    const existingFingerprints = new Set(
+      (await store.ingestExtractedEvent.findMany({
         where: {
-          venueId_fingerprint: {
-            venueId: params.venueId,
-            fingerprint,
-          },
+          venueId: params.venueId,
+          fingerprint: { in: allFingerprints },
         },
-        select: { id: true },
-      });
+        select: { fingerprint: true },
+      }) as Array<{ fingerprint: string }>).map((row) => row.fingerprint),
+    );
 
-      if (existing) {
+    for (const [index, event] of cappedCandidates.entries()) {
+      const fingerprint = allFingerprints[index]!;
+      if (existingFingerprints.has(fingerprint)) {
         dedupedCount += 1;
         continue;
       }
