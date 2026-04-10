@@ -20,6 +20,7 @@ type PreviewItem = {
 type RunDetailItem = {
   id: string;
   status: "PENDING" | "STAGED" | "SKIPPED" | "SUCCESS" | "FAILED";
+  errorMessage: string | null;
   fieldsBefore: Record<string, unknown> | null;
   fieldsAfter: Record<string, unknown> | null;
   fieldsChanged?: string[];
@@ -485,6 +486,7 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
                                 <th className="px-2 py-1.5">Changes</th>
                                 <th className="px-2 py-1.5">Confidence delta</th>
                                 <th className="px-2 py-1.5">Status</th>
+                                <th className="px-2 py-1.5">Error</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -498,6 +500,7 @@ export function EnrichClient({ templates, initialRuns }: { templates: WorkbenchT
                                     </td>
                                     <td className={`px-2 py-1.5 ${delta > 0 ? "text-emerald-700" : "text-muted-foreground"}`}>{item.confidenceBefore == null || item.confidenceAfter == null ? "—" : `${delta > 0 ? "+" : ""}${delta}`}</td>
                                     <td className="px-2 py-1.5"><span className={`rounded-full px-2 py-0.5 ${statusChip(item.status)}`}>{item.status}</span></td>
+                                    <td className="px-2 py-1.5 text-destructive text-xs">{item.status === "FAILED" ? (item.errorMessage ?? "unknown") : null}</td>
                                   </tr>
                                 );
                               })}

@@ -160,6 +160,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
               venueWebsiteUrl: event.venue?.websiteUrl ?? null,
               candidateImageUrl: event.ingestExtractedCandidate?.imageUrl ?? null,
               requestId: `enrichment-apply-${item.id}`,
+              skipIngestGate: true,
             });
             if (!imageResult.attached) throw new Error(imageResult.warning ?? "image_import_failed");
           } else {
@@ -176,6 +177,12 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         });
         successItems += 1;
       } catch (error) {
+        console.error("enrichment_apply_item_failed", {
+          itemId: item.id,
+          entityType: item.entityType,
+          entityId: item.eventId ?? item.artistId ?? item.artworkId ?? item.venueId,
+          error: error instanceof Error ? error.message : String(error),
+        });
         failedItems += 1;
         await enrichmentApplyRouteDeps.db.enrichmentRunItem.update({
           where: { id: item.id },

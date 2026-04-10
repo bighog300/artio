@@ -53,6 +53,7 @@ export async function importApprovedEventImage(params: {
   venueWebsiteUrl: string | null;
   candidateImageUrl?: string | null;
   requestId: string;
+  skipIngestGate?: boolean;
 }, deps: {
   fetchHtmlWithGuards: typeof fetchHtmlWithGuards;
   fetchImageWithGuards: typeof fetchImageWithGuards;
@@ -62,7 +63,7 @@ export async function importApprovedEventImage(params: {
   fetchImageWithGuards,
   uploadEventImageToBlob,
 }) : Promise<ImportResult> {
-  if (process.env.AI_INGEST_IMAGE_ENABLED !== "1") {
+  if (!params.skipIngestGate && process.env.AI_INGEST_IMAGE_ENABLED !== "1") {
     return { attached: false, warning: "image_import_disabled", imageUrl: null };
   }
 
@@ -142,6 +143,13 @@ export async function importApprovedEventImage(params: {
 
     return { attached: true, warning: null, imageUrl: asset.url };
   } catch (error) {
+    console.error("import_approved_event_image_failed", {
+      eventId: params.eventId,
+      candidateId: params.candidateId,
+      requestId: params.requestId,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     const warning = normalizeImageImportError(error);
     logWarn({ message: "ingest_approval_image_import_failed",
       requestId: params.requestId,
