@@ -33,26 +33,42 @@ export async function GET() {
       pendingGroups.map((g) => [g.venueId, g._count.id]),
     );
 
+    const venues = await db.venue.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        usesJsonLd: true,
+        lastIngestedAt: true,
+      },
+    });
+    const venueMetaById = new Map(venues.map((venue) => [venue.id, venue]));
+
     const statusMap: Record<
       string,
-      { lastRunAt: string; lastRunStatus: string; pendingCount: number }
+      { lastRunAt: string; lastRunStatus: string; pendingCount: number; usesJsonLd: boolean; lastIngestedAt: string | null }
     > = {};
 
     for (const run of latestRuns) {
+      const venueMeta = venueMetaById.get(run.venueId);
       statusMap[run.venueId] = {
         lastRunAt: run.createdAt.toISOString(),
         lastRunStatus: run.status,
         pendingCount: pendingByVenue.get(run.venueId) ?? 0,
+        usesJsonLd: venueMeta?.usesJsonLd ?? false,
+        lastIngestedAt: venueMeta?.lastIngestedAt?.toISOString() ?? null,
       };
     }
 
     // Venues with pending but no run yet
     for (const [venueId, count] of pendingByVenue.entries()) {
       if (!statusMap[venueId]) {
+        const venueMeta = venueMetaById.get(venueId);
         statusMap[venueId] = {
           lastRunAt: "",
           lastRunStatus: "NEVER",
           pendingCount: count,
+          usesJsonLd: venueMeta?.usesJsonLd ?? false,
+          lastIngestedAt: venueMeta?.lastIngestedAt?.toISOString() ?? null,
         };
       }
     }

@@ -32,8 +32,10 @@ function createStore(params: { eventsPageUrl: string | null; updateReject?: bool
         lat: null,
         lng: null,
       }),
-      update: async (args: { where: { id: string }; data: { eventsPageUrl: string } }) => {
-        venueUpdates.push(args);
+      update: async (args: { where: { id: string }; data: { eventsPageUrl?: string } }) => {
+        if (typeof args.data.eventsPageUrl === "string") {
+          venueUpdates.push({ where: args.where, data: { eventsPageUrl: args.data.eventsPageUrl } });
+        }
         if (params.updateReject) throw new Error("update failed");
         return { id: args.where.id };
       },

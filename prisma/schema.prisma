@@ -646,6 +646,8 @@ model Venue {
   canonicalUrl       String?
   eventsPageUrl      String?                   @map("eventsPageUrl")
   ingestFrequency    VenueIngestFrequency      @default(WEEKLY)
+  usesJsonLd         Boolean                   @default(false)
+  lastIngestedAt     DateTime?                 @db.Timestamptz
   instagramUrl       String?
   facebookUrl        String?
   contactEmail       String?

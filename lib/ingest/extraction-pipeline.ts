@@ -234,7 +234,14 @@ type IngestStore = {
   };
   venue: {
     findUnique: typeof db.venue.findUnique;
-    update: typeof db.venue.update;
+    update: (args: {
+      where: { id: string };
+      data: Record<string, unknown> & {
+        eventsPageUrl?: string;
+        usesJsonLd?: boolean;
+        lastIngestedAt?: Date;
+      };
+    }) => Promise<unknown>;
   };
   siteSettings: {
     findUnique: typeof db.siteSettings.findUnique;
@@ -423,6 +430,13 @@ export async function runVenueIngestExtraction(
   const fetchImageWithGuardsImpl = deps.fetchImageWithGuards ?? fetchImageWithGuards;
   const uploadCandidateImageToBlobImpl = deps.uploadCandidateImageToBlob ?? uploadCandidateImageToBlob;
   const detectPlatformFn = deps.detectPlatformFn ?? detectPlatform;
+  const updateVenueNonBlocking = (data: { eventsPageUrl?: string; usesJsonLd?: boolean; lastIngestedAt?: Date }, warningMessage: string) => {
+    if (typeof store.venue?.update !== "function") return;
+    store.venue.update({
+      where: { id: params.venueId },
+      data,
+    }).catch((err) => logWarn({ message: warningMessage, venueId: params.venueId, err }));
+  };
   const startedAtMs = now();
   let detectedPlatform: Platform | null = null;
   let detectedVenueType: VenueType | null = null;
@@ -486,16 +500,7 @@ export async function runVenueIngestExtraction(
 
     const detectedEventsPageUrl = detectEventsPageUrl(fetched.html, fetched.finalUrl);
     if (detectedEventsPageUrl && !venue?.eventsPageUrl) {
-      store.venue.update({
-        where: { id: params.venueId },
-        data: { eventsPageUrl: detectedEventsPageUrl },
-      }).catch((err) => {
-        logWarn({ message: "ingest_detect_events_page_url_update_failed",
-          venueId: params.venueId,
-          detectedEventsPageUrl,
-          err,
-        });
-      });
+      updateVenueNonBlocking({ eventsPageUrl: detectedEventsPageUrl }, "ingest_detect_events_page_url_update_failed");
     }
 
     const settings = await store.siteSettings.findUnique({
@@ -537,6 +542,7 @@ export async function runVenueIngestExtraction(
         venueLat: venue?.lat ?? null,
         venueLng: venue?.lng ?? null,
       }));
+      updateVenueNonBlocking({ usesJsonLd: true, lastIngestedAt: new Date() }, "ingest_venue_jsonld_flag_update_failed");
     } else {
       if (!(settings?.ingestEnabled ?? (process.env.AI_INGEST_ENABLED === "1"))) {
         await markRunFailed(store, run.id, startedAtMs, "INGEST_DISABLED", "AI ingest is disabled");
@@ -924,6 +930,10 @@ export async function runVenueIngestExtraction(
         },
       });
       createdDuplicateCount += 1;
+    }
+
+    if (extractionMethod === "openai") {
+      updateVenueNonBlocking({ lastIngestedAt: new Date() }, "ingest_venue_last_ingested_update_failed");
     }
 
     const finishedAt = new Date(now());
