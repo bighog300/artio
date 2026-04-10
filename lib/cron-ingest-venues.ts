@@ -34,19 +34,27 @@ const querySchema = z.object({
 type IngestVenueDb = {
   venue: {
     findMany: (args: {
-      where:
-        | { websiteUrl: { not: null }; isPublished: true; deletedAt: null }
-        | {
-          deletedAt: null;
-          OR: Array<
-            | { isPublished: true; websiteUrl: { not: null } }
-            | { aiGenerated: true; isPublished: false; status: { not: string }; eventsPageUrl: { not: null } }
-          >;
-        };
-      orderBy: { updatedAt: "asc" };
+      where: Record<string, unknown>;
+      orderBy: Array<{ usesJsonLd: "desc" } | { lastIngestedAt: "asc" } | { updatedAt: "asc" }>;
       take: number;
-      select: { id: true; websiteUrl: true; eventsPageUrl: true; aiGenerated: true; ingestFrequency: true };
-    }) => Promise<Array<{ id: string; websiteUrl: string | null; eventsPageUrl: string | null; aiGenerated: boolean; ingestFrequency: "DAILY" | "WEEKLY" | "MONTHLY" | "MANUAL" }>>;
+      select: {
+        id: true;
+        websiteUrl: true;
+        eventsPageUrl: true;
+        aiGenerated: true;
+        ingestFrequency: true;
+        usesJsonLd: true;
+        lastIngestedAt: true;
+      };
+    }) => Promise<Array<{
+      id: string;
+      websiteUrl: string | null;
+      eventsPageUrl: string | null;
+      aiGenerated: boolean;
+      ingestFrequency: "DAILY" | "WEEKLY" | "MONTHLY" | "MANUAL";
+      usesJsonLd: boolean;
+      lastIngestedAt: Date | null;
+    }>>;
   };
   ingestRun: {
     findFirst: (args: {
@@ -160,6 +168,18 @@ function minLastRunAtForVenue(
         ? 25 * 24 * 60 * 60 * 1000
         : 6 * 24 * 60 * 60 * 1000;
   return new Date(now.getTime() - ms);
+}
+
+export function getIngestStalenessThresholdMs(usesJsonLd: boolean): number {
+  if (usesJsonLd) return 12 * 60 * 60 * 1000;
+  return 48 * 60 * 60 * 1000;
+}
+
+export function isVenueIngestStale(params: { usesJsonLd: boolean; lastIngestedAt: Date | null; nowMs?: number }): boolean {
+  if (!params.lastIngestedAt) return true;
+  const thresholdMs = getIngestStalenessThresholdMs(params.usesJsonLd);
+  const nowMs = params.nowMs ?? Date.now();
+  return params.lastIngestedAt.getTime() < (nowMs - thresholdMs);
 }
 
 export async function runCronIngestVenues(
@@ -301,21 +321,44 @@ export async function runCronIngestVenues(
         return noStoreJson(summary);
       }
 
+      const stalenessWhere = {
+        OR: [
+          { lastIngestedAt: null },
+          {
+            AND: [
+              { usesJsonLd: true },
+              { lastIngestedAt: { lt: new Date(now() - getIngestStalenessThresholdMs(true)) } },
+            ],
+          },
+          {
+            AND: [
+              { usesJsonLd: false },
+              { lastIngestedAt: { lt: new Date(now() - getIngestStalenessThresholdMs(false)) } },
+            ],
+          },
+        ],
+      };
+
       const sourceVenues = await cronDb.venue.findMany({
         where: ingestUnpublished
           ? {
             deletedAt: null,
-            OR: [
+            AND: [
+              stalenessWhere,
               {
-                isPublished: true,
-                websiteUrl: { not: null },
-              },
-              {
-                aiGenerated: true,
-                isPublished: false,
-                // Excludes ONBOARDING venues — those must be published via the onboard route first
-                status: { not: "ONBOARDING" },
-                eventsPageUrl: { not: null },
+                OR: [
+                  {
+                    isPublished: true,
+                    websiteUrl: { not: null },
+                  },
+                  {
+                    aiGenerated: true,
+                    isPublished: false,
+                    // Excludes ONBOARDING venues — those must be published via the onboard route first
+                    status: { not: "ONBOARDING" },
+                    eventsPageUrl: { not: null },
+                  },
+                ],
               },
             ],
           }
@@ -323,23 +366,28 @@ export async function runCronIngestVenues(
             websiteUrl: { not: null },
             isPublished: true,
             deletedAt: null,
+            ...stalenessWhere,
           },
-        orderBy: { updatedAt: "asc" },
+        orderBy: [
+          { usesJsonLd: "desc" },
+          { lastIngestedAt: "asc" },
+          { updatedAt: "asc" },
+        ],
         take: Math.min(MAX_SCAN_VENUES, Math.max(enforcedLimit * 5, enforcedLimit)),
-        select: { id: true, websiteUrl: true, eventsPageUrl: true, aiGenerated: true, ingestFrequency: true },
+        select: {
+          id: true,
+          websiteUrl: true,
+          eventsPageUrl: true,
+          aiGenerated: true,
+          ingestFrequency: true,
+          usesJsonLd: true,
+          lastIngestedAt: true,
+        },
       });
 
-      const venueState = await Promise.all(sourceVenues.map(async (venue) => {
-        const latestRun = await cronDb.ingestRun.findFirst({
-          where: { venueId: venue.id, status: { in: ["RUNNING", "SUCCEEDED"] } },
-          orderBy: { createdAt: "desc" },
-          select: { createdAt: true },
-        });
-
-        return {
-          venue,
-          lastRunAt: latestRun?.createdAt ?? null,
-        };
+      const venueState = sourceVenues.map((venue) => ({
+        venue,
+        lastRunAt: venue.lastIngestedAt,
       }));
 
       const eligibleVenues = venueState
@@ -349,6 +397,11 @@ export async function runCronIngestVenues(
             (typeof item.venue.eventsPageUrl === "string" && item.venue.eventsPageUrl.trim().length > 0)
             || (typeof item.venue.websiteUrl === "string" && item.venue.websiteUrl.trim().length > 0)
           )
+          && isVenueIngestStale({
+            usesJsonLd: item.venue.usesJsonLd,
+            lastIngestedAt: item.venue.lastIngestedAt,
+            nowMs: now(),
+          })
           && (!item.lastRunAt || item.lastRunAt < minLastRunAtForVenue(item.venue.ingestFrequency, new Date(now())))
         )
         .sort((a, b) => {

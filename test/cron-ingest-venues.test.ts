@@ -5,7 +5,15 @@ import { runCronIngestVenues } from "../lib/cron-ingest-venues.ts";
 type MockRun = { venueId: string; createdAt: Date; status: "RUNNING" | "SUCCEEDED" | "FAILED"; errorCode?: string | null };
 
 function createDb(
-  venues: Array<{ id: string; websiteUrl: string | null; eventsPageUrl?: string | null; aiGenerated?: boolean }>,
+  venues: Array<{
+    id: string;
+    websiteUrl: string | null;
+    eventsPageUrl?: string | null;
+    aiGenerated?: boolean;
+    usesJsonLd?: boolean;
+    lastIngestedAt?: Date | null;
+    ingestFrequency?: "DAILY" | "WEEKLY" | "MONTHLY" | "MANUAL";
+  }>,
   runs: MockRun[] = [],
   lockAcquired = true,
 ) {
@@ -14,7 +22,14 @@ function createDb(
     venue: {
       findMany: async (args: unknown) => {
         lastVenueFindManyArgs = args;
-        return venues.map((venue) => ({ ...venue, eventsPageUrl: venue.eventsPageUrl ?? null, aiGenerated: venue.aiGenerated ?? false }));
+        return venues.map((venue) => ({
+          ...venue,
+          eventsPageUrl: venue.eventsPageUrl ?? null,
+          aiGenerated: venue.aiGenerated ?? false,
+          usesJsonLd: venue.usesJsonLd ?? false,
+          lastIngestedAt: venue.lastIngestedAt ?? null,
+          ingestFrequency: venue.ingestFrequency ?? "WEEKLY",
+        }));
       },
     },
     ingestRun: {
@@ -247,8 +262,9 @@ test("cron uses OR venue filter when AI_INGEST_UNPUBLISHED_VENUES=1", async () =
 
   assert.equal(response.status, 200);
   const findManyArgs = db.__getLastVenueFindManyArgs() as { where?: { OR?: unknown[] } };
-  assert.ok(Array.isArray(findManyArgs.where?.OR));
-  assert.equal(findManyArgs.where?.OR?.length, 2);
+  const publicationOr = (findManyArgs.where as { AND?: Array<{ OR?: unknown[] }> })?.AND?.[1]?.OR;
+  assert.ok(Array.isArray(publicationOr));
+  assert.equal(publicationOr?.length, 2);
 });
 
 test("cron uses original flat venue filter when AI_INGEST_UNPUBLISHED_VENUES is unset", async () => {
@@ -260,8 +276,9 @@ test("cron uses original flat venue filter when AI_INGEST_UNPUBLISHED_VENUES is 
   const response = await runCronIngestVenues("secret", { limit: "1", dryRun: "1" }, db);
 
   assert.equal(response.status, 200);
-  const findManyArgs = db.__getLastVenueFindManyArgs() as { where?: { OR?: unknown[] } };
-  assert.equal(findManyArgs.where?.OR, undefined);
+  const findManyArgs = db.__getLastVenueFindManyArgs() as { where?: { OR?: unknown[]; AND?: unknown[] } };
+  assert.ok(Array.isArray(findManyArgs.where?.OR));
+  assert.equal(findManyArgs.where?.AND, undefined);
 });
 
 test("cron ingests unpublished AI-generated venue when AI_INGEST_UNPUBLISHED_VENUES=1 and eventsPageUrl exists", async () => {
@@ -301,11 +318,12 @@ test("cron DB query gates unpublished AI-generated venue without eventsPageUrl w
   assert.equal(response.status, 200);
   const findManyArgs = db.__getLastVenueFindManyArgs() as {
     where: {
-      OR: Array<Record<string, unknown>>;
+      AND: Array<{ OR: Array<Record<string, unknown>> }>;
     };
   };
+  const publicationOr = findManyArgs.where.AND[1]?.OR ?? [];
   assert.ok(
-    findManyArgs.where.OR.some((condition) =>
+    publicationOr.some((condition) =>
       "eventsPageUrl" in condition
       && (condition.eventsPageUrl as { not: null }).not === null
       && condition.aiGenerated === true
