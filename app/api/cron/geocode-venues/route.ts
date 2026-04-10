@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { extractCronSecret, validateCronRequest } from "@/lib/cron-auth";
-import { geocodeBest } from "@/lib/geocode";
+import { forwardGeocodeVenueAddressToLatLng, ForwardGeocodeError } from "@/lib/geocode/forward";
+import { buildVenueGeocodeQueries, isVenueAddressGeocodeable } from "@/lib/venues/format-venue-address";
 import { shouldDryRun } from "@/lib/cron-runtime";
 
 type SampleOutcome = "updated" | "noMatch" | "failed" | "wouldUpdate";
@@ -10,7 +11,7 @@ type Sample = {
   venueId: string;
   query: string;
   outcome: SampleOutcome;
-  result?: { lat: number; lng: number; label: string };
+  result?: { lat: number; lng: number };
 };
 
 export const runtime = "nodejs";
@@ -22,6 +23,7 @@ function parseLimit(value: string | null) {
 }
 
 function isNotConfiguredError(error: unknown) {
+  if (error instanceof ForwardGeocodeError) return error.code === "not_configured";
   if (typeof error === "string") return error === "not_configured";
   if (error && typeof error === "object") {
     const withMessage = error as { message?: unknown; code?: unknown };
@@ -58,6 +60,7 @@ export async function GET(req: NextRequest) {
       addressLine1: true,
       addressLine2: true,
       city: true,
+      region: true,
       postcode: true,
       country: true,
       lat: true,
@@ -75,40 +78,52 @@ export async function GET(req: NextRequest) {
 
   for (const venue of venues) {
     processed += 1;
-    const query = [venue.name, venue.addressLine1, venue.addressLine2, venue.city, venue.postcode, venue.country]
-      .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
-      .join(", ");
-
-    if (!query) {
+    if (!isVenueAddressGeocodeable(venue)) {
       skipped += 1;
       continue;
     }
 
     try {
-      const result = await geocodeBest(query);
+      const queries = buildVenueGeocodeQueries(venue);
+      const query = queries[0] ?? "";
+      let matchedQuery = query;
+      let result: { lat: number; lng: number } | null = null;
+
+      for (const addressText of queries) {
+        try {
+          result = await forwardGeocodeVenueAddressToLatLng({ addressText });
+          if (result) {
+            matchedQuery = addressText;
+            break;
+          }
+        } catch (error) {
+          if (isNotConfiguredError(error)) throw error;
+          // try next query
+        }
+      }
 
       if (!result) {
         noMatch += 1;
-        if (samples.length < 5) samples.push({ venueId: venue.id, query, outcome: "noMatch" });
+        if (samples.length < 5) samples.push({ venueId: venue.id, query: matchedQuery, outcome: "noMatch" });
         continue;
       }
 
       if (dryRun) {
         wouldUpdate += 1;
-        if (samples.length < 5) samples.push({ venueId: venue.id, query, outcome: "wouldUpdate", result });
+        if (samples.length < 5) samples.push({ venueId: venue.id, query: matchedQuery, outcome: "wouldUpdate", result });
         continue;
       }
 
       await db.venue.update({ where: { id: venue.id }, data: { lat: result.lat, lng: result.lng } });
       updated += 1;
-      if (samples.length < 5) samples.push({ venueId: venue.id, query, outcome: "updated", result });
+      if (samples.length < 5) samples.push({ venueId: venue.id, query: matchedQuery, outcome: "updated", result });
     } catch (error) {
       if (isNotConfiguredError(error)) {
         return NextResponse.json({ error: "not_configured" }, { status: 501 });
       }
       failed += 1;
       console.warn(`cron_geocode_venues_failed venueId=${venue.id} city=${venue.city ?? ""} postcode=${venue.postcode ?? ""}`);
-      if (samples.length < 5) samples.push({ venueId: venue.id, query, outcome: "failed" });
+      if (samples.length < 5) samples.push({ venueId: venue.id, query: venue.name ?? "", outcome: "failed" });
     }
   }
 
