@@ -181,6 +181,36 @@ export function computeConfidence(
     reasons.push(context.inherited ? "duplicate inherited confidence" : "duplicate confidence penalty");
   }
 
+  if (candidate.startAt) {
+    const d = candidate.startAt;
+    if (
+      d.getUTCDate() === 1 &&
+      d.getUTCHours() === 0 &&
+      d.getUTCMinutes() === 0 &&
+      d.getUTCSeconds() === 0
+    ) {
+      score -= 10;
+      reasons.push("round-number date (possible hallucination)");
+    }
+  }
+
+  if (
+    context.venueName &&
+    (candidate.artistNames ?? []).some(
+      (name) =>
+        name.trim().toLowerCase() === context.venueName!.trim().toLowerCase(),
+    )
+  ) {
+    score -= 8;
+    reasons.push("artist name matches venue name");
+  }
+
+  const titleTrimmed = (candidate.title ?? "").trim();
+  if (titleTrimmed.length > 0 && (titleTrimmed.length < 3 || /^\d+$/.test(titleTrimmed))) {
+    score -= 15;
+    reasons.push("title is numeric or too short");
+  }
+
   const boundedScore = clampScore(score);
   return {
     score: boundedScore,

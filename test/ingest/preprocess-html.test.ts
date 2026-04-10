@@ -1,6 +1,42 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { preprocessHtml } from "@/lib/ingest/preprocess-html";
+import { extractMainContent, preprocessHtml } from "@/lib/ingest/preprocess-html";
+
+function longContent(prefix: string): string {
+  return `${prefix} ${"details ".repeat(80)}`;
+}
+
+test("extractMainContent returns <main> content when sufficiently long", () => {
+  const main = `<main>${longContent("Main body")}</main>`;
+  const html = `<html><body><header>Nav</header>${main}<footer>Footer</footer></body></html>`;
+  assert.equal(extractMainContent(html), longContent("Main body").trim());
+});
+
+test("extractMainContent returns <article> content when sufficiently long", () => {
+  const article = longContent("Article body");
+  const html = `<section><article>${article}</article></section>`;
+  assert.equal(extractMainContent(html), article.trim());
+});
+
+test("extractMainContent returns id=content wrapper when sufficiently long", () => {
+  const content = longContent("Content wrapper");
+  const html = `<div id=\"content\">${content}</div>`;
+  assert.equal(extractMainContent(html), content.trim());
+});
+
+test("extractMainContent falls back to full html when matched content is too short", () => {
+  const html = "<html><main>short content</main><p>Outside</p></html>";
+  assert.equal(extractMainContent(html), html);
+});
+
+test("extractMainContent falls back to full html when no wrapper matches", () => {
+  const html = "<html><body><div>Only generic container</div></body></html>";
+  assert.equal(extractMainContent(html), html);
+});
+
+test("extractMainContent handles empty string", () => {
+  assert.equal(extractMainContent(""), "");
+});
 
 test("removes script with no type attribute and its contents", () => {
   const html = '<div>Before</div><script>console.log("x")</script><div>After</div>';
@@ -131,6 +167,20 @@ test("combined preprocessing keeps article and ld+json while removing noise", ()
   assert.doesNotMatch(output, /window\.analytics/);
   assert.doesNotMatch(output, /\.hero \{ color: red; \}/);
   assert.doesNotMatch(output, /<svg/);
+});
+
+test("preprocessHtml with full page and <main> extracts main content", () => {
+  const html = `<html><body><header>Nav</header><main>${longContent("Main integration")}</main><footer>Footer</footer></body></html>`;
+  const output = preprocessHtml(html);
+  assert.ok(output.length < html.length);
+  assert.ok(output.includes("Main integration"));
+  assert.ok(!output.includes("<header>Nav</header>"));
+});
+
+test("preprocessHtml without matching wrapper remains non-empty", () => {
+  const html = "<html><body><div>Generic body content that still has useful text.</div></body></html>";
+  const output = preprocessHtml(html);
+  assert.ok(output.length > 0);
 });
 
 test("output length is less than input length for non-trivial HTML", () => {
