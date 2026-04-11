@@ -1,28 +1,10 @@
 import type { PrismaClient } from "@prisma/client";
-import { detectDirectoryStrategy } from "@/lib/ingest/directory/auto-detect";
-import { extractEntitiesWithAi } from "@/lib/ingest/directory/strategies/ai";
-import { extractEntitiesFromJsonLd } from "@/lib/ingest/directory/strategies/jsonld";
+import { buildStrategyChain } from "@/lib/ingest/directory/auto-detect";
 import { IngestError } from "@/lib/ingest/errors";
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
 import type { ProviderName } from "@/lib/ingest/providers";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const NAV_LABELS = new Set([
-  "home",
-  "about",
-  "contact",
-  "privacy",
-  "terms",
-  "login",
-  "sign in",
-  "sign up",
-  "artists",
-  "venues",
-  "next",
-  "previous",
-  "back",
-  "menu",
-]);
 
 function normalizeHostname(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
@@ -36,73 +18,12 @@ function normalizeHostname(url: string | null | undefined): string | null {
   }
 }
 
-function stripTags(input: string): string {
-  return input.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function isPlausibleName(value: string): boolean {
-  const normalized = value.trim().replace(/\s+/g, " ");
-  if (!normalized) return false;
-  if (normalized.length > 140) return false;
-  const lower = normalized.toLowerCase();
-  if (NAV_LABELS.has(lower)) return false;
-  if (/^[0-9\W_]+$/.test(normalized)) return false;
-  return /[a-z]/i.test(normalized);
-}
-
 function buildIndexUrl(indexPattern: string, letter: string, page: number): string {
   let url = indexPattern.replaceAll("[letter]", letter);
   if (url.includes("[page]")) {
     url = url.replaceAll("[page]", String(page));
   }
   return url;
-}
-
-function isEntityProfilePath(pathname: string, sourceBaseUrl: string): boolean {
-  try {
-    const basePath = new URL(sourceBaseUrl).pathname.toLowerCase();
-    const linkPath = pathname.toLowerCase();
-    const normalizedBasePath = basePath.replace(/\/$/, "");
-
-    if (!linkPath.startsWith(normalizedBasePath)) return false;
-
-    const remainder = linkPath.slice(normalizedBasePath.length);
-    if (/^\/[a-z]?\/?$/.test(remainder)) return false;
-    if (/\/(page|p)\/\d+/.test(remainder)) return false;
-
-    return remainder.replace(/^\//, "").length > 1;
-  } catch {
-    return false;
-  }
-}
-
-function extractEntities(args: { html: string; baseUrl: string; sourceBaseHostname: string }): Array<{ entityUrl: string; entityName: string | null }> {
-  const anchorRegex = /<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  const entities: Array<{ entityUrl: string; entityName: string | null }> = [];
-  const seen = new Set<string>();
-  const base = new URL(args.baseUrl);
-
-  let match: RegExpExecArray | null;
-  while ((match = anchorRegex.exec(args.html)) !== null) {
-    const href = match[1]?.trim();
-    const text = stripTags(match[2] ?? "");
-    if (!href || !isPlausibleName(text)) continue;
-
-    try {
-      const resolved = new URL(href, base);
-      const normalizedHost = resolved.hostname.toLowerCase().replace(/^www\./, "");
-      if (normalizedHost !== args.sourceBaseHostname) continue;
-      if (!isEntityProfilePath(resolved.pathname, args.baseUrl)) continue;
-      if (seen.has(resolved.toString())) continue;
-
-      seen.add(resolved.toString());
-      entities.push({ entityUrl: resolved.toString(), entityName: text || null });
-    } catch {
-      continue;
-    }
-  }
-
-  return entities;
 }
 
 function nextLetter(letter: string): string | null {
@@ -149,7 +70,7 @@ export async function runDirectoryCrawl(args: {
   let totalFound = 0;
   let totalNew = 0;
   let done = false;
-  let detectedStrategyForThisRun: "jsonld" | "anchor" | "ai" | null = null;
+  let detectedStrategyForThisRun: string | null = null;
 
   try {
     let nextCursorLetter = currentLetter;
@@ -161,70 +82,58 @@ export async function runDirectoryCrawl(args: {
 
       const crawlUrl = buildIndexUrl(source.indexPattern, processedLetter, processedPage);
       const response = await fetchHtmlWithGuards(crawlUrl);
-      const strategy = detectDirectoryStrategy({
+
+      const strategyChain = buildStrategyChain({
         html: response.html,
         linkPattern: source.linkPattern ?? null,
+        aiApiKey: args.aiApiKey,
+        aiProviderName: args.aiProviderName as ProviderName | undefined,
       });
-      detectedStrategyForThisRun = strategy;
 
       let entities: Array<{ entityUrl: string; entityName: string | null }> = [];
-      if (strategy === "jsonld") {
-        entities = extractEntitiesFromJsonLd(response.html, response.finalUrl);
-        console.info("run_directory_crawl_strategy", {
-          sourceId: args.sourceId,
-          letter: processedLetter,
-          strategy: "jsonld",
-          found: entities.length,
-        });
-      } else if (strategy === "ai" && args.aiApiKey) {
+      let usedStrategy = "none";
+
+      for (const strategy of strategyChain) {
         try {
-          entities = await extractEntitiesWithAi({
+          const found = await strategy.extractEntities({
             html: response.html,
             pageUrl: response.finalUrl,
             baseUrl: source.baseUrl,
-            apiKey: args.aiApiKey,
-            providerName: (args.aiProviderName as ProviderName | undefined) ?? "claude",
+            linkPattern: source.linkPattern ?? null,
+            sourceBaseHostname,
           });
-          console.info("run_directory_crawl_strategy", {
-            sourceId: args.sourceId,
-            letter: processedLetter,
-            strategy: "ai",
-            found: entities.length,
-          });
+
+          if (found.length > 0) {
+            entities = found;
+            usedStrategy = strategy.name;
+            break;
+          }
         } catch (err) {
-          console.warn("run_directory_crawl_ai_failed", {
+          console.warn("run_directory_crawl_strategy_failed", {
             sourceId: args.sourceId,
+            strategy: strategy.name,
             letter: processedLetter,
             error: err instanceof Error ? err.message : String(err),
           });
-          entities = extractEntities({
-            html: response.html,
-            baseUrl: response.finalUrl,
-            sourceBaseHostname,
-          });
-          detectedStrategyForThisRun = "anchor";
         }
-      } else {
-        entities = extractEntities({
-          html: response.html,
-          baseUrl: response.finalUrl,
-          sourceBaseHostname,
-        });
-        console.info("run_directory_crawl_strategy", {
-          sourceId: args.sourceId,
-          letter: processedLetter,
-          strategy: "anchor",
-          found: entities.length,
-        });
-        detectedStrategyForThisRun = "anchor";
       }
+
+      detectedStrategyForThisRun = usedStrategy;
+
+      console.info("run_directory_crawl_strategy", {
+        sourceId: args.sourceId,
+        letter: processedLetter,
+        strategy: usedStrategy,
+        found: entities.length,
+        chainTried: strategyChain.map((s) => s.name),
+      });
 
       if (entities.length === 0) {
         console.warn("run_directory_crawl_no_entities", {
           sourceId: args.sourceId,
           crawlUrl,
           finalUrl: response.finalUrl,
-          strategy: detectedStrategyForThisRun,
+          chainTried: strategyChain.map((s) => s.name),
           htmlLength: response.html.length,
           htmlPreview: response.html.slice(0, 500),
         });

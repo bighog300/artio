@@ -13,6 +13,7 @@ const patchSchema = z.object({
   isActive: z.boolean().optional(),
   crawlIntervalMinutes: z.number().int().min(60).max(525600).optional(),
   maxPagesPerLetter: z.number().int().min(1).max(50).optional(),
+  linkPattern: z.string().trim().max(500).nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -29,6 +30,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (typeof parsed.data.isActive === "boolean") updateData.isActive = parsed.data.isActive;
     if (typeof parsed.data.crawlIntervalMinutes === "number") updateData.crawlIntervalMinutes = parsed.data.crawlIntervalMinutes;
     if (typeof parsed.data.maxPagesPerLetter === "number") updateData.maxPagesPerLetter = parsed.data.maxPagesPerLetter;
+    if (parsed.data.linkPattern !== undefined) updateData.linkPattern = parsed.data.linkPattern;
 
     const existing = await db.directorySource.findUnique({ where: { id: parsedParams.data.id }, select: { id: true } });
     if (!existing) return apiError(404, "not_found", "Directory source not found");

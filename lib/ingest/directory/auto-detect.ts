@@ -1,26 +1,37 @@
-import { hasJsonLdPersonData } from "@/lib/ingest/directory/strategies/jsonld";
+import type { ProviderName } from "@/lib/ingest/providers";
+import { AiDirectoryStrategy } from "./strategies/ai";
+import { AnchorDirectoryStrategy } from "./strategies/anchor";
+import type { DirectoryExtractionStrategy } from "./strategies/base";
+import { JsonLdDirectoryStrategy, hasJsonLdPersonData } from "./strategies/jsonld";
+import { SitemapDirectoryStrategy } from "./strategies/sitemap";
 
-export type DirectoryExtractionStrategy = "jsonld" | "anchor" | "ai";
+export type { DirectoryExtractionStrategy };
 
-function countAnchorMatches(html: string, linkPattern: string | null): number {
-  if (!linkPattern) return 0;
+export function buildStrategyChain(args: {
+  html: string;
+  linkPattern?: string | null;
+  aiApiKey?: string | null;
+  aiProviderName?: ProviderName;
+}): DirectoryExtractionStrategy[] {
+  const chain: DirectoryExtractionStrategy[] = [];
 
-  try {
-    const rx = new RegExp(linkPattern, "gi");
-    return (html.match(rx) ?? []).length;
-  } catch {
-    return 0;
+  if (hasJsonLdPersonData(args.html)) {
+    chain.push(new JsonLdDirectoryStrategy());
   }
+
+  chain.push(new SitemapDirectoryStrategy());
+  chain.push(new AnchorDirectoryStrategy());
+
+  if (args.aiApiKey) {
+    chain.push(new AiDirectoryStrategy(args.aiApiKey, args.aiProviderName ?? "claude"));
+  }
+
+  return chain;
 }
 
-export function detectDirectoryStrategy(args: { html: string; linkPattern?: string | null }): DirectoryExtractionStrategy {
-  if (hasJsonLdPersonData(args.html)) return "jsonld";
-
-  if (args.linkPattern && countAnchorMatches(args.html, args.linkPattern) >= 3) {
-    return "anchor";
-  }
-
-  if (args.html.length > 5000) return "anchor";
-
+export function detectStrategyName(html: string, linkPattern?: string | null): string {
+  if (hasJsonLdPersonData(html)) return "jsonld";
+  if (linkPattern) return "anchor";
+  if (html.length > 5000) return "anchor";
   return "ai";
 }
