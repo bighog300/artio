@@ -31,7 +31,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     });
 
     if (!entity || entity.directorySourceId !== id) return apiError(404, "not_found", "Directory entity not found");
-    if (entity.directorySource.entityType !== "ARTIST") {
+    if (entity.directorySource.entityType.toUpperCase() !== "ARTIST") {
       return apiError(400, "invalid_source_type", "Only ARTIST directory entities can be queued for discovery");
     }
 
