@@ -62,6 +62,9 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
   const [showRuns, setShowRuns] = useState(false);
   const [queueingAll, setQueueingAll] = useState(false);
   const [queuingById, setQueuingById] = useState<Record<string, boolean>>({});
+  const [extractingById, setExtractingById] = useState<Record<string, boolean>>({});
+  const [extractResultById, setExtractResultById] = useState<Record<string, string>>({});
+  const [extractingAll, setExtractingAll] = useState(false);
   const [editingPattern, setEditingPattern] = useState(false);
   const [linkPattern, setLinkPattern] = useState(source.linkPattern ?? "");
 
@@ -208,6 +211,73 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
     }
   }
 
+  async function extractArtworks(entityId: string) {
+    setExtractingById((prev) => ({ ...prev, [entityId]: true }));
+    try {
+      const res = await fetch(
+        `/api/admin/ingest/directory-sources/${source.id}/entities/${entityId}/extract-artworks`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        throw new Error(body?.error?.message ?? "Failed to extract artworks");
+      }
+      const data = await res.json() as { created: number; duplicates: number; skipped: number };
+      setExtractResultById((prev) => ({
+        ...prev,
+        [entityId]: `${data.created} new, ${data.duplicates} dupes`,
+      }));
+      enqueueToast({
+        title: data.created > 0
+          ? `${data.created} artwork${data.created === 1 ? "" : "s"} extracted`
+          : "No new artworks found",
+        variant: data.created > 0 ? "success" : "error",
+      });
+    } catch (error) {
+      enqueueToast({
+        title: error instanceof Error ? error.message : "Failed to extract artworks",
+        variant: "error",
+      });
+    } finally {
+      setExtractingById((prev) => ({ ...prev, [entityId]: false }));
+    }
+  }
+
+  async function extractAllArtworks() {
+    if (!window.confirm(
+      "Extract artworks for all matched artists? This calls the AI for each artist profile page and may take several minutes."
+    )) return;
+    setExtractingAll(true);
+    try {
+      const res = await fetch(
+        `/api/admin/ingest/directory-sources/${source.id}/extract-artworks`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        throw new Error(body?.error?.message ?? "Failed to extract artworks");
+      }
+      const data = await res.json() as {
+        processed: number;
+        totalCreated: number;
+        totalDuplicates: number;
+        totalSkipped: number;
+      };
+      enqueueToast({
+        title: `Extracted ${data.totalCreated} artworks from ${data.processed} artists`,
+        variant: "success",
+      });
+      void load(1, unmatched);
+    } catch (error) {
+      enqueueToast({
+        title: error instanceof Error ? error.message : "Failed to extract artworks",
+        variant: "error",
+      });
+    } finally {
+      setExtractingAll(false);
+    }
+  }
+
   async function savePattern() {
     try {
       const res = await fetch(`/api/admin/ingest/directory-sources/${source.id}`, {
@@ -254,6 +324,14 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
         </Button>
         <Button type="button" variant="outline" disabled={queueingAll} onClick={() => void queueAllUnmatched()}>
           {queueingAll ? "Queueing…" : "Queue all unmatched"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={extractingAll}
+          onClick={() => void extractAllArtworks()}
+        >
+          {extractingAll ? "Extracting…" : "Extract all artworks"}
         </Button>
         <Button
           type="button"
@@ -398,15 +476,33 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
               </TableCell>
               <TableCell>{new Date(entity.createdAt).toLocaleString()}</TableCell>
               <TableCell>
-                {!entity.matchedArtistId && entity.entityName && entity.entityName.trim().length >= 3 ? (
-                  <Button type="button" size="sm" variant="outline" disabled={queuingById[entity.id]} onClick={() => queue(entity.id)}>
-                    {queuingById[entity.id] ? "Queueing…" : "Queue for discovery"}
-                  </Button>
-                ) : !entity.matchedArtistId ? (
-                  <span className="text-xs text-muted-foreground">
-                    {entity.entityName ? "Invalid name" : "No name"}
-                  </span>
-                ) : null}
+                <div className="flex flex-col gap-2">
+                  {!entity.matchedArtistId && entity.entityName && entity.entityName.trim().length >= 3 ? (
+                    <Button type="button" size="sm" variant="outline" disabled={queuingById[entity.id]} onClick={() => queue(entity.id)}>
+                      {queuingById[entity.id] ? "Queueing…" : "Queue for discovery"}
+                    </Button>
+                  ) : !entity.matchedArtistId ? (
+                    <span className="text-xs text-muted-foreground">
+                      {entity.entityName ? "Invalid name" : "No name"}
+                    </span>
+                  ) : null}
+                  {entity.matchedArtistId ? (
+                    <div className="flex flex-col gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={extractingById[entity.id]}
+                        onClick={() => void extractArtworks(entity.id)}
+                      >
+                        {extractingById[entity.id] ? "Extracting…" : "Extract artworks"}
+                      </Button>
+                      {extractResultById[entity.id] ? (
+                        <span className="text-xs text-muted-foreground">{extractResultById[entity.id]}</span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </TableCell>
             </TableRow>
           ))}
