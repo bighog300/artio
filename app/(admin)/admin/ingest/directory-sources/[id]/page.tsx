@@ -109,8 +109,6 @@ export default async function DirectorySourceDetailPage({ params }: { params: Pr
           {source.lastRunError ? (
             <span className="text-destructive text-xs">Last run error: {source.lastRunError}</span>
           ) : null}
-        </div>
-        <div className="mt-2">
           <Link href="/admin/ingest/artworks" className="text-sm underline">
             Review extracted artworks →
           </Link>

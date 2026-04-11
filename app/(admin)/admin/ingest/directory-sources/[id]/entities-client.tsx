@@ -245,7 +245,7 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
 
   async function extractAllArtworks() {
     if (!window.confirm(
-      "Extract artworks for all matched artists? This calls the AI for each artist profile page and may take several minutes."
+      "Extract artworks for all matched artists? This calls the AI for each artist profile page and may take several minutes.",
     )) return;
     setExtractingAll(true);
     try {
@@ -262,10 +262,11 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
         totalCreated: number;
         totalDuplicates: number;
         totalSkipped: number;
+        message?: string;
       };
       enqueueToast({
-        title: `Extracted ${data.totalCreated} artworks from ${data.processed} artists`,
-        variant: "success",
+        title: data.message ?? `Extracted ${data.totalCreated} artworks from ${data.processed} artists`,
+        variant: data.totalCreated > 0 ? "success" : "error",
       });
       void load(1, unmatched);
     } catch (error) {
@@ -487,7 +488,7 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
                     </span>
                   ) : null}
                   {entity.matchedArtistId ? (
-                    <div className="flex flex-col gap-1">
+                    <div className="mt-1 flex flex-col gap-1">
                       <Button
                         type="button"
                         size="sm"
