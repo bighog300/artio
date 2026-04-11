@@ -86,12 +86,16 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
     setRunning(true);
     try {
       const res = await fetch(`/api/admin/ingest/directory-sources/${source.id}/run`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to run crawl");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string; code?: string } };
+        const msg = body?.error?.message ?? body?.error?.code ?? "Failed to run crawl";
+        throw new Error(msg);
+      }
       await res.json() as { letter: string; page: number; found: number; newEntities: number };
       enqueueToast({ title: "Directory crawl run complete", variant: "success" });
       window.location.reload();
-    } catch {
-      enqueueToast({ title: "Failed to run crawl", variant: "error" });
+    } catch (error) {
+      enqueueToast({ title: error instanceof Error ? error.message : "Failed to run crawl", variant: "error" });
     } finally {
       setRunning(false);
     }
@@ -183,7 +187,11 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
     setQueuingById((prev) => ({ ...prev, [entityId]: true }));
     try {
       const res = await fetch(`/api/admin/ingest/directory-sources/${source.id}/entities/${entityId}/queue`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to queue entity");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string; code?: string } };
+        const msg = body?.error?.message ?? body?.error?.code ?? "Failed to queue entity";
+        throw new Error(msg);
+      }
       const data = await res.json() as { status: string; candidateId: string | null };
       enqueueToast({
         title: data.status === "created"
@@ -193,8 +201,8 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
             : "Already exists — skipped",
         variant: "success",
       });
-    } catch {
-      enqueueToast({ title: "Failed to queue entity", variant: "error" });
+    } catch (error) {
+      enqueueToast({ title: error instanceof Error ? error.message : "Failed to queue entity", variant: "error" });
     } finally {
       setQueuingById((prev) => ({ ...prev, [entityId]: false }));
     }
@@ -220,12 +228,16 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
     if (!window.confirm("Delete all invalid entities (no name or letter-index URLs) and reset cursor to A?")) return;
     try {
       const res = await fetch(`/api/admin/ingest/directory-sources/${source.id}/entities`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to clear");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string; code?: string } };
+        const msg = body?.error?.message ?? body?.error?.code ?? "Failed to clear invalid entities";
+        throw new Error(msg);
+      }
       const data = await res.json() as { deleted: number };
       enqueueToast({ title: `Cleared ${data.deleted} invalid entities`, variant: "success" });
       void load(1, unmatched);
-    } catch {
-      enqueueToast({ title: "Failed to clear invalid entities", variant: "error" });
+    } catch (error) {
+      enqueueToast({ title: error instanceof Error ? error.message : "Failed to clear invalid entities", variant: "error" });
     }
   }
 
