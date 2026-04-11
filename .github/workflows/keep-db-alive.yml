@@ -1,0 +1,17 @@
+name: Keep DB alive
+
+on:
+  schedule:
+    - cron: '*/4 * * * *'  # every 4 minutes
+  workflow_dispatch:        # allow manual trigger
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          curl -f -s \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://artio-two.vercel.app/api/cron/health" \
+            | echo "Response: $(cat)"
