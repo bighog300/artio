@@ -79,6 +79,7 @@ export async function runDirectoryCrawl(args: {
     for (let i = 0; i < maxPagesPerRun; i += 1) {
       processedLetter = nextCursorLetter;
       processedPage = nextCursorPage;
+      const letterStartMs = Date.now();
 
       const crawlUrl = buildIndexUrl(source.indexPattern, processedLetter, processedPage);
       const response = await fetchHtmlWithGuards(crawlUrl);
@@ -140,6 +141,7 @@ export async function runDirectoryCrawl(args: {
       }
 
       totalFound += entities.length;
+      let newThisLetter = 0;
 
       let artistWebsiteByHost: Map<string, string> | null = null;
       if (source.entityType === "ARTIST" && entities.length > 0) {
@@ -193,8 +195,30 @@ export async function runDirectoryCrawl(args: {
           },
         });
 
-        if (!existing) totalNew += 1;
+        if (!existing) {
+          totalNew += 1;
+          newThisLetter += 1;
+        }
       }
+
+      const runDurationMs = Date.now() - letterStartMs;
+      await args.db.directoryCrawlRun.create({
+        data: {
+          directorySourceId: source.id,
+          letter: processedLetter,
+          page: processedPage,
+          strategy: usedStrategy,
+          found: entities.length,
+          newEntities: newThisLetter,
+          errorMessage: entities.length === 0 ? `No entities found. Chain tried: ${strategyChain.map((strategy) => strategy.name).join(", ")}` : null,
+          htmlPreview: entities.length === 0 ? response.html.slice(0, 500) : null,
+          durationMs: runDurationMs,
+        },
+      }).catch((err) => {
+        console.warn("run_directory_crawl_run_write_failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
 
       const shouldAdvanceLetter = entities.length === 0 || processedPage >= source.maxPagesPerLetter;
       if (shouldAdvanceLetter) {

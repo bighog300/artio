@@ -1170,6 +1170,7 @@ model DirectorySource {
   updatedAt           DateTime  @updatedAt @db.Timestamptz
   cursor              DirectoryCursor?
   entities            DirectoryEntity[]
+  crawlRuns           DirectoryCrawlRun[]
 
   @@unique([baseUrl, indexPattern])
   @@index([isActive, updatedAt(sort: Desc)])
@@ -1187,6 +1188,23 @@ model DirectoryCursor {
   createdAt          DateTime        @default(now()) @db.Timestamptz
   updatedAt          DateTime        @updatedAt @db.Timestamptz
   directorySource    DirectorySource @relation(fields: [directorySourceId], references: [id], onDelete: Cascade)
+}
+
+model DirectoryCrawlRun {
+  id                String          @id @default(uuid()) @db.Uuid
+  directorySourceId String          @db.Uuid
+  letter            String
+  page              Int             @default(1)
+  strategy          String
+  found             Int             @default(0)
+  newEntities       Int             @default(0)
+  errorMessage      String?
+  htmlPreview       String?
+  durationMs        Int?
+  crawledAt         DateTime        @default(now()) @db.Timestamptz
+  directorySource   DirectorySource @relation(fields: [directorySourceId], references: [id], onDelete: Cascade)
+
+  @@index([directorySourceId, crawledAt(sort: Desc)])
 }
 
 model DirectoryEntity {

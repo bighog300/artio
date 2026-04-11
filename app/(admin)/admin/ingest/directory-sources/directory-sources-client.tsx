@@ -221,14 +221,15 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
                 <TableCell className="text-sm">{source.cursor ? `${source.cursor.currentLetter} / p${source.cursor.currentPage}` : "Not started"}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{relativeTime(source.cursor?.lastRunAt ?? null)}</TableCell>
                 <TableCell>
-                  {source.lastRunFound != null ? (
+                  {source.lastRunError ? (
+                    <span className="block max-w-[200px] truncate text-xs text-destructive" title={source.lastRunError}>
+                      ⚠ {source.lastRunError.slice(0, 60)}
+                    </span>
+                  ) : source.lastRunFound != null ? (
                     <span className="text-xs text-muted-foreground">
                       {source.lastRunFound} found
-                      {source.lastRunStrategy ? ` (${source.lastRunStrategy})` : ""}
+                      {source.lastRunStrategy ? ` · ${source.lastRunStrategy}` : ""}
                     </span>
-                  ) : null}
-                  {source.lastRunError ? (
-                    <span className="text-xs text-destructive">{source.lastRunError}</span>
                   ) : null}
                 </TableCell>
                 <TableCell>
