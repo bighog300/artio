@@ -30,6 +30,7 @@ export default async function AdminDirectorySourcesPage() {
       sources: sources.map((source) => ({
         ...source,
         createdAt: source.createdAt.toISOString(),
+        lastPipelineRunAt: source.lastPipelineRunAt?.toISOString() ?? null,
         cursor: source.cursor
           ? {
             ...source.cursor,

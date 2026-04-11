@@ -19,6 +19,7 @@ const createSchema = z.object({
   entityType: z.enum(["ARTIST", "VENUE"]),
   crawlIntervalMinutes: z.number().int().min(60).max(525600).optional().default(10080),
   maxPagesPerLetter: z.number().int().min(1).max(50).optional().default(5),
+  pipelineMode: z.enum(["manual", "auto_discover", "auto_full"]).default("manual"),
 });
 
 export async function GET() {
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest) {
         crawlIntervalMinutes: parsed.data.crawlIntervalMinutes,
         maxPagesPerLetter: parsed.data.maxPagesPerLetter,
         linkPattern: parsed.data.linkPattern || null,
+        pipelineMode: parsed.data.pipelineMode,
         cursor: {
           create: {
             currentLetter: "A",

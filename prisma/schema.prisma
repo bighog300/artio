@@ -1164,6 +1164,9 @@ model DirectorySource {
   isActive            Boolean   @default(true)
   crawlIntervalMinutes Int      @default(10080)
   maxPagesPerLetter   Int       @default(5)
+  pipelineMode        String    @default("manual")
+  lastPipelineRunAt   DateTime? @db.Timestamptz
+  lastPipelineError   String?
   lastRunFound        Int?
   lastRunStrategy     String?
   lastRunError        String?

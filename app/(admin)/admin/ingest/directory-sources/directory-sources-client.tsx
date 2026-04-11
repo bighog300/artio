@@ -18,6 +18,9 @@ export type DirectorySourcesListResponse = {
     isActive: boolean;
     crawlIntervalMinutes: number;
     maxPagesPerLetter: number;
+    pipelineMode: string;
+    lastPipelineRunAt: string | null;
+    lastPipelineError: string | null;
     lastRunFound: number | null;
     lastRunStrategy: string | null;
     lastRunError: string | null;
@@ -55,6 +58,8 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [runningById, setRunningById] = useState<Record<string, boolean>>({});
+  const [pipelineResultById, setPipelineResultById] = useState<Record<string, string>>({});
+  const [pipeliningById, setPipeliningById] = useState<Record<string, boolean>>({});
 
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("https://www.saatchiart.com");
@@ -63,6 +68,7 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
   const [entityType, setEntityType] = useState<"ARTIST" | "VENUE">("ARTIST");
   const [crawlIntervalMinutes, setCrawlIntervalMinutes] = useState("10080");
   const [maxPagesPerLetter, setMaxPagesPerLetter] = useState("5");
+  const [pipelineMode, setPipelineMode] = useState<"manual" | "auto_discover" | "auto_full">("manual");
 
   async function createSource(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -79,6 +85,7 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
           entityType,
           crawlIntervalMinutes: Number.parseInt(crawlIntervalMinutes, 10),
           maxPagesPerLetter: Number.parseInt(maxPagesPerLetter, 10),
+          pipelineMode,
         }),
       });
       if (!res.ok) throw new Error("Failed to create directory source");
@@ -103,6 +110,36 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
       enqueueToast({ title: "Failed to run crawl", variant: "error" });
     } finally {
       setRunningById((prev) => ({ ...prev, [id]: false }));
+    }
+  }
+
+  async function runPipeline(id: string) {
+    setPipeliningById((prev) => ({ ...prev, [id]: true }));
+    try {
+      const res = await fetch(`/api/admin/ingest/directory-sources/${id}/pipeline`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        throw new Error(body?.error?.message ?? "Failed to run pipeline");
+      }
+      const data = await res.json() as {
+        letter: string;
+        entitiesCrawled: number;
+        artistsDiscovered: number;
+        artworksExtracted: number;
+        errors: string[];
+      };
+      setPipelineResultById((prev) => ({
+        ...prev,
+        [id]: `${data.letter}: ${data.entitiesCrawled} crawled, ${data.artistsDiscovered} artists, ${data.artworksExtracted} artworks`,
+      }));
+      enqueueToast({ title: "Pipeline run complete", variant: "success" });
+    } catch (error) {
+      enqueueToast({
+        title: error instanceof Error ? error.message : "Pipeline failed",
+        variant: "error",
+      });
+    } finally {
+      setPipeliningById((prev) => ({ ...prev, [id]: false }));
     }
   }
 
@@ -180,6 +217,18 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
               </select>
             </label>
             <label className="space-y-1 text-sm">
+              <span>Pipeline mode</span>
+              <select
+                className="w-full rounded-md border bg-background px-3 py-2"
+                value={pipelineMode}
+                onChange={(e) => setPipelineMode(e.target.value as "manual" | "auto_discover" | "auto_full")}
+              >
+                <option value="manual">Manual — admin controls each step</option>
+                <option value="auto_discover">Auto discover — crawl + queue automatically</option>
+                <option value="auto_full">Auto full — crawl + discover + extract artworks</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-sm">
               <span>Max pages per letter</span>
               <input className="w-full rounded-md border bg-background px-3 py-2" type="number" min={1} max={50} value={maxPagesPerLetter} onChange={(e) => setMaxPagesPerLetter(e.target.value)} />
             </label>
@@ -199,6 +248,7 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
               <TableHead>Entity type</TableHead>
               <TableHead>Pattern</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Pipeline mode</TableHead>
               <TableHead>Cursor position</TableHead>
               <TableHead>Last run</TableHead>
               <TableHead>Entities found</TableHead>
@@ -218,6 +268,10 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
                     {source.isActive ? "Active" : "Inactive"}
                   </button>
                 </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  <div>{source.pipelineMode}</div>
+                  <div>{relativeTime(source.lastPipelineRunAt)}</div>
+                </TableCell>
                 <TableCell className="text-sm">{source.cursor ? `${source.cursor.currentLetter} / p${source.cursor.currentPage}` : "Not started"}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{relativeTime(source.cursor?.lastRunAt ?? null)}</TableCell>
                 <TableCell>
@@ -231,15 +285,32 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
                       {source.lastRunStrategy ? ` · ${source.lastRunStrategy}` : ""}
                     </span>
                   ) : null}
+                  {source.lastPipelineError ? (
+                    <span className="block max-w-[200px] truncate text-xs text-destructive" title={source.lastPipelineError}>
+                      ⚠ {source.lastPipelineError.slice(0, 60)}
+                    </span>
+                  ) : null}
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-2">
                     <Button type="button" size="sm" variant="outline" disabled={runningById[source.id]} onClick={() => runNow(source.id)}>
                       {runningById[source.id] ? "Running…" : "Run now"}
                     </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={pipeliningById[source.id]}
+                      onClick={() => runPipeline(source.id)}
+                    >
+                      {pipeliningById[source.id] ? "Running…" : "Run pipeline"}
+                    </Button>
                     <Link href={`/admin/ingest/directory-sources/${source.id}`} className="text-sm underline">View entities</Link>
                     <Button type="button" size="sm" variant="outline" onClick={() => deleteSource(source.id)}>Delete</Button>
                     <span className="text-xs text-muted-foreground">{source._count.entities} total entities</span>
+                    {pipelineResultById[source.id] ? (
+                      <span className="text-xs text-muted-foreground">{pipelineResultById[source.id]}</span>
+                    ) : null}
                   </div>
                 </TableCell>
               </TableRow>
