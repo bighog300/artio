@@ -151,32 +151,23 @@ export async function getOrCreateDirectoryStubEvent(
   appDb: typeof db,
   directorySourceId: string,
 ): Promise<{ id: string } | null> {
-  const existing = await appDb.event.findFirst({
-    where: {
-      title: `[Directory Source: ${directorySourceId}]`,
-      isPublished: false,
-    },
-    select: { id: true },
-  });
-  if (existing) return existing;
+  const slug = `directory-source-${directorySourceId}`;
 
-  const stubVenue = await appDb.venue.findFirst({
-    where: { isPublished: false, aiGenerated: true },
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  });
-  if (!stubVenue) return null;
-
-  return appDb.event.create({
-    data: {
-      venueId: stubVenue.id,
-      title: `[Directory Source: ${directorySourceId}]`,
-      slug: `directory-source-${directorySourceId}`,
-      isPublished: false,
-      status: "DRAFT",
-      startAt: new Date("2099-01-01"),
-      timezone: "UTC",
-    },
-    select: { id: true },
-  }).catch(() => null);
+  try {
+    return await appDb.event.upsert({
+      where: { slug },
+      update: {},
+      create: {
+        title: `[Directory Source: ${directorySourceId}]`,
+        slug,
+        isPublished: false,
+        status: "DRAFT",
+        startAt: new Date("2099-01-01"),
+        timezone: "UTC",
+      },
+      select: { id: true },
+    });
+  } catch {
+    return null;
+  }
 }
