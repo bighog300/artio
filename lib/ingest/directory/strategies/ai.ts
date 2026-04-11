@@ -1,6 +1,7 @@
 import { preprocessHtml } from "@/lib/ingest/preprocess-html";
 import { getProvider } from "@/lib/ingest/providers";
 import type { ProviderName } from "@/lib/ingest/providers";
+import type { DirectoryEntity, DirectoryExtractionArgs, DirectoryExtractionStrategy } from "./base";
 
 type AiDirectoryEntity = {
   name?: string | null;
@@ -85,4 +86,26 @@ export async function extractEntitiesWithAi(args: {
   }
 
   return entities;
+}
+
+export class AiDirectoryStrategy implements DirectoryExtractionStrategy {
+  private apiKey: string;
+  private providerName: ProviderName;
+
+  constructor(apiKey: string, providerName: ProviderName = "claude") {
+    this.apiKey = apiKey;
+    this.providerName = providerName;
+  }
+
+  readonly name = "ai";
+
+  async extractEntities(args: DirectoryExtractionArgs): Promise<DirectoryEntity[]> {
+    return extractEntitiesWithAi({
+      html: args.html,
+      pageUrl: args.pageUrl,
+      baseUrl: args.baseUrl,
+      apiKey: this.apiKey,
+      providerName: this.providerName,
+    });
+  }
 }

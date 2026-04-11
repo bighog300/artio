@@ -1,3 +1,5 @@
+import type { DirectoryEntity, DirectoryExtractionArgs, DirectoryExtractionStrategy } from "./base";
+
 export type JsonLdEntity = {
   entityUrl: string;
   entityName: string | null;
@@ -77,4 +79,12 @@ export function hasJsonLdPersonData(html: string): boolean {
     if (collectPersonNodes(block).length > 0) return true;
   }
   return false;
+}
+
+export class JsonLdDirectoryStrategy implements DirectoryExtractionStrategy {
+  readonly name = "jsonld";
+
+  async extractEntities(args: DirectoryExtractionArgs): Promise<DirectoryEntity[]> {
+    return extractEntitiesFromJsonLd(args.html, args.pageUrl);
+  }
 }

@@ -13,7 +13,16 @@ export default async function DirectorySourceDetailPage({ params }: { params: Pr
 
   const source = await db.directorySource.findUnique({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      baseUrl: true,
+      entityType: true,
+      crawlIntervalMinutes: true,
+      linkPattern: true,
+      lastRunFound: true,
+      lastRunStrategy: true,
+      lastRunError: true,
       cursor: {
         select: {
           currentLetter: true,
@@ -50,6 +59,7 @@ export default async function DirectorySourceDetailPage({ params }: { params: Pr
     baseUrl: source.baseUrl,
     entityType: source.entityType,
     crawlIntervalMinutes: source.crawlIntervalMinutes,
+    linkPattern: source.linkPattern,
     cursor: source.cursor
       ? {
         ...source.cursor,
@@ -79,8 +89,23 @@ export default async function DirectorySourceDetailPage({ params }: { params: Pr
       <section className="rounded-lg border bg-background p-4 text-sm">
         <div className="flex flex-wrap items-center gap-3">
           <Badge variant="outline">{source.entityType}</Badge>
-          <span>Crawl interval: {source.crawlIntervalMinutes} min</span>
+          <span>Interval: {source.crawlIntervalMinutes} min</span>
           <span>Cursor: {source.cursor ? `${source.cursor.currentLetter} / p${source.cursor.currentPage}` : "Not started"}</span>
+          {source.lastRunStrategy ? (
+            <Badge variant="outline">Strategy: {source.lastRunStrategy}</Badge>
+          ) : null}
+          {source.lastRunFound != null ? (
+            <span>{source.lastRunFound} found last run</span>
+          ) : null}
+          {source.linkPattern ? (
+            <span className="font-mono text-xs text-muted-foreground">Pattern: {source.linkPattern}</span>
+          ) : null}
+          {source.cursor?.lastError ? (
+            <span className="text-destructive text-xs">Error: {source.cursor.lastError}</span>
+          ) : null}
+          {source.lastRunError ? (
+            <span className="text-destructive text-xs">Last run error: {source.lastRunError}</span>
+          ) : null}
         </div>
       </section>
       <EntitiesClient source={sourcePayload} initial={entitiesPayload} />

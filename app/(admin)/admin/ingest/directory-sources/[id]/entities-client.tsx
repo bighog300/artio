@@ -12,6 +12,7 @@ export type DirectorySourceDetail = {
   baseUrl: string;
   entityType: string;
   crawlIntervalMinutes: number;
+  linkPattern: string | null;
   cursor: {
     currentLetter: string;
     currentPage: number;
@@ -40,7 +41,10 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
   const [page, setPage] = useState(initial.page);
   const [unmatched, setUnmatched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
   const [queuingById, setQueuingById] = useState<Record<string, boolean>>({});
+  const [editingPattern, setEditingPattern] = useState(false);
+  const [linkPattern, setLinkPattern] = useState(source.linkPattern ?? "");
 
   async function load(nextPage: number, unmatchedOnly: boolean) {
     setLoading(true);
@@ -56,6 +60,21 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
       enqueueToast({ title: "Failed to load entities", variant: "error" });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function runNow() {
+    setRunning(true);
+    try {
+      const res = await fetch(`/api/admin/ingest/directory-sources/${source.id}/run`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to run crawl");
+      await res.json() as { letter: string; page: number; found: number; newEntities: number };
+      enqueueToast({ title: "Directory crawl run complete", variant: "success" });
+      window.location.reload();
+    } catch {
+      enqueueToast({ title: "Failed to run crawl", variant: "error" });
+    } finally {
+      setRunning(false);
     }
   }
 
@@ -80,6 +99,22 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
     }
   }
 
+  async function savePattern() {
+    try {
+      const res = await fetch(`/api/admin/ingest/directory-sources/${source.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ linkPattern: linkPattern.trim() || null }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      enqueueToast({ title: "Link pattern saved", variant: "success" });
+      setEditingPattern(false);
+      window.location.reload();
+    } catch {
+      enqueueToast({ title: "Failed to save pattern", variant: "error" });
+    }
+  }
+
   async function clearInvalid() {
     if (!window.confirm("Delete all invalid entities (no name or letter-index URLs) and reset cursor to A?")) return;
     try {
@@ -98,6 +133,9 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
   return (
     <section className="space-y-3 rounded-lg border bg-background p-4">
       <div className="flex items-center gap-3">
+        <Button type="button" size="sm" variant="outline" disabled={running} onClick={() => void runNow()}>
+          {running ? "Running…" : "Run now"}
+        </Button>
         <Button
           type="button"
           variant={unmatched ? "default" : "outline"}
@@ -114,6 +152,23 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
         </Button>
         <span className="text-sm text-muted-foreground">{payload.total} entities</span>
       </div>
+
+      {editingPattern ? (
+        <div className="flex items-center gap-2">
+          <input
+            className="flex-1 rounded-md border bg-background px-3 py-1 font-mono text-sm"
+            placeholder="/artists/[^/]+/?$"
+            value={linkPattern}
+            onChange={(e) => setLinkPattern(e.target.value)}
+          />
+          <Button type="button" size="sm" onClick={() => void savePattern()}>Save</Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => setEditingPattern(false)}>Cancel</Button>
+        </div>
+      ) : (
+        <Button type="button" size="sm" variant="outline" onClick={() => setEditingPattern(true)}>
+          {source.linkPattern ? `Pattern: ${source.linkPattern}` : "Set link pattern"}
+        </Button>
+      )}
 
       <Table>
         <TableHeader>
