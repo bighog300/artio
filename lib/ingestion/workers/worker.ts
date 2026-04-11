@@ -147,7 +147,7 @@ export async function runIngestionWorkerLoop(limit = 25) {
   return { processed };
 }
 
-async function getOrCreateDirectoryStubEvent(
+export async function getOrCreateDirectoryStubEvent(
   appDb: typeof db,
   directorySourceId: string,
 ): Promise<{ id: string } | null> {

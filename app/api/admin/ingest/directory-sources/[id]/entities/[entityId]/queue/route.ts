@@ -5,8 +5,8 @@ import { requireAdmin } from "@/lib/admin";
 import { apiError } from "@/lib/api";
 import { isAuthError } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { resolveArtistCandidate } from "@/lib/ingest/artist-resolution";
-import { runDiscoveryJob } from "@/lib/ingest/run-discovery-job";
+import { discoverArtist } from "@/lib/ingest/artist-discovery";
+import { getOrCreateDirectoryStubEvent } from "@/lib/ingestion/workers/worker";
 
 export const runtime = "nodejs";
 
@@ -34,49 +34,49 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
       return apiError(400, "invalid_source_type", "Only ARTIST directory entities can be queued for discovery");
     }
 
-    const job = await db.ingestDiscoveryJob.create({
-      data: {
-        entityType: "ARTIST",
-        queryTemplate: entity.entityUrl,
-        region: "",
-        searchProvider: "google_pse",
-        maxResults: 5,
-        status: "PENDING",
-      },
-      select: { id: true },
-    });
-
     const settings = await db.siteSettings.findUnique({
       where: { id: "default" },
-      select: { googlePseApiKey: true, googlePseCx: true, braveSearchApiKey: true },
-    });
-
-    await runDiscoveryJob({
-      db,
-      jobId: job.id,
-      env: {
-        googlePseApiKey: settings?.googlePseApiKey,
-        googlePseCx: settings?.googlePseCx,
-        braveSearchApiKey: settings?.braveSearchApiKey,
+      select: {
+        googlePseApiKey: true,
+        googlePseCx: true,
+        artistBioProvider: true,
+        anthropicApiKey: true,
+        openAiApiKey: true,
+        geminiApiKey: true,
       },
     });
 
-    const resolved = await resolveArtistCandidate({
-      db,
-      name: entity.entityName?.trim() || "Unknown Artist",
-      websiteUrl: entity.entityUrl,
+    const stubEvent = await getOrCreateDirectoryStubEvent(db, entity.directorySourceId);
+    if (!stubEvent) return apiError(500, "stub_event_missing", "Could not find or create a stub event for discovery");
+
+    const artistName = entity.entityName?.trim() || null;
+    if (!artistName) return apiError(400, "missing_entity_name", "Entity has no name — edit the entity name before queuing");
+
+    const result = await discoverArtist({
+      db: db as never,
+      artistName,
+      eventId: stubEvent.id,
+      knownProfileUrl: entity.entityUrl,
+      settings: {
+        googlePseApiKey: settings?.googlePseApiKey,
+        googlePseCx: settings?.googlePseCx,
+        artistBioProvider: settings?.artistBioProvider,
+        anthropicApiKey: settings?.anthropicApiKey,
+        openAiApiKey: settings?.openAiApiKey,
+        geminiApiKey: settings?.geminiApiKey,
+      },
     });
 
-    if (resolved) {
+    if (result.candidateId) {
       await db.directoryEntity.update({
         where: { id: entity.id },
-        data: { matchedArtistId: resolved.artistId },
+        data: { matchedArtistId: null },
       });
     }
 
     return NextResponse.json({
-      jobId: job.id,
-      matchedArtistId: resolved?.artistId ?? null,
+      status: result.status,
+      candidateId: result.candidateId ?? null,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
