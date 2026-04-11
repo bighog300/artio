@@ -17,7 +17,7 @@ export type IngestionJobPayloadMap = {
   "enrich-artist": { artistCandidateId: string };
   "enrich-artwork": { artworkCandidateId: string };
   "directory-page": { directorySourceId: string; letter: string; page: number; url: string };
-  "entity-page": { directorySourceId: string; entityUrl: string; entityTypeHint?: string | null };
+  "entity-page": { directorySourceId: string; entityUrl: string; entityTypeHint?: string | null; entityName?: string | null };
 };
 
 export type IngestionJob<T extends IngestionJobType = IngestionJobType> = {
