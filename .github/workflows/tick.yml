@@ -1,0 +1,16 @@
+name: Cron tick
+
+on:
+  schedule:
+    - cron: '* * * * *'  # every minute
+  workflow_dispatch:
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping tick endpoint
+        run: |
+          curl -f -s \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://artio-two.vercel.app/api/cron/tick"
