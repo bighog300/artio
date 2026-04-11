@@ -161,6 +161,7 @@ export async function discoverArtist(args: {
   eventId: string;
   eventTitle?: string | null;
   venueName?: string | null;
+  knownProfileUrl?: string | null;
   settings: {
     googlePseApiKey?: string | null;
     googlePseCx?: string | null;
@@ -227,51 +228,57 @@ export async function discoverArtist(args: {
   let searchItems: SearchItem[] = [];
   let errorCode: string | null = null;
   let errorMessage: string | null = null;
+  let sourceUrl: string;
 
-  if (args.settings.googlePseApiKey && args.settings.googlePseCx) {
-    try {
-      const endpoint = new URL("https://www.googleapis.com/customsearch/v1");
-      endpoint.searchParams.set("key", args.settings.googlePseApiKey);
-      endpoint.searchParams.set("cx", args.settings.googlePseCx);
-      endpoint.searchParams.set("q", searchQuery);
-      endpoint.searchParams.set("num", "5");
-
-      const response = await fetch(endpoint.toString());
-      if (response.ok) {
-        const body = (await response.json()) as { items?: Array<{ link?: string; title?: string; snippet?: string }> };
-        searchItems = (body.items ?? [])
-          .filter((item): item is { link: string; title?: string; snippet?: string } => typeof item.link === "string")
-          .map((item) => ({ link: item.link, title: item.title ?? "", snippet: item.snippet ?? "" }));
-      }
-    } catch (error) {
-      searchItems = [];
-      errorCode = normalizeDiscoveryErrorCode(error, "search_failed");
-      errorMessage = toErrorMessage(error, "Search provider request failed");
-    }
+  if (args.knownProfileUrl) {
+    sourceUrl = args.knownProfileUrl;
   } else {
-    logWarn({ message: "artist_discovery_google_pse_missing" });
+    if (args.settings.googlePseApiKey && args.settings.googlePseCx) {
+      try {
+        const endpoint = new URL("https://www.googleapis.com/customsearch/v1");
+        endpoint.searchParams.set("key", args.settings.googlePseApiKey);
+        endpoint.searchParams.set("cx", args.settings.googlePseCx);
+        endpoint.searchParams.set("q", searchQuery);
+        endpoint.searchParams.set("num", "5");
+
+        const response = await fetch(endpoint.toString());
+        if (response.ok) {
+          const body = (await response.json()) as { items?: Array<{ link?: string; title?: string; snippet?: string }> };
+          searchItems = (body.items ?? [])
+            .filter((item): item is { link: string; title?: string; snippet?: string } => typeof item.link === "string")
+            .map((item) => ({ link: item.link, title: item.title ?? "", snippet: item.snippet ?? "" }));
+        }
+      } catch (error) {
+        searchItems = [];
+        errorCode = normalizeDiscoveryErrorCode(error, "search_failed");
+        errorMessage = toErrorMessage(error, "Search provider request failed");
+      }
+    } else {
+      logWarn({ message: "artist_discovery_google_pse_missing" });
+    }
+
+    const wikipediaItem = searchItems.find((item) => item.link.includes("wikipedia.org"));
+    const nonSocialItem = searchItems.find((item) => !/(twitter\.com|instagram\.com|facebook\.com|tiktok\.com)/i.test(item.link));
+    const venuePageItem = args.venueName
+      ? searchItems.find((item) => {
+        try {
+          const hostname = new URL(item.link).hostname.toLowerCase();
+          const venueSlug = args.venueName!.toLowerCase().replace(/[^a-z0-9]/g, "");
+          return hostname.replace(/[^a-z0-9]/g, "").includes(venueSlug);
+        } catch {
+          return false;
+        }
+      })
+      : undefined;
+
+    sourceUrl = venuePageItem?.link
+      ?? wikipediaItem?.link
+      ?? nonSocialItem?.link
+      ?? searchItems[0]?.link
+      ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(args.artistName)}`;
   }
 
   const wikipediaMatch = searchItems.some((item) => item.link.includes("wikipedia.org"));
-  const wikipediaItem = searchItems.find((item) => item.link.includes("wikipedia.org"));
-  const nonSocialItem = searchItems.find((item) => !/(twitter\.com|instagram\.com|facebook\.com|tiktok\.com)/i.test(item.link));
-  const venuePageItem = args.venueName
-    ? searchItems.find((item) => {
-      try {
-        const hostname = new URL(item.link).hostname.toLowerCase();
-        const venueSlug = args.venueName!.toLowerCase().replace(/[^a-z0-9]/g, "");
-        return hostname.replace(/[^a-z0-9]/g, "").includes(venueSlug);
-      } catch {
-        return false;
-      }
-    })
-    : undefined;
-
-  const sourceUrl = venuePageItem?.link
-    ?? wikipediaItem?.link
-    ?? nonSocialItem?.link
-    ?? searchItems[0]?.link
-    ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(args.artistName)}`;
 
   let html = "";
   if (snippetsSufficient(searchItems)) {
