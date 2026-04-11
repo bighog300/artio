@@ -2,8 +2,10 @@ import { notFound } from "next/navigation";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import EntitiesClient, { type DirectoryEntitiesResponse, type DirectorySourceDetail } from "@/app/(admin)/admin/ingest/directory-sources/[id]/entities-client";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import LogsClient from "./logs-client";
 
 export const dynamic = "force-dynamic";
 
@@ -108,7 +110,18 @@ export default async function DirectorySourceDetailPage({ params }: { params: Pr
           ) : null}
         </div>
       </section>
-      <EntitiesClient source={sourcePayload} initial={entitiesPayload} />
+      <Tabs defaultValue="entities">
+        <TabsList>
+          <TabsTrigger value="entities">Entities</TabsTrigger>
+          <TabsTrigger value="logs">Logs</TabsTrigger>
+        </TabsList>
+        <TabsContent value="entities">
+          <EntitiesClient source={sourcePayload} initial={entitiesPayload} />
+        </TabsContent>
+        <TabsContent value="logs">
+          <LogsClient sourceId={source.id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

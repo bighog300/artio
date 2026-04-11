@@ -55,22 +55,83 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
       return apiError(400, "missing_entity_name", "Entity name must be at least 3 characters");
     }
 
-    const result = await discoverArtist({
-      db: db as never,
-      artistName,
-      eventId: stubEvent.id,
-      knownProfileUrl: entity.entityUrl,
-      settings: {
-        googlePseApiKey: settings?.googlePseApiKey,
-        googlePseCx: settings?.googlePseCx,
-        artistBioProvider: settings?.artistBioProvider,
-        anthropicApiKey: settings?.anthropicApiKey,
-        openAiApiKey: settings?.openAiApiKey,
-        geminiApiKey: settings?.geminiApiKey,
-      },
-    });
+    const discoveryStartMs = Date.now();
+    let discoveryResult: { status: "created" | "linked" | "skipped"; candidateId?: string } | null = null;
+    let discoveryError: string | null = null;
 
-    if (result.candidateId) {
+    try {
+      discoveryResult = await discoverArtist({
+        db: db as never,
+        artistName,
+        eventId: stubEvent.id,
+        knownProfileUrl: entity.entityUrl,
+        settings: {
+          googlePseApiKey: settings?.googlePseApiKey,
+          googlePseCx: settings?.googlePseCx,
+          artistBioProvider: settings?.artistBioProvider,
+          anthropicApiKey: settings?.anthropicApiKey,
+          openAiApiKey: settings?.openAiApiKey,
+          geminiApiKey: settings?.geminiApiKey,
+        },
+      });
+    } catch (err) {
+      discoveryError = err instanceof Error ? err.message : String(err);
+    }
+
+    const durationMs = Date.now() - discoveryStartMs;
+
+    let tokensUsed: number | null = null;
+    let extractionModel: string | null = null;
+    let confidenceScore: number | null = null;
+    let confidenceBand: string | null = null;
+
+    if (discoveryResult?.candidateId) {
+      const candidate = await db.ingestExtractedArtist.findUnique({
+        where: { id: discoveryResult.candidateId },
+        select: {
+          confidenceScore: true,
+          confidenceBand: true,
+          runs: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { model: true, usageTotalTokens: true },
+          },
+        },
+      }).catch(() => null);
+
+      tokensUsed = candidate?.runs[0]?.usageTotalTokens ?? null;
+      extractionModel = candidate?.runs[0]?.model ?? null;
+      confidenceScore = candidate?.confidenceScore ?? null;
+      confidenceBand = candidate?.confidenceBand ?? null;
+    }
+
+    db.directoryDiscoveryLog.create({
+      data: {
+        directorySourceId: id,
+        entityId: entity.id,
+        entityUrl: entity.entityUrl,
+        entityName: entity.entityName,
+        status: discoveryError ? "failed" : (discoveryResult?.status ?? "failed"),
+        candidateId: discoveryResult?.candidateId ?? null,
+        errorMessage: discoveryError,
+        model: extractionModel,
+        tokensUsed,
+        confidenceScore,
+        confidenceBand,
+        durationMs,
+      },
+    }).catch((err) =>
+      console.warn("directory_discovery_log_write_failed", {
+        entityId: entity.id,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+
+    if (discoveryError) {
+      throw new Error(discoveryError);
+    }
+
+    if (discoveryResult?.candidateId) {
       await db.directoryEntity.update({
         where: { id: entity.id },
         data: { matchedArtistId: null },
@@ -78,8 +139,8 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     }
 
     return NextResponse.json({
-      status: result.status,
-      candidateId: result.candidateId ?? null,
+      status: discoveryResult?.status ?? "failed",
+      candidateId: discoveryResult?.candidateId ?? null,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
