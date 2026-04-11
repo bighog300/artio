@@ -9,6 +9,7 @@ import { discoverArtist } from "@/lib/ingest/artist-discovery";
 import { getOrCreateDirectoryStubEvent } from "@/lib/ingestion/workers/worker";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const paramsSchema = z.object({
   id: z.string().uuid(),

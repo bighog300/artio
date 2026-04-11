@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { runDirectoryCrawl } from "@/lib/ingest/run-directory-crawl";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const paramsSchema = z.object({ id: z.string().uuid() });
 
