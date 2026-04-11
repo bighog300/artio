@@ -131,6 +131,7 @@ export async function extractArtworksForEvent(args: {
   eventId: string;
   sourceUrl: string;
   systemPromptOverride?: string | null;
+  matchedArtistId?: string | null;
   settings: {
     artworkExtractionProvider?: string | null;
     claudeApiKey?: string | null;
@@ -228,6 +229,7 @@ export async function extractArtworksForEvent(args: {
           confidenceReasons: scored.reasons,
           extractionProvider: provider.name,
           status: "PENDING",
+          matchedArtistId: args.matchedArtistId ?? null,
         },
       });
 

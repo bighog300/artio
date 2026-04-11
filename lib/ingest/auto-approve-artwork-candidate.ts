@@ -26,7 +26,9 @@ export async function autoApproveArtworkCandidate(args: {
     await markArtworkApprovalAttempt(args.db, candidate.id);
 
     let artistId: string | null = null;
-    if (candidate.artistName) {
+    if (candidate.matchedArtistId) {
+      artistId = candidate.matchedArtistId;
+    } else if (candidate.artistName) {
       const artist = await args.db.artist.findFirst({
         where: { name: { equals: candidate.artistName, mode: "insensitive" } },
         select: { id: true },

@@ -62,6 +62,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
         eventId: stubEvent.id,
         sourceUrl: entity.entityUrl,
         systemPromptOverride: ARTIST_PROFILE_ARTWORK_SYSTEM_PROMPT,
+        matchedArtistId: entity.matchedArtistId ?? null,
         settings: {
           artworkExtractionProvider: settings?.artworkExtractionProvider,
           anthropicApiKey: settings?.anthropicApiKey,

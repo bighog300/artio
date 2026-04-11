@@ -888,6 +888,7 @@ model Artist {
   artworks          Artwork[]
   featuredArtworks  ArtistFeaturedArtwork[]
   ingestCandidates  IngestExtractedArtist[]  @relation("IngestExtractedArtistCreated")
+  ingestExtractedArtworks IngestExtractedArtwork[] @relation("IngestExtractedArtworkMatchedArtist")
   stripeAccount     ArtistStripeAccount?
   enrichmentRunItems EnrichmentRunItem[]      @relation("EnrichmentRunItemArtist")
   completenessScore     Int       @default(0)
@@ -1442,6 +1443,7 @@ model IngestExtractedArtwork {
   imageUrl           String?
   artistName         String?
   sourceEventId      String              @db.Uuid
+  matchedArtistId    String?             @db.Uuid
   sourceUrl          String
   status             IngestArtworkStatus @default(PENDING)
   fingerprint        String              @unique
@@ -1457,10 +1459,12 @@ model IngestExtractedArtwork {
   createdAt          DateTime            @default(now()) @db.Timestamptz
   updatedAt          DateTime            @updatedAt @db.Timestamptz
   sourceEvent        Event               @relation("IngestExtractedArtworkSourceEvent", fields: [sourceEventId], references: [id], onDelete: Cascade)
+  matchedArtist      Artist?             @relation("IngestExtractedArtworkMatchedArtist", fields: [matchedArtistId], references: [id], onDelete: SetNull)
   createdArtwork     Artwork?            @relation("IngestExtractedArtworkCreated", fields: [createdArtworkId], references: [id], onDelete: SetNull)
 
   @@index([status, confidenceScore(sort: Desc)])
   @@index([sourceEventId])
+  @@index([matchedArtistId])
 }
 
 
