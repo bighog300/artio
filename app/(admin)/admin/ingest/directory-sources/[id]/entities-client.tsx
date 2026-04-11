@@ -64,14 +64,15 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
     try {
       const res = await fetch(`/api/admin/ingest/directory-sources/${source.id}/entities/${entityId}/queue`, { method: "POST" });
       if (!res.ok) throw new Error("Failed to queue entity");
-      const data = await res.json() as { matchedArtistId: string | null };
-      enqueueToast({ title: "Queued for discovery", variant: "success" });
-      if (data.matchedArtistId) {
-        setPayload((prev) => ({
-          ...prev,
-          entities: prev.entities.map((entity) => entity.id === entityId ? { ...entity, matchedArtistId: data.matchedArtistId } : entity),
-        }));
-      }
+      const data = await res.json() as { status: string; candidateId: string | null };
+      enqueueToast({
+        title: data.status === "created"
+          ? "Artist candidate created"
+          : data.status === "linked"
+            ? "Linked to existing candidate"
+            : "Already exists — skipped",
+        variant: "success",
+      });
     } catch {
       enqueueToast({ title: "Failed to queue entity", variant: "error" });
     } finally {
@@ -128,10 +129,12 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
               </TableCell>
               <TableCell>{new Date(entity.createdAt).toLocaleString()}</TableCell>
               <TableCell>
-                {!entity.matchedArtistId ? (
+                {!entity.matchedArtistId && entity.entityName ? (
                   <Button type="button" size="sm" variant="outline" disabled={queuingById[entity.id]} onClick={() => queue(entity.id)}>
                     {queuingById[entity.id] ? "Queueing…" : "Queue for discovery"}
                   </Button>
+                ) : !entity.matchedArtistId ? (
+                  <span className="text-xs text-muted-foreground">No name</span>
                 ) : null}
               </TableCell>
             </TableRow>

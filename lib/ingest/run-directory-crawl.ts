@@ -54,6 +54,24 @@ function buildIndexUrl(indexPattern: string, letter: string, page: number): stri
   return url;
 }
 
+function isEntityProfilePath(pathname: string, sourceBaseUrl: string): boolean {
+  try {
+    const basePath = new URL(sourceBaseUrl).pathname.toLowerCase();
+    const linkPath = pathname.toLowerCase();
+    const normalizedBasePath = basePath.replace(/\/$/, "");
+
+    if (!linkPath.startsWith(normalizedBasePath)) return false;
+
+    const remainder = linkPath.slice(normalizedBasePath.length);
+    if (/^\/[a-z]?\/?$/.test(remainder)) return false;
+    if (/\/(page|p)\/\d+/.test(remainder)) return false;
+
+    return remainder.replace(/^\//, "").length > 1;
+  } catch {
+    return false;
+  }
+}
+
 function extractEntities(args: { html: string; baseUrl: string; sourceBaseHostname: string }): Array<{ entityUrl: string; entityName: string | null }> {
   const anchorRegex = /<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
   const entities: Array<{ entityUrl: string; entityName: string | null }> = [];
@@ -70,6 +88,7 @@ function extractEntities(args: { html: string; baseUrl: string; sourceBaseHostna
       const resolved = new URL(href, base);
       const normalizedHost = resolved.hostname.toLowerCase().replace(/^www\./, "");
       if (normalizedHost !== args.sourceBaseHostname) continue;
+      if (!isEntityProfilePath(resolved.pathname, args.baseUrl)) continue;
       if (seen.has(resolved.toString())) continue;
 
       seen.add(resolved.toString());
