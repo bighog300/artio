@@ -22,7 +22,24 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     const source = await db.directorySource.findUnique({ where: { id: parsedParams.data.id }, select: { id: true } });
     if (!source) return apiError(404, "not_found", "Directory source not found");
 
-    const result = await runDirectoryCrawl({ db, sourceId: parsedParams.data.id, maxPagesPerRun: 3 });
+    const settings = await db.siteSettings.findUnique({
+      where: { id: "default" },
+      select: { anthropicApiKey: true, openAiApiKey: true, eventExtractionProvider: true },
+    });
+
+    const aiApiKey = settings?.anthropicApiKey
+      ?? process.env.ANTHROPIC_API_KEY
+      ?? settings?.openAiApiKey
+      ?? process.env.OPENAI_API_KEY
+      ?? null;
+
+    const result = await runDirectoryCrawl({
+      db,
+      sourceId: parsedParams.data.id,
+      maxPagesPerRun: 3,
+      aiApiKey,
+      aiProviderName: settings?.eventExtractionProvider ?? "claude",
+    });
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (isAuthError(error)) return apiError(401, "unauthorized", "Authentication required");
