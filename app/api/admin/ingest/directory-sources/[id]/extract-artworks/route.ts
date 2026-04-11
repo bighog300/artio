@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/admin";
 import { apiError } from "@/lib/api";
 import { isAuthError } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { extractArtworksForEvent } from "@/lib/ingest/artwork-extraction";
+import { ARTIST_PROFILE_ARTWORK_SYSTEM_PROMPT, extractArtworksForEvent } from "@/lib/ingest/artwork-extraction";
 import { getOrCreateDirectoryStubEvent } from "@/lib/ingestion/workers/worker";
 
 export const runtime = "nodejs";
@@ -61,6 +61,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
         db,
         eventId: stubEvent.id,
         sourceUrl: entity.entityUrl,
+        systemPromptOverride: ARTIST_PROFILE_ARTWORK_SYSTEM_PROMPT,
         settings: {
           artworkExtractionProvider: settings?.artworkExtractionProvider,
           anthropicApiKey: settings?.anthropicApiKey,
