@@ -80,6 +80,19 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
     }
   }
 
+  async function clearInvalid() {
+    if (!window.confirm("Delete all invalid entities (no name or letter-index URLs) and reset cursor to A?")) return;
+    try {
+      const res = await fetch(`/api/admin/ingest/directory-sources/${source.id}/entities`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to clear");
+      const data = await res.json() as { deleted: number };
+      enqueueToast({ title: `Cleared ${data.deleted} invalid entities`, variant: "success" });
+      void load(1, unmatched);
+    } catch {
+      enqueueToast({ title: "Failed to clear invalid entities", variant: "error" });
+    }
+  }
+
   const totalPages = Math.max(1, Math.ceil(payload.total / payload.pageSize));
 
   return (
@@ -95,6 +108,9 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
           }}
         >
           Show unmatched only
+        </Button>
+        <Button type="button" variant="outline" onClick={() => void clearInvalid()}>
+          Clear invalid entities
         </Button>
         <span className="text-sm text-muted-foreground">{payload.total} entities</span>
       </div>
@@ -129,12 +145,14 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
               </TableCell>
               <TableCell>{new Date(entity.createdAt).toLocaleString()}</TableCell>
               <TableCell>
-                {!entity.matchedArtistId && entity.entityName ? (
+                {!entity.matchedArtistId && entity.entityName && entity.entityName.trim().length >= 3 ? (
                   <Button type="button" size="sm" variant="outline" disabled={queuingById[entity.id]} onClick={() => queue(entity.id)}>
                     {queuingById[entity.id] ? "Queueing…" : "Queue for discovery"}
                   </Button>
                 ) : !entity.matchedArtistId ? (
-                  <span className="text-xs text-muted-foreground">No name</span>
+                  <span className="text-xs text-muted-foreground">
+                    {entity.entityName ? "Invalid name" : "No name"}
+                  </span>
                 ) : null}
               </TableCell>
             </TableRow>

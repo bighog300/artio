@@ -51,7 +51,9 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     if (!stubEvent) return apiError(500, "stub_event_missing", "Could not find or create a stub event for discovery");
 
     const artistName = entity.entityName?.trim() || null;
-    if (!artistName) return apiError(400, "missing_entity_name", "Entity has no name — edit the entity name before queuing");
+    if (!artistName || artistName.length < 3) {
+      return apiError(400, "missing_entity_name", "Entity name must be at least 3 characters");
+    }
 
     const result = await discoverArtist({
       db: db as never,
