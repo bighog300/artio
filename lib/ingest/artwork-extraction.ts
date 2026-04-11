@@ -44,6 +44,20 @@ export const DEFAULT_ARTWORK_SYSTEM_PROMPT =
   "real artworks — do not invent or hallucinate. If a field is not " +
   "present on the page, return null for that field.";
 
+export const ARTIST_PROFILE_ARTWORK_SYSTEM_PROMPT =
+  "You are an expert art cataloguer extracting artworks from an artist's profile page on an art directory website. " +
+  "The page shows a gallery of this artist's works. " +
+  "For each artwork extract: " +
+  "title (the artwork name, not the artist name), " +
+  "medium (e.g. 'Oil on canvas', 'Bronze sculpture', 'Archival pigment print'), " +
+  "year (integer, e.g. 2019), " +
+  "dimensions (raw string e.g. '90 × 120 cm'), " +
+  "imageUrl (the full URL of the artwork image — look for high-resolution src or data-src attributes, not thumbnails), " +
+  "artistName (the artist whose profile this is — same for all artworks on this page). " +
+  "Do not extract profile photos, banner images, or site UI elements. " +
+  "Only extract actual artworks. If a field is not visible return null. " +
+  "If no artworks are found return an empty array.";
+
 function resolveArtworkSystemPrompt(override?: string | null): string {
   const trimmed = override?.trim();
   return trimmed || DEFAULT_ARTWORK_SYSTEM_PROMPT;
@@ -116,6 +130,7 @@ export async function extractArtworksForEvent(args: {
   db: PrismaClient;
   eventId: string;
   sourceUrl: string;
+  systemPromptOverride?: string | null;
   settings: {
     artworkExtractionProvider?: string | null;
     claudeApiKey?: string | null;
@@ -152,7 +167,7 @@ export async function extractArtworksForEvent(args: {
     const result = await provider.extract({
       html: preprocessHtml(fetched.html),
       sourceUrl: args.sourceUrl,
-      systemPrompt: resolveArtworkSystemPrompt(settings?.artworkExtractionSystemPrompt),
+      systemPrompt: resolveArtworkSystemPrompt(args.systemPromptOverride ?? settings?.artworkExtractionSystemPrompt),
       jsonSchema: artworkExtractionSchema,
       model: "",
       apiKey,
