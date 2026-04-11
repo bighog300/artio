@@ -3,6 +3,7 @@ import { buildStrategyChain } from "@/lib/ingest/directory/auto-detect";
 import { IngestError } from "@/lib/ingest/errors";
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
 import type { ProviderName } from "@/lib/ingest/providers";
+import { normaliseDirectoryName } from "@/lib/ingestion/directory/miner";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -158,6 +159,9 @@ export async function runDirectoryCrawl(args: {
 
       for (const entity of entities) {
         let matchedArtistId: string | null = null;
+        const normalisedName = entity.entityName
+          ? (normaliseDirectoryName(entity.entityName) ?? entity.entityName)
+          : null;
 
         if (source.entityType === "ARTIST" && artistWebsiteByHost) {
           const host = normalizeHostname(entity.entityUrl);
@@ -184,12 +188,12 @@ export async function runDirectoryCrawl(args: {
           create: {
             directorySourceId: source.id,
             entityUrl: entity.entityUrl,
-            entityName: entity.entityName,
+            entityName: normalisedName,
             matchedArtistId,
             lastSeenAt: now,
           },
           update: {
-            entityName: entity.entityName,
+            entityName: normalisedName,
             matchedArtistId: matchedArtistId ?? undefined,
             lastSeenAt: now,
           },

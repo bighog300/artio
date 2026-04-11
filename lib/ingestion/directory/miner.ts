@@ -96,6 +96,11 @@ export function extractNamesFromDirectoryHtml(html: string, baseUrl: string): st
 }
 
 export function normaliseDirectoryName(raw: string): string | null {
+  const toTitleCaseWords = (value: string): string => value
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+
   const trimmed = raw.trim();
   if (!trimmed || trimmed.length < 3 || trimmed.length > 80) return null;
 
@@ -104,9 +109,12 @@ export function normaliseDirectoryName(raw: string): string | null {
     const surname = commaMatch[1].trim();
     const first = commaMatch[2].trim();
     const normSurname = surname === surname.toUpperCase()
-      ? surname.split(" ").map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ")
+      ? toTitleCaseWords(surname)
       : surname;
-    return `${first} ${normSurname}`.trim();
+    const normFirst = first === first.toUpperCase()
+      ? toTitleCaseWords(first)
+      : first;
+    return `${normFirst} ${normSurname}`.trim();
   }
 
   if (/^[A-Z\u00C0-\u024F]/.test(trimmed) && /\s/.test(trimmed)) return trimmed;

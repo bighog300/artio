@@ -6,6 +6,7 @@ import { apiError } from "@/lib/api";
 import { isAuthError } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { discoverArtist } from "@/lib/ingest/artist-discovery";
+import { normaliseDirectoryName } from "@/lib/ingestion/directory/miner";
 import { getOrCreateDirectoryStubEvent } from "@/lib/ingestion/workers/worker";
 
 export const runtime = "nodejs";
@@ -50,7 +51,8 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     const stubEvent = await getOrCreateDirectoryStubEvent(db, entity.directorySourceId);
     if (!stubEvent) return apiError(500, "stub_event_missing", "Could not find or create a stub event for discovery");
 
-    const artistName = entity.entityName?.trim() || null;
+    const rawName = entity.entityName?.trim() || null;
+    const artistName = rawName ? (normaliseDirectoryName(rawName) ?? rawName) : null;
     if (!artistName || artistName.length < 3) {
       return apiError(400, "missing_entity_name", "Entity name must be at least 3 characters");
     }
