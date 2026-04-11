@@ -32,6 +32,7 @@ export const DEFAULT_CRON_JOBS: CronJobCreateInput[] = [
   { name: "venue_score_completeness", displayName: "Venue: Score Completeness", endpoint: "/api/cron/venues/score-completeness", schedule: "10 4 * * *", enabled: true },
   { name: "health", displayName: "Health Check", endpoint: "/api/cron/health", schedule: "*/15 * * * *", enabled: true },
   { name: "feed_cache_refresh", displayName: "Feed Cache Refresh", endpoint: "/api/cron/feed-cache", schedule: "*/20 * * * *", enabled: true },
+  { name: "directory_pipeline", displayName: "Directory Pipeline", endpoint: "/api/cron/directory-pipeline", schedule: "*/5 * * * *", enabled: true },
 ];
 
 export async function seedDefaultCronJobs(db: Pick<PrismaClient, "cronJob">) {
