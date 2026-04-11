@@ -36,7 +36,18 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     });
 
     return NextResponse.json({
-      runs: runs.map((run) => ({
+      runs: runs.map((run: {
+        id: string;
+        letter: string;
+        page: number;
+        strategy: string | null;
+        found: number;
+        newEntities: number;
+        errorMessage: string | null;
+        htmlPreview: string | null;
+        durationMs: number | null;
+        crawledAt: Date;
+      }) => ({
         ...run,
         crawledAt: run.crawledAt.toISOString(),
       })),

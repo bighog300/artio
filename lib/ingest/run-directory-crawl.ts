@@ -214,7 +214,7 @@ export async function runDirectoryCrawl(args: {
           htmlPreview: entities.length === 0 ? response.html.slice(0, 500) : null,
           durationMs: runDurationMs,
         },
-      }).catch((err) => {
+      }).catch((err: unknown) => {
         console.warn("run_directory_crawl_run_write_failed", {
           error: err instanceof Error ? err.message : String(err),
         });
