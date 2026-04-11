@@ -1171,6 +1171,7 @@ model DirectorySource {
   cursor              DirectoryCursor?
   entities            DirectoryEntity[]
   crawlRuns           DirectoryCrawlRun[]
+  discoveryLogs       DirectoryDiscoveryLog[]
 
   @@unique([baseUrl, indexPattern])
   @@index([isActive, updatedAt(sort: Desc)])
@@ -1207,6 +1208,29 @@ model DirectoryCrawlRun {
   @@index([directorySourceId, crawledAt(sort: Desc)])
 }
 
+model DirectoryDiscoveryLog {
+  id                String          @id @default(uuid()) @db.Uuid
+  directorySourceId String          @db.Uuid
+  entityId          String          @db.Uuid
+  entityUrl         String
+  entityName        String?
+  status            String
+  candidateId       String?         @db.Uuid
+  errorMessage      String?
+  model             String?
+  tokensUsed        Int?
+  confidenceScore   Int?
+  confidenceBand    String?
+  durationMs        Int?
+  createdAt         DateTime        @default(now()) @db.Timestamptz
+  directorySource   DirectorySource @relation(fields: [directorySourceId], references: [id], onDelete: Cascade)
+  entity            DirectoryEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([directorySourceId, createdAt(sort: Desc)])
+  @@index([entityId])
+  @@index([candidateId])
+}
+
 model DirectoryEntity {
   id                String          @id @default(uuid()) @db.Uuid
   directorySourceId String          @db.Uuid
@@ -1218,6 +1242,7 @@ model DirectoryEntity {
   updatedAt         DateTime        @updatedAt @db.Timestamptz
   directorySource   DirectorySource @relation(fields: [directorySourceId], references: [id], onDelete: Cascade)
   matchedArtist     Artist?         @relation(fields: [matchedArtistId], references: [id], onDelete: SetNull)
+  discoveryLogs     DirectoryDiscoveryLog[]
 
   @@unique([directorySourceId, entityUrl])
   @@index([directorySourceId, lastSeenAt(sort: Desc)])
