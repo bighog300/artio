@@ -1,7 +1,4 @@
 {
   "installCommand": "pnpm run vercel:install",
-  "buildCommand": "pnpm run vercel:build",
-  "crons": [
-    { "path": "/api/cron/tick", "schedule": "* * * * *" }
-  ]
+  "buildCommand": "pnpm run vercel:build"
 }
