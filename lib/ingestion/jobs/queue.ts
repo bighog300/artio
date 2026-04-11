@@ -46,7 +46,15 @@ export async function enqueueIngestionJob<T extends IngestionJobType>(
     createdAt: now,
   };
 
-  await redisLpush(QUEUE_KEY, JSON.stringify(job));
+  const pushed = await safeRedisCall(
+    () => redisLpush(QUEUE_KEY, JSON.stringify(job)),
+    null,
+    "enqueue_lpush",
+  );
+  if (pushed === null) {
+    logError({ message: "ingestion_job_enqueue_failed", jobType: type, jobId: job.id, idempotencyKey });
+    return { enqueued: false, jobId: job.id, idempotencyKey };
+  }
   logInfo({ message: "ingestion_job_enqueued", jobType: type, jobId: job.id, idempotencyKey });
   return { enqueued: true, jobId: job.id, idempotencyKey };
 }
@@ -97,7 +105,11 @@ export async function markJobFailed(job: IngestionJob, error: unknown): Promise<
     attempts: job.attempts + 1,
     runAt: Date.now() + nextBackoffMs(job.attempts + 1),
   };
-  await redisLpush(QUEUE_KEY, JSON.stringify(retried));
+  await safeRedisCall(
+    () => redisLpush(QUEUE_KEY, JSON.stringify(retried)),
+    null,
+    "requeue_failed_job",
+  );
   logInfo({ message: "ingestion_job_requeued", jobType: job.type, jobId: job.id, attempts: retried.attempts, nextRunAt: retried.runAt });
 }
 

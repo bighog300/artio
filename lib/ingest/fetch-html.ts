@@ -65,8 +65,10 @@ export async function fetchHtmlWithGuards(url: string, opts: FetchHtmlOptions = 
         method: "GET",
         redirect: "manual",
         headers: {
-          "user-agent": "ArtioIngestBot/1.0 (+https://artio.co)",
-          accept: "text/html,application/xhtml+xml",
+          "user-agent": "Mozilla/5.0 (compatible; ArtioBot/2.0; +https://artio.co)",
+          "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "accept-language": "en-GB,en;q=0.9",
+          "cache-control": "no-cache",
         },
         signal: abortController.signal,
       });

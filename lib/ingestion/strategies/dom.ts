@@ -42,7 +42,13 @@ function extractEventsFromText(text: string, sourceUrl: string): ExtractionResul
 
 export class DomExtractionStrategy implements ExtractionStrategy {
   async discoverPages(gallery: GallerySource): Promise<DiscoveredGalleryPage[]> {
-    const response = await fetch(gallery.baseUrl, { headers: { "user-agent": "ArtioIngestBot/2.0" } });
+    const response = await fetch(gallery.baseUrl, {
+      headers: {
+        "user-agent": "Mozilla/5.0 (compatible; ArtioBot/2.0; +https://artio.co)",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "en-GB,en;q=0.9",
+      },
+    });
     if (!response.ok) throw new Error(`dom_discover_failed:${response.status}`);
     const html = await response.text();
     return discoverAnchorUrls(html, gallery.baseUrl).slice(0, 200).map((url) => ({ url }));

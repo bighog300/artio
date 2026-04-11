@@ -241,22 +241,22 @@ export async function runDirectoryCrawl(args: {
           lastError: `${error.code}: ${error.message}`,
         },
       });
-      return {
-        letter: processedLetter,
-        page: processedPage,
-        found: totalFound,
-        newEntities: totalNew,
-        done: false,
-      };
+    } else {
+      await args.db.directoryCursor.update({
+        where: { id: cursor.id },
+        data: {
+          lastRunAt: now,
+          lastError: error instanceof Error ? error.message : String(error),
+        },
+      });
     }
 
-    await args.db.directoryCursor.update({
-      where: { id: cursor.id },
-      data: {
-        lastRunAt: now,
-        lastError: error instanceof Error ? error.message : String(error),
-      },
-    });
-    throw error;
+    return {
+      letter: processedLetter,
+      page: processedPage,
+      found: totalFound,
+      newEntities: totalNew,
+      done: false,
+    };
   }
 }
