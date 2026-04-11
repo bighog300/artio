@@ -13,10 +13,14 @@ export type DirectorySourcesListResponse = {
     name: string;
     baseUrl: string;
     indexPattern: string;
+    linkPattern: string | null;
     entityType: string;
     isActive: boolean;
     crawlIntervalMinutes: number;
     maxPagesPerLetter: number;
+    lastRunFound: number | null;
+    lastRunStrategy: string | null;
+    lastRunError: string | null;
     createdAt: string;
     cursor: {
       currentLetter: string;
@@ -51,11 +55,11 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [runningById, setRunningById] = useState<Record<string, boolean>>({});
-  const [runResultById, setRunResultById] = useState<Record<string, string>>({});
 
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("https://www.saatchiart.com");
   const [indexPattern, setIndexPattern] = useState("https://www.saatchiart.com/artists/[letter]/[page]");
+  const [linkPattern, setLinkPattern] = useState("");
   const [entityType, setEntityType] = useState<"ARTIST" | "VENUE">("ARTIST");
   const [crawlIntervalMinutes, setCrawlIntervalMinutes] = useState("10080");
   const [maxPagesPerLetter, setMaxPagesPerLetter] = useState("5");
@@ -71,6 +75,7 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
           name,
           baseUrl,
           indexPattern,
+          linkPattern: linkPattern || null,
           entityType,
           crawlIntervalMinutes: Number.parseInt(crawlIntervalMinutes, 10),
           maxPagesPerLetter: Number.parseInt(maxPagesPerLetter, 10),
@@ -91,8 +96,7 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
     try {
       const res = await fetch(`/api/admin/ingest/directory-sources/${id}/run`, { method: "POST" });
       if (!res.ok) throw new Error("Failed to run crawl");
-      const data = await res.json() as { letter: string; page: number; found: number; newEntities: number };
-      setRunResultById((prev) => ({ ...prev, [id]: `${data.letter} / p${data.page}: Found ${data.found} entities (${data.newEntities} new)` }));
+      await res.json() as { letter: string; page: number; found: number; newEntities: number };
       enqueueToast({ title: "Directory crawl run complete", variant: "success" });
       window.location.reload();
     } catch {
@@ -145,6 +149,20 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
             <label className="space-y-1 text-sm md:col-span-2">
               <span>Index pattern</span>
               <input className="w-full rounded-md border bg-background px-3 py-2" placeholder="https://www.saatchiart.com/artists/[letter]/[page]" value={indexPattern} onChange={(e) => setIndexPattern(e.target.value)} required />
+            </label>
+            <label className="space-y-1 text-sm md:col-span-2">
+              <span>
+                Link pattern{" "}
+                <span className="text-muted-foreground">
+                  (optional regex to identify profile URLs, e.g. <code>/artists/[^/]+</code>)
+                </span>
+              </span>
+              <input
+                className="w-full rounded-md border bg-background px-3 py-2 font-mono text-sm"
+                placeholder="/artists/[^/]+/?$"
+                value={linkPattern}
+                onChange={(e) => setLinkPattern(e.target.value)}
+              />
             </label>
             <label className="space-y-1 text-sm">
               <span>Entity type</span>
@@ -202,7 +220,17 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
                 </TableCell>
                 <TableCell className="text-sm">{source.cursor ? `${source.cursor.currentLetter} / p${source.cursor.currentPage}` : "Not started"}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{relativeTime(source.cursor?.lastRunAt ?? null)}</TableCell>
-                <TableCell>{source._count.entities}</TableCell>
+                <TableCell>
+                  {source.lastRunFound != null ? (
+                    <span className="text-xs text-muted-foreground">
+                      {source.lastRunFound} found
+                      {source.lastRunStrategy ? ` (${source.lastRunStrategy})` : ""}
+                    </span>
+                  ) : null}
+                  {source.lastRunError ? (
+                    <span className="text-xs text-destructive">{source.lastRunError}</span>
+                  ) : null}
+                </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-2">
                     <Button type="button" size="sm" variant="outline" disabled={runningById[source.id]} onClick={() => runNow(source.id)}>
@@ -210,7 +238,7 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
                     </Button>
                     <Link href={`/admin/ingest/directory-sources/${source.id}`} className="text-sm underline">View entities</Link>
                     <Button type="button" size="sm" variant="outline" onClick={() => deleteSource(source.id)}>Delete</Button>
-                    {runResultById[source.id] ? <span className="text-xs text-muted-foreground">{runResultById[source.id]}</span> : null}
+                    <span className="text-xs text-muted-foreground">{source._count.entities} total entities</span>
                   </div>
                 </TableCell>
               </TableRow>

@@ -1158,10 +1158,14 @@ model DirectorySource {
   name                String
   baseUrl             String
   indexPattern        String
+  linkPattern         String?
   entityType          String
   isActive            Boolean   @default(true)
   crawlIntervalMinutes Int      @default(10080)
   maxPagesPerLetter   Int       @default(5)
+  lastRunFound        Int?
+  lastRunStrategy     String?
+  lastRunError        String?
   createdAt           DateTime  @default(now()) @db.Timestamptz
   updatedAt           DateTime  @updatedAt @db.Timestamptz
   cursor              DirectoryCursor?

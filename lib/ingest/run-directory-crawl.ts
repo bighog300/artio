@@ -1,6 +1,10 @@
 import type { PrismaClient } from "@prisma/client";
+import { detectDirectoryStrategy } from "@/lib/ingest/directory/auto-detect";
+import { extractEntitiesWithAi } from "@/lib/ingest/directory/strategies/ai";
+import { extractEntitiesFromJsonLd } from "@/lib/ingest/directory/strategies/jsonld";
 import { IngestError } from "@/lib/ingest/errors";
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
+import type { ProviderName } from "@/lib/ingest/providers";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const NAV_LABELS = new Set([
@@ -112,6 +116,8 @@ export async function runDirectoryCrawl(args: {
   db: PrismaClient;
   sourceId: string;
   maxPagesPerRun?: number;
+  aiApiKey?: string | null;
+  aiProviderName?: string | null;
 }): Promise<{ letter: string; page: number; found: number; newEntities: number; done: boolean }> {
   const maxPagesPerRun = args.maxPagesPerRun ?? 1;
 
@@ -143,6 +149,7 @@ export async function runDirectoryCrawl(args: {
   let totalFound = 0;
   let totalNew = 0;
   let done = false;
+  let detectedStrategyForThisRun: "jsonld" | "anchor" | "ai" | null = null;
 
   try {
     let nextCursorLetter = currentLetter;
@@ -154,11 +161,74 @@ export async function runDirectoryCrawl(args: {
 
       const crawlUrl = buildIndexUrl(source.indexPattern, processedLetter, processedPage);
       const response = await fetchHtmlWithGuards(crawlUrl);
-      const entities = extractEntities({
+      const strategy = detectDirectoryStrategy({
         html: response.html,
-        baseUrl: response.finalUrl,
-        sourceBaseHostname,
+        linkPattern: source.linkPattern ?? null,
       });
+      detectedStrategyForThisRun = strategy;
+
+      let entities: Array<{ entityUrl: string; entityName: string | null }> = [];
+      if (strategy === "jsonld") {
+        entities = extractEntitiesFromJsonLd(response.html, response.finalUrl);
+        console.info("run_directory_crawl_strategy", {
+          sourceId: args.sourceId,
+          letter: processedLetter,
+          strategy: "jsonld",
+          found: entities.length,
+        });
+      } else if (strategy === "ai" && args.aiApiKey) {
+        try {
+          entities = await extractEntitiesWithAi({
+            html: response.html,
+            pageUrl: response.finalUrl,
+            baseUrl: source.baseUrl,
+            apiKey: args.aiApiKey,
+            providerName: (args.aiProviderName as ProviderName | undefined) ?? "claude",
+          });
+          console.info("run_directory_crawl_strategy", {
+            sourceId: args.sourceId,
+            letter: processedLetter,
+            strategy: "ai",
+            found: entities.length,
+          });
+        } catch (err) {
+          console.warn("run_directory_crawl_ai_failed", {
+            sourceId: args.sourceId,
+            letter: processedLetter,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          entities = extractEntities({
+            html: response.html,
+            baseUrl: response.finalUrl,
+            sourceBaseHostname,
+          });
+          detectedStrategyForThisRun = "anchor";
+        }
+      } else {
+        entities = extractEntities({
+          html: response.html,
+          baseUrl: response.finalUrl,
+          sourceBaseHostname,
+        });
+        console.info("run_directory_crawl_strategy", {
+          sourceId: args.sourceId,
+          letter: processedLetter,
+          strategy: "anchor",
+          found: entities.length,
+        });
+        detectedStrategyForThisRun = "anchor";
+      }
+
+      if (entities.length === 0) {
+        console.warn("run_directory_crawl_no_entities", {
+          sourceId: args.sourceId,
+          crawlUrl,
+          finalUrl: response.finalUrl,
+          strategy: detectedStrategyForThisRun,
+          htmlLength: response.html.length,
+          htmlPreview: response.html.slice(0, 500),
+        });
+      }
 
       totalFound += entities.length;
 
@@ -243,6 +313,14 @@ export async function runDirectoryCrawl(args: {
         lastError: null,
       },
     });
+    await args.db.directorySource.update({
+      where: { id: source.id },
+      data: {
+        lastRunFound: totalFound,
+        lastRunStrategy: detectedStrategyForThisRun,
+        lastRunError: null,
+      },
+    });
 
     return {
       letter: processedLetter,
@@ -252,12 +330,18 @@ export async function runDirectoryCrawl(args: {
       done,
     };
   } catch (error) {
+    const lastRunError = error instanceof IngestError
+      ? `${error.code}: ${error.message}`
+      : error instanceof Error
+        ? error.message
+        : String(error);
+
     if (error instanceof IngestError) {
       await args.db.directoryCursor.update({
         where: { id: cursor.id },
         data: {
           lastRunAt: now,
-          lastError: `${error.code}: ${error.message}`,
+          lastError: lastRunError,
         },
       });
     } else {
@@ -265,10 +349,18 @@ export async function runDirectoryCrawl(args: {
         where: { id: cursor.id },
         data: {
           lastRunAt: now,
-          lastError: error instanceof Error ? error.message : String(error),
+          lastError: lastRunError,
         },
       });
     }
+    await args.db.directorySource.update({
+      where: { id: source.id },
+      data: {
+        lastRunFound: totalFound,
+        lastRunStrategy: detectedStrategyForThisRun,
+        lastRunError,
+      },
+    });
 
     return {
       letter: processedLetter,

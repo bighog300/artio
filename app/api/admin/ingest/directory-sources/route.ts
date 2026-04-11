@@ -15,6 +15,7 @@ const createSchema = z.object({
   indexPattern: z.string().trim().min(5).max(500).refine((v) => v.includes("[letter]"), {
     message: "indexPattern must include [letter]",
   }),
+  linkPattern: z.string().trim().min(1).max(500).optional().nullable(),
   entityType: z.enum(["ARTIST", "VENUE"]),
   crawlIntervalMinutes: z.number().int().min(60).max(525600).optional().default(10080),
   maxPagesPerLetter: z.number().int().min(1).max(50).optional().default(5),
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
         entityType: parsed.data.entityType,
         crawlIntervalMinutes: parsed.data.crawlIntervalMinutes,
         maxPagesPerLetter: parsed.data.maxPagesPerLetter,
+        linkPattern: parsed.data.linkPattern || null,
         cursor: {
           create: {
             currentLetter: "A",
