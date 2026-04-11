@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { enqueueToast } from "@/lib/toast";
 
@@ -232,7 +231,9 @@ export default function LogsClient({ sourceId }: { sourceId: string }) {
                         ? <span className="text-destructive">error</span>
                         : <span className="text-emerald-700">ok</span>
                     ) : (
-                      <Badge className={statusChip(entry.status)}>{entry.status}</Badge>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusChip(entry.status)}`}>
+                        {entry.status}
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
@@ -242,7 +243,7 @@ export default function LogsClient({ sourceId }: { sourceId: string }) {
                     {entry._type === "crawl" ? (
                       <span>{entry.found} found, {entry.newEntities} new</span>
                     ) : entry.confidenceBand ? (
-                      <span className={`rounded px-1.5 py-0.5 ${confidenceChip(entry.confidenceBand)}`}>
+                      <span className={`rounded px-1.5 py-0.5 text-xs ${confidenceChip(entry.confidenceBand ?? "")}`}>
                         {entry.confidenceBand} ({entry.confidenceScore})
                       </span>
                     ) : "—"}
