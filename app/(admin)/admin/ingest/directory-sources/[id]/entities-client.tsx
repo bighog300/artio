@@ -81,6 +81,8 @@ export default function EntitiesClient({
   const [queuingById, setQueuingById] = useState<Record<string, boolean>>({});
   const [extractingById, setExtractingById] = useState<Record<string, boolean>>({});
   const [extractResultById, setExtractResultById] = useState<Record<string, string>>({});
+  const [classifyResultById, setClassifyResultById] = useState<Record<string, { pageType: string; confidence: number } | null>>({});
+  const [classifyingById, setClassifyingById] = useState<Record<string, boolean>>({});
   const [extractingAll, setExtractingAll] = useState(false);
   const [editingPattern, setEditingPattern] = useState(false);
   const [linkPattern, setLinkPattern] = useState(source.linkPattern ?? "");
@@ -227,6 +229,24 @@ export default function EntitiesClient({
       enqueueToast({ title: error instanceof Error ? error.message : "Failed to queue entity", variant: "error" });
     } finally {
       setQueuingById((prev) => ({ ...prev, [entityId]: false }));
+    }
+  }
+
+  async function classifyEntity(entityId: string, entityUrl: string) {
+    setClassifyingById((prev) => ({ ...prev, [entityId]: true }));
+    try {
+      const res = await fetch("/api/admin/ingest/directory-sources/classify-page", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: entityUrl }),
+      });
+      if (!res.ok) throw new Error("Classification failed");
+      const data = await res.json() as { pageType: string; confidence: number };
+      setClassifyResultById((prev) => ({ ...prev, [entityId]: data }));
+    } catch {
+      enqueueToast({ title: "Classification failed", variant: "error" });
+    } finally {
+      setClassifyingById((prev) => ({ ...prev, [entityId]: false }));
     }
   }
 
@@ -561,9 +581,22 @@ export default function EntitiesClient({
             <TableRow key={entity.id}>
               <TableCell>{entity.entityName ?? "—"}</TableCell>
               <TableCell>
-                <a className="max-w-[340px] block truncate underline" href={entity.entityUrl} target="_blank" rel="noreferrer">
-                  {entity.entityUrl}
-                </a>
+                <div className="flex flex-col gap-1">
+                  <a className="block max-w-[340px] truncate underline" href={entity.entityUrl} target="_blank" rel="noreferrer">
+                    {entity.entityUrl}
+                  </a>
+                  {classifyResultById[entity.id] ? (
+                    <span className={`w-fit rounded px-1.5 py-0.5 text-xs ${
+                      classifyResultById[entity.id]?.pageType === "artist_profile" ? "bg-purple-100 text-purple-800"
+                        : classifyResultById[entity.id]?.pageType === "event_detail" ? "bg-blue-100 text-blue-800"
+                          : classifyResultById[entity.id]?.pageType === "exhibition_overview" ? "bg-amber-100 text-amber-700"
+                            : classifyResultById[entity.id]?.pageType === "category_listing" ? "bg-orange-100 text-orange-800"
+                              : "bg-muted text-muted-foreground"
+                    }`}>
+                      {classifyResultById[entity.id]?.pageType} ({classifyResultById[entity.id]?.confidence}%)
+                    </span>
+                  ) : null}
+                </div>
               </TableCell>
               <TableCell>
                 {entity.matchedArtistId ? (
@@ -586,6 +619,15 @@ export default function EntitiesClient({
                       {entity.entityName ? "Invalid name" : "No name"}
                     </span>
                   ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={classifyingById[entity.id]}
+                    onClick={() => void classifyEntity(entity.id, entity.entityUrl)}
+                  >
+                    {classifyingById[entity.id] ? "…" : "Classify"}
+                  </Button>
                   {entity.matchedArtistId ? (
                     <div className="mt-1 flex flex-col gap-1">
                       <Button
