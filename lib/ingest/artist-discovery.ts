@@ -199,27 +199,31 @@ export async function discoverArtist(args: {
 
   const fingerprint = createHash("sha256").update(normalizedName).digest("hex");
 
-  const existingCandidate = await args.db.ingestExtractedArtist.findFirst({
-    where: { fingerprint, status: "PENDING" },
-    select: { id: true },
+  const existingByFingerprint = await args.db.ingestExtractedArtist.findFirst({
+    where: { fingerprint },
+    select: { id: true, status: true },
   });
 
-  if (existingCandidate) {
-    await args.db.ingestExtractedArtistEvent.upsert({
-      where: {
-        artistCandidateId_eventId: {
-          artistCandidateId: existingCandidate.id,
+  if (existingByFingerprint) {
+    if (existingByFingerprint.status === "PENDING") {
+      await args.db.ingestExtractedArtistEvent.upsert({
+        where: {
+          artistCandidateId_eventId: {
+            artistCandidateId: existingByFingerprint.id,
+            eventId: args.eventId,
+          },
+        },
+        create: {
+          artistCandidateId: existingByFingerprint.id,
           eventId: args.eventId,
         },
-      },
-      create: {
-        artistCandidateId: existingCandidate.id,
-        eventId: args.eventId,
-      },
-      update: {},
-    });
+        update: {},
+      });
 
-    return { status: "linked", candidateId: existingCandidate.id };
+      return { status: "linked", candidateId: existingByFingerprint.id };
+    }
+
+    return { status: "skipped" };
   }
 
   const searchQuery = buildArtistSearchQuery({
@@ -420,8 +424,9 @@ export async function discoverArtist(args: {
   const candidateName = extracted.name?.trim() || args.artistName.trim();
 
   const createRows = async (tx: Pick<Prisma.TransactionClient, "ingestExtractedArtist" | "ingestExtractedArtistRun" | "ingestExtractedArtistEvent">) => {
-    const candidate = await tx.ingestExtractedArtist.create({
-      data: {
+    const candidate = await tx.ingestExtractedArtist.upsert({
+      where: { fingerprint },
+      create: {
         name: candidateName,
         normalizedName,
         bio: extracted.bio,
@@ -440,7 +445,8 @@ export async function discoverArtist(args: {
         confidenceBand: scored.band,
         confidenceReasons: scored.reasons as Prisma.JsonArray,
         extractionProvider: chosenProvider.name,
-      },
+      } as Prisma.IngestExtractedArtistCreateInput,
+      update: {},
       select: { id: true },
     });
 
