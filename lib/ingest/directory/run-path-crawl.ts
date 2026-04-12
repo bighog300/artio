@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { buildStrategyChain } from "@/lib/ingest/directory/auto-detect";
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
+import { classifyPage, type PageType } from "@/lib/ingest/directory/classify-page";
 import type { ProviderName } from "@/lib/ingest/providers";
 import { logInfo, logWarn } from "@/lib/logging";
 
@@ -147,59 +148,140 @@ export async function runPathCrawl(args: {
           }
         }
 
-        logInfo({
-          message: "path_crawl_page",
-          pathId: args.pathId,
-          contentType: path.contentType,
-          pageUrl,
-          strategy: usedStrategy,
-          found: entities.length,
-        });
+        if (entities.length > 0) {
+          logInfo({
+            message: "path_crawl_page",
+            pathId: args.pathId,
+            contentType: path.contentType,
+            pageUrl,
+            strategy: usedStrategy,
+            found: entities.length,
+          });
 
-        if (entities.length === 0) {
-          done = true;
-          break;
-        }
+          totalFound += entities.length;
 
-        totalFound += entities.length;
+          const linkedSource = await (args.db as any).directorySource.findFirst({
+            where: { siteProfileId: path.siteProfileId },
+            select: { id: true },
+          });
 
-        const linkedSource = await (args.db as any).directorySource.findFirst({
-          where: { siteProfileId: path.siteProfileId },
-          select: { id: true },
-        });
+          if (linkedSource) {
+            for (const entity of entities) {
+              const existing = await args.db.directoryEntity.findUnique({
+                where: {
+                  directorySourceId_entityUrl: {
+                    directorySourceId: linkedSource.id,
+                    entityUrl: entity.entityUrl,
+                  },
+                },
+                select: { id: true },
+              });
 
-        if (linkedSource) {
-          for (const entity of entities) {
-            const existing = await args.db.directoryEntity.findUnique({
-              where: {
-                directorySourceId_entityUrl: {
+              await args.db.directoryEntity.upsert({
+                where: {
+                  directorySourceId_entityUrl: {
+                    directorySourceId: linkedSource.id,
+                    entityUrl: entity.entityUrl,
+                  },
+                },
+                create: {
                   directorySourceId: linkedSource.id,
                   entityUrl: entity.entityUrl,
+                  entityName: entity.entityName,
+                  lastSeenAt: now,
                 },
-              },
+                update: {
+                  entityName: entity.entityName ?? undefined,
+                  lastSeenAt: now,
+                },
+              });
+
+              if (!existing) totalNew += 1;
+            }
+          }
+        } else {
+          const classification = await classifyPage({
+            url: pageUrl,
+            html: response.html,
+            aiApiKey: args.aiApiKey,
+            aiProviderName: args.aiProviderName,
+          }).catch(() => ({ pageType: "unknown" as PageType, confidence: 0, reasoning: "" }));
+
+          logInfo({
+            message: "path_crawl_page_classified",
+            pathId: args.pathId,
+            pageUrl,
+            pageType: classification.pageType,
+            confidence: classification.confidence,
+            reasoning: classification.reasoning,
+          });
+
+          if (
+            classification.pageType === "artist_profile"
+            && classification.confidence >= 60
+            && path.contentType === "artist"
+          ) {
+            const linkedSource = await (args.db as any).directorySource.findFirst({
+              where: { siteProfileId: path.siteProfileId },
               select: { id: true },
             });
 
-            await args.db.directoryEntity.upsert({
-              where: {
-                directorySourceId_entityUrl: {
-                  directorySourceId: linkedSource.id,
-                  entityUrl: entity.entityUrl,
+            if (linkedSource) {
+              await args.db.directoryEntity.upsert({
+                where: {
+                  directorySourceId_entityUrl: {
+                    directorySourceId: linkedSource.id,
+                    entityUrl: pageUrl,
+                  },
                 },
-              },
-              create: {
-                directorySourceId: linkedSource.id,
-                entityUrl: entity.entityUrl,
-                entityName: entity.entityName,
-                lastSeenAt: now,
-              },
-              update: {
-                entityName: entity.entityName ?? undefined,
-                lastSeenAt: now,
-              },
+                create: {
+                  directorySourceId: linkedSource.id,
+                  entityUrl: pageUrl,
+                  entityName: null,
+                  lastSeenAt: now,
+                },
+                update: { lastSeenAt: now },
+              });
+              totalNew += 1;
+              totalFound += 1;
+            }
+          } else if (
+            (classification.pageType === "event_detail" || classification.pageType === "exhibition_overview")
+            && classification.confidence >= 60
+            && (path.contentType === "event" || path.contentType === "exhibition")
+          ) {
+            const linkedSource = await (args.db as any).directorySource.findFirst({
+              where: { siteProfileId: path.siteProfileId },
+              select: { id: true },
             });
 
-            if (!existing) totalNew += 1;
+            if (linkedSource) {
+              await args.db.directoryEntity.upsert({
+                where: {
+                  directorySourceId_entityUrl: {
+                    directorySourceId: linkedSource.id,
+                    entityUrl: pageUrl,
+                  },
+                },
+                create: {
+                  directorySourceId: linkedSource.id,
+                  entityUrl: pageUrl,
+                  entityName: null,
+                  lastSeenAt: now,
+                },
+                update: { lastSeenAt: now },
+              });
+              totalFound += 1;
+            }
+          } else {
+            logWarn({
+              message: "path_crawl_no_entities",
+              pathId: args.pathId,
+              pageUrl,
+              pageType: classification.pageType,
+            });
+            done = true;
+            break;
           }
         }
 

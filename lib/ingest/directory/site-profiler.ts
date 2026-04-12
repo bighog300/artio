@@ -205,7 +205,7 @@ export async function analyseSite(args: {
     }
 
     const raw = result.raw as Record<string, unknown>;
-    return {
+    let aiResult: SiteProfileResult = {
       hostname,
       platform: platform !== "unknown" ? platform : null,
       directoryUrl: (raw.directoryUrl as string | null) ?? candidateDirectoryUrl,
@@ -224,6 +224,56 @@ export async function analyseSite(args: {
         )
         : [],
     };
+
+    if (
+      aiResult.sampleProfileUrls.length > 0
+      && args.aiApiKey
+      && aiResult.confidence >= 50
+    ) {
+      try {
+        const { classifyPage } = await import("@/lib/ingest/directory/classify-page");
+        const sampleUrl = aiResult.sampleProfileUrls[0];
+
+        if (sampleUrl) {
+          const sampleFetched = await fetchHtmlWithGuards(sampleUrl).catch(() => null);
+          if (sampleFetched) {
+            const sampleClassification = await classifyPage({
+              url: sampleUrl,
+              html: sampleFetched.html,
+              aiApiKey: args.aiApiKey,
+              aiProviderName: args.aiProviderName,
+            });
+
+            logInfo({
+              message: "site_profiler_sample_classification",
+              hostname,
+              sampleUrl,
+              pageType: sampleClassification.pageType,
+              confidence: sampleClassification.confidence,
+            });
+
+            const expectedType = aiResult.detectedSections.find(
+              (section) => section.contentType === "artist"
+            );
+            if (
+              expectedType
+              && sampleClassification.pageType !== "artist_profile"
+              && sampleClassification.confidence >= 70
+            ) {
+              aiResult = {
+                ...aiResult,
+                confidence: Math.max(0, aiResult.confidence - 20),
+                reasoning: `${aiResult.reasoning} (Note: sample profile classified as ${sampleClassification.pageType} — link pattern may need adjustment)`,
+              };
+            }
+          }
+        }
+      } catch {
+        // Non-fatal — sample classification is best-effort
+      }
+    }
+
+    return aiResult;
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     logWarn({ message: "site_profiler_ai_failed", hostname, error });
