@@ -99,6 +99,27 @@ export async function autoApproveArtistCandidate(args: {
       candidateId: candidate.id,
     }).catch((err) => logWarn({ message: "auto_approve_artist_image_failed", candidateId: candidate.id, err, approvalErrorCode: "image_import_failed" }));
 
+    // Import avatar image if available and artist has no featured asset yet
+    if (candidate.avatarUrl && newArtist.id) {
+      try {
+        const existingArtist = await args.db.artist.findUnique({
+          where: { id: newArtist.id },
+          select: { featuredAssetId: true },
+        });
+
+        if (!existingArtist?.featuredAssetId) {
+          const { importArtistAvatarImage } = await import("@/lib/ingest/import-artist-avatar-image");
+          await importArtistAvatarImage({
+            db: args.db,
+            artistId: newArtist.id,
+            imageUrl: candidate.avatarUrl,
+          });
+        }
+      } catch (err) {
+        logWarn({ message: "auto_approve_artist_avatar_import_failed", artistId: newArtist.id, err });
+      }
+    }
+
     // Retroactive artwork re-link
     try {
       const eventIds = candidate.eventLinks.map((link) => link.eventId);

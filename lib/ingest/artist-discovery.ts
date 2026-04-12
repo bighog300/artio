@@ -22,6 +22,7 @@ export const DEFAULT_ARTIST_BIO_SYSTEM_PROMPT = [
   "- twitterUrl: Full https:// Twitter or X profile URL. Return null if not present.",
   "- nationality: Country of origin or citizenship as a plain string. Return null if not stated.",
   "- birthYear: Four-digit integer birth year only. Return null if not stated or only a decade is given.",
+  "- avatarUrl: URL of the artist's profile photo, headshot, or logo image at the top of the page. This is a photo OF the artist, not of their artwork. Look for a circular or portrait-style image near the artist's name. Return the full https:// URL. Return null if not present or ambiguous.",
   "",
   "If the page is a 404, stub, login wall, or clearly unrelated to the artist, return null for all fields.",
   "If the page is a search results page rather than a profile page, extract from the most relevant snippet only.",
@@ -30,7 +31,7 @@ export const DEFAULT_ARTIST_BIO_SYSTEM_PROMPT = [
 const artistExtractionSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["name", "bio", "mediums", "websiteUrl", "instagramUrl", "twitterUrl", "nationality", "birthYear"],
+  required: ["name", "bio", "mediums", "websiteUrl", "instagramUrl", "twitterUrl", "nationality", "birthYear", "avatarUrl"],
   properties: {
     name: { anyOf: [{ type: "string" }, { type: "null" }] },
     bio: { anyOf: [{ type: "string" }, { type: "null" }] },
@@ -40,6 +41,7 @@ const artistExtractionSchema = {
     twitterUrl: { anyOf: [{ type: "string" }, { type: "null" }] },
     nationality: { anyOf: [{ type: "string" }, { type: "null" }] },
     birthYear: { anyOf: [{ type: "integer" }, { type: "null" }] },
+    avatarUrl: { anyOf: [{ type: "string" }, { type: "null" }] },
   },
 } as const;
 
@@ -318,6 +320,7 @@ export async function discoverArtist(args: {
     twitterUrl: string | null;
     nationality: string | null;
     birthYear: number | null;
+    avatarUrl: string | null;
   } = {
     name: null,
     bio: null,
@@ -327,6 +330,7 @@ export async function discoverArtist(args: {
     twitterUrl: null,
     nationality: null,
     birthYear: null,
+    avatarUrl: null,
   };
 
   let usageTotalTokens: number | null = null;
@@ -360,6 +364,7 @@ export async function discoverArtist(args: {
           twitterUrl: asString(raw.twitterUrl),
           nationality: asString(raw.nationality),
           birthYear: asInteger(raw.birthYear),
+          avatarUrl: asString(raw.avatarUrl),
         };
       }
     } catch (error) {
@@ -374,6 +379,7 @@ export async function discoverArtist(args: {
         twitterUrl: null,
         nationality: null,
         birthYear: null,
+        avatarUrl: null,
       };
     }
   } else {
@@ -386,6 +392,7 @@ export async function discoverArtist(args: {
       twitterUrl: null,
       nationality: null,
       birthYear: null,
+      avatarUrl: null,
     };
   }
 
@@ -396,6 +403,7 @@ export async function discoverArtist(args: {
     twitterUrl: extracted.twitterUrl,
     mediums: extracted.mediums,
     birthYear: extracted.birthYear,
+    avatarUrl: extracted.avatarUrl,
     name: extracted.name ?? args.artistName,
     searchQuery,
     wikipediaMatch,
@@ -415,6 +423,7 @@ export async function discoverArtist(args: {
         twitterUrl: extracted.twitterUrl,
         nationality: extracted.nationality,
         birthYear: extracted.birthYear,
+        avatarUrl: extracted.avatarUrl,
         sourceUrl,
         searchQuery,
         status: "PENDING",

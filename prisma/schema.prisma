@@ -1397,6 +1397,7 @@ model IngestExtractedArtist {
   lastApprovalError  String?
   imageImportStatus  String?
   imageImportWarning String?
+  avatarUrl          String?
   createdArtistId    String?                      @db.Uuid
   extractionProvider String
   createdAt          DateTime                     @default(now()) @db.Timestamptz
