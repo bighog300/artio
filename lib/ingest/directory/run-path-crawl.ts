@@ -42,7 +42,7 @@ export async function runPathCrawl(args: {
   aiApiKey?: string | null;
   aiProviderName?: ProviderName;
 }): Promise<PathCrawlResult> {
-  const path = await (args.db as any).ingestionPath.findUnique({
+  const path = await args.db.ingestionPath.findUnique({
     where: { id: args.pathId },
     select: {
       id: true,
@@ -65,7 +65,7 @@ export async function runPathCrawl(args: {
   let errorMessage: string | null = null;
 
   if (path.paginationType === "letter" && path.indexPattern?.includes("[letter]")) {
-    const existingSource = await (args.db as any).directorySource.findFirst({
+    const existingSource = await args.db.directorySource.findFirst({
       where: {
         siteProfileId: path.siteProfileId,
         indexPattern: path.indexPattern ?? "",
@@ -160,7 +160,7 @@ export async function runPathCrawl(args: {
 
           totalFound += entities.length;
 
-          const linkedSource = await (args.db as any).directorySource.findFirst({
+          const linkedSource = await args.db.directorySource.findFirst({
             where: { siteProfileId: path.siteProfileId },
             select: { id: true },
           });
@@ -221,7 +221,7 @@ export async function runPathCrawl(args: {
             && classification.confidence >= 60
             && path.contentType === "artist"
           ) {
-            const linkedSource = await (args.db as any).directorySource.findFirst({
+            const linkedSource = await args.db.directorySource.findFirst({
               where: { siteProfileId: path.siteProfileId },
               select: { id: true },
             });
@@ -250,7 +250,7 @@ export async function runPathCrawl(args: {
             && classification.confidence >= 60
             && (path.contentType === "event" || path.contentType === "exhibition")
           ) {
-            const linkedSource = await (args.db as any).directorySource.findFirst({
+            const linkedSource = await args.db.directorySource.findFirst({
               where: { siteProfileId: path.siteProfileId },
               select: { id: true },
             });
@@ -298,7 +298,7 @@ export async function runPathCrawl(args: {
     }
   }
 
-  await (args.db as any).ingestionPath.update({
+  await args.db.ingestionPath.update({
     where: { id: args.pathId },
     data: {
       lastRunAt: now,
