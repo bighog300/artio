@@ -13,6 +13,7 @@ export type DirectorySourceDetail = {
   entityType: string;
   crawlIntervalMinutes: number;
   linkPattern: string | null;
+  siteProfileHostname: string | null;
   cursor: {
     currentLetter: string;
     currentPage: number;
@@ -49,7 +50,23 @@ type RunRecord = {
   crawledAt: string;
 };
 
-export default function EntitiesClient({ source, initial }: { source: DirectorySourceDetail; initial: DirectoryEntitiesResponse }) {
+export default function EntitiesClient({
+  source,
+  initial,
+  ingestionPaths = [],
+}: {
+  source: DirectorySourceDetail;
+  initial: DirectoryEntitiesResponse;
+  ingestionPaths?: Array<{
+    id: string;
+    name: string;
+    baseUrl: string;
+    contentType: string;
+    enabled: boolean;
+    lastRunAt: string | null;
+    lastRunFound: number | null;
+  }>;
+}) {
   const [payload, setPayload] = useState(initial);
   const [page, setPage] = useState(initial.page);
   const [unmatched, setUnmatched] = useState(false);
@@ -67,6 +84,8 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
   const [extractingAll, setExtractingAll] = useState(false);
   const [editingPattern, setEditingPattern] = useState(false);
   const [linkPattern, setLinkPattern] = useState(source.linkPattern ?? "");
+  const [pathRunResults, setPathRunResults] = useState<Record<string, string>>({});
+  const [runningPathById, setRunningPathById] = useState<Record<string, boolean>>({});
 
   async function load(nextPage: number, unmatchedOnly: boolean) {
     setLoading(true);
@@ -312,10 +331,90 @@ export default function EntitiesClient({ source, initial }: { source: DirectoryS
     }
   }
 
+  async function runPath(pathId: string, hostname: string) {
+    setRunningPathById((prev) => ({ ...prev, [pathId]: true }));
+    try {
+      const res = await fetch(
+        `/api/admin/ingest/directory-sources/site-profiles/${hostname}/paths/${pathId}/run`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        throw new Error(body?.error?.message ?? "Failed to run path");
+      }
+      const data = await res.json() as {
+        contentType: string;
+        found: number;
+        newEntities: number;
+        error: string | null;
+      };
+      setPathRunResults((prev) => ({
+        ...prev,
+        [pathId]: data.error
+          ? `Error: ${data.error}`
+          : `${data.found} found, ${data.newEntities} new`,
+      }));
+      enqueueToast({
+        title: data.error
+          ? `Path crawl failed: ${data.error}`
+          : `Path crawl complete — ${data.found} found`,
+        variant: data.error ? "error" : "success",
+      });
+    } catch (error) {
+      enqueueToast({
+        title: error instanceof Error ? error.message : "Failed to run path",
+        variant: "error",
+      });
+    } finally {
+      setRunningPathById((prev) => ({ ...prev, [pathId]: false }));
+    }
+  }
+
   const totalPages = Math.max(1, Math.ceil(payload.total / payload.pageSize));
 
   return (
     <section className="space-y-3 rounded-lg border bg-background p-4">
+      {ingestionPaths.length > 0 && source.siteProfileHostname ? (
+        <div className="space-y-2 rounded-lg border bg-background p-3">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ingestion paths</div>
+          <div className="space-y-1.5">
+            {ingestionPaths.map((path) => (
+              <div key={path.id} className="flex items-center gap-2 text-xs">
+                <span className={`rounded px-1.5 py-0.5 font-medium ${
+                  path.contentType === "artist" ? "bg-purple-100 text-purple-800"
+                    : path.contentType === "event" ? "bg-blue-100 text-blue-800"
+                      : path.contentType === "exhibition" ? "bg-amber-100 text-amber-700"
+                        : "bg-muted text-muted-foreground"
+                }`}>
+                  {path.contentType}
+                </span>
+                <span className="font-medium">{path.name}</span>
+                <span className="text-muted-foreground truncate max-w-[160px]">{path.baseUrl}</span>
+                {pathRunResults[path.id] ? (
+                  <span className="text-muted-foreground">{pathRunResults[path.id]}</span>
+                ) : path.lastRunFound != null ? (
+                  <span className="text-muted-foreground">{path.lastRunFound} found last run</span>
+                ) : null}
+                {path.enabled ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="ml-auto"
+                    disabled={runningPathById[path.id]}
+                    onClick={() => void runPath(path.id, source.siteProfileHostname!)}
+                  >
+                    {runningPathById[path.id] ? "Running…" : "Run"}
+                  </Button>
+                ) : (
+                  <span className="ml-auto text-muted-foreground">disabled</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex items-center gap-3">
         <Button type="button" size="sm" variant="outline" disabled={running} onClick={() => void runNow()}>
           {running ? "Running…" : "Run now"}

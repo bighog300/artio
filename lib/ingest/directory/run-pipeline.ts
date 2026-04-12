@@ -34,6 +34,48 @@ export async function runDirectoryPipeline(args: {
     aiProviderName: args.aiProviderName,
   });
 
+  const source = await (args.db as any).directorySource.findUnique({
+    where: { id: args.sourceId },
+    select: { siteProfileId: true },
+  });
+
+  if (source?.siteProfileId) {
+    const { runPathCrawl } = await import("@/lib/ingest/directory/run-path-crawl");
+    const nonLetterPaths = await (args.db as any).ingestionPath.findMany({
+      where: {
+        siteProfileId: source.siteProfileId,
+        enabled: true,
+        paginationType: { not: "letter" },
+      },
+      select: { id: true, contentType: true },
+    });
+
+    for (const path of nonLetterPaths) {
+      try {
+        const pathResult = await runPathCrawl({
+          db: args.db,
+          pathId: path.id,
+          maxPagesPerRun: 1,
+          aiApiKey: args.aiApiKey,
+          aiProviderName: args.aiProviderName,
+        });
+
+        logInfo({
+          message: "pipeline_path_crawl",
+          pathId: path.id,
+          contentType: path.contentType,
+          found: pathResult.found,
+        });
+      } catch (err) {
+        logWarn({
+          message: "pipeline_path_crawl_failed",
+          pathId: path.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+  }
+
   logInfo({
     message: "directory_pipeline_crawl",
     sourceId: args.sourceId,
