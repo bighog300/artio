@@ -18,18 +18,22 @@ const querySchema = z.object({
 
 type BackfillArtistsDeps = {
   db: {
-    event: {
+    ingestExtractedEvent: {
       findMany: (args: {
         where: {
-          isPublished: true;
-          deletedAt: null;
+          status: "APPROVED";
+          createdEventId: { not: null };
           artistNames: { isEmpty: false };
-          eventArtists: { none: Record<string, never> };
         };
-        select: { id: true; artistNames: true; title: true; venue: { select: { name: true } } };
-        orderBy: { startAt: "desc" };
+        select: {
+          id: true;
+          artistNames: true;
+          title: true;
+          createdEventId: true;
+        };
+        orderBy: { createdAt: "desc" };
         take: number;
-      }) => Promise<Array<{ id: string; artistNames: string[]; title: string | null; venue: { name: string } | null }>>;
+      }) => Promise<Array<{ id: string; artistNames: string[]; title: string | null; createdEventId: string | null }>>;
     };
     eventArtist: {
       findMany: (args: {
@@ -143,15 +147,19 @@ export async function handleBackfillArtistsCron(req: Request, deps: BackfillArti
       },
     });
 
-    const events = await deps.db.event.findMany({
+    const extractedEvents = await deps.db.ingestExtractedEvent.findMany({
       where: {
-        isPublished: true,
-        deletedAt: null,
+        status: "APPROVED",
+        createdEventId: { not: null },
         artistNames: { isEmpty: false },
-        eventArtists: { none: {} },
       },
-      select: { id: true, artistNames: true, title: true, venue: { select: { name: true } } },
-      orderBy: { startAt: "desc" },
+      select: {
+        id: true,
+        artistNames: true,
+        title: true,
+        createdEventId: true,
+      },
+      orderBy: { createdAt: "desc" },
       take: parsed.data.limit,
     });
 
@@ -160,14 +168,17 @@ export async function handleBackfillArtistsCron(req: Request, deps: BackfillArti
     let unresolvedTotal = 0;
     let searchQueriesUsed = 0;
 
-    for (const event of events) {
+    for (const extractedEvent of extractedEvents) {
+      if (!extractedEvent.createdEventId) continue;
+      const createdEventId = extractedEvent.createdEventId;
+
       const existingLinks = await deps.db.eventArtist.findMany({
-        where: { eventId: event.id },
+        where: { eventId: createdEventId },
         select: { artist: { select: { name: true } } },
       });
 
       const linkedNames = new Set(existingLinks.map((link) => normalize(link.artist.name)));
-      const unresolvedNames = event.artistNames.filter((name) => !linkedNames.has(normalize(name)));
+      const unresolvedNames = extractedEvent.artistNames.filter((name) => !linkedNames.has(normalize(name)));
       unresolvedTotal += unresolvedNames.length;
 
       await runWithConcurrency(unresolvedNames, ARTIST_DISCOVERY_CONCURRENCY, async (artistName) => {
@@ -181,10 +192,10 @@ export async function handleBackfillArtistsCron(req: Request, deps: BackfillArti
 
           await deps.discoverArtist({
             db: deps.db as never,
-            eventId: event.id,
+            eventId: createdEventId,
             artistName,
-            eventTitle: event.title,
-            venueName: event.venue?.name,
+            eventTitle: extractedEvent.title,
+            venueName: null,
             settings: {
               googlePseApiKey: settings?.googlePseApiKey ?? process.env.GOOGLE_PSE_API_KEY,
               googlePseCx: settings?.googlePseCx ?? process.env.GOOGLE_PSE_CX,
@@ -198,7 +209,13 @@ export async function handleBackfillArtistsCron(req: Request, deps: BackfillArti
           discovered += 1;
         } catch (error) {
           failed += 1;
-          logWarn({ message: "cron_backfill_artists_discover_failed", eventId: event.id, artistName, error });
+          logWarn({
+            message: "cron_backfill_artists_discover_failed",
+            extractedEventId: extractedEvent.id,
+            eventId: createdEventId,
+            artistName,
+            error,
+          });
         }
       });
     }
@@ -210,11 +227,11 @@ export async function handleBackfillArtistsCron(req: Request, deps: BackfillArti
       startedAt,
       finishedAt: new Date(deps.now()).toISOString(),
       durationMs: deps.now() - startedAtMs,
-      processedCount: events.length,
+      processedCount: extractedEvents.length,
       errorCount: failed,
       dryRun: false,
       lock: lock.supported ? "acquired" as const : "unsupported" as const,
-      processedEvents: events.length,
+      processedEvents: extractedEvents.length,
       unresolvedNames: unresolvedTotal,
       discovered,
       failed,
