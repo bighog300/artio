@@ -1174,8 +1174,10 @@ model DirectorySource {
   lastRunFound        Int?
   lastRunStrategy     String?
   lastRunError        String?
+  siteProfileId       String?   @db.Uuid
   createdAt           DateTime  @default(now()) @db.Timestamptz
   updatedAt           DateTime  @updatedAt @db.Timestamptz
+  siteProfile         SiteProfile? @relation(fields: [siteProfileId], references: [id], onDelete: SetNull)
   cursor              DirectoryCursor?
   entities            DirectoryEntity[]
   crawlRuns           DirectoryCrawlRun[]
@@ -1291,6 +1293,28 @@ model ArtistObservation {
   @@index([identityId])
   @@index([sourceDomain])
   @@index([sourceUrl])
+}
+
+model SiteProfile {
+  id                   String            @id @default(uuid()) @db.Uuid
+  hostname             String            @unique
+  platform             String?
+  directoryUrl         String?
+  indexPattern         String?
+  linkPattern          String?
+  paginationType       String            @default("letter")
+  exhibitionPattern    String?
+  sampleProfileUrls    String[]          @default([])
+  estimatedArtistCount Int?
+  confidence           Int               @default(0)
+  analysisError        String?
+  reasoning            String?
+  lastProfiledAt       DateTime?         @db.Timestamptz
+  createdAt            DateTime          @default(now()) @db.Timestamptz
+  updatedAt            DateTime          @updatedAt @db.Timestamptz
+  directorySources     DirectorySource[]
+
+  @@index([hostname])
 }
 
 model DirectoryEntity {

@@ -36,6 +36,22 @@ export type DirectorySourcesListResponse = {
   }>;
 };
 
+type AnalysisResult = {
+  hostname: string;
+  platform: string | null;
+  directoryUrl: string | null;
+  indexPattern: string | null;
+  linkPattern: string | null;
+  paginationType: string;
+  exhibitionPattern: string | null;
+  sampleProfileUrls: string[];
+  estimatedArtistCount: number | null;
+  confidence: number;
+  reasoning: string;
+  analysisError: string | null;
+  siteProfileId: string;
+};
+
 function relativeTime(iso: string | null): string {
   if (!iso) return "—";
   const diff = Date.now() - new Date(iso).getTime();
@@ -47,52 +63,77 @@ function relativeTime(iso: string | null): string {
   return `${future ? "in " : ""}${Math.round(abs / 86_400_000)} day${future ? "" : " ago"}`;
 }
 
-const INTERVAL_OPTIONS = [
-  { label: "Daily", value: 1440 },
-  { label: "Weekly", value: 10080 },
-  { label: "Monthly", value: 43200 },
-] as const;
-
 export default function DirectorySourcesClient({ initial }: { initial: DirectorySourcesListResponse }) {
   const [sources, setSources] = useState(initial.sources);
-  const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [runningById, setRunningById] = useState<Record<string, boolean>>({});
   const [pipelineResultById, setPipelineResultById] = useState<Record<string, string>>({});
   const [pipeliningById, setPipeliningById] = useState<Record<string, boolean>>({});
 
-  const [name, setName] = useState("");
-  const [baseUrl, setBaseUrl] = useState("https://www.saatchiart.com");
-  const [indexPattern, setIndexPattern] = useState("https://www.saatchiart.com/artists/[letter]/[page]");
-  const [linkPattern, setLinkPattern] = useState("");
-  const [entityType, setEntityType] = useState<"ARTIST" | "VENUE">("ARTIST");
-  const [crawlIntervalMinutes, setCrawlIntervalMinutes] = useState("10080");
-  const [maxPagesPerLetter, setMaxPagesPerLetter] = useState("5");
-  const [pipelineMode, setPipelineMode] = useState<"manual" | "auto_discover" | "auto_full">("manual");
+  const [wizardStep, setWizardStep] = useState<"closed" | "analyse" | "confirm">("closed");
+  const [analyseInput, setAnalyseInput] = useState("");
+  const [analysing, setAnalysing] = useState(false);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [confirmedName, setConfirmedName] = useState("");
+  const [confirmedBaseUrl, setConfirmedBaseUrl] = useState("");
+  const [confirmedIndexPattern, setConfirmedIndexPattern] = useState("");
+  const [confirmedLinkPattern, setConfirmedLinkPattern] = useState("");
+  const [confirmedPipelineMode, setConfirmedPipelineMode] = useState<"manual" | "auto_discover" | "auto_full">("auto_discover");
 
-  async function createSource(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function runAnalysis() {
+    setAnalysing(true);
+    try {
+      const res = await fetch("/api/admin/ingest/directory-sources/analyse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: analyseInput.trim() }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        throw new Error(body?.error?.message ?? "Analysis failed");
+      }
+      const data = await res.json() as AnalysisResult;
+      setAnalysis(data);
+      setConfirmedName(data.hostname);
+      setConfirmedBaseUrl(data.directoryUrl ?? `https://${data.hostname}/artists/`);
+      setConfirmedIndexPattern(data.indexPattern ?? "");
+      setConfirmedLinkPattern(data.linkPattern ?? "");
+      setWizardStep("confirm");
+    } catch (error) {
+      enqueueToast({ title: error instanceof Error ? error.message : "Analysis failed", variant: "error" });
+    } finally {
+      setAnalysing(false);
+    }
+  }
+
+  async function confirmCreate() {
     setSubmitting(true);
     try {
       const res = await fetch("/api/admin/ingest/directory-sources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          baseUrl,
-          indexPattern,
-          linkPattern: linkPattern || null,
-          entityType,
-          crawlIntervalMinutes: Number.parseInt(crawlIntervalMinutes, 10),
-          maxPagesPerLetter: Number.parseInt(maxPagesPerLetter, 10),
-          pipelineMode,
+          name: confirmedName,
+          baseUrl: confirmedBaseUrl,
+          indexPattern: confirmedIndexPattern,
+          linkPattern: confirmedLinkPattern || null,
+          entityType: "ARTIST",
+          crawlIntervalMinutes: 10080,
+          maxPagesPerLetter: 5,
+          pipelineMode: confirmedPipelineMode,
+          siteProfileId: analysis?.siteProfileId ?? null,
         }),
       });
-      if (!res.ok) throw new Error("Failed to create directory source");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        throw new Error(body?.error?.message ?? "Failed to create source");
+      }
       enqueueToast({ title: "Directory source created", variant: "success" });
+      setWizardStep("closed");
+      setAnalysis(null);
       window.location.reload();
-    } catch {
-      enqueueToast({ title: "Failed to create source", variant: "error" });
+    } catch (error) {
+      enqueueToast({ title: error instanceof Error ? error.message : "Failed to create source", variant: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -175,73 +216,135 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
   return (
     <div className="space-y-4">
       <section className="rounded-lg border bg-background p-4">
-        {!formOpen ? (
-          <Button type="button" onClick={() => setFormOpen(true)}>Add source</Button>
-        ) : (
-          <form className="grid gap-3 md:grid-cols-2" onSubmit={createSource}>
-            <label className="space-y-1 text-sm">
-              <span>Name</span>
-              <input className="w-full rounded-md border bg-background px-3 py-2" value={name} onChange={(e) => setName(e.target.value)} required />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span>Base URL</span>
-              <input className="w-full rounded-md border bg-background px-3 py-2" placeholder="https://www.saatchiart.com" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} required />
-            </label>
-            <label className="space-y-1 text-sm md:col-span-2">
-              <span>Index pattern</span>
-              <input className="w-full rounded-md border bg-background px-3 py-2" placeholder="https://www.saatchiart.com/artists/[letter]/[page]" value={indexPattern} onChange={(e) => setIndexPattern(e.target.value)} required />
-            </label>
-            <label className="space-y-1 text-sm md:col-span-2">
-              <span>
-                Link pattern{" "}
-                <span className="text-muted-foreground">
-                  (optional regex to identify profile URLs, e.g. <code>/artists/[^/]+</code>)
-                </span>
-              </span>
+        {wizardStep === "closed" ? (
+          <Button type="button" onClick={() => setWizardStep("analyse")}>Add source</Button>
+        ) : wizardStep === "analyse" ? (
+          <div className="space-y-3">
+            <h3 className="font-medium text-sm">Analyse a website</h3>
+            <p className="text-sm text-muted-foreground">
+              Enter a URL — the system will fetch the site and automatically propose an artist directory configuration.
+            </p>
+            <div className="flex gap-2">
               <input
-                className="w-full rounded-md border bg-background px-3 py-2 font-mono text-sm"
-                placeholder="/artists/[^/]+/?$"
-                value={linkPattern}
-                onChange={(e) => setLinkPattern(e.target.value)}
+                className="flex-1 rounded-md border bg-background px-3 py-2 text-sm"
+                placeholder="art.co.za or https://www.saatchiart.com"
+                value={analyseInput}
+                onChange={(e) => setAnalyseInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !analysing) void runAnalysis(); }}
               />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span>Entity type</span>
-              <select className="w-full rounded-md border bg-background px-3 py-2" value={entityType} onChange={(e) => setEntityType(e.target.value as "ARTIST" | "VENUE")}>
-                <option value="ARTIST">Artist</option>
-                <option value="VENUE">Venue</option>
-              </select>
-            </label>
-            <label className="space-y-1 text-sm">
-              <span>Crawl interval</span>
-              <select className="w-full rounded-md border bg-background px-3 py-2" value={crawlIntervalMinutes} onChange={(e) => setCrawlIntervalMinutes(e.target.value)}>
-                {INTERVAL_OPTIONS.map((option) => (
-                  <option key={option.value} value={String(option.value)}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1 text-sm">
-              <span>Pipeline mode</span>
-              <select
-                className="w-full rounded-md border bg-background px-3 py-2"
-                value={pipelineMode}
-                onChange={(e) => setPipelineMode(e.target.value as "manual" | "auto_discover" | "auto_full")}
-              >
-                <option value="manual">Manual — admin controls each step</option>
-                <option value="auto_discover">Auto discover — crawl + queue automatically</option>
-                <option value="auto_full">Auto full — crawl + discover + extract artworks</option>
-              </select>
-            </label>
-            <label className="space-y-1 text-sm">
-              <span>Max pages per letter</span>
-              <input className="w-full rounded-md border bg-background px-3 py-2" type="number" min={1} max={50} value={maxPagesPerLetter} onChange={(e) => setMaxPagesPerLetter(e.target.value)} />
-            </label>
-            <div className="md:col-span-2 flex gap-2">
-              <Button type="submit" disabled={submitting}>{submitting ? "Adding…" : "Add directory source"}</Button>
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button>
+              <Button type="button" disabled={analysing || !analyseInput.trim()} onClick={() => void runAnalysis()}>
+                {analysing ? "Analysing…" : "Analyse"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setWizardStep("closed")}>Cancel</Button>
             </div>
-          </form>
-        )}
+            {analysing && (
+              <p className="text-sm text-muted-foreground animate-pulse">
+                Fetching and analysing site — this takes 20–40 seconds…
+              </p>
+            )}
+          </div>
+        ) : wizardStep === "confirm" && analysis ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium text-sm">Confirm configuration for {analysis.hostname}</h3>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                analysis.confidence >= 80 ? "bg-emerald-100 text-emerald-800"
+                  : analysis.confidence >= 50 ? "bg-amber-100 text-amber-700"
+                    : "bg-destructive/15 text-destructive"
+              }`}>
+                {analysis.confidence}% confidence
+              </span>
+            </div>
+
+            {analysis.reasoning ? (
+              <p className="text-sm text-muted-foreground border-l-2 pl-3 italic">{analysis.reasoning}</p>
+            ) : null}
+
+            {analysis.analysisError ? (
+              <p className="text-sm text-destructive">⚠ {analysis.analysisError}</p>
+            ) : null}
+
+            {analysis.sampleProfileUrls.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">Sample profiles found</div>
+                {analysis.sampleProfileUrls.map((url) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block text-xs text-muted-foreground underline truncate max-w-md"
+                  >
+                    {url}
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {analysis.estimatedArtistCount ? (
+              <p className="text-xs text-muted-foreground">~{analysis.estimatedArtistCount.toLocaleString()} estimated artists</p>
+            ) : null}
+
+            <div className="grid gap-3 md:grid-cols-2 border-t pt-3">
+              <label className="space-y-1 text-sm">
+                <span>Name</span>
+                <input
+                  className="w-full rounded-md border bg-background px-3 py-2"
+                  value={confirmedName}
+                  onChange={(e) => setConfirmedName(e.target.value)}
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span>Base URL</span>
+                <input
+                  className="w-full rounded-md border bg-background px-3 py-2"
+                  value={confirmedBaseUrl}
+                  onChange={(e) => setConfirmedBaseUrl(e.target.value)}
+                />
+              </label>
+              <label className="space-y-1 text-sm md:col-span-2">
+                <span>Index pattern</span>
+                <input
+                  className="w-full rounded-md border bg-background px-3 py-2 font-mono text-sm"
+                  value={confirmedIndexPattern}
+                  onChange={(e) => setConfirmedIndexPattern(e.target.value)}
+                />
+              </label>
+              <label className="space-y-1 text-sm md:col-span-2">
+                <span>Link pattern <span className="text-muted-foreground">(regex)</span></span>
+                <input
+                  className="w-full rounded-md border bg-background px-3 py-2 font-mono text-sm"
+                  value={confirmedLinkPattern}
+                  onChange={(e) => setConfirmedLinkPattern(e.target.value)}
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span>Pipeline mode</span>
+                <select
+                  className="w-full rounded-md border bg-background px-3 py-2"
+                  value={confirmedPipelineMode}
+                  onChange={(e) => setConfirmedPipelineMode(e.target.value as typeof confirmedPipelineMode)}
+                >
+                  <option value="manual">Manual — admin controls each step</option>
+                  <option value="auto_discover">Auto discover — crawl + queue automatically</option>
+                  <option value="auto_full">Auto full — crawl + discover + artworks</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                disabled={submitting || !confirmedIndexPattern.includes("[letter]")}
+                onClick={() => void confirmCreate()}
+              >
+                {submitting ? "Creating…" : "Create directory source"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setWizardStep("analyse")}>Back</Button>
+              <Button type="button" variant="outline" onClick={() => { setWizardStep("closed"); setAnalysis(null); }}>Cancel</Button>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-lg border bg-background p-4">
