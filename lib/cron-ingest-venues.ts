@@ -321,24 +321,19 @@ export async function runCronIngestVenues(
         return noStoreJson(summary);
       }
 
-      const currentNowMs = now();
-      const jsonLdCutoff = new Date(currentNowMs - getIngestStalenessThresholdMs(true));
-      const aiCutoff = new Date(currentNowMs - getIngestStalenessThresholdMs(false));
-      const frequencyNow = new Date(currentNowMs);
-
       const stalenessWhere = {
         OR: [
           { lastIngestedAt: null },
           {
             AND: [
               { usesJsonLd: true },
-              { lastIngestedAt: { lt: jsonLdCutoff } },
+              { lastIngestedAt: { lt: new Date(now() - getIngestStalenessThresholdMs(true)) } },
             ],
           },
           {
             AND: [
               { usesJsonLd: false },
-              { lastIngestedAt: { lt: aiCutoff } },
+              { lastIngestedAt: { lt: new Date(now() - getIngestStalenessThresholdMs(false)) } },
             ],
           },
         ],
@@ -405,9 +400,9 @@ export async function runCronIngestVenues(
           && isVenueIngestStale({
             usesJsonLd: item.venue.usesJsonLd,
             lastIngestedAt: item.venue.lastIngestedAt,
-            nowMs: currentNowMs,
+            nowMs: now(),
           })
-          && (!item.lastRunAt || item.lastRunAt < minLastRunAtForVenue(item.venue.ingestFrequency, frequencyNow))
+          && (!item.lastRunAt || item.lastRunAt < minLastRunAtForVenue(item.venue.ingestFrequency, new Date(now())))
         )
         .sort((a, b) => {
           if (!a.lastRunAt && !b.lastRunAt) return 0;
