@@ -402,6 +402,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
           unmatchedNames: [] as string[],
           sparseArtistNames: [] as string[],
           artistSettings: null as {
+            braveSearchApiKey: string | undefined;
             googlePseApiKey: string | undefined;
             googlePseCx: string | undefined;
             artistLookupProvider: string | null | undefined;
@@ -517,6 +518,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
       let unmatchedNames: string[] = [];
       let sparseArtistNames: string[] = [];
       let artistSettings: {
+        braveSearchApiKey: string | undefined;
         googlePseApiKey: string | undefined;
         googlePseCx: string | undefined;
         artistLookupProvider: string | null | undefined;
@@ -553,6 +555,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
           select: {
             artworkExtractionProvider: true,
             enrichMatchedArtists: true,
+            braveSearchApiKey: true,
             googlePseApiKey: true,
             googlePseCx: true,
             artistLookupProvider: true,
@@ -602,6 +605,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
 
         if (unmatchedNames.length > 0 || sparseArtistNames.length > 0) {
           artistSettings = {
+            braveSearchApiKey: settings?.braveSearchApiKey ?? process.env.BRAVE_SEARCH_API_KEY,
             googlePseApiKey: settings?.googlePseApiKey ?? process.env.GOOGLE_PSE_API_KEY,
             googlePseCx: settings?.googlePseCx ?? process.env.GOOGLE_PSE_CX,
             artistLookupProvider: settings?.artistLookupProvider,

@@ -109,6 +109,7 @@ export async function autoApproveEventCandidate(args: {
         where: { id: "default" },
         select: {
           artworkExtractionProvider: true,
+          braveSearchApiKey: true,
           googlePseApiKey: true,
           googlePseCx: true,
           artistLookupProvider: true,
@@ -132,6 +133,7 @@ export async function autoApproveEventCandidate(args: {
         createdEvent,
         unmatchedNames,
         artistSettings: {
+          braveSearchApiKey: settings?.braveSearchApiKey ?? process.env.BRAVE_SEARCH_API_KEY,
           googlePseApiKey: settings?.googlePseApiKey ?? process.env.GOOGLE_PSE_API_KEY,
           googlePseCx: settings?.googlePseCx ?? process.env.GOOGLE_PSE_CX,
           artistLookupProvider: settings?.artistLookupProvider,

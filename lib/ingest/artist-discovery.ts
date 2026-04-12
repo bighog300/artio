@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
+import { getSearchProvider } from "@/lib/ingest/search";
 import { IngestError } from "@/lib/ingest/errors";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
 import { scoreArtistCandidate } from "@/lib/ingest/artist-confidence";
@@ -169,6 +170,7 @@ export async function discoverArtist(args: {
   settings: {
     googlePseApiKey?: string | null;
     googlePseCx?: string | null;
+    braveSearchApiKey?: string | null;
     artistLookupProvider?: string | null;
     artistBioProvider?: string | null;
     geminiApiKey?: string | null;
@@ -241,28 +243,32 @@ export async function discoverArtist(args: {
   if (args.knownProfileUrl) {
     sourceUrl = args.knownProfileUrl;
   } else {
-    if (args.settings.googlePseApiKey && args.settings.googlePseCx) {
-      try {
-        const endpoint = new URL("https://www.googleapis.com/customsearch/v1");
-        endpoint.searchParams.set("key", args.settings.googlePseApiKey);
-        endpoint.searchParams.set("cx", args.settings.googlePseCx);
-        endpoint.searchParams.set("q", searchQuery);
-        endpoint.searchParams.set("num", "5");
+    const searchProviderName = (() => {
+      if (args.settings.braveSearchApiKey || process.env.BRAVE_SEARCH_API_KEY) return "brave";
+      if (args.settings.googlePseApiKey && args.settings.googlePseCx) return "google_pse";
+      return null;
+    })();
 
-        const response = await fetch(endpoint.toString());
-        if (response.ok) {
-          const body = (await response.json()) as { items?: Array<{ link?: string; title?: string; snippet?: string }> };
-          searchItems = (body.items ?? [])
-            .filter((item): item is { link: string; title?: string; snippet?: string } => typeof item.link === "string")
-            .map((item) => ({ link: item.link, title: item.title ?? "", snippet: item.snippet ?? "" }));
-        }
+    if (searchProviderName) {
+      try {
+        const provider = getSearchProvider(searchProviderName, {
+          braveSearchApiKey: args.settings.braveSearchApiKey,
+          googlePseApiKey: args.settings.googlePseApiKey,
+          googlePseCx: args.settings.googlePseCx,
+        });
+        const results = await provider.search(searchQuery, 5);
+        searchItems = results.map((result) => ({
+          link: result.url,
+          title: result.title,
+          snippet: result.snippet,
+        }));
       } catch (error) {
         searchItems = [];
         errorCode = normalizeDiscoveryErrorCode(error, "search_failed");
         errorMessage = toErrorMessage(error, "Search provider request failed");
       }
     } else {
-      logWarn({ message: "artist_discovery_google_pse_missing" });
+      logWarn({ message: "artist_discovery_search_provider_missing" });
     }
 
     const wikipediaItem = searchItems.find((item) => item.link.includes("wikipedia.org"));

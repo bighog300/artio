@@ -1479,7 +1479,7 @@ model IngestDiscoveryJob {
   queryTemplate     String
   region            String                     @default("")
   regionId          String?                    @db.Uuid
-  searchProvider    String                     @default("google_pse")
+  searchProvider    String                     @default("brave")
   maxResults        Int                        @default(10)
   status            DiscoveryJobStatus         @default(PENDING)
   resultsCount      Int?
@@ -1599,7 +1599,7 @@ model EnrichmentRun {
   gapFilter      EnrichmentGapFilter     @default(ALL)
   statusFilter   EnrichmentStatusFilter  @default(ALL)
   searchEnabled  Boolean                 @default(true)
-  searchProvider String                  @default("google_pse")
+  searchProvider String                  @default("brave")
   dryRun         Boolean                 @default(false)
   status         EnrichmentRunStatus     @default(PENDING)
   requestedById  String                  @db.Uuid

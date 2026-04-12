@@ -91,6 +91,7 @@ async function processOne() {
           const settings = await db.siteSettings.findUnique({
             where: { id: "default" },
             select: {
+              braveSearchApiKey: true,
               googlePseApiKey: true,
               googlePseCx: true,
               artistBioProvider: true,
@@ -108,6 +109,7 @@ async function processOne() {
               artistName: payload.entityName,
               eventId: stubEvent.id,
               settings: {
+                braveSearchApiKey: settings?.braveSearchApiKey,
                 googlePseApiKey: settings?.googlePseApiKey,
                 googlePseCx: settings?.googlePseCx,
                 artistBioProvider: settings?.artistBioProvider,

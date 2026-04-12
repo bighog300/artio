@@ -45,6 +45,7 @@ type BackfillArtistsDeps = {
       findUnique: (args: {
         where: { id: "default" };
         select: {
+          braveSearchApiKey: true;
           googlePseApiKey: true;
           googlePseCx: true;
           artistLookupProvider: true;
@@ -54,6 +55,7 @@ type BackfillArtistsDeps = {
           openAiApiKey: true;
         };
       }) => Promise<{
+        braveSearchApiKey: string | null;
         googlePseApiKey: string | null;
         googlePseCx: string | null;
         artistLookupProvider: string | null;
@@ -137,6 +139,7 @@ export async function handleBackfillArtistsCron(req: Request, deps: BackfillArti
     const settings = await deps.db.siteSettings.findUnique({
       where: { id: "default" },
       select: {
+        braveSearchApiKey: true,
         googlePseApiKey: true,
         googlePseCx: true,
         artistLookupProvider: true,
@@ -197,6 +200,7 @@ export async function handleBackfillArtistsCron(req: Request, deps: BackfillArti
             eventTitle: extractedEvent.title,
             venueName: null,
             settings: {
+              braveSearchApiKey: settings?.braveSearchApiKey ?? process.env.BRAVE_SEARCH_API_KEY,
               googlePseApiKey: settings?.googlePseApiKey ?? process.env.GOOGLE_PSE_API_KEY,
               googlePseCx: settings?.googlePseCx ?? process.env.GOOGLE_PSE_CX,
               artistLookupProvider: settings?.artistLookupProvider,

@@ -68,6 +68,7 @@ export async function runDirectoryPipeline(args: {
   const settings = await args.db.siteSettings.findUnique({
     where: { id: "default" },
     select: {
+      braveSearchApiKey: true,
       googlePseApiKey: true,
       googlePseCx: true,
       artistBioProvider: true,
@@ -92,6 +93,7 @@ export async function runDirectoryPipeline(args: {
         eventId: stubEvent.id,
         knownProfileUrl: entity.entityUrl,
         settings: {
+          braveSearchApiKey: settings?.braveSearchApiKey,
           googlePseApiKey: settings?.googlePseApiKey,
           googlePseCx: settings?.googlePseCx,
           artistBioProvider: settings?.artistBioProvider,
