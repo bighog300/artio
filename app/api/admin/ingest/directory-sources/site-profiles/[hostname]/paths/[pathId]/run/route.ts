@@ -23,7 +23,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ hostn
     const parsedParams = paramsSchema.safeParse(await context.params);
     if (!parsedParams.success) return apiError(400, "invalid_request", "Invalid params");
 
-    const path = await (db as any).ingestionPath.findUnique({
+    const path = await db.ingestionPath.findUnique({
       where: { id: parsedParams.data.pathId },
       select: { id: true, enabled: true },
     });

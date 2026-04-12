@@ -34,14 +34,14 @@ export async function runDirectoryPipeline(args: {
     aiProviderName: args.aiProviderName,
   });
 
-  const source = await (args.db as any).directorySource.findUnique({
+  const source = await args.db.directorySource.findUnique({
     where: { id: args.sourceId },
     select: { siteProfileId: true },
   });
 
   if (source?.siteProfileId) {
     const { runPathCrawl } = await import("@/lib/ingest/directory/run-path-crawl");
-    const nonLetterPaths = await (args.db as any).ingestionPath.findMany({
+    const nonLetterPaths = await args.db.ingestionPath.findMany({
       where: {
         siteProfileId: source.siteProfileId,
         enabled: true,
