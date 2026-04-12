@@ -86,6 +86,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     let extractionModel: string | null = null;
     let confidenceScore: number | null = null;
     let confidenceBand: string | null = null;
+    let artworksFromExhibitions = 0;
 
     if (discoveryResult?.candidateId) {
       const candidate = await db.ingestExtractedArtist.findUnique({
@@ -105,6 +106,13 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
       extractionModel = candidate?.runs[0]?.model ?? null;
       confidenceScore = candidate?.confidenceScore ?? null;
       confidenceBand = candidate?.confidenceBand ?? null;
+
+      artworksFromExhibitions = await db.ingestExtractedArtwork.count({
+        where: {
+          sourceEventId: stubEvent.id,
+          matchedArtistId: discoveryResult.candidateId,
+        },
+      });
     }
 
     db.directoryDiscoveryLog.create({
@@ -115,11 +123,12 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
         entityName: entity.entityName,
         status: discoveryError ? "failed" : (discoveryResult?.status ?? "failed"),
         candidateId: discoveryResult?.candidateId ?? null,
-        errorMessage: discoveryError,
+        errorMessage: artworksFromExhibitions > 0 ? null : discoveryError,
         model: extractionModel,
         tokensUsed,
         confidenceScore,
         confidenceBand,
+        artworksExtracted: artworksFromExhibitions,
         durationMs,
       },
     }).catch((err) =>

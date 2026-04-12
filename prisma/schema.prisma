@@ -1225,6 +1225,7 @@ model DirectoryDiscoveryLog {
   tokensUsed        Int?
   confidenceScore   Int?
   confidenceBand    String?
+  artworksExtracted Int             @default(0)
   durationMs        Int?
   createdAt         DateTime        @default(now()) @db.Timestamptz
   directorySource   DirectorySource @relation(fields: [directorySourceId], references: [id], onDelete: Cascade)

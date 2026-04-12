@@ -1,0 +1,2 @@
+ALTER TABLE "DirectoryDiscoveryLog"
+  ADD COLUMN IF NOT EXISTS "artworksExtracted" INTEGER NOT NULL DEFAULT 0;
