@@ -39,10 +39,15 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
 
     if (!aiApiKey) return apiError(500, "no_ai_key", "No AI API key configured in site settings");
 
+    const body = await _req.json().catch(() => ({})) as { pipelineMode?: string };
+    const requestedMode = body.pipelineMode ?? source.pipelineMode;
+    const effectiveMode: "auto_discover" | "auto_full" =
+      requestedMode === "auto_full" ? "auto_full" : "auto_discover";
+
     const result = await runDirectoryPipeline({
       db,
       sourceId: source.id,
-      pipelineMode: source.pipelineMode === "manual" ? "auto_discover" : source.pipelineMode as "auto_discover" | "auto_full",
+      pipelineMode: effectiveMode,
       aiApiKey,
       aiProviderName: (settings?.eventExtractionProvider as ProviderName | undefined) ?? "claude",
       maxPagesPerRun: 3,

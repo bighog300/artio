@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (typeof parsed.data.crawlIntervalMinutes === "number") updateData.crawlIntervalMinutes = parsed.data.crawlIntervalMinutes;
     if (typeof parsed.data.maxPagesPerLetter === "number") updateData.maxPagesPerLetter = parsed.data.maxPagesPerLetter;
     if (parsed.data.linkPattern !== undefined) updateData.linkPattern = parsed.data.linkPattern;
-    if (parsed.data.pipelineMode) updateData.pipelineMode = parsed.data.pipelineMode;
+    if (parsed.data.pipelineMode !== undefined) updateData.pipelineMode = parsed.data.pipelineMode;
 
     const existing = await db.directorySource.findUnique({ where: { id: parsedParams.data.id }, select: { id: true } });
     if (!existing) return apiError(404, "not_found", "Directory source not found");
