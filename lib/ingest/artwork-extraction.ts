@@ -3,6 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
 import { IngestError } from "@/lib/ingest/errors";
 import { preprocessHtml } from "@/lib/ingest/preprocess-html";
+import { classifyPageImages, pickBestImages } from "@/lib/ingest/classify-image";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 import { scoreArtworkCandidate } from "@/lib/ingest/artwork-confidence";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
@@ -165,8 +166,19 @@ export async function extractArtworksForEvent(args: {
     const provider = getProvider((args.settings.artworkExtractionProvider as ProviderName | null) ?? "claude");
     const apiKey = resolveProviderApiKey(provider.name, args.settings);
 
+    const processedHtml = preprocessHtml(fetched.html);
+    const pageImages = classifyPageImages(fetched.html, args.sourceUrl);
+    const { artwork: artworkImages } = pickBestImages(pageImages);
+    const artworkImageHints = artworkImages.slice(0, 10).map((img) => img.url);
+    const imageHintBlock = artworkImageHints.length > 0
+      ? `
+
+Pre-classified artwork images found on this page:
+${artworkImageHints.join("\n")}`
+      : "";
+
     const result = await provider.extract({
-      html: preprocessHtml(fetched.html),
+      html: processedHtml + imageHintBlock,
       sourceUrl: args.sourceUrl,
       systemPrompt: resolveArtworkSystemPrompt(args.systemPromptOverride ?? settings?.artworkExtractionSystemPrompt),
       jsonSchema: artworkExtractionSchema,

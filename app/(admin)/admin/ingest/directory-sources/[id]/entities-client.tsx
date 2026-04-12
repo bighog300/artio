@@ -83,6 +83,8 @@ export default function EntitiesClient({
   const [extractResultById, setExtractResultById] = useState<Record<string, string>>({});
   const [classifyResultById, setClassifyResultById] = useState<Record<string, { pageType: string; confidence: number } | null>>({});
   const [classifyingById, setClassifyingById] = useState<Record<string, boolean>>({});
+  const [imagesByEntityId, setImagesByEntityId] = useState<Record<string, Array<{ url: string; imageType: string; confidence: number }>>>({});
+  const [loadingImagesById, setLoadingImagesById] = useState<Record<string, boolean>>({});
   const [extractingAll, setExtractingAll] = useState(false);
   const [editingPattern, setEditingPattern] = useState(false);
   const [linkPattern, setLinkPattern] = useState(source.linkPattern ?? "");
@@ -247,6 +249,24 @@ export default function EntitiesClient({
       enqueueToast({ title: "Classification failed", variant: "error" });
     } finally {
       setClassifyingById((prev) => ({ ...prev, [entityId]: false }));
+    }
+  }
+
+  async function loadEntityImages(entityId: string, entityUrl: string) {
+    setLoadingImagesById((prev) => ({ ...prev, [entityId]: true }));
+    try {
+      const res = await fetch("/api/admin/ingest/directory-sources/classify-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: entityUrl }),
+      });
+      if (!res.ok) throw new Error("Failed to classify images");
+      const data = await res.json() as { images: Array<{ url: string; imageType: string; confidence: number }> };
+      setImagesByEntityId((prev) => ({ ...prev, [entityId]: data.images }));
+    } catch {
+      enqueueToast({ title: "Failed to load images", variant: "error" });
+    } finally {
+      setLoadingImagesById((prev) => ({ ...prev, [entityId]: false }));
     }
   }
 
@@ -628,6 +648,16 @@ export default function EntitiesClient({
                   >
                     {classifyingById[entity.id] ? "…" : "Classify"}
                   </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={loadingImagesById[entity.id]}
+                    onClick={() => void loadEntityImages(entity.id, entity.entityUrl)}
+                  >
+                    {loadingImagesById[entity.id] ? "Loading…" : "Images"}
+                  </Button>
                   {entity.matchedArtistId ? (
                     <div className="mt-1 flex flex-col gap-1">
                       <Button
@@ -642,6 +672,34 @@ export default function EntitiesClient({
                       {extractResultById[entity.id] ? (
                         <span className="text-xs text-muted-foreground">{extractResultById[entity.id]}</span>
                       ) : null}
+                    </div>
+                  ) : null}
+
+                  {imagesByEntityId[entity.id] ? (
+                    <div className="mt-2 space-y-2">
+                      {(["profile", "artwork", "poster", "venue"] as const).map((type) => {
+                        const typed = imagesByEntityId[entity.id].filter((img) => img.imageType === type);
+                        if (typed.length === 0) return null;
+                        return (
+                          <div key={type}>
+                            <div className="mb-1 text-xs font-medium capitalize text-muted-foreground">{type} images ({typed.length})</div>
+                            <div className="flex flex-wrap gap-1">
+                              {typed.slice(0, 5).map((img) => (
+                                <a key={img.url} href={img.url} target="_blank" rel="noreferrer">
+                                  <img
+                                    src={img.url}
+                                    alt={type}
+                                    className="h-16 w-16 rounded border object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = "none";
+                                    }}
+                                  />
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : null}
                 </div>

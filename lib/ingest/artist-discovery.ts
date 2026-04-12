@@ -8,7 +8,8 @@ import { assertSafeUrl } from "@/lib/ingest/url-guard";
 import { scoreArtistCandidate } from "@/lib/ingest/artist-confidence";
 import { autoApproveArtistCandidate } from "@/lib/ingest/auto-approve-artist-candidate";
 import { upsertArtistIdentity } from "@/lib/ingest/artist-identity";
-import { logWarn } from "@/lib/logging";
+import { classifyPageImages, pickBestImages } from "@/lib/ingest/classify-image";
+import { logInfo, logWarn } from "@/lib/logging";
 
 export const DEFAULT_ARTIST_BIO_SYSTEM_PROMPT = [
   "You are extracting an artist profile from a webpage.",
@@ -313,6 +314,9 @@ export async function discoverArtist(args: {
     }
   }
 
+  const pageImages = html ? classifyPageImages(html, sourceUrl) : [];
+  const { profile: profileImage, artwork: artworkImages } = pickBestImages(pageImages);
+
   const provider = getProvider((args.settings.artistBioProvider as ProviderName | null) ?? "claude");
   let chosenProvider = provider;
 
@@ -390,6 +394,7 @@ export async function discoverArtist(args: {
           exhibitionUrls: asStringArray(raw.exhibitionUrls),
           collections: asStringArray(raw.collections),
         };
+
       }
     } catch (error) {
       errorCode = normalizeDiscoveryErrorCode(error, "model_failed");
@@ -423,6 +428,18 @@ export async function discoverArtist(args: {
       collections: [],
     };
   }
+
+  if (!extracted.avatarUrl && profileImage) {
+    extracted.avatarUrl = profileImage.url;
+  }
+
+  logInfo({
+    message: "artist_discovery_images_classified",
+    sourceUrl,
+    profileFound: Boolean(profileImage),
+    artworkCount: artworkImages.length,
+    totalImages: pageImages.length,
+  });
 
   const scored = scoreArtistCandidate({
     bio: extracted.bio,

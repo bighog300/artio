@@ -1,6 +1,7 @@
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
 import { detectPlatform } from "@/lib/ingest/detect-platform";
 import { preprocessHtml } from "@/lib/ingest/preprocess-html";
+import { classifyPageImages, pickBestImages } from "@/lib/ingest/classify-image";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 import { logInfo, logWarn } from "@/lib/logging";
 
@@ -251,6 +252,25 @@ export async function analyseSite(args: {
               pageType: sampleClassification.pageType,
               confidence: sampleClassification.confidence,
             });
+
+            const sampleImages = classifyPageImages(sampleFetched.html, sampleUrl);
+            const { profile: profileImg, artwork: artworkImgs } = pickBestImages(sampleImages);
+
+            logInfo({
+              message: "site_profiler_sample_images",
+              hostname,
+              sampleUrl,
+              profileImageFound: Boolean(profileImg),
+              artworkImageCount: artworkImgs.length,
+              totalImages: sampleImages.length,
+            });
+
+            if (artworkImgs.length > 0 && !profileImg) {
+              aiResult = {
+                ...aiResult,
+                reasoning: `${aiResult.reasoning} (${artworkImgs.length} artwork images found on sample profile; no profile photo detected)`,
+              };
+            }
 
             const expectedType = aiResult.detectedSections.find(
               (section) => section.contentType === "artist"
