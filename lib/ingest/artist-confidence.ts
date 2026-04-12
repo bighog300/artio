@@ -12,6 +12,7 @@ export function scoreArtistCandidate(candidate: {
   websiteUrl?: string | null;
   instagramUrl?: string | null;
   twitterUrl?: string | null;
+  avatarUrl?: string | null;
   mediums: string[];
   birthYear?: number | null;
   name: string;
@@ -48,6 +49,11 @@ export function scoreArtistCandidate(candidate: {
   if (candidate.twitterUrl?.trim()) {
     score += 5;
     reasons.push("has twitter url");
+  }
+
+  if (candidate.avatarUrl?.trim()) {
+    score += 5;
+    reasons.push("avatar image present");
   }
 
   const hasKnownMedium = candidate.mediums.some((medium) => {
