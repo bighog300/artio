@@ -31,8 +31,15 @@ test("backfill artist cron enforces search quota soft limit", async () => {
     new Request("https://example.com/api/cron/ingest/backfill-artists?limit=1", { method: "GET" }),
     {
       db: {
-        event: {
-          findMany: async () => [{ id: "event-1", artistNames: names, title: "Big Group Show", venue: { name: "Venue Name" } }],
+        ingestExtractedEvent: {
+          findMany: async () => [
+            {
+              id: "extracted-event-1",
+              artistNames: names,
+              title: "Big Group Show",
+              createdEventId: "event-1",
+            },
+          ],
         },
         eventArtist: {
           findMany: async () => [],
