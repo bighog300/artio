@@ -36,6 +36,16 @@ export type DirectorySourcesListResponse = {
   }>;
 };
 
+type DetectedSection = {
+  name: string;
+  url: string;
+  contentType: string;
+  indexPattern: string | null;
+  linkPattern: string | null;
+  paginationType: string;
+  confidence: number;
+};
+
 type AnalysisResult = {
   hostname: string;
   platform: string | null;
@@ -49,6 +59,7 @@ type AnalysisResult = {
   confidence: number;
   reasoning: string;
   analysisError: string | null;
+  detectedSections: DetectedSection[];
   siteProfileId: string;
 };
 
@@ -262,6 +273,33 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
 
             {analysis.analysisError ? (
               <p className="text-sm text-destructive">⚠ {analysis.analysisError}</p>
+            ) : null}
+            {analysis.detectedSections.length > 0 ? (
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Content sections detected — will be created as ingestion paths
+                </div>
+                <div className="space-y-1">
+                  {analysis.detectedSections.map((section) => (
+                    <div key={section.url} className="flex items-center gap-2 text-xs rounded border px-2 py-1.5">
+                      <span className={`rounded px-1.5 py-0.5 font-medium ${
+                        section.contentType === "artist" ? "bg-purple-100 text-purple-800"
+                          : section.contentType === "event" ? "bg-blue-100 text-blue-800"
+                            : section.contentType === "exhibition" ? "bg-amber-100 text-amber-700"
+                              : "bg-muted text-muted-foreground"
+                      }`}>
+                        {section.contentType}
+                      </span>
+                      <span className="font-medium">{section.name}</span>
+                      <span className="text-muted-foreground truncate max-w-[200px]">{section.url}</span>
+                      <span className="ml-auto text-muted-foreground">{section.confidence}%</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Each section becomes an ingestion path — enable or disable them after creation.
+                </p>
+              </div>
             ) : null}
 
             {analysis.sampleProfileUrls.length > 0 && (

@@ -26,6 +26,7 @@ export default async function DirectorySourceDetailPage({ params }: { params: Pr
       lastRunFound: true,
       lastRunStrategy: true,
       lastRunError: true,
+      siteProfileId: true,
       cursor: {
         select: {
           currentLetter: true,
@@ -39,6 +40,43 @@ export default async function DirectorySourceDetailPage({ params }: { params: Pr
   });
 
   if (!source) notFound();
+
+
+  // Fetch ingestion paths if site profile is linked
+  let ingestionPaths: Array<{
+    id: string;
+    name: string;
+    baseUrl: string;
+    contentType: string;
+    enabled: boolean;
+    lastRunAt: string | null;
+    lastRunFound: number | null;
+  }> = [];
+
+  if (source.siteProfileId) {
+    const profile = await db.siteProfile.findUnique({
+      where: { id: source.siteProfileId },
+      select: {
+        hostname: true,
+        paths: {
+          select: {
+            id: true,
+            name: true,
+            baseUrl: true,
+            contentType: true,
+            enabled: true,
+            lastRunAt: true,
+            lastRunFound: true,
+          },
+          orderBy: { contentType: "asc" },
+        },
+      },
+    });
+    ingestionPaths = (profile?.paths ?? []).map((path) => ({
+      ...path,
+      lastRunAt: path.lastRunAt?.toISOString() ?? null,
+    }));
+  }
 
   const entities = await db.directoryEntity.findMany({
     where: { directorySourceId: id },
@@ -114,6 +152,33 @@ export default async function DirectorySourceDetailPage({ params }: { params: Pr
           </Link>
         </div>
       </section>
+
+      {ingestionPaths.length > 0 ? (
+        <section className="rounded-lg border bg-background p-4 text-sm space-y-2">
+          <div className="font-medium text-sm">Ingestion paths</div>
+          <div className="space-y-1">
+            {ingestionPaths.map((path) => (
+              <div key={path.id} className="flex items-center gap-2 text-xs">
+                <span className={`rounded px-1.5 py-0.5 ${
+                  path.contentType === "artist" ? "bg-purple-100 text-purple-800"
+                    : path.contentType === "event" ? "bg-blue-100 text-blue-800"
+                      : path.contentType === "exhibition" ? "bg-amber-100 text-amber-700"
+                        : "bg-muted text-muted-foreground"
+                }`}>{path.contentType}</span>
+                <span className="font-medium">{path.name}</span>
+                <span className="text-muted-foreground truncate">{path.baseUrl}</span>
+                <span className={`ml-auto rounded px-1 ${path.enabled ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"}`}>
+                  {path.enabled ? "enabled" : "disabled"}
+                </span>
+                {path.lastRunFound != null ? (
+                  <span className="text-muted-foreground">{path.lastRunFound} found</span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <Tabs defaultValue="entities">
         <TabsList>
           <TabsTrigger value="entities">Entities</TabsTrigger>

@@ -51,6 +51,9 @@ export async function POST(req: NextRequest) {
         confidence: result.confidence,
         reasoning: result.reasoning,
         analysisError: result.analysisError,
+        detectedSections: result.detectedSections.length > 0
+          ? result.detectedSections
+          : undefined,
         lastProfiledAt: new Date(),
       },
       update: {
@@ -65,10 +68,42 @@ export async function POST(req: NextRequest) {
         confidence: result.confidence,
         reasoning: result.reasoning,
         analysisError: result.analysisError,
+        detectedSections: result.detectedSections.length > 0
+          ? result.detectedSections
+          : undefined,
         lastProfiledAt: new Date(),
       },
       select: { id: true },
     });
+
+
+    if (result.detectedSections.length > 0) {
+      for (const section of result.detectedSections) {
+        if (!section.url || section.confidence < 40) continue;
+
+        await db.ingestionPath.upsert({
+          where: { siteProfileId_baseUrl: { siteProfileId: profile.id, baseUrl: section.url } },
+          create: {
+            siteProfileId: profile.id,
+            name: section.name,
+            baseUrl: section.url,
+            contentType: section.contentType,
+            indexPattern: section.indexPattern,
+            linkPattern: section.linkPattern,
+            paginationType: section.paginationType,
+            enabled: section.contentType !== "unknown",
+            crawlIntervalMinutes: section.contentType === "event" ? 1440 : 10080,
+          },
+          update: {
+            name: section.name,
+            contentType: section.contentType,
+            indexPattern: section.indexPattern,
+            linkPattern: section.linkPattern,
+            paginationType: section.paginationType,
+          },
+        }).catch(() => {});
+      }
+    }
 
     return NextResponse.json({ ...result, siteProfileId: profile.id }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

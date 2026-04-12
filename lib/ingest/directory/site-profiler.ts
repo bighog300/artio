@@ -4,6 +4,16 @@ import { preprocessHtml } from "@/lib/ingest/preprocess-html";
 import { getProvider, type ProviderName } from "@/lib/ingest/providers";
 import { logInfo, logWarn } from "@/lib/logging";
 
+export type DetectedSection = {
+  name: string;
+  url: string;
+  contentType: "artist" | "event" | "exhibition" | "artwork" | "unknown";
+  indexPattern: string | null;
+  linkPattern: string | null;
+  paginationType: "letter" | "numbered" | "none";
+  confidence: number;
+};
+
 export type SiteProfileResult = {
   hostname: string;
   platform: string | null;
@@ -17,6 +27,7 @@ export type SiteProfileResult = {
   confidence: number;
   reasoning: string;
   analysisError: string | null;
+  detectedSections: DetectedSection[];
 };
 
 const siteProfileSchema = {
@@ -32,6 +43,7 @@ const siteProfileSchema = {
     "estimatedArtistCount",
     "confidence",
     "reasoning",
+    "detectedSections",
   ],
   properties: {
     directoryUrl: { anyOf: [{ type: "string" }, { type: "null" }] },
@@ -43,27 +55,49 @@ const siteProfileSchema = {
     estimatedArtistCount: { anyOf: [{ type: "integer" }, { type: "null" }] },
     confidence: { type: "integer", minimum: 0, maximum: 100 },
     reasoning: { type: "string" },
+    detectedSections: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "url", "contentType", "indexPattern", "linkPattern", "paginationType", "confidence"],
+        properties: {
+          name: { type: "string" },
+          url: { type: "string" },
+          contentType: { type: "string", enum: ["artist", "event", "exhibition", "artwork", "unknown"] },
+          indexPattern: { anyOf: [{ type: "string" }, { type: "null" }] },
+          linkPattern: { anyOf: [{ type: "string" }, { type: "null" }] },
+          paginationType: { type: "string", enum: ["letter", "numbered", "none"] },
+          confidence: { type: "integer", minimum: 0, maximum: 100 },
+        },
+      },
+    },
   },
 } as const;
 
 const PROFILER_SYSTEM_PROMPT = [
-  "You are analysing an art website to determine the structure of its artist directory.",
+  "You are analysing an art website to determine the structure of its content sections.",
   "You will be given the HTML of the site's homepage or a likely directory page.",
   "",
   "Your task:",
-  "1. Find the URL of the artists A-Z or alphabetical directory listing page.",
-  "2. Determine how it is paginated — by letter (e.g. /artists/A, /artists/B), by number (e.g. /artists?page=1), or not paginated.",
-  "3. Derive the URL index pattern using [letter] and [page] placeholders. Example: https://www.art.co.za/artists/[letter]",
-  "4. Derive a regex linkPattern matching artist profile URL paths only — not category or listing pages. Example: /[a-z][a-z0-9]{3,}$",
-  "5. Find 3-5 example artist profile URLs visible on the page.",
-  "6. Note if artist profile pages have exhibition subpages (e.g. /artistname/2003.php).",
-  "7. Estimate how many artists are listed in total if stated.",
+  "1. Find ALL content sections of the site — not just the artist directory.",
+  "   Look for sections covering: artists, exhibitions, events, what's-on, artworks, training.",
+  "2. For each section, determine:",
+  "   - name: human-readable label (e.g. 'Artists A-Z', 'Exhibitions', 'What's On')",
+  "   - url: the section's base URL",
+  "   - contentType: artist | event | exhibition | artwork | unknown",
+  "   - indexPattern: URL pattern with [letter] or [page] placeholders if paginated",
+  "   - linkPattern: regex matching individual item URLs within the section",
+  "   - paginationType: letter | numbered | none",
+  "   - confidence: 0-100 for how certain you are about this section",
+  "3. Also identify the primary artist directory specifically for the top-level fields.",
+  "4. Find 3-5 sample artist profile URLs.",
   "",
   "Rules:",
-  "- Only return patterns you can directly observe — do not invent.",
-  "- The linkPattern regex must match profile paths specifically, excluding category pages like /artists/painting.",
-  "- If you cannot find a directory return null for indexPattern and linkPattern.",
+  "- Only return sections you can directly observe navigation links for.",
+  "- Do not invent sections that are not linked from the page.",
   "- Confidence 80+ means certain. 50-79 means probable. Below 50 means uncertain.",
+  "- Return empty array for detectedSections if no clear sections are found.",
 ].join("\n");
 
 function findCandidateDirectoryUrl(baseUrl: string, html: string): string | null {
@@ -136,6 +170,7 @@ export async function analyseSite(args: {
       confidence: 0,
       reasoning: "",
       analysisError: error,
+      detectedSections: [],
     };
   }
 
@@ -183,6 +218,11 @@ export async function analyseSite(args: {
       confidence: (raw.confidence as number) ?? 0,
       reasoning: (raw.reasoning as string) ?? "",
       analysisError: null,
+      detectedSections: Array.isArray(raw.detectedSections)
+        ? (raw.detectedSections as DetectedSection[]).filter(
+          (section) => section.url && section.contentType && section.name
+        )
+        : [],
     };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
@@ -200,6 +240,7 @@ export async function analyseSite(args: {
       confidence: 0,
       reasoning: "",
       analysisError: error,
+      detectedSections: [],
     };
   }
 }
