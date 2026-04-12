@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { slugifyArtistName, ensureUniqueArtistSlugWithDeps } from "@/lib/artist-slug";
 import { resolveArtistCandidate } from "@/lib/ingest/artist-resolution";
+import { resolveIdentityToArtist } from "@/lib/ingest/artist-identity";
 import { importApprovedArtistImage } from "@/lib/ingest/import-approved-artist-image";
 import { logWarn } from "@/lib/logging";
 import { markArtistApprovalAttempt, markArtistApprovalFailure, normalizeApprovalError } from "@/lib/ingest/candidate-observability";
@@ -203,7 +204,36 @@ export async function autoApproveArtistCandidate(args: {
         where: { id: newArtist.id },
         data: { status: "PUBLISHED", isPublished: true },
       });
+      try {
+        const identity = await args.db.artistIdentity.findUnique({
+          where: { normalizedName: candidate.normalizedName },
+          select: { id: true, artistId: true },
+        });
+        if (identity && !identity.artistId) {
+          await resolveIdentityToArtist(args.db as PrismaClient, identity.id, newArtist.id);
+        }
+      } catch (err: unknown) {
+        logWarn({
+          message: "artist_identity_resolve_failed",
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
       return { artistId: newArtist.id, published: true };
+    }
+
+    try {
+      const identity = await args.db.artistIdentity.findUnique({
+        where: { normalizedName: candidate.normalizedName },
+        select: { id: true, artistId: true },
+      });
+      if (identity && !identity.artistId) {
+        await resolveIdentityToArtist(args.db as PrismaClient, identity.id, newArtist.id);
+      }
+    } catch (err: unknown) {
+      logWarn({
+        message: "artist_identity_resolve_failed",
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     return { artistId: newArtist.id, published: false };

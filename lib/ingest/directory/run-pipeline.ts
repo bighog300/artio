@@ -92,6 +92,13 @@ export async function runDirectoryPipeline(args: {
         artistName,
         eventId: stubEvent.id,
         knownProfileUrl: entity.entityUrl,
+        sourceDomain: (() => {
+          try {
+            return new URL(entity.entityUrl).hostname.replace(/^www\./, "");
+          } catch {
+            return null;
+          }
+        })(),
         settings: {
           braveSearchApiKey: settings?.braveSearchApiKey,
           googlePseApiKey: settings?.googlePseApiKey,

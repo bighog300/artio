@@ -61,6 +61,13 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     const discoveryStartMs = Date.now();
     let discoveryResult: { status: "created" | "linked" | "skipped"; candidateId?: string } | null = null;
     let discoveryError: string | null = null;
+    const sourceDomain = (() => {
+      try {
+        return new URL(entity.entityUrl).hostname.replace(/^www\./, "");
+      } catch {
+        return null;
+      }
+    })();
 
     try {
       discoveryResult = await discoverArtist({
@@ -68,6 +75,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
         artistName,
         eventId: stubEvent.id,
         knownProfileUrl: entity.entityUrl,
+        sourceDomain,
         settings: {
           braveSearchApiKey: settings?.braveSearchApiKey,
           googlePseApiKey: settings?.googlePseApiKey,

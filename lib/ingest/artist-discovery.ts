@@ -7,6 +7,7 @@ import { IngestError } from "@/lib/ingest/errors";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
 import { scoreArtistCandidate } from "@/lib/ingest/artist-confidence";
 import { autoApproveArtistCandidate } from "@/lib/ingest/auto-approve-artist-candidate";
+import { upsertArtistIdentity } from "@/lib/ingest/artist-identity";
 import { logWarn } from "@/lib/logging";
 
 export const DEFAULT_ARTIST_BIO_SYSTEM_PROMPT = [
@@ -153,6 +154,8 @@ export function buildArtistSearchQuery(args: {
 }
 
 type ArtistDiscoveryDb = Pick<Prisma.TransactionClient, "artist" | "eventArtist" | "ingestExtractedArtist" | "ingestExtractedArtistEvent" | "ingestExtractedArtistRun"> & {
+  artistIdentity?: PrismaClient["artistIdentity"];
+  artistObservation?: PrismaClient["artistObservation"];
   siteSettings?: {
     findUnique: (args: {
       where: { id: string };
@@ -169,6 +172,7 @@ export async function discoverArtist(args: {
   eventTitle?: string | null;
   venueName?: string | null;
   knownProfileUrl?: string | null;
+  sourceDomain?: string | null;
   settings: {
     googlePseApiKey?: string | null;
     googlePseCx?: string | null;
@@ -489,6 +493,45 @@ export async function discoverArtist(args: {
   const created = args.db.$transaction
     ? await args.db.$transaction((tx) => createRows(tx))
     : await createRows(args.db);
+
+  if (args.db.artistIdentity && args.db.artistObservation) {
+    try {
+      const sourceDomain = args.knownProfileUrl
+        ? (() => {
+          try {
+            return new URL(args.knownProfileUrl).hostname.replace(/^www\./, "");
+          } catch {
+            return args.sourceDomain ?? null;
+          }
+        })()
+        : args.sourceDomain ?? null;
+
+      if (sourceDomain) {
+        await upsertArtistIdentity(args.db as unknown as PrismaClient, {
+          sourceUrl,
+          sourceDomain,
+          name: candidateName,
+          bio: extracted.bio,
+          mediums: extracted.mediums,
+          collections: extracted.collections,
+          websiteUrl: extracted.websiteUrl,
+          instagramUrl: extracted.instagramUrl,
+          twitterUrl: extracted.twitterUrl,
+          avatarUrl: extracted.avatarUrl,
+          birthYear: extracted.birthYear,
+          nationality: extracted.nationality,
+          exhibitionUrls: extracted.exhibitionUrls,
+          confidenceScore: scored.score,
+        });
+      }
+    } catch (err: unknown) {
+      logWarn({
+        message: "artist_identity_upsert_failed",
+        candidateId: created.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   if (extracted.exhibitionUrls.length > 0) {
     const { extractArtworksForEvent } = await import("@/lib/ingest/artwork-extraction");

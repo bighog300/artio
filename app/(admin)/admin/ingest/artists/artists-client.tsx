@@ -11,6 +11,7 @@ import { computeArtistCompleteness } from "@/lib/artist-completeness";
 type Candidate = {
   id: string;
   name: string;
+  normalizedName: string;
   bio: string | null;
   mediums: string[];
   collections: string[];
@@ -41,6 +42,14 @@ type Candidate = {
       venue: { name: string; slug: string } | null;
     };
   }>;
+  identity?: {
+    confidenceBand: string;
+    observations: Array<{
+      sourceDomain: string;
+      confidenceScore: number;
+      extractedAt: string | Date;
+    }>;
+  } | null;
 };
 
 function formatCompactTimestamp(value: string | Date | null): string | null {
@@ -695,6 +704,20 @@ export default function ArtistsClient({
                             {candidate.collections.map((collection) => (
                               <span key={collection} className="rounded bg-muted px-2 py-0.5 text-xs">
                                 {collection}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      {candidate.identity?.observations.length ? (
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            Known from {candidate.identity.observations.length} source{candidate.identity.observations.length > 1 ? "s" : ""}
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {candidate.identity.observations.map((observation) => (
+                              <span key={observation.sourceDomain} className="rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-800">
+                                {observation.sourceDomain}
                               </span>
                             ))}
                           </div>

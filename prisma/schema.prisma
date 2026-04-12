@@ -898,6 +898,7 @@ model Artist {
   completenessFlags     String[]  @default([])
   completenessUpdatedAt DateTime?
   directoryEntities    DirectoryEntity[]
+  identity             ArtistIdentity?          @relation("ArtistIdentityResolved")
 
   @@index([isPublished])
   @@index([featuredAssetId])
@@ -1237,6 +1238,59 @@ model DirectoryDiscoveryLog {
   @@index([directorySourceId, createdAt(sort: Desc)])
   @@index([entityId])
   @@index([candidateId])
+}
+
+model ArtistIdentity {
+  id              String              @id @default(uuid()) @db.Uuid
+  canonicalName   String
+  normalizedName  String              @unique
+  nationality     String?
+  birthYear       Int?
+  bio             String?
+  mediums         String[]            @default([])
+  collections     String[]            @default([])
+  websiteUrl      String?
+  instagramUrl    String?
+  twitterUrl      String?
+  avatarUrl       String?
+  artistId        String?             @unique @db.Uuid
+  artist          Artist?             @relation("ArtistIdentityResolved", fields: [artistId], references: [id], onDelete: SetNull)
+  confidenceScore Int                 @default(0)
+  confidenceBand  String              @default("LOW")
+  createdAt       DateTime            @default(now()) @db.Timestamptz
+  updatedAt       DateTime            @updatedAt @db.Timestamptz
+  observations    ArtistObservation[]
+
+  @@index([normalizedName])
+  @@index([artistId])
+}
+
+model ArtistObservation {
+  id              String         @id @default(uuid()) @db.Uuid
+  identityId      String         @db.Uuid
+  identity        ArtistIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  sourceUrl       String
+  sourceDomain    String
+  siteProfileId   String?        @db.Uuid
+  name            String
+  bio             String?
+  mediums         String[]       @default([])
+  collections     String[]       @default([])
+  websiteUrl      String?
+  instagramUrl    String?
+  twitterUrl      String?
+  avatarUrl       String?
+  birthYear       Int?
+  nationality     String?
+  exhibitionUrls  String[]       @default([])
+  confidenceScore Int            @default(0)
+  extractedAt     DateTime       @default(now()) @db.Timestamptz
+  updatedAt       DateTime       @updatedAt @db.Timestamptz
+
+  @@unique([identityId, sourceDomain])
+  @@index([identityId])
+  @@index([sourceDomain])
+  @@index([sourceUrl])
 }
 
 model DirectoryEntity {
