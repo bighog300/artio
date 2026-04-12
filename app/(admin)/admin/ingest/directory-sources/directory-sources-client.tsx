@@ -113,10 +113,14 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
     }
   }
 
-  async function runPipeline(id: string) {
+  async function runPipeline(id: string, sourcePipelineMode: string) {
     setPipeliningById((prev) => ({ ...prev, [id]: true }));
     try {
-      const res = await fetch(`/api/admin/ingest/directory-sources/${id}/pipeline`, { method: "POST" });
+      const res = await fetch(`/api/admin/ingest/directory-sources/${id}/pipeline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pipelineMode: sourcePipelineMode }),
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
         throw new Error(body?.error?.message ?? "Failed to run pipeline");
@@ -301,7 +305,7 @@ export default function DirectorySourcesClient({ initial }: { initial: Directory
                       size="sm"
                       variant="outline"
                       disabled={pipeliningById[source.id]}
-                      onClick={() => runPipeline(source.id)}
+                      onClick={() => runPipeline(source.id, source.pipelineMode)}
                     >
                       {pipeliningById[source.id] ? "Running…" : "Run pipeline"}
                     </Button>
