@@ -23,6 +23,7 @@ export const DEFAULT_ARTIST_BIO_SYSTEM_PROMPT = [
   "- nationality: Country of origin or citizenship as a plain string. Return null if not stated.",
   "- birthYear: Four-digit integer birth year only. Return null if not stated or only a decade is given.",
   "- avatarUrl: URL of the artist's profile photo, headshot, or logo image at the top of the page. This is a photo OF the artist, not of their artwork. Look for a circular or portrait-style image near the artist's name. Return the full https:// URL. Return null if not present or ambiguous.",
+  "- exhibitionUrls: Array of full URLs linking to exhibition, show, or project subpages FOR THIS ARTIST on the same domain. Look for links like /artistname/2003.php, /artistname/solo-show/, /artistname/exhibition-name/. These are subpages of the artist's own profile — not links to external galleries. Return up to 10 URLs. Return empty array if none found.",
   "",
   "If the page is a 404, stub, login wall, or clearly unrelated to the artist, return null for all fields.",
   "If the page is a search results page rather than a profile page, extract from the most relevant snippet only.",
@@ -31,7 +32,7 @@ export const DEFAULT_ARTIST_BIO_SYSTEM_PROMPT = [
 const artistExtractionSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["name", "bio", "mediums", "websiteUrl", "instagramUrl", "twitterUrl", "nationality", "birthYear", "avatarUrl"],
+  required: ["name", "bio", "mediums", "websiteUrl", "instagramUrl", "twitterUrl", "nationality", "birthYear", "avatarUrl", "exhibitionUrls"],
   properties: {
     name: { anyOf: [{ type: "string" }, { type: "null" }] },
     bio: { anyOf: [{ type: "string" }, { type: "null" }] },
@@ -42,6 +43,7 @@ const artistExtractionSchema = {
     nationality: { anyOf: [{ type: "string" }, { type: "null" }] },
     birthYear: { anyOf: [{ type: "integer" }, { type: "null" }] },
     avatarUrl: { anyOf: [{ type: "string" }, { type: "null" }] },
+    exhibitionUrls: { type: "array", items: { type: "string" } },
   },
 } as const;
 
@@ -321,6 +323,7 @@ export async function discoverArtist(args: {
     nationality: string | null;
     birthYear: number | null;
     avatarUrl: string | null;
+    exhibitionUrls: string[];
   } = {
     name: null,
     bio: null,
@@ -331,6 +334,7 @@ export async function discoverArtist(args: {
     nationality: null,
     birthYear: null,
     avatarUrl: null,
+    exhibitionUrls: [],
   };
 
   let usageTotalTokens: number | null = null;
@@ -365,6 +369,7 @@ export async function discoverArtist(args: {
           nationality: asString(raw.nationality),
           birthYear: asInteger(raw.birthYear),
           avatarUrl: asString(raw.avatarUrl),
+          exhibitionUrls: asStringArray(raw.exhibitionUrls),
         };
       }
     } catch (error) {
@@ -380,6 +385,7 @@ export async function discoverArtist(args: {
         nationality: null,
         birthYear: null,
         avatarUrl: null,
+        exhibitionUrls: [],
       };
     }
   } else {
@@ -393,6 +399,7 @@ export async function discoverArtist(args: {
       nationality: null,
       birthYear: null,
       avatarUrl: null,
+      exhibitionUrls: [],
     };
   }
 
@@ -404,6 +411,7 @@ export async function discoverArtist(args: {
     mediums: extracted.mediums,
     birthYear: extracted.birthYear,
     avatarUrl: extracted.avatarUrl,
+    exhibitionUrls: extracted.exhibitionUrls,
     name: extracted.name ?? args.artistName,
     searchQuery,
     wikipediaMatch,
@@ -462,6 +470,40 @@ export async function discoverArtist(args: {
   const created = args.db.$transaction
     ? await args.db.$transaction((tx) => createRows(tx))
     : await createRows(args.db);
+
+  if (extracted.exhibitionUrls.length > 0) {
+    const { extractArtworksForEvent } = await import("@/lib/ingest/artwork-extraction");
+
+    const exhibitionSystemPrompt = [
+      "You are extracting artworks and exhibition details from an artist's exhibition page.",
+      "This page documents a specific exhibition or body of work by one artist.",
+      "For each artwork shown, extract: title, medium, year, dimensions, imageUrl, artistName.",
+      "Also look for: exhibition title, venue name, exhibition date or year.",
+      "ImageUrl should be the full https:// URL of the artwork image — prefer large/full-size over thumbnails.",
+      "Return null for any field not clearly stated on the page.",
+      "Do not invent or hallucinate information.",
+    ].join("\n");
+
+    for (const exhibitionUrl of extracted.exhibitionUrls.slice(0, 8)) {
+      try {
+        await extractArtworksForEvent({
+          db: args.db as unknown as PrismaClient,
+          eventId: args.eventId,
+          sourceUrl: exhibitionUrl,
+          systemPromptOverride: exhibitionSystemPrompt,
+          matchedArtistId: created.id,
+          settings: args.settings,
+        });
+      } catch (err) {
+        logWarn({
+          message: "artist_discovery_exhibition_extraction_failed",
+          exhibitionUrl,
+          candidateId: created.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+  }
 
   const settings = await args.db.siteSettings?.findUnique({
     where: { id: "default" },

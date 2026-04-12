@@ -13,6 +13,7 @@ export function scoreArtistCandidate(candidate: {
   instagramUrl?: string | null;
   twitterUrl?: string | null;
   avatarUrl?: string | null;
+  exhibitionUrls?: string[] | null;
   mediums: string[];
   birthYear?: number | null;
   name: string;
@@ -54,6 +55,11 @@ export function scoreArtistCandidate(candidate: {
   if (candidate.avatarUrl?.trim()) {
     score += 5;
     reasons.push("avatar image present");
+  }
+
+  if (Array.isArray(candidate.exhibitionUrls) && candidate.exhibitionUrls.length > 0) {
+    score += 8;
+    reasons.push(`${candidate.exhibitionUrls.length} exhibition pages found`);
   }
 
   const hasKnownMedium = candidate.mediums.some((medium) => {
