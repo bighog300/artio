@@ -14,6 +14,7 @@ export function scoreArtistCandidate(candidate: {
   twitterUrl?: string | null;
   avatarUrl?: string | null;
   exhibitionUrls?: string[] | null;
+  collections?: string[] | null;
   mediums: string[];
   birthYear?: number | null;
   name: string;
@@ -60,6 +61,11 @@ export function scoreArtistCandidate(candidate: {
   if (Array.isArray(candidate.exhibitionUrls) && candidate.exhibitionUrls.length > 0) {
     score += 8;
     reasons.push(`${candidate.exhibitionUrls.length} exhibition pages found`);
+  }
+
+  if (Array.isArray(candidate.collections) && candidate.collections.length > 0) {
+    score += 10;
+    reasons.push(`work held in ${candidate.collections.length} named collection(s)`);
   }
 
   const hasKnownMedium = candidate.mediums.some((medium) => {

@@ -47,8 +47,11 @@ export async function autoApproveArtistCandidate(args: {
           data: {
             name: candidate.name,
             slug: slug ?? candidate.id,
-            bio: candidate.bio,
+            bio: candidate.bio ?? undefined,
             mediums: candidate.mediums,
+            collections: candidate.collections ?? [],
+            birthYear: candidate.birthYear ?? undefined,
+            nationality: candidate.nationality ?? undefined,
             websiteUrl: candidate.websiteUrl,
             instagramUrl: candidate.instagramUrl,
             twitterUrl: candidate.twitterUrl,
@@ -61,6 +64,33 @@ export async function autoApproveArtistCandidate(args: {
 
         artistId = createdArtist.id;
         createdNewArtist = true;
+      } else {
+        const existingArtist = await tx.artist.findUnique({
+          where: { id: artistId },
+          select: {
+            id: true,
+            bio: true,
+            birthYear: true,
+            nationality: true,
+            collections: true,
+          },
+        });
+
+        if (existingArtist) {
+          const nextCollections = (candidate.collections ?? [])
+            .filter((collection) => !existingArtist.collections.includes(collection));
+          if (!existingArtist.bio && candidate.bio) {
+            await tx.artist.update({
+              where: { id: existingArtist.id },
+              data: {
+                bio: candidate.bio,
+                collections: nextCollections.length > 0 ? { push: nextCollections } : undefined,
+                birthYear: existingArtist.birthYear ?? candidate.birthYear ?? undefined,
+                nationality: existingArtist.nationality ?? candidate.nationality ?? undefined,
+              },
+            });
+          }
+        }
       }
 
       for (const link of candidate.eventLinks) {

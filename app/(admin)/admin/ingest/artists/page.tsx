@@ -36,6 +36,7 @@ export default async function AdminIngestArtistsPage({
       name: true,
       bio: true,
       mediums: true,
+      collections: true,
       websiteUrl: true,
       instagramUrl: true,
       nationality: true,

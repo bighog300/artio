@@ -25,6 +25,7 @@ export const DEFAULT_ARTIST_BIO_SYSTEM_PROMPT = [
   "- birthYear: Four-digit integer birth year only. Return null if not stated or only a decade is given.",
   "- avatarUrl: URL of the artist's profile photo, headshot, or logo image at the top of the page. This is a photo OF the artist, not of their artwork. Look for a circular or portrait-style image near the artist's name. Return the full https:// URL. Return null if not present or ambiguous.",
   "- exhibitionUrls: Array of full URLs linking to exhibition, show, or project subpages FOR THIS ARTIST on the same domain. Look for links like /artistname/2003.php, /artistname/solo-show/, /artistname/exhibition-name/. These are subpages of the artist's own profile — not links to external galleries. Return up to 10 URLs. Return empty array if none found.",
+  "- collections: Array of named institutional or corporate collections that hold this artist's work. Examples: ['UNISA', 'Old Mutual', 'IBM South Africa', 'Webber Wentzel']. Only include named organisations explicitly stated on the page — not private collectors. Return empty array if none mentioned.",
   "",
   "If the page is a 404, stub, login wall, or clearly unrelated to the artist, return null for all fields.",
   "If the page is a search results page rather than a profile page, extract from the most relevant snippet only.",
@@ -33,7 +34,7 @@ export const DEFAULT_ARTIST_BIO_SYSTEM_PROMPT = [
 const artistExtractionSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["name", "bio", "mediums", "websiteUrl", "instagramUrl", "twitterUrl", "nationality", "birthYear", "avatarUrl", "exhibitionUrls"],
+  required: ["name", "bio", "mediums", "websiteUrl", "instagramUrl", "twitterUrl", "nationality", "birthYear", "avatarUrl", "exhibitionUrls", "collections"],
   properties: {
     name: { anyOf: [{ type: "string" }, { type: "null" }] },
     bio: { anyOf: [{ type: "string" }, { type: "null" }] },
@@ -45,6 +46,7 @@ const artistExtractionSchema = {
     birthYear: { anyOf: [{ type: "integer" }, { type: "null" }] },
     avatarUrl: { anyOf: [{ type: "string" }, { type: "null" }] },
     exhibitionUrls: { type: "array", items: { type: "string" } },
+    collections: { type: "array", items: { type: "string" } },
   },
 } as const;
 
@@ -334,6 +336,7 @@ export async function discoverArtist(args: {
     birthYear: number | null;
     avatarUrl: string | null;
     exhibitionUrls: string[];
+    collections: string[];
   } = {
     name: null,
     bio: null,
@@ -345,6 +348,7 @@ export async function discoverArtist(args: {
     birthYear: null,
     avatarUrl: null,
     exhibitionUrls: [],
+    collections: [],
   };
 
   let usageTotalTokens: number | null = null;
@@ -380,6 +384,7 @@ export async function discoverArtist(args: {
           birthYear: asInteger(raw.birthYear),
           avatarUrl: asString(raw.avatarUrl),
           exhibitionUrls: asStringArray(raw.exhibitionUrls),
+          collections: asStringArray(raw.collections),
         };
       }
     } catch (error) {
@@ -396,6 +401,7 @@ export async function discoverArtist(args: {
         birthYear: null,
         avatarUrl: null,
         exhibitionUrls: [],
+        collections: [],
       };
     }
   } else {
@@ -410,6 +416,7 @@ export async function discoverArtist(args: {
       birthYear: null,
       avatarUrl: null,
       exhibitionUrls: [],
+      collections: [],
     };
   }
 
@@ -422,6 +429,7 @@ export async function discoverArtist(args: {
     birthYear: extracted.birthYear,
     avatarUrl: extracted.avatarUrl,
     exhibitionUrls: extracted.exhibitionUrls,
+    collections: extracted.collections,
     name: extracted.name ?? args.artistName,
     searchQuery,
     wikipediaMatch,
@@ -442,6 +450,7 @@ export async function discoverArtist(args: {
         nationality: extracted.nationality,
         birthYear: extracted.birthYear,
         avatarUrl: extracted.avatarUrl,
+        collections: extracted.collections,
         sourceUrl,
         searchQuery,
         status: "PENDING",

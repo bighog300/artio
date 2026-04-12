@@ -1,0 +1,7 @@
+ALTER TABLE "IngestExtractedArtist"
+  ADD COLUMN IF NOT EXISTS "collections" TEXT[] NOT NULL DEFAULT '{}';
+
+ALTER TABLE "Artist"
+  ADD COLUMN IF NOT EXISTS "collections" TEXT[] NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS "birthYear" INTEGER,
+  ADD COLUMN IF NOT EXISTS "nationality" TEXT;

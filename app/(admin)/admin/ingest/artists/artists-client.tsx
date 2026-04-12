@@ -13,6 +13,7 @@ type Candidate = {
   name: string;
   bio: string | null;
   mediums: string[];
+  collections: string[];
   websiteUrl: string | null;
   instagramUrl: string | null;
   nationality: string | null;
@@ -684,7 +685,23 @@ export default function ArtistsClient({
                   </td>
                   <td className="px-3 py-2 font-medium">{candidate.name}</td>
                   <td className="max-w-[280px] px-3 py-2">{candidate.bio ? `${candidate.bio.slice(0, 100)}${candidate.bio.length > 100 ? "…" : ""}` : "—"}</td>
-                  <td className="px-3 py-2">{candidate.mediums.length > 0 ? candidate.mediums.join(", ") : "—"}</td>
+                  <td className="px-3 py-2">
+                    <div className="space-y-2">
+                      <div>{candidate.mediums.length > 0 ? candidate.mediums.join(", ") : "—"}</div>
+                      {candidate.collections?.length > 0 ? (
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Collections</div>
+                          <div className="flex flex-wrap gap-1">
+                            {candidate.collections.map((collection) => (
+                              <span key={collection} className="rounded bg-muted px-2 py-0.5 text-xs">
+                                {collection}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </td>
                   <td className="px-3 py-2 min-w-[160px]">
                     {(() => {
                       const { score, missing } = computeArtistCompleteness(candidate);
