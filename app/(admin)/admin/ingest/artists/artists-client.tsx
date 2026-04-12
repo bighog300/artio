@@ -7,6 +7,7 @@ import IngestConfidenceBadge from "@/app/(admin)/admin/ingest/_components/ingest
 import IngestImageCell from "@/app/(admin)/admin/ingest/_components/ingest-image-cell";
 import { Button } from "@/components/ui/button";
 import { computeArtistCompleteness } from "@/lib/artist-completeness";
+import { enqueueToast } from "@/lib/toast";
 
 type Candidate = {
   id: string;
@@ -17,6 +18,7 @@ type Candidate = {
   collections: string[];
   websiteUrl: string | null;
   instagramUrl: string | null;
+  twitterUrl: string | null;
   nationality: string | null;
   birthYear: number | null;
   sourceUrl: string;
@@ -110,12 +112,16 @@ function getStatusToneClass(tone: "muted" | "ok" | "warn"): string {
   return "text-muted-foreground";
 }
 
-type EditDraft = {
+type EditState = {
   name: string;
   bio: string;
   mediums: string;
+  collections: string;
+  nationality: string;
+  birthYear: string;
   websiteUrl: string;
   instagramUrl: string;
+  twitterUrl: string;
 };
 
 type ApprovalFilter = "all" | "failed" | "attempted" | "not_attempted";
@@ -157,15 +163,6 @@ function getConfidenceReasons(value: unknown): string[] {
   return value.filter((entry): entry is string => typeof entry === "string");
 }
 
-function getInitialDraft(candidate: Candidate): EditDraft {
-  return {
-    name: candidate.name,
-    bio: candidate.bio ?? "",
-    mediums: candidate.mediums.join(", "),
-    websiteUrl: candidate.websiteUrl ?? "",
-    instagramUrl: candidate.instagramUrl ?? "",
-  };
-}
 
 export default function ArtistsClient({
   candidates: initial,
@@ -188,8 +185,9 @@ export default function ArtistsClient({
   const [candidates, setCandidates] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
-  const [editOpenById, setEditOpenById] = useState<Record<string, boolean>>({});
-  const [editDraftById, setEditDraftById] = useState<Record<string, EditDraft>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editState, setEditState] = useState<EditState | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [importingImageFor, setImportingImageFor] = useState<string | null>(null);
   const [importedImageFor, setImportedImageFor] = useState<Set<string>>(new Set());
   const [importFailedFor, setImportFailedFor] = useState<Set<string>>(new Set());
@@ -241,27 +239,88 @@ export default function ArtistsClient({
     return () => window.clearTimeout(timeoutId);
   }, [approvalFilter, imageFilter, reasonCodeFilter, pushFilterState, sort]);
 
-  function updateDraft(id: string, field: keyof EditDraft, value: string) {
-    setEditDraftById((prev) => ({
-      ...prev,
-      [id]: {
-        ...(prev[id] ?? { name: "", bio: "", mediums: "", websiteUrl: "", instagramUrl: "" }),
-        [field]: value,
-      },
-    }));
+  function openEdit(candidate: (typeof candidates)[number]) {
+    setEditingId(candidate.id);
+    setEditState({
+      name: candidate.name ?? "",
+      bio: candidate.bio ?? "",
+      mediums: (candidate.mediums ?? []).join(", "),
+      collections: (candidate.collections ?? []).join(", "),
+      nationality: candidate.nationality ?? "",
+      birthYear: candidate.birthYear ? String(candidate.birthYear) : "",
+      websiteUrl: candidate.websiteUrl ?? "",
+      instagramUrl: candidate.instagramUrl ?? "",
+      twitterUrl: candidate.twitterUrl ?? "",
+    });
   }
 
-  function toggleEdit(candidate: Candidate) {
-    setEditOpenById((prev) => {
-      const nextOpen = !prev[candidate.id];
-      if (nextOpen) {
-        setEditDraftById((draftPrev) => ({
-          ...draftPrev,
-          [candidate.id]: draftPrev[candidate.id] ?? getInitialDraft(candidate),
-        }));
-      }
-      return { ...prev, [candidate.id]: nextOpen };
-    });
+  async function saveEdit(candidateId: string) {
+    if (!editState) return;
+    setSavingId(candidateId);
+    try {
+      const res = await fetch(`/api/admin/ingest/artists/${candidateId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editState.name.trim() || undefined,
+          bio: editState.bio.trim() || null,
+          mediums: editState.mediums
+            .split(",")
+            .map((entry) => entry.trim())
+            .filter(Boolean),
+          collections: editState.collections
+            .split(",")
+            .map((entry) => entry.trim())
+            .filter(Boolean),
+          nationality: editState.nationality.trim() || null,
+          birthYear: editState.birthYear
+            ? Number.parseInt(editState.birthYear, 10)
+            : null,
+          websiteUrl: editState.websiteUrl.trim() || null,
+          instagramUrl: editState.instagramUrl.trim() || null,
+          twitterUrl: editState.twitterUrl.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      const updated = await res.json() as {
+        name: string;
+        bio: string | null;
+        mediums: string[];
+        collections: string[];
+        nationality: string | null;
+        birthYear: number | null;
+        websiteUrl: string | null;
+        instagramUrl: string | null;
+        twitterUrl: string | null;
+      };
+
+      setCandidates((prev) =>
+        prev.map((candidate) =>
+          candidate.id === candidateId
+            ? {
+                ...candidate,
+                name: updated.name,
+                bio: updated.bio,
+                mediums: updated.mediums,
+                collections: updated.collections,
+                nationality: updated.nationality,
+                birthYear: updated.birthYear,
+                websiteUrl: updated.websiteUrl,
+                instagramUrl: updated.instagramUrl,
+                twitterUrl: updated.twitterUrl,
+              }
+            : candidate,
+        ),
+      );
+
+      setEditingId(null);
+      setEditState(null);
+      enqueueToast({ title: "Candidate updated", variant: "success" });
+    } catch {
+      enqueueToast({ title: "Failed to save changes", variant: "error" });
+    } finally {
+      setSavingId(null);
+    }
   }
 
   const approve = useCallback(async (id: string) => {
@@ -285,7 +344,7 @@ export default function ArtistsClient({
 
   async function bulkApproveHigh() {
     const highCandidates = candidates.filter(
-      (c) => c.confidenceBand === "HIGH" && c.status === "PENDING",
+      (candidate) => candidate.confidenceBand === "HIGH" && candidate.status === "PENDING",
     );
     if (highCandidates.length === 0) return;
     if (
@@ -307,8 +366,8 @@ export default function ArtistsClient({
     let approved = 0;
     let failed = 0;
 
-    for (let i = 0; i < highCandidates.length; i += BATCH_SIZE) {
-      const batch = highCandidates.slice(i, i + BATCH_SIZE);
+    for (let index = 0; index < highCandidates.length; index += BATCH_SIZE) {
+      const batch = highCandidates.slice(index, index + BATCH_SIZE);
       const results = await Promise.allSettled(
         batch.map((candidate) =>
           fetch(`/api/admin/ingest/artists/${candidate.id}/approve`, { method: "POST" })
@@ -334,53 +393,9 @@ export default function ArtistsClient({
     setBulkResults({ approved, failed });
 
     setCandidates((prev) =>
-      prev.filter((c) => !(c.confidenceBand === "HIGH" && c.status === "PENDING")),
+      prev.filter((candidate) => !(candidate.confidenceBand === "HIGH" && candidate.status === "PENDING")),
     );
   }
-
-  async function approveWithPatch(id: string) {
-    const draft = editDraftById[id];
-    if (!draft) {
-      await approve(id);
-      return;
-    }
-
-    setWorkingId(id);
-    setError(null);
-    try {
-      const payload: {
-        name?: string;
-        bio?: string | null;
-        mediums?: string[];
-        websiteUrl?: string | null;
-        instagramUrl?: string | null;
-      } = {};
-
-      if (draft.name.trim()) payload.name = draft.name;
-      payload.bio = draft.bio.trim() ? draft.bio : null;
-      payload.mediums = draft.mediums.split(",").map((s) => s.trim()).filter(Boolean);
-      payload.websiteUrl = draft.websiteUrl.trim() ? draft.websiteUrl : null;
-      payload.instagramUrl = draft.instagramUrl.trim() ? draft.instagramUrl : null;
-
-      const res = await fetch(`/api/admin/ingest/artists/${id}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        setError("Failed to approve artist candidate.");
-        return;
-      }
-      const body = await res.json() as { artistId?: string };
-      setCandidates((prev) => prev.map((item) => item.id === id ? { ...item, status: "APPROVED", createdArtistId: body.artistId ?? item.createdArtistId } : item));
-      setEditOpenById((prev) => ({ ...prev, [id]: false }));
-    } catch {
-      setError("Failed to approve artist candidate.");
-    } finally {
-      setWorkingId(null);
-    }
-  }
-
 
   async function approveAndPublish(id: string) {
     setWorkingId(id);
@@ -692,11 +707,21 @@ export default function ArtistsClient({
                       }
                     />
                   </td>
-                  <td className="px-3 py-2 font-medium">{candidate.name}</td>
-                  <td className="max-w-[280px] px-3 py-2">{candidate.bio ? `${candidate.bio.slice(0, 100)}${candidate.bio.length > 100 ? "…" : ""}` : "—"}</td>
+                  <td className="px-3 py-2 font-medium">
+                    {editingId === candidate.id && editState ? editState.name : candidate.name}
+                  </td>
+                  <td className="max-w-[280px] px-3 py-2">
+                    {editingId === candidate.id && editState
+                      ? (editState.bio || "—")
+                      : candidate.bio ? `${candidate.bio.slice(0, 100)}${candidate.bio.length > 100 ? "…" : ""}` : "—"}
+                  </td>
                   <td className="px-3 py-2">
                     <div className="space-y-2">
-                      <div>{candidate.mediums.length > 0 ? candidate.mediums.join(", ") : "—"}</div>
+                      <div>
+                        {editingId === candidate.id && editState
+                          ? (editState.mediums || "—")
+                          : candidate.mediums.length > 0 ? candidate.mediums.join(", ") : "—"}
+                      </div>
                       {candidate.collections?.length > 0 ? (
                         <div className="space-y-1">
                           <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Collections</div>
@@ -803,9 +828,16 @@ export default function ArtistsClient({
                       {userRole === "ADMIN" ? (
                         <Button size="sm" variant="outline" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => approveAndPublish(candidate.id)}>Approve & Publish</Button>
                       ) : null}
-                      <Button size="sm" variant="outline" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => toggleEdit(candidate)}>
-                        {editOpenById[candidate.id] ? "Close edit" : "Edit"}
-                      </Button>
+                      {candidate.status === "PENDING" && editingId !== candidate.id ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEdit(candidate)}
+                        >
+                          Edit
+                        </Button>
+                      ) : null}
                       <Button data-action="reject" size="sm" variant="outline" disabled={workingId === candidate.id || candidate.status !== "PENDING"} onClick={() => reject(candidate.id)}>Reject</Button>
                     </div>
                     {candidate.createdArtistId ? (
@@ -873,69 +905,123 @@ export default function ArtistsClient({
                     </td>
                   </tr>
                 ) : null}
-                {editOpenById[candidate.id] ? (
+                {editingId === candidate.id && editState ? (
                   <tr className="border-b">
                     <td colSpan={11} className="px-3 pb-3">
-                      <div className="grid grid-cols-2 gap-2 rounded border bg-muted/30 p-3 text-sm">
-                        <label className="flex flex-col gap-1">
-                          Name
-                          <input
-                            className="rounded border px-2 py-1 text-sm"
-                            value={editDraftById[candidate.id]?.name ?? ""}
-                            onChange={(e) => updateDraft(candidate.id, "name", e.target.value)}
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1">
-                          Mediums (comma-separated)
-                          <input
-                            className="rounded border px-2 py-1 text-sm"
-                            value={editDraftById[candidate.id]?.mediums ?? ""}
-                            onChange={(e) => updateDraft(candidate.id, "mediums", e.target.value)}
-                          />
-                        </label>
-                        <label className="col-span-2 flex flex-col gap-1">
-                          Bio
-                          <textarea
-                            rows={4}
-                            className="rounded border px-2 py-1 text-sm"
-                            value={editDraftById[candidate.id]?.bio ?? ""}
-                            onChange={(e) => updateDraft(candidate.id, "bio", e.target.value)}
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1">
-                          Website URL
-                          <input
-                            className="rounded border px-2 py-1 text-sm"
-                            value={editDraftById[candidate.id]?.websiteUrl ?? ""}
-                            onChange={(e) => updateDraft(candidate.id, "websiteUrl", e.target.value)}
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1">
-                          Instagram URL
-                          <input
-                            className="rounded border px-2 py-1 text-sm"
-                            value={editDraftById[candidate.id]?.instagramUrl ?? ""}
-                            onChange={(e) => updateDraft(candidate.id, "instagramUrl", e.target.value)}
-                          />
-                        </label>
-                      </div>
-                      <div className="mt-2 flex gap-2">
-                        <Button size="sm" disabled={workingId === candidate.id} onClick={() => approveWithPatch(candidate.id)}>
-                          Save + approve
-                        </Button>
-                        {userRole === "ADMIN" ? (
-                          <Button size="sm" variant="outline" disabled={workingId === candidate.id} onClick={() => approveAndPublish(candidate.id)}>
-                            Approve & Publish
+                      <div className="mt-3 space-y-2 rounded-md border bg-muted/30 p-3">
+                        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Editing candidate
+                        </div>
+
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <label className="space-y-1 text-xs">
+                            <span className="font-medium">Name</span>
+                            <input
+                              className="w-full rounded border bg-background px-2 py-1.5 text-sm"
+                              value={editState.name}
+                              onChange={(event) => setEditState((state) => state ? { ...state, name: event.target.value } : state)}
+                            />
+                          </label>
+
+                          <label className="space-y-1 text-xs">
+                            <span className="font-medium">Nationality</span>
+                            <input
+                              className="w-full rounded border bg-background px-2 py-1.5 text-sm"
+                              value={editState.nationality}
+                              onChange={(event) => setEditState((state) => state ? { ...state, nationality: event.target.value } : state)}
+                            />
+                          </label>
+
+                          <label className="space-y-1 text-xs md:col-span-2">
+                            <span className="font-medium">Bio</span>
+                            <textarea
+                              className="w-full rounded border bg-background px-2 py-1.5 text-sm"
+                              rows={3}
+                              value={editState.bio}
+                              onChange={(event) => setEditState((state) => state ? { ...state, bio: event.target.value } : state)}
+                            />
+                          </label>
+
+                          <label className="space-y-1 text-xs">
+                            <span className="font-medium">Mediums <span className="text-muted-foreground">(comma-separated)</span></span>
+                            <input
+                              className="w-full rounded border bg-background px-2 py-1.5 text-sm"
+                              value={editState.mediums}
+                              onChange={(event) => setEditState((state) => state ? { ...state, mediums: event.target.value } : state)}
+                            />
+                          </label>
+
+                          <label className="space-y-1 text-xs">
+                            <span className="font-medium">Collections <span className="text-muted-foreground">(comma-separated)</span></span>
+                            <input
+                              className="w-full rounded border bg-background px-2 py-1.5 text-sm"
+                              value={editState.collections}
+                              onChange={(event) => setEditState((state) => state ? { ...state, collections: event.target.value } : state)}
+                            />
+                          </label>
+
+                          <label className="space-y-1 text-xs">
+                            <span className="font-medium">Birth year</span>
+                            <input
+                              className="w-full rounded border bg-background px-2 py-1.5 text-sm"
+                              type="number"
+                              min={1800}
+                              max={2100}
+                              value={editState.birthYear}
+                              onChange={(event) => setEditState((state) => state ? { ...state, birthYear: event.target.value } : state)}
+                            />
+                          </label>
+
+                          <label className="space-y-1 text-xs">
+                            <span className="font-medium">Website URL</span>
+                            <input
+                              className="w-full rounded border bg-background px-2 py-1.5 text-sm"
+                              value={editState.websiteUrl}
+                              onChange={(event) => setEditState((state) => state ? { ...state, websiteUrl: event.target.value } : state)}
+                            />
+                          </label>
+
+                          <label className="space-y-1 text-xs">
+                            <span className="font-medium">Instagram URL</span>
+                            <input
+                              className="w-full rounded border bg-background px-2 py-1.5 text-sm"
+                              value={editState.instagramUrl}
+                              onChange={(event) => setEditState((state) => state ? { ...state, instagramUrl: event.target.value } : state)}
+                            />
+                          </label>
+
+                          <label className="space-y-1 text-xs">
+                            <span className="font-medium">Twitter / X URL</span>
+                            <input
+                              className="w-full rounded border bg-background px-2 py-1.5 text-sm"
+                              value={editState.twitterUrl}
+                              onChange={(event) => setEditState((state) => state ? { ...state, twitterUrl: event.target.value } : state)}
+                            />
+                          </label>
+                        </div>
+
+                        <div className="flex gap-2 pt-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={savingId === candidate.id}
+                            onClick={() => void saveEdit(candidate.id)}
+                          >
+                            {savingId === candidate.id ? "Saving…" : "Save changes"}
                           </Button>
-                        ) : null}
-                        <Button size="sm" variant="outline" onClick={() => setEditOpenById((prev) => ({ ...prev, [candidate.id]: false }))}>
-                          Cancel
-                        </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { setEditingId(null); setEditState(null); }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
                     </td>
                   </tr>
-                ) : null}
-              </Fragment>
+                ) : null}             </Fragment>
             ))}
             {filteredCandidates.length === 0 ? (
               <tr>
