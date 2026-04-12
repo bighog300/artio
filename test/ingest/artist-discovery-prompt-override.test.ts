@@ -10,7 +10,10 @@ test.afterEach(() => {
 
 function createDb() {
   const tx = {
-    ingestExtractedArtist: { create: async () => ({ id: "candidate-1" }) },
+    ingestExtractedArtist: {
+      findFirst: async () => null,
+      create: async () => ({ id: "candidate-1" }),
+    },
     ingestExtractedArtistRun: { create: async () => ({ id: "run-1" }) },
     ingestExtractedArtistEvent: { create: async () => ({ id: "link-1" }) },
   };

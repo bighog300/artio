@@ -424,9 +424,8 @@ export async function discoverArtist(args: {
   const candidateName = extracted.name?.trim() || args.artistName.trim();
 
   const createRows = async (tx: Pick<Prisma.TransactionClient, "ingestExtractedArtist" | "ingestExtractedArtistRun" | "ingestExtractedArtistEvent">) => {
-    const candidate = await tx.ingestExtractedArtist.upsert({
-      where: { fingerprint },
-      create: {
+    const candidate = await tx.ingestExtractedArtist.create({
+      data: {
         name: candidateName,
         normalizedName,
         bio: extracted.bio,
@@ -445,8 +444,7 @@ export async function discoverArtist(args: {
         confidenceBand: scored.band,
         confidenceReasons: scored.reasons as Prisma.JsonArray,
         extractionProvider: chosenProvider.name,
-      } as Prisma.IngestExtractedArtistCreateInput,
-      update: {},
+      },
       select: { id: true },
     });
 

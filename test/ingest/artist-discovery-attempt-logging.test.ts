@@ -10,7 +10,10 @@ test.afterEach(() => {
 
 function createDbWithRunSpy(runCreates: Array<{ data: Record<string, unknown> }>) {
   const tx = {
-    ingestExtractedArtist: { create: async () => ({ id: "candidate-1" }) },
+    ingestExtractedArtist: {
+      findFirst: async () => null,
+      create: async () => ({ id: "candidate-1" }),
+    },
     ingestExtractedArtistRun: {
       create: async (args: { data: Record<string, unknown> }) => {
         runCreates.push(args);
