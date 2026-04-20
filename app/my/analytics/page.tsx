@@ -75,6 +75,39 @@ export default async function MyAnalyticsPage({ searchParams }: { searchParams?:
 
   const analytics = computeArtworkAnalytics(artworks, rows);
 
+  const start30 = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() - 29));
+
+  const [topEventViews, topGalleries, follows30d, saves30d, engagementTrend] = await Promise.all([
+    db.pageViewDaily.findMany({
+      where: { entityType: "EVENT", day: { gte: start30 } },
+      orderBy: [{ views: "desc" }],
+      take: 40,
+      select: { entityId: true, views: true },
+    }),
+    db.collection.findMany({
+      where: { userId: user.id, OR: [{ status: "PUBLISHED" }, { isPublic: true }] },
+      select: { id: true, title: true, _count: { select: { followers: true, items: true } } },
+      orderBy: { followers: { _count: "desc" } },
+      take: 5,
+    }),
+    db.follow.count({ where: { targetType: "USER", targetId: user.id, createdAt: { gte: start30 } } }),
+    db.collectionFollow.count({ where: { collection: { userId: user.id }, createdAt: { gte: start30 } } }),
+    db.userInteraction.groupBy({ by: ["type"], where: { createdAt: { gte: start30 } }, _count: { _all: true } }).catch(() => []),
+  ]);
+
+  const eventIds = topEventViews.map((row) => row.entityId);
+  const managedEvents = eventIds.length
+    ? await db.event.findMany({
+        where: { id: { in: eventIds }, OR: [{ venue: { memberships: { some: { userId: user.id } } } }, { eventArtists: { some: { artist: { userId: user.id } } } }] },
+        select: { id: true, title: true, slug: true },
+      })
+    : [];
+  const managedEventMap = new Map(managedEvents.map((event) => [event.id, event]));
+  const topEvents = topEventViews
+    .filter((row) => managedEventMap.has(row.entityId))
+    .slice(0, 5)
+    .map((row) => ({ ...row, event: managedEventMap.get(row.entityId)! }));
+
   return (
     <main className="space-y-6 p-6">
       <h1 className="text-2xl font-semibold">My Analytics</h1>
@@ -159,6 +192,45 @@ export default async function MyAnalyticsPage({ searchParams }: { searchParams?:
           <a className="mt-2 inline-block underline" href="/my/artist">Set up artist profile</a>
         </div>
       )}
+
+
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Creator performance snapshot (30d)</h2>
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="rounded border p-3"><p className="text-xs text-muted-foreground">New follows</p><p className="text-2xl font-semibold">{follows30d}</p></div>
+          <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Gallery saves</p><p className="text-2xl font-semibold">{saves30d}</p></div>
+          <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Top events tracked</p><p className="text-2xl font-semibold">{topEvents.length}</p></div>
+          <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Top galleries tracked</p><p className="text-2xl font-semibold">{topGalleries.length}</p></div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-2 rounded border p-4">
+          <h3 className="font-semibold">Top events (views)</h3>
+          {topEvents.length === 0 ? <p className="text-sm text-muted-foreground">No managed event views yet.</p> : (
+            <ul className="space-y-2 text-sm">
+              {topEvents.map((item) => <li key={item.entityId} className="flex items-center justify-between"><Link className="underline" href={`/events/${item.event.slug}`}>{item.event.title}</Link><span>{item.views} views</span></li>)}
+            </ul>
+          )}
+        </div>
+        <div className="space-y-2 rounded border p-4">
+          <h3 className="font-semibold">Top galleries (saves)</h3>
+          {topGalleries.length === 0 ? <p className="text-sm text-muted-foreground">No gallery saves yet.</p> : (
+            <ul className="space-y-2 text-sm">
+              {topGalleries.map((item) => <li key={item.id} className="flex items-center justify-between"><Link className="underline" href={`/galleries/${item.id}`}>{item.title}</Link><span>{item._count.followers} saves · {item._count.items} items</span></li>)}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-2 rounded border p-4">
+        <h3 className="font-semibold">Engagement trend mix (30d)</h3>
+        {engagementTrend.length === 0 ? <p className="text-sm text-muted-foreground">No interaction events captured yet.</p> : (
+          <ul className="grid gap-2 md:grid-cols-3">
+            {engagementTrend.map((row) => <li key={row.type} className="rounded border p-2 text-sm"><p className="font-medium">{row.type}</p><p className="text-muted-foreground">{row._count._all} actions</p></li>)}
+          </ul>
+        )}
+      </section>
 
       <RegistrationsAnalyticsSection />
     </main>

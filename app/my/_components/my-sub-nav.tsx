@@ -25,6 +25,7 @@ export function MySubNav({ unreadInquiryCount = 0, hasArtistProfile = false, has
   const secondaryTabs: Array<readonly [string, string]> = [
     ["Artwork", "/my/artwork"],
     ...(hasCollection ? [["Collection", "/my/collection"] as const] : []),
+    ["Galleries", "/my/galleries"],
     ["Artist Profile", "/my/artist"],
     ...(hasArtistProfile ? [
       ["CV & history", "/my/artist/cv"] as const,
