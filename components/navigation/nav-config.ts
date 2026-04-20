@@ -9,6 +9,7 @@ const PUBLIC_ITEMS: NavItem[] = [
   { label: "Venues", href: "/venues" },
   { label: "Artists", href: "/artists" },
   { label: "Artwork", href: "/artwork" },
+  { label: "Galleries", href: "/galleries" },
   { label: "Calendar", href: "/calendar" },
   { label: "Nearby", href: "/nearby" },
   { label: "Search", href: "/search" },

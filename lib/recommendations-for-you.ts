@@ -53,6 +53,19 @@ export type EventListItem = {
   inCollectionsCount?: number;
 };
 
+export type GalleryListItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  creatorName: string;
+  creatorUsername: string;
+  coverImageUrl: string | null | undefined;
+  itemCount: number;
+  savesCount: number;
+};
+
+export type GalleryForYouItem = { gallery: GalleryListItem; score: number; reasons: string[]; reason: string; reasonCategory: FeedReasonCategory };
+
 export type FeedReasonCategory = "network" | "trending" | "nearby";
 export type ForYouItem = { event: EventListItem; score: number; reasons: string[]; reason: string; reasonCategory: FeedReasonCategory };
 
@@ -121,6 +134,9 @@ export function scoreForYouEvents(args: {
   dislikedVenueIds: Set<string>;
   dislikedArtistIds: Set<string>;
   dislikedTagIds: Set<string>;
+  reminderVenueIds?: Set<string>;
+  reminderArtistIds?: Set<string>;
+  reminderTagIds?: Set<string>;
   locationLabel?: string | null;
   radiusKm?: number;
   followedCollectionEventIds?: Set<string>;
@@ -207,6 +223,19 @@ export function scoreForYouEvents(args: {
       reasons.push("From a collection you follow");
     }
 
+    if (event.venueId && args.reminderVenueIds?.has(event.venueId)) {
+      score += 2.5;
+      reasons.push("Similar to events you set reminders for");
+    }
+    if (event.eventArtists.some((artist) => args.reminderArtistIds?.has(artist.artistId))) {
+      score += 2.5;
+      reasons.push("Features artists from your reminders");
+    }
+    if (event.eventTags.some((tag) => args.reminderTagIds?.has(tag.tagId))) {
+      score += 1.5;
+      reasons.push("Matches tags from your reminders");
+    }
+
     if (event.venueId && args.dislikedVenueIds.has(event.venueId)) score -= 4;
     if (event.eventArtists.some((artist) => args.dislikedArtistIds.has(artist.artistId))) score -= 4;
     if (event.eventTags.some((tag) => args.dislikedTagIds.has(tag.tagId))) score -= 4;
@@ -254,6 +283,131 @@ export function scoreForYouEvents(args: {
   return scored.filter((item) => item.score >= 0);
 }
 
+async function getRecommendedGalleries(db: Prisma.TransactionClient | Prisma.DefaultPrismaClient, args: {
+  userId: string;
+  followedArtistIds: Set<string>;
+  followedUserIds: Set<string>;
+  reminderArtistIds: Set<string>;
+  reminderVenueIds: Set<string>;
+  limit: number;
+}) {
+  const collectionRepo = (db as unknown as { collection?: { findMany: (...args: unknown[]) => Promise<unknown[]> } }).collection;
+  if (!collectionRepo) return [] as GalleryForYouItem[];
+  const candidateCollections = await collectionRepo.findMany({
+    where: {
+      isPublic: true,
+      items: { some: { entityType: "ARTWORK" } },
+      OR: [
+        args.followedUserIds.size ? { userId: { in: Array.from(args.followedUserIds) } } : undefined,
+        args.followedArtistIds.size || args.reminderArtistIds.size
+          ? {
+              items: {
+                some: {
+                  entityType: "ARTWORK",
+                  entityId: {
+                    in: await db.artwork.findMany({
+                      where: {
+                        artistId: {
+                          in: Array.from(new Set([...Array.from(args.followedArtistIds), ...Array.from(args.reminderArtistIds)])),
+                        },
+                        isPublished: true,
+                        deletedAt: null,
+                      },
+                      select: { id: true },
+                      take: 500,
+                    }).then((rows) => rows.map((row) => row.id)),
+                  },
+                },
+              },
+            }
+          : undefined,
+      ].filter(Boolean) as Prisma.CollectionWhereInput[],
+    },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      userId: true,
+      user: { select: { username: true, displayName: true } },
+      _count: { select: { followers: true, items: true } },
+      items: { where: { entityType: "ARTWORK" }, orderBy: { createdAt: "asc" }, take: 1, select: { entityId: true } },
+    },
+    orderBy: [{ updatedAt: "desc" }],
+    take: Math.max(args.limit * 3, 20),
+  }).catch(() => []) as Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    userId: string;
+    user: { username: string; displayName: string | null };
+    _count: { followers: number; items: number };
+    items: Array<{ entityId: string }>;
+  }>;
+
+  if (!candidateCollections.length) return [] as GalleryForYouItem[];
+
+  const coverIds = candidateCollections.map((item) => item.items[0]?.entityId).filter(Boolean) as string[];
+  const covers = coverIds.length
+    ? await db.artwork.findMany({
+      where: { id: { in: coverIds } },
+      select: {
+        id: true,
+        featuredAsset: { select: { url: true } },
+        images: { take: 1, orderBy: { sortOrder: "asc" }, select: { asset: { select: { url: true } } } },
+      },
+    })
+    : [];
+  const coverByArtworkId = new Map(covers.map((artwork) => [artwork.id, artwork]));
+
+  const followedCollectionRepo = (db as unknown as { collectionFollow?: { findMany: (...args: unknown[]) => Promise<Array<{ collectionId: string }>> } }).collectionFollow;
+  const followedCollectionIds = new Set((followedCollectionRepo ? await followedCollectionRepo.findMany({ where: { userId: args.userId }, select: { collectionId: true } } as never).catch(() => []) : []).map((item) => item.collectionId));
+
+  const ranked = candidateCollections.map((collection) => {
+    let score = 0;
+    const reasons: string[] = [];
+    if (args.followedUserIds.has(collection.userId)) {
+      score += 8;
+      reasons.push("From a creator you follow");
+    }
+    if (followedCollectionIds.has(collection.id)) {
+      score += 10;
+      reasons.push("Because you saved similar galleries");
+    }
+    if (collection._count.followers > 0) {
+      score += Math.min(6, collection._count.followers / 3);
+      reasons.push("Trending gallery");
+    }
+    if (collection._count.items > 4) score += 2;
+
+    return {
+      collection,
+      score,
+      reasons: reasons.length ? reasons : ["Curated gallery"],
+    };
+  }).sort((a, b) => b.score - a.score || a.collection.title.localeCompare(b.collection.title)).slice(0, args.limit);
+
+  return ranked.map((item) => {
+    const coverId = item.collection.items[0]?.entityId;
+    const coverArtwork = coverId ? coverByArtworkId.get(coverId) : null;
+    return {
+      reason: item.reasons[0] ?? "Curated gallery",
+      reasonCategory: "network" as const,
+      score: item.score,
+      reasons: item.reasons,
+      gallery: {
+        id: item.collection.id,
+        title: item.collection.title,
+        description: item.collection.description,
+        creatorName: item.collection.user.displayName ?? item.collection.user.username,
+        creatorUsername: item.collection.user.username,
+        coverImageUrl: coverArtwork?.featuredAsset?.url ?? coverArtwork?.images[0]?.asset?.url,
+        itemCount: item.collection._count.items,
+        savesCount: item.collection._count.followers,
+      },
+    };
+  });
+}
+
 export async function getForYouRecommendations(db: Prisma.TransactionClient | Prisma.DefaultPrismaClient, args: { userId: string; days: 7 | 30; limit: number }) {
   const now = new Date();
   const to = new Date(now);
@@ -292,7 +446,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
         primaryImageUrl: resolveImageUrl(event!.images[0]?.asset?.url, event!.images[0]?.url),
       },
     }));
-    return { windowDays: args.days, items, candidateCount: items.length };
+    return { windowDays: args.days, items, galleryItems: [], candidateCount: items.length };
   }
 
   const [user, follows, searches, followedCollections] = await Promise.all([
@@ -423,6 +577,29 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     take: 500,
     orderBy: { createdAt: "desc" },
   });
+  const eventReminderRepo = (db as unknown as { eventReminder?: { findMany: (args: unknown) => Promise<Array<{ event: { venueId: string | null; eventArtists: Array<{ artistId: string }>; eventTags: Array<{ tagId: string }> } }>> } }).eventReminder;
+  const reminderEvents = eventReminderRepo ? await eventReminderRepo.findMany({
+    where: { userId: args.userId },
+    select: {
+      event: {
+        select: {
+          venueId: true,
+          eventArtists: { select: { artistId: true } },
+          eventTags: { select: { tagId: true } },
+        },
+      },
+    },
+    take: 80,
+    orderBy: { createdAt: "desc" },
+  } as never).catch(() => []) : [];
+  const reminderVenueIds = new Set<string>();
+  const reminderArtistIds = new Set<string>();
+  const reminderTagIds = new Set<string>();
+  for (const row of reminderEvents) {
+    if (row.event.venueId) reminderVenueIds.add(row.event.venueId);
+    for (const artist of row.event.eventArtists) reminderArtistIds.add(artist.artistId);
+    for (const tag of row.event.eventTags) reminderTagIds.add(tag.tagId);
+  }
   const likedEventIds = new Set<string>();
   const dislikedEventIds = new Set<string>();
   const clickedEventIds = new Set<string>();
@@ -568,7 +745,15 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     by: ["entityId"],
     where: { entityType: "EVENT", entityId: { in: events.map((event) => event.id) }, collection: { user: { isCurator: true } } },
     _count: { _all: true },
-  }).catch(() => []);
+  }).catch(() => []) as Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    userId: string;
+    user: { username: string; displayName: string | null };
+    _count: { followers: number; items: number };
+    items: Array<{ entityId: string }>;
+  }>;
   const curatorCountsByEventId = new Map(curatorCollectionItemCounts.map((row) => [row.entityId, row._count._all]));
   for (const item of eventsWithFeedback) item.fromCuratorCollectionCount = curatorCountsByEventId.get(item.id) ?? 0;
 
@@ -590,6 +775,9 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     dislikedVenueIds,
     dislikedArtistIds,
     dislikedTagIds,
+    reminderVenueIds,
+    reminderArtistIds,
+    reminderTagIds,
     locationLabel: user?.locationLabel,
     radiusKm: user?.locationRadiusKm,
     followedCollectionEventIds,
@@ -630,6 +818,15 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
       inCollectionsCount: collectionCountMap.get(item.event.id) ?? 0,
     },
   }));
+  const galleryItems = await getRecommendedGalleries(db, {
+    userId: args.userId,
+    followedArtistIds,
+    followedUserIds,
+    reminderArtistIds,
+    reminderVenueIds,
+    limit: Math.max(4, Math.ceil(args.limit / 3)),
+  });
+
   if (items.length) {
     await (db as { userFeedCache?: { deleteMany: (...args: unknown[]) => Promise<unknown> } }).userFeedCache?.deleteMany({ where: { userId: args.userId } }).catch(() => undefined);
     await (db as { userFeedCache?: { createMany: (...args: unknown[]) => Promise<unknown> } }).userFeedCache?.createMany({
@@ -637,5 +834,5 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     }).catch(() => undefined);
   }
 
-  return { windowDays: args.days, items, candidateCount: trimmed.length };
+  return { windowDays: args.days, items, galleryItems, candidateCount: trimmed.length };
 }

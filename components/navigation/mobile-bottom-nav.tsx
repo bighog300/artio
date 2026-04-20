@@ -21,6 +21,7 @@ const ITEMS = [
 
 const MORE_AUTH_ITEMS = [
   { href: "/events", label: "Events", icon: Sparkles },
+  { href: "/galleries", label: "Galleries", icon: ImageIcon },
   { href: "/nearby", label: "Nearby", icon: Compass },
   { href: "/for-you", label: "For You", icon: Sparkles },
   { href: "/following", label: "Following", icon: Users },
