@@ -487,6 +487,7 @@ model User {
   isCurator         Boolean               @default(false)
   collectionFollows CollectionFollow[]
   feedCacheItems    UserFeedCache[]
+  eventReminders    EventReminder[]
 
   @@index([locationLat, locationLng])
 }
@@ -499,6 +500,12 @@ model UserNotificationPrefs {
   emailOnSubmissionResult Boolean  @default(true)
   emailOnTeamInvite       Boolean  @default(true)
   weeklyDigest            Boolean  @default(false)
+  eventRemindersEnabled   Boolean  @default(true)
+  followedCreatorUpdatesEnabled Boolean @default(true)
+  nearbyRecommendationsEnabled Boolean @default(true)
+  quietHoursEnabled       Boolean  @default(false)
+  quietHoursStartHour     Int?
+  quietHoursEndHour       Int?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 }
@@ -1022,6 +1029,7 @@ model Event {
   enrichmentRunItems EnrichmentRunItem[]      @relation("EnrichmentRunItemEvent")
   promotions        EventPromotion[]
   feedCacheItems    UserFeedCache[]
+  reminders         EventReminder[]
 
   @@index([startAt])
   @@index([isPublished])
@@ -1035,6 +1043,23 @@ model Event {
   @@index([publishedAt])
   @@index([deletedAt])
   @@index([ingestSourceRunId])
+}
+
+model EventReminder {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  eventId         String   @db.Uuid
+  remindAt        DateTime
+  preset          String
+  deliveredAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([remindAt, deliveredAt])
+  @@index([userId, remindAt])
 }
 
 model TicketTier {
