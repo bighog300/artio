@@ -308,6 +308,12 @@ enum FollowTargetType {
   USER
 }
 
+enum CollectionPublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 enum CollectionEntityType {
   EVENT
   ARTIST
@@ -1002,6 +1008,7 @@ model Event {
   reviewedAt    DateTime?
   reviewNotes   String?
   publishedAt   DateTime?
+  scheduledPublishAt DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   deletedAt     DateTime?
@@ -2145,6 +2152,7 @@ model Asset {
   artistFeaturedFor  Artist[]       @relation("ArtistFeaturedAsset")
   artworkFeaturedFor Artwork[]      @relation("ArtworkFeaturedAsset")
   eventFeaturedFor   Event[]        @relation("EventFeaturedAsset")
+  collectionCoverFor Collection[]   @relation("CollectionCoverAsset")
   artworkImages      ArtworkImage[]
   siteSettingsLogo   SiteSettings[]
   variants           AssetVariant[]
@@ -2546,14 +2554,21 @@ model Collection {
   userId      String           @db.Uuid
   title       String
   description String?
-  isPublic    Boolean          @default(true)
+  isPublic    Boolean          @default(false)
+  status      CollectionPublishStatus @default(DRAFT)
+  coverAssetId String?         @db.Uuid
+  publishedAt DateTime?
+  scheduledPublishAt DateTime?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coverAsset  Asset?            @relation("CollectionCoverAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
   items       CollectionItem[]
   followers   CollectionFollow[]
 
   @@index([userId, createdAt])
+  @@index([status, publishedAt])
+  @@index([coverAssetId])
 }
 
 model CollectionFollow {
@@ -2586,11 +2601,15 @@ model CollectionItem {
   collectionId String               @db.Uuid
   entityType   CollectionEntityType
   entityId     String               @db.Uuid
+  caption      String?
+  commentary   String?
+  sortOrder    Int                  @default(0)
   createdAt    DateTime             @default(now())
   collection   Collection           @relation(fields: [collectionId], references: [id], onDelete: Cascade)
 
   @@unique([collectionId, entityType, entityId])
   @@index([entityType, entityId])
+  @@index([collectionId, sortOrder])
   @@index([collectionId, createdAt])
 }
 

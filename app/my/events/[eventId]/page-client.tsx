@@ -80,6 +80,8 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
   const [tierPrice, setTierPrice] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scheduleAt, setScheduleAt] = useState("");
+  const [activeStep, setActiveStep] = useState<"details" | "ticketing" | "preview">("details");
   const [stripeConnectActive, setStripeConnectActive] = useState(false);
 
   useEffect(() => {
@@ -154,10 +156,34 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
     setIsCreatingSeries(false);
   }
 
+  const validationIssues = [
+    !title.trim() ? "Title is required" : null,
+    !startAt ? "Start date/time is required" : null,
+    !venueId ? "Venue is recommended so users can discover the event" : null,
+    ticketingMode === "EXTERNAL" && ticketUrl.trim() && !/^https?:\/\//.test(ticketUrl.trim()) ? "Ticket URL must include http(s)" : null,
+  ].filter(Boolean) as string[];
+
+  async function schedulePublish() {
+    if (!scheduleAt) return;
+    const res = await fetch(`/api/my/events/${event.id}/schedule`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ publishAt: localInputToUtcIso(scheduleAt, event.venueTimezone) }),
+    });
+    if (res.ok) enqueueToast({ title: "Publish scheduled", variant: "success" });
+    else enqueueToast({ title: "Could not schedule publish", variant: "error" });
+    router.refresh();
+  }
+
   async function onSave(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    if (validationIssues.some((issue) => !issue.includes("recommended"))) {
+      setError(validationIssues.join(" · "));
+      setSaving(false);
+      return;
+    }
 
     const res = await fetch(`/api/my/events/${event.id}`, {
       method: "PATCH",
@@ -218,6 +244,16 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
 
   return (
     <form onSubmit={onSave} className="space-y-4">
+      <section className="rounded border p-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Guided publishing flow</p>
+        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+          {(["details", "ticketing", "preview"] as const).map((step) => (
+            <button key={step} type="button" className={`rounded border px-2 py-1 ${activeStep === step ? "bg-muted font-medium" : ""}`} onClick={() => setActiveStep(step)}>
+              {step}
+            </button>
+          ))}
+        </div>
+      </section>
       <section className="space-y-3 rounded border p-4">
         <label className="block" id="title"><span className="text-sm">Title</span><input className="w-full rounded border p-2" value={title} onChange={(e) => setTitle(e.target.value)} /></label>
         <label className="block" id="eventType">
@@ -350,6 +386,27 @@ export function EventEditorForm({ event, venues }: EventEditorProps) {
 
       <section className="space-y-3 rounded border p-4">
         <FeaturedEventImagePanel eventId={event.id} featuredImageUrl={event.featuredAsset?.url ?? null} />
+      </section>
+
+      <section className="space-y-3 rounded border p-4">
+        <h3 className="text-sm font-semibold">Preview before publish</h3>
+        <div className="rounded border bg-muted/20 p-3 text-sm">
+          <p className="font-medium">{title || "Untitled event"}</p>
+          <p className="text-muted-foreground">{startAt ? localInputToUtcIso(startAt, event.venueTimezone) : "Start time missing"}{endAt ? ` → ${localInputToUtcIso(endAt, event.venueTimezone)}` : ""}</p>
+          <p className="text-muted-foreground">{description || "No description yet"}</p>
+          <p className="text-muted-foreground">Ticketing: {ticketingMode}{ticketingMode === "EXTERNAL" && ticketUrl ? ` · ${ticketUrl}` : ""}</p>
+        </div>
+        {validationIssues.length ? (
+          <ul className="list-disc pl-5 text-xs text-amber-700">
+            {validationIssues.map((issue) => <li key={issue}>{issue}</li>)}
+          </ul>
+        ) : <p className="text-xs text-emerald-700">Looks ready to publish.</p>}
+      </section>
+
+      <section className="space-y-3 rounded border p-4">
+        <h3 className="text-sm font-semibold">Schedule publishing</h3>
+        <label className="block text-sm">Publish at ({event.venueTimezone})<input className="mt-1 w-full rounded border p-2" type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} /></label>
+        <Button type="button" variant="outline" onClick={() => void schedulePublish()} disabled={!scheduleAt}>Schedule publish</Button>
       </section>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}

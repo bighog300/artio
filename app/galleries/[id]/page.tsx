@@ -20,20 +20,21 @@ export default async function GalleryDetailPage({ params }: { params: Promise<{ 
       title: true,
       description: true,
       isPublic: true,
+      status: true,
       userId: true,
       user: { select: { username: true, displayName: true, bio: true, isCurator: true } },
       _count: { select: { followers: true } },
       items: {
         where: { entityType: "ARTWORK" },
-        orderBy: { createdAt: "asc" },
-        select: { id: true, entityId: true },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: { id: true, entityId: true, caption: true, commentary: true },
       },
     },
   });
 
   if (!collection) notFound();
   const isOwner = user?.id === collection.userId;
-  if (!collection.isPublic && !isOwner) notFound();
+  if (!(collection.status === "PUBLISHED" || collection.isPublic) && !isOwner) notFound();
 
   const artworkIds = collection.items.map((item) => item.entityId);
   const artworks = artworkIds.length
@@ -104,6 +105,8 @@ export default async function GalleryDetailPage({ params }: { params: Promise<{ 
                   </Link>
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">#{index + 1} in gallery order</p>
+                    {collection.items[index]?.caption ? <p className="text-sm">{collection.items[index]?.caption}</p> : null}
+                    {collection.items[index]?.commentary ? <p className="text-xs text-muted-foreground">{collection.items[index]?.commentary}</p> : null}
                     <Link href={`/artwork/${artwork!.slug ?? artwork!.id}`} className="font-medium underline">{artwork!.title}</Link>
                     <p className="text-sm text-muted-foreground">by <Link href={`/artists/${artwork!.artist.slug}`} className="underline">{artwork!.artist.name}</Link></p>
                     {artwork!.description ? <p className="line-clamp-3 text-sm text-muted-foreground">{artwork!.description}</p> : <p className="text-sm text-muted-foreground">No commentary provided.</p>}

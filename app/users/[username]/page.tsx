@@ -37,6 +37,8 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
       avatarUrl: true,
       isPublic: true,
       _count: { select: { favorites: true, collections: true } },
+      artistProfile: { select: { slug: true, websiteUrl: true, instagramUrl: true, featuredImageUrl: true } },
+      venueMemberships: { where: { role: { in: ["OWNER", "EDITOR"] } }, take: 1, select: { venue: { select: { slug: true, websiteUrl: true, eventsPageUrl: true } } } },
     },
   });
 
@@ -44,7 +46,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
   const isSelf = sessionUser?.id === profile.id;
   if (!profile.isPublic && !isSelf) notFound();
 
-  const [followingCount, followersCount, hasFollow, savedEvents, collections, following] = await Promise.all([
+  const [followingCount, followersCount, hasFollow, savedEvents, collections, following, upcomingEvents] = await Promise.all([
     db.follow.count({ where: { userId: profile.id } }),
     db.follow.count({ where: { targetType: "USER", targetId: profile.id } }),
     sessionUser ? db.follow.findUnique({ where: { userId_targetType_targetId: { userId: sessionUser.id, targetType: "USER", targetId: profile.id } }, select: { id: true } }) : Promise.resolve(null),
@@ -55,7 +57,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
       select: { targetId: true, createdAt: true },
     }),
     db.collection.findMany({
-      where: { userId: profile.id, ...(isSelf ? {} : { isPublic: true }) },
+      where: { userId: profile.id, ...(isSelf ? {} : { OR: [{ status: "PUBLISHED" }, { isPublic: true }] }) },
       orderBy: { createdAt: "desc" },
       take: 12,
       select: { id: true, title: true, description: true, isPublic: true, createdAt: true, _count: { select: { items: true } } },
@@ -65,6 +67,19 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
       orderBy: { createdAt: "desc" },
       take: 20,
       select: { targetType: true, targetId: true, createdAt: true },
+    }),
+    db.event.findMany({
+      where: {
+        isPublished: true,
+        startAt: { gte: new Date() },
+        OR: [
+          { eventArtists: { some: { artist: { userId: profile.id } } } },
+          { venue: { memberships: { some: { userId: profile.id, role: { in: ["OWNER", "EDITOR"] } } } } },
+        ],
+      },
+      orderBy: { startAt: "asc" },
+      take: 6,
+      select: { id: true, title: true, slug: true, startAt: true },
     }),
   ]);
 
@@ -100,31 +115,53 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
 
   return (
     <main className="space-y-6 p-6">
-      <section className="flex items-start gap-4 rounded-lg border p-4">
-        <div className="relative h-16 w-16 overflow-hidden rounded-full bg-muted">
-          {profile.avatarUrl ? <Image src={profile.avatarUrl} alt={profile.displayName ?? profile.username} fill className="object-cover" sizes="64px" /> : null}
-        </div>
-        <div className="flex-1 space-y-2">
-          <h1 className="text-2xl font-semibold">{profile.displayName || profile.username}</h1>
-          <p className="text-sm text-muted-foreground">@{profile.username}</p>
-          {profile.bio ? <p className="text-sm text-muted-foreground">{profile.bio}</p> : null}
-          <div className="flex flex-wrap gap-4 text-sm">
-            <span>{profile._count.favorites} saved</span>
-            <span>{profile._count.collections} collections</span>
-            <span>{followingCount} following</span>
-            <span>{followersCount} followers</span>
+      <section className="overflow-hidden rounded-lg border">
+        <div className="h-36 w-full bg-gradient-to-r from-slate-900 via-slate-700 to-slate-500" />
+        <div className="-mt-8 flex items-start gap-4 p-4">
+          <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-background bg-muted">
+            {profile.avatarUrl ? <Image src={profile.avatarUrl} alt={profile.displayName ?? profile.username} fill className="object-cover" sizes="64px" /> : null}
           </div>
+          <div className="flex-1 space-y-2">
+            <h1 className="text-2xl font-semibold">{profile.displayName || profile.username}</h1>
+            <p className="text-sm text-muted-foreground">@{profile.username}</p>
+            {profile.bio ? <p className="text-sm text-muted-foreground">{profile.bio}</p> : null}
+            <div className="flex flex-wrap gap-4 text-sm">
+              <span>{profile._count.favorites} saves</span>
+              <span>{profile._count.collections} galleries</span>
+              <span>{followingCount} following</span>
+              <span>{followersCount} followers</span>
+            </div>
+            <div className="flex flex-wrap gap-3 text-xs">
+              {profile.artistProfile?.websiteUrl ? <Link className="underline" href={profile.artistProfile.websiteUrl}>Website</Link> : null}
+              {profile.artistProfile?.instagramUrl ? <Link className="underline" href={profile.artistProfile.instagramUrl}>Instagram</Link> : null}
+              {profile.venueMemberships[0]?.venue.websiteUrl ? <Link className="underline" href={profile.venueMemberships[0].venue.websiteUrl}>Venue site</Link> : null}
+              {profile.venueMemberships[0]?.venue.eventsPageUrl ? <Link className="underline" href={profile.venueMemberships[0].venue.eventsPageUrl}>Tickets</Link> : null}
+            </div>
+          </div>
+          {!isSelf ? (
+            <FollowButton
+              targetType="USER"
+              targetId={profile.id}
+              initialIsFollowing={Boolean(hasFollow)}
+              initialFollowersCount={followersCount}
+              isAuthenticated={Boolean(sessionUser)}
+              analyticsSlug={profile.username}
+            />
+          ) : null}
         </div>
-        {!isSelf ? (
-          <FollowButton
-            targetType="USER"
-            targetId={profile.id}
-            initialIsFollowing={Boolean(hasFollow)}
-            initialFollowersCount={followersCount}
-            isAuthenticated={Boolean(sessionUser)}
-            analyticsSlug={profile.username}
-          />
-        ) : null}
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Upcoming events</h2>
+        {upcomingEvents.length === 0 ? <p className="text-sm text-muted-foreground">No upcoming events published yet.</p> : null}
+        <div className="grid gap-2 md:grid-cols-2">
+          {upcomingEvents.map((event) => (
+            <Link key={event.id} href={`/events/${event.slug}`} className="rounded border p-3 text-sm hover:bg-muted/50">
+              <div className="font-medium">{event.title}</div>
+              <div className="text-xs text-muted-foreground">{new Date(event.startAt).toLocaleString("en-GB", { timeZone: "UTC" })}</div>
+            </Link>
+          ))}
+        </div>
       </section>
 
       <section className="space-y-2">

@@ -745,15 +745,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     by: ["entityId"],
     where: { entityType: "EVENT", entityId: { in: events.map((event) => event.id) }, collection: { user: { isCurator: true } } },
     _count: { _all: true },
-  }).catch(() => []) as Array<{
-    id: string;
-    title: string;
-    description: string | null;
-    userId: string;
-    user: { username: string; displayName: string | null };
-    _count: { followers: number; items: number };
-    items: Array<{ entityId: string }>;
-  }>;
+  }).catch(() => []) as Array<{ entityId: string; _count: { _all: number } }>;
   const curatorCountsByEventId = new Map(curatorCollectionItemCounts.map((row) => [row.entityId, row._count._all]));
   for (const item of eventsWithFeedback) item.fromCuratorCollectionCount = curatorCountsByEventId.get(item.id) ?? 0;
 
