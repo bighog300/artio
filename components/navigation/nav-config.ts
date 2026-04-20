@@ -17,6 +17,7 @@ const PUBLIC_ITEMS: NavItem[] = [
 const AUTH_ITEMS: NavItem[] = [
   { label: "For You", href: "/for-you", authRequired: true },
   { label: "Following", href: "/following", authRequired: true },
+  { label: "Saved", href: "/saved", authRequired: true },
   { label: "Saved Searches", href: "/saved-searches", authRequired: true },
   { label: "Notifications", href: "/notifications", authRequired: true },
   { label: "Account", href: "/account", authRequired: true },

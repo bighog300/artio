@@ -1,6 +1,11 @@
 import type { PrismaClient } from "@prisma/client";
+import { getEffectiveNotificationPreferences, isWithinQuietHours } from "@/lib/notification-preferences";
 
 export async function syncFollowEventNotifications(db: PrismaClient, userId: string) {
+  const prefs = await getEffectiveNotificationPreferences(userId);
+  if (!prefs.followedCreatorUpdatesEnabled) return;
+  if (isWithinQuietHours(new Date(), prefs)) return;
+
   const follows = await db.follow.findMany({ where: { userId }, select: { targetType: true, targetId: true } });
   if (!follows.length) return;
 

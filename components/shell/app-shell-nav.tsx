@@ -23,6 +23,7 @@ const PRIMARY_LINKS: NavLink[] = [
   { label: "Nearby", href: "/nearby" },
   { label: "Calendar", href: "/calendar" },
   { label: "Following", href: "/following" },
+  { label: "Saved", href: "/saved" },
   { label: "Venues", href: "/venues" },
   { label: "Artists", href: "/artists" },
   { label: "Artwork", href: "/artwork" },

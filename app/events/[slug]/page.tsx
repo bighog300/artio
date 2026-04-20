@@ -78,7 +78,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
 
   const user = await getSessionUser();
 
-  const [artworks, artworkCount, similarEvents, seriesEvents, savedEvent, savedByCount, inCollectionsCount] = await Promise.all([
+  const [artworks, artworkCount, similarEvents, seriesEvents, savedEvent, savedByCount, inCollectionsCount, reminder] = await Promise.all([
     listPublishedArtworksByEvent(event.id, 6),
     countPublishedArtworksByEvent(event.id),
     db.event.findMany({
@@ -93,6 +93,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
     user ? db.favorite.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "EVENT", targetId: event.id } }, select: { id: true } }) : Promise.resolve(null),
     db.favorite.count({ where: { targetType: "EVENT", targetId: event.id } }).catch(() => 0),
     db.collectionItem.count({ where: { entityType: "EVENT", entityId: event.id } }).catch(() => 0),
+    user ? db.eventReminder.findUnique({ where: { userId_eventId: { userId: user.id, eventId: event.id } }, select: { preset: true } }) : Promise.resolve(null),
 ]);
 
   const isAuthenticated = Boolean(user);
@@ -177,7 +178,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
               <ArtworkCountBadge count={artworkCount} href={`/artwork?eventId=${event.id}`} badgeClassName="border-white/40 bg-white/10 text-white" />
             </div>
             <p className="type-caption text-white/90">{formatEventDateRange(event.startAt, event.endAt, event.timezone ?? undefined)} · {event.venue?.name ?? "Venue TBA"}</p>
-            <EventDetailActions eventId={event.id} eventSlug={event.slug} nextUrl={`/events/${slug}`} isAuthenticated={isAuthenticated} initialSaved={initialSaved} calendarLink={calendarLink} outlookCalendarLink={outlookCalendarLink} icalLink={icalLink} subscribeFeedLink={event.venue?.slug ? `/api/venues/${event.venue.slug}/calendar` : null} ticketingMode={event.ticketingMode} />
+            <EventDetailActions eventId={event.id} eventSlug={event.slug} nextUrl={`/events/${slug}`} isAuthenticated={isAuthenticated} initialSaved={initialSaved} initialReminderPreset={(reminder?.preset === "2H" || reminder?.preset === "24H") ? reminder.preset : null} calendarLink={calendarLink} outlookCalendarLink={outlookCalendarLink} icalLink={icalLink} subscribeFeedLink={event.venue?.slug ? `/api/venues/${event.venue.slug}/calendar` : null} ticketingMode={event.ticketingMode} />
             {isAuthenticated && (event.venue?.slug || event.eventArtists[0]?.artist.slug) ? (
               <ContextualNudgeSlot
                 page="event_detail"

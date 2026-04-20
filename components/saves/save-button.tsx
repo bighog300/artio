@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { track } from "@/lib/analytics/client";
 
 export type SaveEntityType = "EVENT" | "ARTIST" | "VENUE" | "ARTWORK";
 
@@ -79,6 +80,9 @@ export function SaveButton({ entityType, entityId, initialSaved, isAuthenticated
         return;
       }
       if (!res.ok) setSaved(!nextSaved);
+      if (res.ok && entityType === "EVENT") {
+        track(nextSaved ? "event_saved" : "event_unsaved", { eventId: entityId, source: "events" });
+      }
     } catch {
       setSaved(!nextSaved);
     } finally {

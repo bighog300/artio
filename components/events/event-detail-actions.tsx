@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SaveEventButton } from "@/components/events/save-event-button";
 import { AttendEventButton } from "@/components/events/attend-event-button";
+import { ReminderButton } from "@/components/events/reminder-button";
 import { ShareButton } from "@/components/share-button";
 import { track } from "@/lib/analytics/client";
 
@@ -15,6 +16,7 @@ export function EventDetailActions({
   nextUrl,
   isAuthenticated,
   initialSaved,
+  initialReminderPreset,
   calendarLink,
   outlookCalendarLink,
   icalLink,
@@ -26,6 +28,7 @@ export function EventDetailActions({
   nextUrl: string;
   isAuthenticated: boolean;
   initialSaved: boolean;
+  initialReminderPreset: "2H" | "24H" | null;
   calendarLink: string;
   outlookCalendarLink: string;
   icalLink: string;
@@ -39,6 +42,7 @@ export function EventDetailActions({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <SaveEventButton eventId={eventId} initialSaved={initialSaved} nextUrl={nextUrl} isAuthenticated={isAuthenticated} />
+      <ReminderButton eventId={eventId} eventSlug={eventSlug} initialReminderPreset={initialReminderPreset} isAuthenticated={isAuthenticated} nextUrl={nextUrl} />
       <AttendEventButton eventId={eventId} nextUrl={nextUrl} isAuthenticated={isAuthenticated} analytics={{ eventSlug, ui: "detail" }} ticketingMode={ticketingMode} />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

@@ -31,7 +31,7 @@ export async function notifySavedSearchMatchesWithDb(notificationDb: SavedSearch
       name: true,
       type: true,
       paramsJson: true,
-      user: { select: { email: true } },
+      user: { select: { email: true, notificationPrefs: { select: { nearbyRecommendationsEnabled: true } } } },
     },
   });
 
@@ -50,6 +50,8 @@ export async function notifySavedSearchMatchesWithDb(notificationDb: SavedSearch
     );
 
     if (!matches) continue;
+
+    if (search.type === SavedSearchType.NEARBY && search.user.notificationPrefs?.nearbyRecommendationsEnabled === false) continue;
 
     const dedupeKey = `saved-search-match:${search.id}:${event.id}`;
     await enqueueNotificationWithDb(notificationDb, {

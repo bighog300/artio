@@ -6,6 +6,7 @@ import { countUnreadNotifications, listNotifications } from "@/lib/notifications
 import { db } from "@/lib/db";
 import { notificationsListQuerySchema, zodDetails } from "@/lib/validators";
 import { syncFollowEventNotifications } from "@/domains/notification/follow-event-notifications";
+import { syncEventReminderNotifications } from "@/domains/notification/event-reminder-notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export async function GET(req: NextRequest) {
     if (!user) return apiError(401, "unauthorized", "Authentication required");
 
     await syncFollowEventNotifications(db, user.id);
+    await syncEventReminderNotifications(db, user.id);
 
     const parsed = notificationsListQuerySchema.safeParse(Object.fromEntries(req.nextUrl.searchParams.entries()));
     if (!parsed.success) return apiError(400, "invalid_request", "Invalid query", zodDetails(parsed.error));

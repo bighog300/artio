@@ -24,6 +24,7 @@ const MORE_AUTH_ITEMS = [
   { href: "/nearby", label: "Nearby", icon: Compass },
   { href: "/for-you", label: "For You", icon: Sparkles },
   { href: "/following", label: "Following", icon: Users },
+  { href: "/saved", label: "Saved", icon: Home },
   { href: "/account", label: "Account", icon: UserCircle },
 ] as const;
 

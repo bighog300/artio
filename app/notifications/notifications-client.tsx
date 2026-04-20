@@ -145,6 +145,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
                       onClick={async () => {
                         const ok = await markRead(item.id);
                         if (!ok || !item.href) return;
+                        track("notification_opened", { notificationType: item.type, hasTarget: Boolean(item.href) });
                         window.location.href = item.href;
                       }}
                     >
@@ -157,7 +158,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
                     </button>
                     <button className="rounded border px-2 py-1 text-xs" type="button" onClick={() => void markRead(item.id)} aria-label={`Mark ${item.title} as read`}>Read</button>
                   </div>
-                  {item.href ? <Link href={item.href} className="mt-2 inline-block text-sm font-medium underline">Open</Link> : null}
+                  {item.href ? <Link href={item.href} className="mt-2 inline-block text-sm font-medium underline" onClick={() => track("notification_opened", { notificationType: item.type, hasTarget: true })}>Open</Link> : null}
                 </li>
               ))}
             </ul>
