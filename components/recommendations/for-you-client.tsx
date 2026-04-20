@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EventCard } from "@/components/events/event-card";
+import { GalleryCard } from "@/components/galleries/gallery-card";
 import { ItemActionsMenu } from "@/components/personalization/item-actions-menu";
 import { WhyThis } from "@/components/personalization/why-this";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -31,6 +32,22 @@ type ForYouResponse = {
       venue: { name: string; slug: string; city: string | null } | null;
       savedByCount?: number;
       inCollectionsCount?: number;
+    };
+  }>;
+  galleryItems?: Array<{
+    score: number;
+    reasons: string[];
+    reason: string;
+    reasonCategory: "network" | "trending" | "nearby";
+    gallery: {
+      id: string;
+      title: string;
+      description: string | null;
+      creatorName: string;
+      creatorUsername: string;
+      coverImageUrl?: string | null;
+      itemCount: number;
+      savesCount: number;
     };
   }>;
 };
@@ -187,11 +204,19 @@ export function ForYouClient() {
     return ranked;
   }, [data.items, feedbackByEventId, hiddenIds, signals]);
 
-  const groupedItems = useMemo(() => {
-    const buckets: Record<"network" | "trending" | "nearby", typeof rankedItems> = { network: [], trending: [], nearby: [] };
-    for (const ranked of rankedItems) buckets[ranked.item.reasonCategory ?? "trending"].push(ranked);
-    return buckets;
-  }, [rankedItems]);
+  const mixedFeed = useMemo(() => {
+    const galleries = [...(data.galleryItems ?? [])].sort((a, b) => b.score - a.score);
+    const events = [...rankedItems];
+    const mixed: Array<{ type: "event"; item: typeof rankedItems[number] } | { type: "gallery"; item: NonNullable<ForYouResponse["galleryItems"]>[number] }> = [];
+
+    while (events.length || galleries.length) {
+      if (events.length) mixed.push({ type: "event", item: events.shift()! });
+      if (events.length) mixed.push({ type: "event", item: events.shift()! });
+      if (galleries.length) mixed.push({ type: "gallery", item: galleries.shift()! });
+    }
+
+    return mixed;
+  }, [data.galleryItems, rankedItems]);
 
   const handleFeedback = useCallback((eventId: string, feedback: "up" | "down") => {
     setFeedbackByEventId((current) => ({ ...current, [eventId]: feedback }));
@@ -284,7 +309,7 @@ export function ForYouClient() {
   return (
     <section className="space-y-3" aria-busy={isLoading}>
       <p className="text-sm text-gray-700">
-        Personalized events in the next {data.windowDays} days based on your follows, saved searches, location, and recent clicks.
+        Personalized events and galleries in the next {data.windowDays} days based on your follows, saves, reminders, location, and recent clicks.
       </p>
       {error ? <ErrorCard message={error} onRetry={() => void load()} /> : null}
       {!isLoading && showAuthFallback ? (
@@ -301,7 +326,7 @@ export function ForYouClient() {
           <LoadingCard lines={4} />
         </div>
       ) : null}
-      {!isLoading && !error && !showAuthFallback && rankedItems.length === 0 ? (
+      {!isLoading && !error && !showAuthFallback && mixedFeed.length === 0 ? (
         <EmptyState
           title="Nothing to show—try clearing preferences"
           description="Follow a venue or artist, save a search, or set your location."
@@ -336,76 +361,87 @@ export function ForYouClient() {
               {locationPromptError ? <p className="text-sm text-red-600">{locationPromptError}</p> : null}
             </aside>
           ) : null}
-          {(["network", "trending", "nearby"] as const).map((section) => {
-            const sectionItems = groupedItems[section];
-            if (!sectionItems.length) return null;
-            const heading = section === "network" ? "From your network" : section === "nearby" ? "Near you" : "Trending now";
-            return (
-              <section key={section} className="space-y-3">
-                <h2 className="text-sm font-semibold text-foreground">{heading}</h2>
-                {sectionItems.map((ranked) => {
-            const item = ranked.item;
-            const explanation = buildExplanation({
-              item: {
-                id: item.event.id,
-                slug: item.event.slug,
-                title: item.event.title,
-                source: "recommendations",
-                venueSlug: item.event.venue?.slug,
-                venueName: item.event.venue?.name,
-                topReason: ranked.topReason ?? undefined,
-              },
-              contextSignals: { ...signals, source: "recommendations", pathname: "/for-you" },
-            });
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-foreground">Mixed discovery</h2>
+            {mixedFeed.map((entry) => {
+              if (entry.type === "gallery") {
+                const gallery = entry.item.gallery;
+                return (
+                  <article className="space-y-2" key={`gallery:${gallery.id}`}>
+                    <p className="text-xs font-medium text-muted-foreground">{entry.item.reason}</p>
+                    <GalleryCard
+                      id={gallery.id}
+                      title={gallery.title}
+                      description={gallery.description}
+                      coverUrl={gallery.coverImageUrl}
+                      creator={{ name: gallery.creatorName, href: `/users/${gallery.creatorUsername}` }}
+                      itemCount={gallery.itemCount}
+                      savesCount={gallery.savesCount}
+                    />
+                  </article>
+                );
+              }
+              const ranked = entry.item;
+              const item = ranked.item;
+              const explanation = buildExplanation({
+                item: {
+                  id: item.event.id,
+                  slug: item.event.slug,
+                  title: item.event.title,
+                  source: "recommendations",
+                  venueSlug: item.event.venue?.slug,
+                  venueName: item.event.venue?.name,
+                  topReason: ranked.topReason ?? undefined,
+                },
+                contextSignals: { ...signals, source: "recommendations", pathname: "/for-you" },
+              });
 
-                  return (
-              <article className="space-y-2" key={item.event.id}>
-                <p className="text-xs font-medium text-muted-foreground">{item.reason}</p>
-                <EventCard
-                  href={`/events/${item.event.slug}`}
-                  title={item.event.title}
-                  startAt={item.event.startAt}
-                  venueName={item.event.venue?.name}
-                  venueSlug={item.event.venue?.slug}
-                  badges={item.reasons.slice(0, 2)}
-                  secondaryText={debugEnabled ? `Score: ${ranked.score} • ${ranked.breakdown.map((entry) => `${entry.key}:${entry.value}`).join(", ")}` : `Score: ${ranked.score}`}
-                  savedByCount={item.event.savedByCount}
-                  inCollectionsCount={item.event.inCollectionsCount}
-                  onOpen={() => {
-                    recordFeedback({ type: "click", source: "for_you", item: { type: "event", idOrSlug: item.event.id, tags: item.reasons, venueSlug: item.event.venue?.slug } });
-                    recordOutcome({ action: "click", itemType: "event", itemKey: `event:${item.event.slug ?? item.event.id}`.toLowerCase(), sourceHint: "for_you" });
-                  }}
-                  action={(
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs text-gray-600" aria-label="Recommendation feedback">
-                        <button
-                          type="button"
-                          className={`rounded border px-2 py-1 hover:bg-gray-50 ${feedbackByEventId[item.event.id] === "up" ? "bg-gray-100" : ""}`}
-                          onClick={() => handleFeedback(item.event.id, "up")}
-                          aria-pressed={feedbackByEventId[item.event.id] === "up"}
-                        >
-                          👍 More like this
-                        </button>
-                        <button
-                          type="button"
-                          className={`rounded border px-2 py-1 hover:bg-gray-50 ${feedbackByEventId[item.event.id] === "down" ? "bg-gray-100" : ""}`}
-                          onClick={() => handleFeedback(item.event.id, "down")}
-                          aria-pressed={feedbackByEventId[item.event.id] === "down"}
-                        >
-                          👎 Less like this
-                        </button>
+              return (
+                <article className="space-y-2" key={item.event.id}>
+                  <p className="text-xs font-medium text-muted-foreground">{item.reason}</p>
+                  <EventCard
+                    href={`/events/${item.event.slug}`}
+                    title={item.event.title}
+                    startAt={item.event.startAt}
+                    venueName={item.event.venue?.name}
+                    venueSlug={item.event.venue?.slug}
+                    badges={item.reasons.slice(0, 2)}
+                    secondaryText={debugEnabled ? `Score: ${ranked.score} • ${ranked.breakdown.map((part) => `${part.key}:${part.value}`).join(", ")}` : `Score: ${ranked.score}`}
+                    savedByCount={item.event.savedByCount}
+                    inCollectionsCount={item.event.inCollectionsCount}
+                    onOpen={() => {
+                      recordFeedback({ type: "click", source: "for_you", item: { type: "event", idOrSlug: item.event.id, tags: item.reasons, venueSlug: item.event.venue?.slug } });
+                      recordOutcome({ action: "click", itemType: "event", itemKey: `event:${item.event.slug ?? item.event.id}`.toLowerCase(), sourceHint: "for_you" });
+                    }}
+                    action={(
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-gray-600" aria-label="Recommendation feedback">
+                          <button
+                            type="button"
+                            className={`rounded border px-2 py-1 hover:bg-gray-50 ${feedbackByEventId[item.event.id] === "up" ? "bg-gray-100" : ""}`}
+                            onClick={() => handleFeedback(item.event.id, "up")}
+                            aria-pressed={feedbackByEventId[item.event.id] === "up"}
+                          >
+                            👍 More like this
+                          </button>
+                          <button
+                            type="button"
+                            className={`rounded border px-2 py-1 hover:bg-gray-50 ${feedbackByEventId[item.event.id] === "down" ? "bg-gray-100" : ""}`}
+                            onClick={() => handleFeedback(item.event.id, "down")}
+                            aria-pressed={feedbackByEventId[item.event.id] === "down"}
+                          >
+                            👎 Less like this
+                          </button>
+                        </div>
+                        <ItemActionsMenu type="event" idOrSlug={item.event.id} source="for_you" measurementSource="for_you" explanation={explanation} onHidden={() => handleHide(item.event.id)} />
                       </div>
-                      <ItemActionsMenu type="event" idOrSlug={item.event.id} source="for_you" measurementSource="for_you" explanation={explanation} onHidden={() => handleHide(item.event.id)} />
-                    </div>
-                  )}
-                />
-                {explanation ? <WhyThis source="for_you" explanation={explanation} /> : null}
-              </article>
-                  );
-                })}
-              </section>
-            );
-          })}
+                    )}
+                  />
+                  {explanation ? <WhyThis source="for_you" explanation={explanation} /> : null}
+                </article>
+              );
+            })}
+          </section>
         </div>
       ) : null}
     </section>

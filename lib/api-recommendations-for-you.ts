@@ -31,7 +31,7 @@ export async function handleForYouGet(req: { nextUrl: URL }, deps: {
       limit: parsed.data.limit,
     });
 
-    return NextResponse.json({ windowDays: result.windowDays, items: result.items }, { headers: { "cache-control": "private, no-store" } });
+    return NextResponse.json({ windowDays: result.windowDays, items: result.items, galleryItems: result.galleryItems ?? [] }, { headers: { "cache-control": "private, no-store" } });
   } catch (err) {
     if (isAuthError(err)) {
       logAuthDebug("api.recommendations.for-you.unauthorized", {

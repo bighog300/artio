@@ -17,6 +17,7 @@ const publicTiles = [
   { title: "Browse events", description: "See what's coming up across exhibitions, openings, and talks.", href: "/events" },
   { title: "Find nearby", description: "Discover events around your current city or map area.", href: "/nearby" },
   { title: "Search", description: "Filter by keyword, city, venue, artist, and date.", href: "/search" },
+  { title: "Browse galleries", description: "Explore curated gallery sequences created by artists and collectors.", href: "/galleries" },
 ];
 
 const authedTiles = [
@@ -24,6 +25,7 @@ const authedTiles = [
   { title: "Following", description: "A feed from venues and artists you follow.", href: "/following" },
   { title: "Notifications", description: "Track invites, updates, and submission changes.", href: "/notifications" },
   { title: "Saved Searches", description: "Manage saved searches and alerts.", href: "/saved-searches" },
+  { title: "Galleries", description: "Browse and save curated galleries.", href: "/galleries" },
   { title: "Create / Manage Venue", description: "Create venues, edit details, and submit events.", href: "/my/venues" },
 ];
 
