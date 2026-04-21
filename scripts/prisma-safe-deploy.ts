@@ -251,6 +251,7 @@ function parseStatusSummary(statusOutput: string): StatusSummary {
     uninitializedDetected:
       /relation\s+"_prisma_migrations"\s+does not exist/i.test(statusOutput) ||
       /The table `?_prisma_migrations`? does not exist/i.test(statusOutput),
+<<<<<<< Updated upstream
     upToDate: /Database is up to date/i.test(statusOutput),
     connectivityError:
       /P1001/i.test(statusOutput) ||
@@ -260,6 +261,9 @@ function parseStatusSummary(statusOutput: string): StatusSummary {
       /Environment variable not found/i.test(statusOutput) ||
       /P1012/i.test(statusOutput) ||
       /P1013/i.test(statusOutput),
+=======
+    upToDate: /Database(?: schema)? is up to date/i.test(statusOutput),
+>>>>>>> Stashed changes
   };
 }
 
