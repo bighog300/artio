@@ -23,25 +23,6 @@ const RESOLVABLE_AS_ROLLED_BACK = new Set([
 
 const RESOLVABLE_AS_APPLIED = new Set(["20261203105000_enrichment_provenance"]);
 
-const ALWAYS_RESOLVE_AS_ROLLED_BACK = new Set([
-  "20260320120000_per_entity_ingest_prompts",
-  "20270103120000_venue_ingest_frequency",
-  // Renamed to 20261201110000 to fix ordering
-  "20260325130000_venue_claim_invites_campaign_type",
-  // Renamed from 20260326 to fix ordering (after ArtworkInquiry)
-  "20260326120000_add_artwork_inquiry_read_at",
-  // Old name before timestamp dedup rename
-  "20260326120000_add_artist_cv_entries",
-  // Failed on first apply due to pre-existing CvEntryType —
-  // move to ALWAYS so it is resolved unconditionally
-  "20260327120000_add_artist_cv_entries",
-  // Failed on first apply — syntax error fixed,
-  // resolve unconditionally on all databases
-  "20270409120000_discovery_template_suggestion",
-  // FK on IngestRun before IngestRun existed
-  "20260406130000_gallery_first_ingestion",
-]);
-
 const RESOLVABLE_FAILED_MIGRATIONS = new Set([
   ...RESOLVABLE_AS_ROLLED_BACK,
   ...RESOLVABLE_AS_APPLIED,
@@ -88,6 +69,8 @@ type StatusSummary = {
   divergentHistory: boolean;
   uninitializedDetected: boolean;
   upToDate: boolean;
+  connectivityError: boolean;
+  configurationError: boolean;
 };
 
 function sleep(ms: number) {
@@ -209,11 +192,11 @@ function parseFailedMigrations(statusOutput: string): string[] {
 function parsePendingMigrations(statusOutput: string): string[] {
   const standardPending = parseMigrationList(
     statusOutput,
-    /Following migrations have not yet been applied:/i,
+    /(?:The\s+)?following migration(?:s)? have not yet been applied:/i,
   );
   const divergentPending = parseMigrationList(
     statusOutput,
-    /The migration have not yet been applied:/i,
+    /The migration(?:s)? (?:from the database )?have not yet been applied:/i,
   );
 
   return Array.from(new Set([...standardPending, ...divergentPending]));
@@ -276,13 +259,27 @@ function parseStatusSummary(statusOutput: string): StatusSummary {
       /P3009/i.test(statusOutput) ||
       /failed migration/i.test(statusOutput),
     pendingDetected:
-      /Following migrations have not yet been applied:/i.test(statusOutput) ||
+      /(?:The\s+)?following migration(?:s)? have not yet been applied:/i.test(
+        statusOutput,
+      ) ||
+      /The migration(?:s)? (?:from the database )?have not yet been applied:/i.test(
+        statusOutput,
+      ) ||
+      pendingMigrations.length > 0 ||
       (divergentHistory && pendingMigrations.length > 0),
     divergentHistory,
     uninitializedDetected:
       /relation\s+"_prisma_migrations"\s+does not exist/i.test(statusOutput) ||
       /The table `?_prisma_migrations`? does not exist/i.test(statusOutput),
     upToDate: /Database is up to date/i.test(statusOutput),
+    connectivityError:
+      /P1001/i.test(statusOutput) ||
+      /Can't reach database server/i.test(statusOutput),
+    configurationError:
+      /Missing required env var/i.test(statusOutput) ||
+      /Environment variable not found/i.test(statusOutput) ||
+      /P1012/i.test(statusOutput) ||
+      /P1013/i.test(statusOutput),
   };
 }
 
@@ -377,23 +374,22 @@ async function main() {
 
   const status = parseStatusSummary(statusResult.output);
 
-  for (const migration of ALWAYS_RESOLVE_AS_ROLLED_BACK) {
-    const result = runPrisma(
-      ["migrate", "resolve", "--rolled-back", migration],
-      {
-        allowFailure: true,
-        step: `Pre-resolving superseded migration ${migration}`,
-      },
-    );
-    if (result.status !== 0 && !result.output.includes("P3008")) {
-      console.warn(
-        `[prisma-safe-deploy] [resolve] Could not pre-resolve ${migration} — may not exist in DB, continuing.`,
-      );
-    }
-  }
-
   console.log(
-    `[prisma-safe-deploy] [status] pending=${status.pendingMigrations.length} failed=${status.failedMigrations.length} divergentHistory=${status.divergentHistory} uninitialized=${status.uninitializedDetected} upToDate=${status.upToDate}`,
+    `[prisma-safe-deploy] [status] pending=${status.pendingMigrations.length} failed=${status.failedMigrations.length} divergentHistory=${status.divergentHistory} uninitialized=${status.uninitializedDetected} upToDate=${status.upToDate} connectivityError=${status.connectivityError} configurationError=${status.configurationError}`,
+  );
+  console.log(
+    `[prisma-safe-deploy] [status] pendingMigrations=${
+      status.pendingMigrations.length > 0
+        ? status.pendingMigrations.join(", ")
+        : "(none)"
+    }`,
+  );
+  console.log(
+    `[prisma-safe-deploy] [status] failedMigrations=${
+      status.failedMigrations.length > 0
+        ? status.failedMigrations.join(", ")
+        : "(none)"
+    }`,
   );
 
   const recognizedStateCount =
@@ -401,7 +397,21 @@ async function main() {
     Number(status.pendingDetected) +
     Number(status.uninitializedDetected) +
     Number(status.upToDate) +
-    Number(status.divergentHistory);
+    Number(status.divergentHistory) +
+    Number(status.connectivityError) +
+    Number(status.configurationError);
+
+  if (status.connectivityError) {
+    throw new Error(
+      "[prisma-safe-deploy] [status] Connectivity failure detected (e.g. P1001). Fix database availability/network and rerun.",
+    );
+  }
+
+  if (status.configurationError) {
+    throw new Error(
+      "[prisma-safe-deploy] [status] Configuration failure detected (missing/invalid env). Fix environment variables and rerun.",
+    );
+  }
 
   if (recognizedStateCount === 0) {
     console.warn(
@@ -484,6 +494,11 @@ async function main() {
     if (status.uninitializedDetected) {
       console.log(
         "[prisma-safe-deploy] [status] Migration table missing; treating database as uninitialized.",
+      );
+    }
+    if (status.pendingDetected) {
+      console.log(
+        `[prisma-safe-deploy] [status] Pending migrations detected (${status.pendingMigrations.length}).`,
       );
     }
     console.log(
