@@ -19,17 +19,22 @@ const RESOLVABLE_AS_ROLLED_BACK = new Set([
   "20270409120000_discovery_template_suggestion",
   // FK on IngestRun before IngestRun existed
   "20260406130000_gallery_first_ingestion",
-  // Staging-only ghost: applied manually/from unmerged branch, schema covered by later migrations
-  "20260411200000_add_artwork_matched_artist",
-  // Staging-only ghost: applied manually/from unmerged branch, schema covered by later migrations
-  "20260411210000_add_directory_pipeline_mode",
   // Failed on initial apply — likely partial run; all DDL uses IF NOT EXISTS so re-running is safe
   "20270420120000_sprint1_core_user_loop",
-  // Renamed to 20270420110000 to avoid duplicate timestamp ordering ambiguity
-  "20270420120000_add_artist_collections_and_profile_fields",
 ]);
 
-const RESOLVABLE_AS_APPLIED = new Set(["20261203105000_enrichment_provenance"]);
+const RESOLVABLE_AS_APPLIED = new Set([
+  "20261203105000_enrichment_provenance",
+  // Divergent staging-only migration already marked successful in _prisma_migrations;
+  // resolve as applied (not rolled back) to acknowledge DB state and unblock deploy.
+  "20260411200000_add_artwork_matched_artist",
+  // Divergent staging-only migration already marked successful in _prisma_migrations;
+  // resolve as applied (not rolled back) to acknowledge DB state and unblock deploy.
+  "20260411210000_add_directory_pipeline_mode",
+  // Divergent staging-only migration already marked successful in _prisma_migrations;
+  // renamed locally to 20270420110000_* and should be acknowledged as already applied.
+  "20270420120000_add_artist_collections_and_profile_fields",
+]);
 
 const RESOLVABLE_FAILED_MIGRATIONS = new Set([
   ...RESOLVABLE_AS_ROLLED_BACK,
@@ -60,7 +65,6 @@ class PrismaCommandError extends Error {
     this.output = output;
   }
 }
-
 
 function requireEnv(name: string) {
   const value = process.env[name];
@@ -307,7 +311,10 @@ function parseLastCommonMigration(statusOutput: string): string | null {
   return match?.[1] ?? null;
 }
 
-function extractMigrationNames(output: string, anchorPattern: RegExp): string[] {
+function extractMigrationNames(
+  output: string,
+  anchorPattern: RegExp,
+): string[] {
   const matches = new Set<string>();
   const lines = output.split(/\r?\n/);
 
