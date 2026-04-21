@@ -19,22 +19,9 @@ const RESOLVABLE_AS_ROLLED_BACK = new Set([
   "20270409120000_discovery_template_suggestion",
   // FK on IngestRun before IngestRun existed
   "20260406130000_gallery_first_ingestion",
-  // Failed on initial apply — likely partial run; all DDL uses IF NOT EXISTS so re-running is safe
-  "20270420120000_sprint1_core_user_loop",
 ]);
 
-const RESOLVABLE_AS_APPLIED = new Set([
-  "20261203105000_enrichment_provenance",
-  // Divergent staging-only migration already marked successful in _prisma_migrations;
-  // resolve as applied (not rolled back) to acknowledge DB state and unblock deploy.
-  "20260411200000_add_artwork_matched_artist",
-  // Divergent staging-only migration already marked successful in _prisma_migrations;
-  // resolve as applied (not rolled back) to acknowledge DB state and unblock deploy.
-  "20260411210000_add_directory_pipeline_mode",
-  // Divergent staging-only migration already marked successful in _prisma_migrations;
-  // renamed locally to 20270420110000_* and should be acknowledged as already applied.
-  "20270420120000_add_artist_collections_and_profile_fields",
-]);
+const RESOLVABLE_AS_APPLIED = new Set(["20261203105000_enrichment_provenance"]);
 
 const RESOLVABLE_FAILED_MIGRATIONS = new Set([
   ...RESOLVABLE_AS_ROLLED_BACK,
@@ -65,6 +52,7 @@ class PrismaCommandError extends Error {
     this.output = output;
   }
 }
+
 
 function requireEnv(name: string) {
   const value = process.env[name];
@@ -306,15 +294,12 @@ function parseStatusSummary(statusOutput: string): StatusSummary {
 
 function parseLastCommonMigration(statusOutput: string): string | null {
   const match = statusOutput.match(
-    /(?:Last common migration:?|The last common migration is:)\s*(\d{14}_[a-z0-9_]+)/i,
+    /Last common migration:?\s*(\d{14}_[a-z0-9_]+)/i,
   );
   return match?.[1] ?? null;
 }
 
-function extractMigrationNames(
-  output: string,
-  anchorPattern: RegExp,
-): string[] {
+function extractMigrationNames(output: string, anchorPattern: RegExp): string[] {
   const matches = new Set<string>();
   const lines = output.split(/\r?\n/);
 
@@ -456,60 +441,57 @@ async function main() {
     );
   }
 
-  let deployRanForDivergentHistory = false;
-
   if (status.divergentHistory) {
     const unresolvableMissing = status.dbMigrationsMissingLocally.filter(
-      (m) => !RESOLVABLE_AS_ROLLED_BACK.has(m),
+      (m) => !RESOLVABLE_FAILED_MIGRATIONS.has(m),
     );
 
     if (
       unresolvableMissing.length > 0 ||
       status.dbMigrationsMissingLocally.length === 0
     ) {
-      // True divergent history we can't recover from automatically
       throw new Error(
         "[prisma-safe-deploy] [status] Divergent migration history detected. " +
           `lastCommonMigration=${status.lastCommonMigration ?? "(unknown)"} ` +
           `pendingLocal=${status.pendingMigrations.length > 0 ? status.pendingMigrations.join(", ") : "(none)"} ` +
           `dbMissingLocally=${status.dbMigrationsMissingLocally.length > 0 ? status.dbMigrationsMissingLocally.join(", ") : "(none)"}. ` +
           "Deploy is blocked until migration histories are reconciled. " +
-          "No automatic failed-row recovery will run while history is divergent.",
+          `Unresolvable DB-only migrations: ${unresolvableMissing.length > 0 ? unresolvableMissing.join(", ") : "(none — no DB-only migrations found to resolve)"}`,
       );
     }
 
-    // All DB-only migrations are in the known-resolvable set — resolve them as rolled-back
     console.log(
-      `[prisma-safe-deploy] [resolve] Divergent history caused only by known-resolvable migrations: ${status.dbMigrationsMissingLocally.join(", ")}. Auto-resolving as rolled-back.`,
+      `[prisma-safe-deploy] [resolve] Divergent history caused only by known-resolvable migrations: ${status.dbMigrationsMissingLocally.join(", ")}. Auto-resolving.`,
     );
+
     for (const migration of status.dbMigrationsMissingLocally) {
-      const result = runPrisma(
-        ["migrate", "resolve", "--rolled-back", migration],
-        {
-          allowFailure: true,
-          step: `Resolving divergent migration ${migration}`,
-        },
-      );
-      if (result.status !== 0 && !result.output.includes("P3008")) {
-        throw new Error(
-          `[prisma-safe-deploy] Failed to resolve divergent migration ${migration}: exit ${result.status}`,
-        );
-      }
-      if (result.output.includes("P3008")) {
-        console.warn(
-          `[prisma-safe-deploy] [resolve] Migration ${migration} already marked applied/resolved, skipping.`,
-        );
+      const flag = RESOLVABLE_AS_APPLIED.has(migration)
+        ? "--applied"
+        : "--rolled-back";
+      const result = runPrisma(["migrate", "resolve", flag, migration], {
+        allowFailure: true,
+        step: `Resolving divergent migration ${migration} as ${flag}`,
+      });
+      if (result.status !== 0) {
+        if (result.output.includes("P3008") || result.output.includes("P3012")) {
+          console.warn(
+            `[prisma-safe-deploy] [resolve] Migration ${migration} already in target state, skipping.`,
+          );
+        } else {
+          throw new Error(
+            `[prisma-safe-deploy] Failed to resolve divergent migration ${migration} (exit ${result.status})`,
+          );
+        }
       }
     }
+
     console.log(
       "[prisma-safe-deploy] [resolve] Divergent history resolved. Proceeding with deploy.",
     );
     console.log("[prisma-safe-deploy] [action] running migrate deploy");
     await runDeployWithRetry();
-    deployRanForDivergentHistory = true;
-  }
-
-  if (recognizedStateCount === 0) {
+    console.log("[prisma-safe-deploy] [result] migrations applied successfully");
+  } else if (recognizedStateCount === 0) {
     console.warn(
       "[prisma-safe-deploy] [status] Unknown prisma migrate status output. Attempting migrate deploy without auto-resolve.",
     );
@@ -583,8 +565,8 @@ async function main() {
       "[prisma-safe-deploy] [result] migrations applied successfully",
     );
   } else if (
-    (status.pendingDetected || status.uninitializedDetected) &&
-    !deployRanForDivergentHistory
+    status.pendingDetected ||
+    status.uninitializedDetected
   ) {
     if (status.uninitializedDetected) {
       console.log(
