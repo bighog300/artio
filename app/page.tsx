@@ -31,12 +31,18 @@ const authedTiles = [
 
 export default async function Home() {
   const user = await getSessionUser();
-  const artist = user
-    ? await db.artist.findUnique({
+  let artist: { slug: string } | null = null;
+  if (user) {
+    try {
+      artist = await db.artist.findUnique({
         where: { userId: user.id },
         select: { slug: true },
-      })
-    : null;
+      });
+    } catch (err) {
+      console.error("[Home] DB error:", err);
+      artist = null;
+    }
+  }
   const tiles = user ? authedTiles : publicTiles;
   const allTiles = artist
     ? [...tiles, { title: "My Artist Profile", description: "Manage your profile, artworks, and gallery.", href: "/my/artist" }]

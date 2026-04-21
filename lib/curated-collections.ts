@@ -60,29 +60,34 @@ export function getCollectionOrderBy() {
 }
 
 export async function listPublishedCuratedCollections(limitItems = 8, surface: CollectionSurface = "home"): Promise<CuratedCollectionPublic[]> {
-  const collections = await db.curatedCollection.findMany({
-    where: { ...getCollectionVisibilityWhere(), ...getSurfaceWhere(surface) },
-    orderBy: getCollectionOrderBy(),
-    select: { id: true, slug: true, title: true, description: true, publishStartsAt: true, publishEndsAt: true, homeRank: true, updatedAt: true },
-  });
-  if (!collections.length) return [];
+  try {
+    const collections = await db.curatedCollection.findMany({
+      where: { ...getCollectionVisibilityWhere(), ...getSurfaceWhere(surface) },
+      orderBy: getCollectionOrderBy(),
+      select: { id: true, slug: true, title: true, description: true, publishStartsAt: true, publishEndsAt: true, homeRank: true, updatedAt: true },
+    });
+    if (!collections.length) return [];
 
-  const items = await db.curatedCollectionItem.findMany({
-    where: { collectionId: { in: collections.map((collection) => collection.id) }, artwork: { isPublished: true } },
-    orderBy: [{ collectionId: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
-    select: { collectionId: true, artwork: { select: artworkSelect } },
-  });
+    const items = await db.curatedCollectionItem.findMany({
+      where: { collectionId: { in: collections.map((collection) => collection.id) }, artwork: { isPublished: true } },
+      orderBy: [{ collectionId: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { collectionId: true, artwork: { select: artworkSelect } },
+    });
 
-  const grouped = new Map<string, CuratedCollectionArtwork[]>();
-  for (const item of items) {
-    const row = grouped.get(item.collectionId) ?? [];
-    if (row.length < limitItems) {
-      row.push({ id: item.artwork.id, slug: item.artwork.slug, title: item.artwork.title, artist: item.artwork.artist, coverUrl: resolveArtworkCoverUrl(item.artwork) });
+    const grouped = new Map<string, CuratedCollectionArtwork[]>();
+    for (const item of items) {
+      const row = grouped.get(item.collectionId) ?? [];
+      if (row.length < limitItems) {
+        row.push({ id: item.artwork.id, slug: item.artwork.slug, title: item.artwork.title, artist: item.artwork.artist, coverUrl: resolveArtworkCoverUrl(item.artwork) });
+      }
+      grouped.set(item.collectionId, row);
     }
-    grouped.set(item.collectionId, row);
-  }
 
-  return collections.map((collection) => ({ ...collection, artworks: grouped.get(collection.id) ?? [] }));
+    return collections.map((collection) => ({ ...collection, artworks: grouped.get(collection.id) ?? [] }));
+  } catch (err) {
+    console.error("[listPublishedCuratedCollections] DB error:", err);
+    return [];
+  }
 }
 
 async function getViews30ByArtworkIds(artworkIds: string[]) {

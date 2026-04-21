@@ -217,36 +217,41 @@ export async function listPublishedArtworkIdsByViews30(input: ArtworkViews30Quer
 }
 
 export async function getTrendingArtworks30({ limit = 10 }: { limit?: number } = {}): Promise<TrendingArtworkListItem[]> {
-  const { ids, viewsById } = await listPublishedArtworkIdsByViews30({
-    page: 1,
-    pageSize: limit,
-    mediums: [],
-    hasImages: false,
-    hasPrice: false,
-  });
-  if (!ids.length) return [];
+  try {
+    const { ids, viewsById } = await listPublishedArtworkIdsByViews30({
+      page: 1,
+      pageSize: limit,
+      mediums: [],
+      hasImages: false,
+      hasPrice: false,
+    });
+    if (!ids.length) return [];
 
-  const found = await db.artwork.findMany({
-    where: { id: { in: ids }, isPublished: true, deletedAt: null },
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      artist: { select: { name: true, slug: true } },
-      featuredAsset: { select: { url: true } },
-      images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true } } } },
-    },
-  });
-  const itemsById = new Map(found.map((item) => [item.id, item]));
-  return ids
-    .map((id) => itemsById.get(id))
-    .filter((item): item is NonNullable<typeof item> => Boolean(item))
-    .map((item) => ({
-      id: item.id,
-      slug: item.slug,
-      title: item.title,
-      coverUrl: resolveAssetDisplay({ asset: item.featuredAsset, legacyUrl: item.images[0]?.asset?.url ?? null, requestedVariant: "card" }).url,
-      artist: item.artist,
-      views30: viewsById.get(item.id) ?? 0,
-    }));
+    const found = await db.artwork.findMany({
+      where: { id: { in: ids }, isPublished: true, deletedAt: null },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        artist: { select: { name: true, slug: true } },
+        featuredAsset: { select: { url: true } },
+        images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true } } } },
+      },
+    });
+    const itemsById = new Map(found.map((item) => [item.id, item]));
+    return ids
+      .map((id) => itemsById.get(id))
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .map((item) => ({
+        id: item.id,
+        slug: item.slug,
+        title: item.title,
+        coverUrl: resolveAssetDisplay({ asset: item.featuredAsset, legacyUrl: item.images[0]?.asset?.url ?? null, requestedVariant: "card" }).url,
+        artist: item.artist,
+        views30: viewsById.get(item.id) ?? 0,
+      }));
+  } catch (err) {
+    console.error("[getTrendingArtworks30] DB error:", err);
+    return [];
+  }
 }

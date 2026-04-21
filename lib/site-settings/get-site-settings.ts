@@ -1,17 +1,25 @@
 import { db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 
 const SITE_SETTINGS_ID = "default";
 
-export async function getSiteSettings() {
-  const existing = await db.siteSettings.findUnique({
-    where: { id: SITE_SETTINGS_ID },
-    include: { logoAsset: true },
-  });
+type SiteSettingsWithLogo = Prisma.SiteSettingsGetPayload<{ include: { logoAsset: true } }>;
 
-  if (existing) return existing;
+export async function getSiteSettings(): Promise<SiteSettingsWithLogo> {
+  try {
+    const existing = await db.siteSettings.findUnique({
+      where: { id: SITE_SETTINGS_ID },
+      include: { logoAsset: true },
+    });
 
-  return db.siteSettings.create({
-    data: { id: SITE_SETTINGS_ID },
-    include: { logoAsset: true },
-  });
+    if (existing) return existing;
+
+    return await db.siteSettings.create({
+      data: { id: SITE_SETTINGS_ID },
+      include: { logoAsset: true },
+    });
+  } catch (err) {
+    console.error("[getSiteSettings] DB error:", err);
+    return { id: SITE_SETTINGS_ID, logoAsset: null } as SiteSettingsWithLogo;
+  }
 }

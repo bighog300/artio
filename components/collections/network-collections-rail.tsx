@@ -6,11 +6,17 @@ export async function NetworkCollectionsRail({ title = "From people you follow" 
   const user = await getSessionUser();
   if (!user) return null;
 
-  const followedUsers = await db.follow.findMany({
-    where: { userId: user.id, targetType: "USER" },
-    select: { targetId: true },
-    take: 40,
-  });
+  let followedUsers: Array<{ targetId: string }> = [];
+  try {
+    followedUsers = await db.follow.findMany({
+      where: { userId: user.id, targetType: "USER" },
+      select: { targetId: true },
+      take: 40,
+    });
+  } catch (err) {
+    console.error("[NetworkCollectionsRail] DB error:", err);
+    return null;
+  }
   if (!followedUsers.length) return null;
 
   let collections: Array<{
