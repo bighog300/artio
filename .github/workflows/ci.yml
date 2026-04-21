@@ -61,11 +61,51 @@ jobs:
         timeout-minutes: 5
         run: pnpm prisma:generate
 
-      - name: Run safe Prisma deploy
+      - name: Run safe Prisma deploy (capture logs)
+        id: prisma_deploy
         timeout-minutes: 10
-        run: pnpm prisma:safe-deploy
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pnpm prisma:safe-deploy 2>&1 | tee prisma-safe-deploy.log
+
+      - name: Migration failure diagnostics
+        if: steps.prisma_deploy.outcome == 'failure'
+        run: |
+          echo "::group::Prisma deploy failure summary"
+          echo "Failing command: pnpm prisma:safe-deploy"
+          if [ -f prisma-safe-deploy.log ]; then
+            failing_migration=$(grep -Eo "[0-9]{14}_[a-zA-Z0-9_]+" prisma-safe-deploy.log | tail -n 1)
+            if [ -n "$failing_migration" ]; then
+              echo "Detected failing migration: $failing_migration"
+            else
+              echo "Detected failing migration: <not parsed from log>"
+            fi
+            echo "--- Tail of prisma-safe-deploy output ---"
+            tail -n 200 prisma-safe-deploy.log
+          else
+            echo "prisma-safe-deploy.log not found"
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Prisma migrate status (post-failure)"
+          pnpm prisma migrate status || true
+          echo "::endgroup::"
+
+          echo "::group::_prisma_migrations snapshot"
+          pnpm prisma db execute --url "$DIRECT_URL" --stdin <<'SQL' || true
+          select to_regclass('public._prisma_migrations') as prisma_migrations_table;
+          select migration_name, started_at, finished_at, rolled_back_at
+          from public._prisma_migrations
+          order by started_at desc nulls last, migration_name desc
+          limit 20;
+          SQL
+          echo "::endgroup::"
+
+          exit 1
 
       - name: Verify migration status
+        if: steps.prisma_deploy.outcome == 'success'
         timeout-minutes: 5
         run: pnpm prisma migrate status
 
