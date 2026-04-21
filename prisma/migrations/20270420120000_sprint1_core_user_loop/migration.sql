@@ -23,13 +23,6 @@ EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
-ALTER TABLE "UserNotificationPrefs"
-  ADD COLUMN IF NOT EXISTS "eventRemindersEnabled" BOOLEAN NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS "followedCreatorUpdatesEnabled" BOOLEAN NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS "nearbyRecommendationsEnabled" BOOLEAN NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS "quietHoursEnabled" BOOLEAN NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS "quietHoursStartHour" INTEGER,
-  ADD COLUMN IF NOT EXISTS "quietHoursEndHour" INTEGER;
 
 CREATE TABLE IF NOT EXISTS "EventReminder" (
   "id" UUID NOT NULL DEFAULT gen_random_uuid(),

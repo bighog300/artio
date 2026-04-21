@@ -19,6 +19,10 @@ const RESOLVABLE_AS_ROLLED_BACK = new Set([
   "20270409120000_discovery_template_suggestion",
   // FK on IngestRun before IngestRun existed
   "20260406130000_gallery_first_ingestion",
+  // Failed on initial apply — likely partial run; all DDL uses IF NOT EXISTS so re-running is safe
+  "20270420120000_sprint1_core_user_loop",
+  // Renamed to 20270420110000 to avoid duplicate timestamp ordering ambiguity
+  "20270420120000_add_artist_collections_and_profile_fields",
 ]);
 
 const RESOLVABLE_AS_APPLIED = new Set(["20261203105000_enrichment_provenance"]);
