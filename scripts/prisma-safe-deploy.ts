@@ -298,7 +298,7 @@ function parseStatusSummary(statusOutput: string): StatusSummary {
 
 function parseLastCommonMigration(statusOutput: string): string | null {
   const match = statusOutput.match(
-    /Last common migration:?\s*(\d{14}_[a-z0-9_]+)/i,
+    /(?:Last common migration:?|The last common migration is:)\s*(\d{14}_[a-z0-9_]+)/i,
   );
   return match?.[1] ?? null;
 }
@@ -446,13 +446,47 @@ async function main() {
   }
 
   if (status.divergentHistory) {
-    throw new Error(
-      "[prisma-safe-deploy] [status] Divergent migration history detected. " +
-        `lastCommonMigration=${status.lastCommonMigration ?? "(unknown)"} ` +
-        `pendingLocal=${status.pendingMigrations.length > 0 ? status.pendingMigrations.join(", ") : "(none)"} ` +
-        `dbMissingLocally=${status.dbMigrationsMissingLocally.length > 0 ? status.dbMigrationsMissingLocally.join(", ") : "(none)"}. ` +
-        "Deploy is blocked until migration histories are reconciled. " +
-        "No automatic failed-row recovery will run while history is divergent.",
+    // If the only "missing locally" migrations are ones we know are safe to
+    // resolve as rolled-back, auto-resolve them and continue rather than hard-stopping.
+    const unresolvableMissing = status.dbMigrationsMissingLocally.filter(
+      (m) => !RESOLVABLE_AS_ROLLED_BACK.has(m),
+    );
+
+    if (
+      unresolvableMissing.length > 0 ||
+      status.dbMigrationsMissingLocally.length === 0
+    ) {
+      // True divergent history we can't recover from automatically
+      throw new Error(
+        "[prisma-safe-deploy] [status] Divergent migration history detected. " +
+          `lastCommonMigration=${status.lastCommonMigration ?? "(unknown)"} ` +
+          `pendingLocal=${status.pendingMigrations.length > 0 ? status.pendingMigrations.join(", ") : "(none)"} ` +
+          `dbMissingLocally=${status.dbMigrationsMissingLocally.length > 0 ? status.dbMigrationsMissingLocally.join(", ") : "(none)"}. ` +
+          "Deploy is blocked until migration histories are reconciled. " +
+          "No automatic failed-row recovery will run while history is divergent.",
+      );
+    }
+
+    // All DB-only migrations are in the known-resolvable set — resolve them as rolled-back
+    console.log(
+      `[prisma-safe-deploy] [resolve] Divergent history caused only by known-resolvable migrations: ${status.dbMigrationsMissingLocally.join(", ")}. Auto-resolving as rolled-back.`,
+    );
+    for (const migration of status.dbMigrationsMissingLocally) {
+      const result = runPrisma(
+        ["migrate", "resolve", "--rolled-back", migration],
+        {
+          allowFailure: true,
+          step: `Resolving divergent migration ${migration}`,
+        },
+      );
+      if (result.status !== 0 && !result.output.includes("P3008")) {
+        throw new Error(
+          `[prisma-safe-deploy] Failed to resolve divergent migration ${migration}`,
+        );
+      }
+    }
+    console.log(
+      "[prisma-safe-deploy] [resolve] Divergent history resolved. Proceeding with deploy.",
     );
   }
 
