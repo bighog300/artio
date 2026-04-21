@@ -1,7 +1,7 @@
 # Deploy Green Checklist
 
-- [x] 1. Create audit/checklist files
-- [x] 2. Verify env vars (`DATABASE_URL`, `DIRECT_URL`) — **blocked** (`DATABASE_URL=missing`, `DIRECT_URL=missing`)
+- [x] 1. Update audit/checklist files
+- [x] 2. Verify env vars (`DATABASE_URL`, `DIRECT_URL`) — **blocked** (both missing in current shell)
 - [ ] 3. Inspect live migration history
 - [ ] 4. Inspect local migration folders
 - [ ] 5. Choose reconciliation strategy
@@ -12,3 +12,7 @@
 - [ ] 10. Re-run deploy
 - [ ] 11. Validate
 - [ ] 12. Report
+
+## Blocking condition
+
+Execution is intentionally stopped at Step 2 until both `DATABASE_URL` and `DIRECT_URL` are provided in the runtime environment.

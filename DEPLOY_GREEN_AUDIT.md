@@ -2,17 +2,21 @@
 
 ## 1) `pnpm prisma migrate status` (before reconciliation)
 
-Blocked: runtime database environment variables are not available in this session, so Prisma cannot connect safely.
+Blocked. Step 1 failed because runtime DB env vars are missing, so Prisma cannot connect.
+
+Exact output: not run due to missing `DATABASE_URL` and `DIRECT_URL`.
 
 ## 2) `pnpm prisma:safe-deploy` (before reconciliation)
 
-Blocked: runtime database environment variables are not available in this session, so deploy safety checks cannot run.
+Blocked. Safety deploy check cannot run without runtime DB env vars.
+
+Exact output: not run due to missing `DATABASE_URL` and `DIRECT_URL`.
 
 ## 3) `_prisma_migrations` rows for relevant IDs
 
-Blocked: could not query `_prisma_migrations` because both required runtime env vars are missing.
+Blocked. Could not query `_prisma_migrations` because DB connection env vars are missing.
 
-Required IDs (not yet inspectable):
+Required IDs pending inspection:
 
 - `20270420120000_sprint1_core_user_loop`
 - `20260411200000_add_artwork_matched_artist`
@@ -23,31 +27,41 @@ Required IDs (not yet inspectable):
 
 ## 4) Functional identity check (DB-only IDs vs renamed local IDs)
 
-Not performed yet. Requires both live DB inspection and local migration SQL comparison.
+Not performed. This requires both:
+
+1. live `_prisma_migrations` inspection
+2. local SQL comparison
 
 ## 5) Chosen reconciliation strategy
 
-No reconciliation action taken yet due to missing database connection configuration.
+No reconciliation applied. Safety stop at Step 1 (`DATABASE_URL`/`DIRECT_URL` missing).
 
 ## 6) Safe recovery order after reconciliation
 
-Planned order once `DATABASE_URL` and `DIRECT_URL` are present:
+Once both env vars are present, execute in this order:
 
-1. Run `pnpm prisma migrate status` and capture full output.
-2. Query `_prisma_migrations` rows for the six required IDs.
-3. Compare local migration folder SQL for old vs renamed IDs.
-4. If equivalent, restore original DB-applied folder IDs in `prisma/migrations` (preferred Prisma-safe path).
-5. Re-run `pnpm prisma migrate status` and `pnpm prisma:safe-deploy` to confirm divergence is gone.
-6. Only then evaluate failed row `20270420120000_sprint1_core_user_loop` and (if safe) run `pnpm prisma migrate resolve --rolled-back ...`.
-7. Run `pnpm prisma migrate deploy`, then validation commands.
+1. `pnpm prisma migrate status`
+2. inspect `_prisma_migrations` rows for all required IDs
+3. compare old-vs-renamed local migration SQL
+4. reconcile folder history (restore DB-applied IDs if equivalent)
+5. re-run `pnpm prisma migrate status` and `pnpm prisma:safe-deploy`
+6. only then evaluate failed Sprint 1 row and (if safe) run `pnpm prisma migrate resolve --rolled-back 20270420120000_sprint1_core_user_loop`
+7. run `pnpm prisma migrate deploy`
+8. run full validation suite
 
 ## Step 1 — Runtime access check
 
-Command output:
+Command:
 
 ```bash
-DATABASE_URL=missing
-DIRECT_URL=missing
+printf 'DATABASE_URL=%s\n' "${DATABASE_URL:+present}"; printf 'DIRECT_URL=%s\n' "${DIRECT_URL:+present}"
 ```
 
-Result: **hard blocker**. Per safety requirements, execution stops here until both variables are configured.
+Exact output:
+
+```bash
+DATABASE_URL=
+DIRECT_URL=
+```
+
+Result: **hard blocker**. Per safety rules, stop before Step 2.
