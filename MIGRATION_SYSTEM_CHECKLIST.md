@@ -1,0 +1,22 @@
+# MIGRATION_SYSTEM_CHECKLIST
+
+- [x] 1. update audit/checklist
+- [x] 2. verify env vars
+  - `DATABASE_URL`: missing
+  - `DIRECT_URL`: missing
+- [x] 3. inspect status and DB history
+  - Prisma status commands attempted and captured
+  - DB table inspection blocked by missing env vars
+- [x] 4. inspect local migrations
+  - identified malformed migration path and duplicate timestamp groups
+- [x] 5. reconcile migration history
+  - restored canonical repo migration folder for `20270420120000_add_artist_collections_and_profile_fields`
+  - removed malformed tracked path under `prisma/migrations/prisma/...`
+- [x] 6. patch `scripts/prisma-safe-deploy.ts`
+- [x] 7. validate ordering
+  - `pnpm prisma:check-migration-order` now passes
+- [x] 8. decide failed-row recovery order
+  - explicit conditional order documented; DB-side step required first
+- [x] 9. run final validations
+  - full validation commands executed; DB-dependent ones blocked by missing env
+- [x] 10. report
