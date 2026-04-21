@@ -1,4 +1,4 @@
-yamlname: Playwright E2E
+name: Playwright E2E
 
 on:
   workflow_dispatch:

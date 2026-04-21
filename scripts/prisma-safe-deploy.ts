@@ -19,15 +19,16 @@ const RESOLVABLE_AS_ROLLED_BACK = new Set([
   "20270409120000_discovery_template_suggestion",
   // FK on IngestRun before IngestRun existed
   "20260406130000_gallery_first_ingestion",
+  "20270420120000_sprint1_core_user_loop",
 ]);
 
 const RESOLVABLE_AS_APPLIED = new Set([
   "20261203105000_enrichment_provenance",
-  // Staging-only ghost: successfully applied in staging DB — --rolled-back rejected with P3012
+  // Staging-only ghost: already successfully applied in staging DB; --rolled-back rejected with P3012
   "20260411200000_add_artwork_matched_artist",
-  // Staging-only ghost: successfully applied in staging DB — --rolled-back rejected with P3012
+  // Staging-only ghost: already successfully applied in staging DB; --rolled-back rejected with P3012
   "20260411210000_add_directory_pipeline_mode",
-  // Old name before rename attempt, successfully applied in staging DB
+  // Old name before rename attempt; successfully applied in staging DB
   "20270420120000_add_artist_collections_and_profile_fields",
 ]);
 

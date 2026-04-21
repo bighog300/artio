@@ -111,11 +111,31 @@ jobs:
         run: pnpm prisma:generate
 
       - name: Deploy migrations to staging DB
+        id: staging_deploy
+        continue-on-error: true
         timeout-minutes: 12
         env:
           DATABASE_URL: ${{ steps.normalize-urls.outputs.database_url }}
           DIRECT_URL: ${{ steps.normalize-urls.outputs.direct_url }}
         run: pnpm prisma:safe-deploy
+
+      - name: Migration failure diagnostics
+        if: steps.staging_deploy.outcome == 'failure'
+        env:
+          DIRECT_URL: ${{ steps.normalize-urls.outputs.direct_url }}
+        run: |
+          echo "::group::Prisma migrate status (post-failure)"
+          pnpm prisma migrate status || true
+          echo "::endgroup::"
+          echo "::group::_prisma_migrations snapshot"
+          pnpm prisma db execute --url "$DIRECT_URL" --stdin <<'SQL' || true
+          select migration_name, started_at, finished_at, rolled_back_at, logs
+          from public._prisma_migrations
+          order by started_at desc nulls last
+          limit 20;
+          SQL
+          echo "::endgroup::"
+          exit 1
 
       - name: Check migration status after deploy
         timeout-minutes: 5
