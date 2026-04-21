@@ -1,67 +1,30 @@
-# Deploy Green Audit
+# Deploy Green Audit — Migration History Reconciliation
 
-## 1) `pnpm prisma migrate status` (before reconciliation)
+## Divergent migration IDs (current mismatch)
 
-Blocked. Step 1 failed because runtime DB env vars are missing, so Prisma cannot connect.
+Staging DB applied IDs:
 
-Exact output: not run due to missing `DATABASE_URL` and `DIRECT_URL`.
-
-## 2) `pnpm prisma:safe-deploy` (before reconciliation)
-
-Blocked. Safety deploy check cannot run without runtime DB env vars.
-
-Exact output: not run due to missing `DATABASE_URL` and `DIRECT_URL`.
-
-## 3) `_prisma_migrations` rows for relevant IDs
-
-Blocked. Could not query `_prisma_migrations` because DB connection env vars are missing.
-
-Required IDs pending inspection:
-
-- `20270420120000_sprint1_core_user_loop`
 - `20260411200000_add_artwork_matched_artist`
 - `20260411210000_add_directory_pipeline_mode`
+
+Local repository IDs (pre-reconciliation):
+
 - `20270417120000_add_artwork_matched_artist`
 - `20270417130000_add_directory_pipeline_mode`
-- `20270423120000_sprint3_creator_platform`
 
-## 4) Functional identity check (DB-only IDs vs renamed local IDs)
+## Local renamed migration IDs (target canonical IDs)
 
-Not performed. This requires both:
+- `20260411200000_add_artwork_matched_artist`
+- `20260411210000_add_directory_pipeline_mode`
 
-1. live `_prisma_migrations` inspection
-2. local SQL comparison
+## Reconciliation strategy
 
-## 5) Chosen reconciliation strategy
+1. Confirm the local `2027041712/13...` migration folder contents are the intended migrations.
+2. Rename those two local migration folders to the exact IDs already applied in staging.
+3. Ensure there are no duplicate old-name folders remaining.
+4. Validate local filesystem migration state and run `pnpm prisma migrate status`.
+5. Record results and commit only this reconciliation scope.
 
-No reconciliation applied. Safety stop at Step 1 (`DATABASE_URL`/`DIRECT_URL` missing).
+## Why restoring DB-applied folder IDs is the safe fix
 
-## 6) Safe recovery order after reconciliation
-
-Once both env vars are present, execute in this order:
-
-1. `pnpm prisma migrate status`
-2. inspect `_prisma_migrations` rows for all required IDs
-3. compare old-vs-renamed local migration SQL
-4. reconcile folder history (restore DB-applied IDs if equivalent)
-5. re-run `pnpm prisma migrate status` and `pnpm prisma:safe-deploy`
-6. only then evaluate failed Sprint 1 row and (if safe) run `pnpm prisma migrate resolve --rolled-back 20270420120000_sprint1_core_user_loop`
-7. run `pnpm prisma migrate deploy`
-8. run full validation suite
-
-## Step 1 — Runtime access check
-
-Command:
-
-```bash
-printf 'DATABASE_URL=%s\n' "${DATABASE_URL:+present}"; printf 'DIRECT_URL=%s\n' "${DIRECT_URL:+present}"
-```
-
-Exact output:
-
-```bash
-DATABASE_URL=
-DIRECT_URL=
-```
-
-Result: **hard blocker**. Per safety rules, stop before Step 2.
+Prisma migration identity is the migration folder name (ID) plus migration record history. When the DB already contains the `20260411200000...` and `20260411210000...` IDs, the repo must use those same IDs to avoid divergent histories and blocked deploys. Renaming local folders to match already-applied DB IDs is the minimal, auditable, non-destructive fix that preserves migration SQL behavior while restoring identity alignment.
