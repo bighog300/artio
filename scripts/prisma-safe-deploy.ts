@@ -64,6 +64,8 @@ function requireEnv(name: string) {
 type StatusSummary = {
   failedMigrations: string[];
   pendingMigrations: string[];
+  dbMigrationsMissingLocally: string[];
+  lastCommonMigration: string | null;
   failedDetected: boolean;
   pendingDetected: boolean;
   divergentHistory: boolean;
@@ -243,6 +245,11 @@ function parseMigrationList(
 function parseStatusSummary(statusOutput: string): StatusSummary {
   const failedMigrations = parseFailedMigrations(statusOutput);
   const pendingMigrations = parsePendingMigrations(statusOutput);
+  const dbMigrationsMissingLocally = parseMigrationList(
+    statusOutput,
+    /The migrations from the database are not found locally(?: in prisma\/migrations)?:/i,
+  );
+  const lastCommonMigration = parseLastCommonMigration(statusOutput);
   const divergentHistory =
     /Your local migration history and the migrations table from your database are different/i.test(
       statusOutput,
@@ -254,6 +261,8 @@ function parseStatusSummary(statusOutput: string): StatusSummary {
   return {
     failedMigrations,
     pendingMigrations,
+    dbMigrationsMissingLocally,
+    lastCommonMigration,
     failedDetected:
       /Following migration(?:s)? have failed:/i.test(statusOutput) ||
       /P3009/i.test(statusOutput) ||
@@ -281,6 +290,13 @@ function parseStatusSummary(statusOutput: string): StatusSummary {
       /P1012/i.test(statusOutput) ||
       /P1013/i.test(statusOutput),
   };
+}
+
+function parseLastCommonMigration(statusOutput: string): string | null {
+  const match = statusOutput.match(
+    /Last common migration:?\s*(\d{14}_[a-z0-9_]+)/i,
+  );
+  return match?.[1] ?? null;
 }
 
 function extractMigrationNames(output: string, anchorPattern: RegExp): string[] {
@@ -378,9 +394,21 @@ async function main() {
     `[prisma-safe-deploy] [status] pending=${status.pendingMigrations.length} failed=${status.failedMigrations.length} divergentHistory=${status.divergentHistory} uninitialized=${status.uninitializedDetected} upToDate=${status.upToDate} connectivityError=${status.connectivityError} configurationError=${status.configurationError}`,
   );
   console.log(
+    `[prisma-safe-deploy] [status] lastCommonMigration=${
+      status.lastCommonMigration ?? "(unknown)"
+    }`,
+  );
+  console.log(
     `[prisma-safe-deploy] [status] pendingMigrations=${
       status.pendingMigrations.length > 0
         ? status.pendingMigrations.join(", ")
+        : "(none)"
+    }`,
+  );
+  console.log(
+    `[prisma-safe-deploy] [status] dbMigrationsMissingLocally=${
+      status.dbMigrationsMissingLocally.length > 0
+        ? status.dbMigrationsMissingLocally.join(", ")
         : "(none)"
     }`,
   );
@@ -410,6 +438,17 @@ async function main() {
   if (status.configurationError) {
     throw new Error(
       "[prisma-safe-deploy] [status] Configuration failure detected (missing/invalid env). Fix environment variables and rerun.",
+    );
+  }
+
+  if (status.divergentHistory) {
+    throw new Error(
+      "[prisma-safe-deploy] [status] Divergent migration history detected. " +
+        `lastCommonMigration=${status.lastCommonMigration ?? "(unknown)"} ` +
+        `pendingLocal=${status.pendingMigrations.length > 0 ? status.pendingMigrations.join(", ") : "(none)"} ` +
+        `dbMissingLocally=${status.dbMigrationsMissingLocally.length > 0 ? status.dbMigrationsMissingLocally.join(", ") : "(none)"}. ` +
+        "Deploy is blocked until migration histories are reconciled. " +
+        "No automatic failed-row recovery will run while history is divergent.",
     );
   }
 
@@ -488,8 +527,7 @@ async function main() {
     );
   } else if (
     status.pendingDetected ||
-    status.uninitializedDetected ||
-    status.divergentHistory
+    status.uninitializedDetected
   ) {
     if (status.uninitializedDetected) {
       console.log(
