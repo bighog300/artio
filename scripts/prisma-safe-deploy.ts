@@ -19,6 +19,10 @@ const RESOLVABLE_AS_ROLLED_BACK = new Set([
   "20270409120000_discovery_template_suggestion",
   // FK on IngestRun before IngestRun existed
   "20260406130000_gallery_first_ingestion",
+  // Staging-only ghost: applied manually/from unmerged branch, schema covered by later migrations
+  "20260411200000_add_artwork_matched_artist",
+  // Staging-only ghost: applied manually/from unmerged branch, schema covered by later migrations
+  "20260411210000_add_directory_pipeline_mode",
   // Failed on initial apply — likely partial run; all DDL uses IF NOT EXISTS so re-running is safe
   "20270420120000_sprint1_core_user_loop",
   // Renamed to 20270420110000 to avoid duplicate timestamp ordering ambiguity
@@ -445,9 +449,9 @@ async function main() {
     );
   }
 
+  let deployRanForDivergentHistory = false;
+
   if (status.divergentHistory) {
-    // If the only "missing locally" migrations are ones we know are safe to
-    // resolve as rolled-back, auto-resolve them and continue rather than hard-stopping.
     const unresolvableMissing = status.dbMigrationsMissingLocally.filter(
       (m) => !RESOLVABLE_AS_ROLLED_BACK.has(m),
     );
@@ -481,13 +485,21 @@ async function main() {
       );
       if (result.status !== 0 && !result.output.includes("P3008")) {
         throw new Error(
-          `[prisma-safe-deploy] Failed to resolve divergent migration ${migration}`,
+          `[prisma-safe-deploy] Failed to resolve divergent migration ${migration}: exit ${result.status}`,
+        );
+      }
+      if (result.output.includes("P3008")) {
+        console.warn(
+          `[prisma-safe-deploy] [resolve] Migration ${migration} already marked applied/resolved, skipping.`,
         );
       }
     }
     console.log(
       "[prisma-safe-deploy] [resolve] Divergent history resolved. Proceeding with deploy.",
     );
+    console.log("[prisma-safe-deploy] [action] running migrate deploy");
+    await runDeployWithRetry();
+    deployRanForDivergentHistory = true;
   }
 
   if (recognizedStateCount === 0) {
@@ -564,8 +576,8 @@ async function main() {
       "[prisma-safe-deploy] [result] migrations applied successfully",
     );
   } else if (
-    status.pendingDetected ||
-    status.uninitializedDetected
+    (status.pendingDetected || status.uninitializedDetected) &&
+    !deployRanForDivergentHistory
   ) {
     if (status.uninitializedDetected) {
       console.log(
