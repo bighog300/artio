@@ -122,6 +122,7 @@ jobs:
       - name: Migration failure diagnostics
         if: steps.staging_deploy.outcome == 'failure'
         env:
+          DATABASE_URL: ${{ steps.normalize-urls.outputs.database_url }}
           DIRECT_URL: ${{ steps.normalize-urls.outputs.direct_url }}
         run: |
           echo "::group::Prisma migrate status (post-failure)"
