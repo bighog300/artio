@@ -1,41 +1,5 @@
 import { spawnSync } from "node:child_process";
 
-const RESOLVABLE_AS_ROLLED_BACK = new Set([
-  "20260706120000_unified_content_status",
-  "20261206110000_add_region_id_to_discovery_job",
-  "20260320120000_per_entity_ingest_prompts",
-  // Renamed to 20261201110000 to fix ordering
-  "20260325130000_venue_claim_invites_campaign_type",
-  // Renamed from 20260326 to fix ordering (after ArtworkInquiry)
-  "20260326120000_add_artwork_inquiry_read_at",
-  // May be recorded as failed on first apply
-  "20270403120000_add_artwork_inquiry_read_at",
-  // Old name before timestamp dedup rename
-  "20260326120000_add_artist_cv_entries",
-  // May be recorded as failed on first apply
-  "20260327120000_add_artist_cv_entries",
-  // Failed on first apply due to ADD CONSTRAINT IF NOT
-  // EXISTS syntax error — fixed in subsequent commit
-  "20270409120000_discovery_template_suggestion",
-  // FK on IngestRun before IngestRun existed
-  "20260406130000_gallery_first_ingestion",
-  "20270420120000_sprint1_core_user_loop",
-]);
-
-const RESOLVABLE_AS_APPLIED = new Set([
-  "20261203105000_enrichment_provenance",
-  // Staging-only ghost: already successfully applied in staging DB; --rolled-back rejected with P3012
-  "20260411200000_add_artwork_matched_artist",
-  // Staging-only ghost: already successfully applied in staging DB; --rolled-back rejected with P3012
-  "20260411210000_add_directory_pipeline_mode",
-  // Old name before rename attempt; successfully applied in staging DB
-  "20270420120000_add_artist_collections_and_profile_fields",
-]);
-
-const RESOLVABLE_FAILED_MIGRATIONS = new Set([
-  ...RESOLVABLE_AS_ROLLED_BACK,
-  ...RESOLVABLE_AS_APPLIED,
-]);
 const DEPLOY_MAX_ATTEMPTS = 3;
 const DEPLOY_RETRY_DELAY_MS = 8_000;
 const NEON_WARMUP_MAX_ATTEMPTS = 8;
@@ -188,10 +152,11 @@ function runPrisma(
 }
 
 function parseFailedMigrations(statusOutput: string): string[] {
-  const fromHeader = parseMigrationList(
-    statusOutput,
+  const fromHeader = parseSections(statusOutput, [
     /Following migration(?:s)? have failed:/i,
-  );
+    /The following migration(?:s)? have failed:/i,
+    /Following failed migration(?:s)?:/i,
+  ]);
   const fromErrorLine = extractMigrationNames(
     statusOutput,
     /failed migration(?:\(s\))?(?::|\s+)/i,
@@ -201,22 +166,18 @@ function parseFailedMigrations(statusOutput: string): string[] {
 }
 
 function parsePendingMigrations(statusOutput: string): string[] {
-  const standardPending = parseMigrationList(
-    statusOutput,
+  const standardPending = parseSections(statusOutput, [
     /(?:The\s+)?following migration(?:s)? have not yet been applied:/i,
-  );
-  const divergentPending = parseMigrationList(
-    statusOutput,
+    /The following migration(?:s)? are pending:/i,
+  ]);
+  const divergentPending = parseSections(statusOutput, [
     /The migration(?:s)? (?:from the database )?have not yet been applied:/i,
-  );
+  ]);
 
   return Array.from(new Set([...standardPending, ...divergentPending]));
 }
 
-function parseMigrationList(
-  statusOutput: string,
-  headerPattern: RegExp,
-): string[] {
+function parseSections(statusOutput: string, headerPatterns: RegExp[]): string[] {
   const lines = statusOutput.split(/\r?\n/);
   const migrations = new Set<string>();
   let collecting = false;
@@ -224,7 +185,7 @@ function parseMigrationList(
   for (const line of lines) {
     const trimmed = line.trim();
 
-    if (!collecting && headerPattern.test(trimmed)) {
+    if (!collecting && headerPatterns.some((pattern) => pattern.test(trimmed))) {
       collecting = true;
       continue;
     }
@@ -254,10 +215,11 @@ function parseMigrationList(
 function parseStatusSummary(statusOutput: string): StatusSummary {
   const failedMigrations = parseFailedMigrations(statusOutput);
   const pendingMigrations = parsePendingMigrations(statusOutput);
-  const dbMigrationsMissingLocally = parseMigrationList(
-    statusOutput,
-    /The migrations from the database are not found locally(?: in prisma\/migrations)?:/i,
-  );
+  const dbMigrationsMissingLocally = parseSections(statusOutput, [
+    /The migrations? from the database are not found locally(?: in prisma\/migrations)?:/i,
+    /The migration from the database is not found locally(?: in prisma\/migrations)?:/i,
+    /The following migrations? exist in the database but not in the local migrations directory:/i,
+  ]);
   const lastCommonMigration = parseLastCommonMigration(statusOutput);
   const divergentHistory =
     /Your local migration history and the migrations table from your database are different/i.test(
@@ -451,74 +413,21 @@ async function main() {
   }
 
   if (status.divergentHistory) {
-    const unresolvableMissing = status.dbMigrationsMissingLocally.filter(
-      (m) => !RESOLVABLE_FAILED_MIGRATIONS.has(m),
+    throw new Error(
+      "[prisma-safe-deploy] [status] Divergent migration history detected. " +
+        `lastCommonMigration=${status.lastCommonMigration ?? "(unknown)"} ` +
+        `pendingLocal=${status.pendingMigrations.length > 0 ? status.pendingMigrations.join(", ") : "(none)"} ` +
+        `dbMissingLocally=${status.dbMigrationsMissingLocally.length > 0 ? status.dbMigrationsMissingLocally.join(", ") : "(none)"}. ` +
+        "Deploy is blocked until histories are reconciled manually.",
     );
-
-    if (
-      unresolvableMissing.length > 0 ||
-      status.dbMigrationsMissingLocally.length === 0
-    ) {
-      throw new Error(
-        "[prisma-safe-deploy] [status] Divergent migration history detected. " +
-          `lastCommonMigration=${status.lastCommonMigration ?? "(unknown)"} ` +
-          `pendingLocal=${status.pendingMigrations.length > 0 ? status.pendingMigrations.join(", ") : "(none)"} ` +
-          `dbMissingLocally=${status.dbMigrationsMissingLocally.length > 0 ? status.dbMigrationsMissingLocally.join(", ") : "(none)"}. ` +
-          "Deploy is blocked until migration histories are reconciled. " +
-          `Unresolvable DB-only migrations: ${unresolvableMissing.length > 0 ? unresolvableMissing.join(", ") : "(none — no DB-only migrations found to resolve)"}`,
-      );
-    }
-
-    console.log(
-      `[prisma-safe-deploy] [resolve] Divergent history caused only by known-resolvable migrations: ${status.dbMigrationsMissingLocally.join(", ")}. Auto-resolving.`,
-    );
-
-    for (const migration of status.dbMigrationsMissingLocally) {
-      const flag = RESOLVABLE_AS_APPLIED.has(migration)
-        ? "--applied"
-        : "--rolled-back";
-      const result = runPrisma(["migrate", "resolve", flag, migration], {
-        allowFailure: true,
-        step: `Resolving divergent migration ${migration} as ${flag}`,
-      });
-      if (result.status !== 0) {
-        if (result.output.includes("P3008") || result.output.includes("P3012")) {
-          console.warn(
-            `[prisma-safe-deploy] [resolve] Migration ${migration} already in target state, skipping.`,
-          );
-        } else {
-          throw new Error(
-            `[prisma-safe-deploy] Failed to resolve divergent migration ${migration} (exit ${result.status})`,
-          );
-        }
-      }
-    }
-
-    console.log(
-      "[prisma-safe-deploy] [resolve] Divergent history resolved. Proceeding with deploy.",
-    );
-    console.log("[prisma-safe-deploy] [action] running migrate deploy");
-    await runDeployWithRetry();
-    console.log("[prisma-safe-deploy] [result] migrations applied successfully");
   } else if (recognizedStateCount === 0) {
-    console.warn(
-      "[prisma-safe-deploy] [status] Unknown prisma migrate status output. Attempting migrate deploy without auto-resolve.",
+    throw new Error(
+      "[prisma-safe-deploy] [status] Unknown/unparseable `prisma migrate status` output. " +
+        "Refusing to run deploy automatically. Inspect command output and update parser if needed.",
     );
-    await runDeployWithRetry();
-    runPrisma(["migrate", "status"], {
-      step: "Verifying migration status after deploy",
-    });
-    console.log(
-      "[prisma-safe-deploy] [final] ✅ Safe deploy completed successfully.",
-    );
-    return;
   }
 
   if (status.failedDetected) {
-    const unknownFailedMigrations = status.failedMigrations.filter(
-      (migrationName) => !RESOLVABLE_FAILED_MIGRATIONS.has(migrationName),
-    );
-
     if (status.failedMigrations.length === 0) {
       throw new Error(
         "[prisma-safe-deploy] Failed migration state detected but migration name could not be parsed from Prisma output. " +
@@ -526,52 +435,9 @@ async function main() {
       );
     }
 
-    if (unknownFailedMigrations.length > 0) {
-      throw new Error(
-        `[prisma-safe-deploy] Found unsupported failed migration(s): [${status.failedMigrations.join(", ")}]. ` +
-          "Auto-retry disabled. Recover manually after auditing DB state, then rerun deploy. " +
-          `Only [${[...RESOLVABLE_FAILED_MIGRATIONS].join(", ")}] can be auto-resolved by this script.`,
-      );
-    }
-
-    const toResolve = status.failedMigrations.filter((m) =>
-      RESOLVABLE_FAILED_MIGRATIONS.has(m),
-    );
-
-    console.log(
-      `[prisma-safe-deploy] [resolve] Auto-resolving known failed migration(s): ${toResolve.join(", ")}`,
-    );
-
-    for (const migration of toResolve) {
-      const flag = RESOLVABLE_AS_APPLIED.has(migration)
-        ? "--applied"
-        : "--rolled-back";
-      const result = runPrisma(["migrate", "resolve", flag, migration], {
-        allowFailure: true,
-        step: `Resolving failed migration ${migration}`,
-      });
-
-      if (result.status !== 0) {
-        if (result.output.includes("P3008")) {
-          console.warn(
-            `[prisma-safe-deploy] [resolve] Migration ${migration} already recorded as applied, skipping.`,
-          );
-        } else {
-          throw new Error(
-            `[prisma-safe-deploy] Failed to resolve migration ${migration}`,
-          );
-        }
-      }
-    }
-
-    console.log(
-      `[prisma-safe-deploy] [resolve] resolved_migrations=${toResolve.join(",")} status=completed`,
-    );
-
-    console.log("[prisma-safe-deploy] [action] running migrate deploy");
-    await runDeployWithRetry();
-    console.log(
-      "[prisma-safe-deploy] [result] migrations applied successfully",
+    throw new Error(
+      `[prisma-safe-deploy] Failed migration(s) detected: ${status.failedMigrations.join(", ")}. ` +
+        "Do not auto-resolve. Recover the failed row manually with `pnpm prisma migrate resolve` only after auditing DB state.",
     );
   } else if (
     status.pendingDetected ||
