@@ -10,6 +10,7 @@ import { getBetaConfig, isEmailAllowed, normalizeEmail } from "@/lib/beta/access
 import { getAuthDebugRequestMeta, logAuthDebug } from "@/lib/auth-debug";
 import { ForbiddenError } from "@/lib/http-errors";
 import { enqueueNotification } from "@/lib/notifications";
+import { getAuthSecretState, getResolvedAuthSecret } from "@/lib/auth-secret";
 
 export type SessionUser = { id: string; email: string; name: string | null; role: "USER" | "EDITOR" | "ADMIN"; isTrustedPublisher?: boolean | null };
 export type EditorSessionUser = SessionUser & { role: "EDITOR" | "ADMIN" };
@@ -35,20 +36,26 @@ let hasWarnedAboutMissingAuthSecret = false;
 let hasWarnedAboutSecretMismatch = false;
 
 export function getAuthSecret(): string {
-  const nextAuthSecret = process.env.NEXTAUTH_SECRET;
-  const authSecret = process.env.AUTH_SECRET;
+  const {
+    nextAuthSecret,
+    authSecret,
+    hasNextAuthSecret,
+    hasAuthSecret,
+    hasMismatch,
+    resolvedSecret,
+  } = getAuthSecretState();
 
-  if (isProdLikeEnv && !isProductionBuildPhase && !nextAuthSecret && !authSecret) {
+  if (isProdLikeEnv && !isProductionBuildPhase && !hasNextAuthSecret && !hasAuthSecret) {
     throw new Error("NEXTAUTH_SECRET (or AUTH_SECRET) is required in production/preview (set a secure random value, e.g. `openssl rand -base64 32`).");
   }
 
   if (process.env.NODE_ENV !== "production") {
-    if (!nextAuthSecret && !authSecret && !hasWarnedAboutMissingAuthSecret) {
+    if (!hasNextAuthSecret && !hasAuthSecret && !hasWarnedAboutMissingAuthSecret) {
       hasWarnedAboutMissingAuthSecret = true;
       console.warn("[auth] NEXTAUTH_SECRET/AUTH_SECRET is not set. Session decryption can fail across environments without a shared secret.");
     }
 
-    if (nextAuthSecret && authSecret && nextAuthSecret !== authSecret && !hasWarnedAboutSecretMismatch) {
+    if (hasMismatch && !hasWarnedAboutSecretMismatch) {
       hasWarnedAboutSecretMismatch = true;
       console.warn("[auth] NEXTAUTH_SECRET and AUTH_SECRET differ. Using NEXTAUTH_SECRET; align both values to avoid session decryption issues.");
       logWarn({
@@ -59,7 +66,7 @@ export function getAuthSecret(): string {
     }
   }
 
-  return nextAuthSecret ?? authSecret ?? "";
+  return resolvedSecret;
 }
 
 const authSecret = getAuthSecret();
@@ -326,6 +333,6 @@ export async function requireAdmin() {
 export function assertAuthConfig() {
   const googleClientId = process.env.AUTH_GOOGLE_ID;
   const googleClientSecret = process.env.AUTH_GOOGLE_SECRET;
-  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+  const secret = getResolvedAuthSecret();
   return Boolean(secret && googleClientId && googleClientSecret);
 }

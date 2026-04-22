@@ -8,6 +8,7 @@ function runCheckEnv(extraEnv: Record<string, string | undefined>) {
     env: {
       ...process.env,
       AUTH_SECRET: undefined,
+      NEXTAUTH_SECRET: undefined,
       DATABASE_URL: undefined,
       DIRECT_URL: undefined,
       CRON_SECRET: undefined,
@@ -31,6 +32,29 @@ test("check-env requires CRON_SECRET in deploy context", () => {
   const result = runCheckEnv({ CI: "true", AUTH_SECRET: "a", DATABASE_URL: "postgres://db" });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /CRON_SECRET/);
+});
+
+test("check-env accepts NEXTAUTH_SECRET without AUTH_SECRET in deploy context", () => {
+  const result = runCheckEnv({
+    CI: "true",
+    NEXTAUTH_SECRET: "nextauth-secret",
+    DATABASE_URL: "postgres://db",
+    CRON_SECRET: "cron-secret",
+  });
+  assert.equal(result.status, 0);
+  assert.match(result.stderr, /AUTH_SECRET is missing/);
+});
+
+test("check-env fails when AUTH_SECRET and NEXTAUTH_SECRET differ", () => {
+  const result = runCheckEnv({
+    CI: "true",
+    NEXTAUTH_SECRET: "nextauth-secret",
+    AUTH_SECRET: "auth-secret",
+    DATABASE_URL: "postgres://db",
+    CRON_SECRET: "cron-secret",
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /both set but differ/);
 });
 
 test("check-env accepts either mapbox token variable", () => {
