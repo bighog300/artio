@@ -5,9 +5,11 @@ import { REQUEST_ID_HEADER } from "@/lib/request-id";
 import { isAdminEmail } from "@/lib/admin-email";
 import { hasSessionCookieFromHeader, isAuthDebugEnabled, logAuthDebug } from "@/lib/auth-debug";
 import { getCanonicalHost, shouldEnforceCanonicalHost } from "@/lib/canonical-host";
+import { getResolvedAuthSecret } from "@/lib/auth-secret";
 
 const PUBLIC_BETA_PATHS = new Set(["/beta", "/login"]);
 const PUBLIC_ROUTES = ["/login", "/api/auth", "/_next", "/favicon.ico"];
+const middlewareAuthSecret = getResolvedAuthSecret();
 
 export async function middleware(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
@@ -70,7 +72,7 @@ export async function middleware(req: NextRequest) {
 
 
   if (betaConfig.betaMode && !pathname.startsWith("/api") && !PUBLIC_BETA_PATHS.has(pathname)) {
-    const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+    const token = await getToken({ req, secret: middlewareAuthSecret });
     const email = token?.email;
 
     if (!email) {
@@ -93,7 +95,7 @@ export async function middleware(req: NextRequest) {
   }
 
   if (pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/api/admin" || pathname.startsWith("/api/admin/")) {
-    const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+    const token = await getToken({ req, secret: middlewareAuthSecret });
     const email = token?.email ?? null;
 
     if (!email) {

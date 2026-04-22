@@ -9,8 +9,8 @@ function parseMode(argv) {
 const mode = parseMode(process.argv.slice(2));
 const isDeployContext = process.env.VERCEL === "1" || process.env.CI === "true";
 const shouldEnforce = mode === "vercel-build" || mode === "deploy" || (mode === "auto" && isDeployContext);
-const nextAuthSecret = process.env.NEXTAUTH_SECRET;
-const authSecret = process.env.AUTH_SECRET;
+const nextAuthSecret = process.env.NEXTAUTH_SECRET?.trim() ?? "";
+const authSecret = process.env.AUTH_SECRET?.trim() ?? "";
 const hasNextAuthSecret = Boolean(nextAuthSecret && String(nextAuthSecret).trim().length > 0);
 const hasAuthSecret = Boolean(authSecret && String(authSecret).trim().length > 0);
 
@@ -21,9 +21,10 @@ if (hasNextAuthSecret && hasAuthSecret && nextAuthSecret !== authSecret) {
   process.exit(1);
 }
 
-if (hasNextAuthSecret && !hasAuthSecret) {
-  console.warn("[check-env] NEXTAUTH_SECRET is set but AUTH_SECRET is missing.");
-  console.warn("[check-env] Set AUTH_SECRET to the same value so middleware token verification works consistently.");
+if (hasNextAuthSecret !== hasAuthSecret) {
+  const missingKey = hasNextAuthSecret ? "AUTH_SECRET" : "NEXTAUTH_SECRET";
+  console.warn(`[check-env] ${missingKey} is missing.`);
+  console.warn("[check-env] Set AUTH_SECRET and NEXTAUTH_SECRET to the same value for easier secret rotation and safer rollbacks.");
 }
 
 if (!shouldEnforce) {
@@ -31,7 +32,7 @@ if (!shouldEnforce) {
   process.exit(0);
 }
 
-const requiredInDeploy = ["AUTH_SECRET", "DATABASE_URL"];
+const requiredInDeploy = ["DATABASE_URL"];
 const optional = ["DIRECT_URL"];
 requiredInDeploy.push("CRON_SECRET");
 if (process.env.VERCEL === "1") {
@@ -54,6 +55,10 @@ const statusEntries = [...requiredInDeploy, ...optional].map((key) => ({
 let missing = statusEntries
   .filter((entry) => requiredInDeploy.includes(entry.key) && !entry.set)
   .map((entry) => entry.key);
+
+if (!hasNextAuthSecret && !hasAuthSecret) {
+  missing.push("AUTH_SECRET|NEXTAUTH_SECRET");
+}
 
 if (isGoogleGeocoder && (!googleMapsApiKey || String(googleMapsApiKey).trim().length === 0)) {
   missing.push("GOOGLE_MAPS_API_KEY");
